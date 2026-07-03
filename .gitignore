@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.db
+backend/media/
+
+# Node
+node_modules/
+dist/
+*.local
+
+# 환경
+.env
+.DS_Store

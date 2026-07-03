@@ -1,0 +1,14 @@
+# Python 3.14 기준. librosa는 3.14 미지원(llvmlite)이라 voice_fit은 numpy+soundfile로 구현됨.
+# Python 3.12 이하 환경에서는 librosa 추가 설치 후 app/ai/voice_fit.py의 고급 지표로 교체 가능.
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic-settings
+python-multipart
+pyjwt
+bcrypt
+numpy
+soundfile
+kiwipiepy
+pytest
+httpx
