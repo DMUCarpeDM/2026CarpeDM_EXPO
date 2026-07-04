@@ -58,6 +58,11 @@ export interface NonverbalMetrics {
   head_down_ratio: number;
   posture_sway: number;
   frames: number;
+  longest_off_sec: number; // 최장 연속 시선 이탈
+  blink_per_min: number; // 깜빡임 빈도 (긴장 지표)
+  gaze_off_dir: 'down' | 'up' | 'left' | 'right' | null; // 지배적 이탈 방향
+  tilt_drift_deg: number; // 후반-전반 어깨 기울기 변화 (자세 붕괴 추세)
+  front_drift_pct: number; // 후반-전반 정면 응시 변화 (%p)
   tips: string[]; // 턴 중 발생한 실시간 코칭 문구
 }
 
@@ -76,6 +81,7 @@ export interface FitScore {
   score: number | null;
   label: string;
   summary: string;
+  metrics?: { label: string; value: string }[]; // 세부 실측값 행
 }
 
 export interface EvidenceSegment {
@@ -116,6 +122,7 @@ export interface Report {
     recommended_count?: number;
     formal_pct?: number | null;
     avg_speech_rate?: number | null;
+    measurement?: { frames: number; audio_sec: number; level: string };
   };
   percentile_top: number | null;
   turn_breakdown: {

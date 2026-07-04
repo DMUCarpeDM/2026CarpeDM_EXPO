@@ -7,12 +7,12 @@
 하루를 AI 상사·선배·동료와의 연속 역할극으로 체험한다. 시스템은 발화 내용·음성·
 시선·자세를 분석해 4가지 지표(4-Fit)와 근거 기반 코칭 리포트를 제공한다.
 
-| 지표 | 분석 대상 | 구현 |
+| 지표 | 측정 항목 | 구현 |
 |------|----------|------|
-| Response-Fit | 응답 구조·핵심 요소·위험 표현·격식 | kiwipiepy 형태소 분석 + 전문가 설계 체크리스트 |
-| Voice-Fit | 말속도·무음 비율·성량 안정성 | numpy + soundfile (서버) |
-| Eye-Fit | 정면 응시 비율·시선 이탈 | MediaPipe Face Landmarker (브라우저) |
-| Posture-Fit | 어깨 기울기·고개 숙임·상체 흔들림 | MediaPipe Pose Landmarker (브라우저) |
+| Response-Fit | 체크리스트 커버리지 · 위험/권장 표현 · 종결어미 격식 비율 | kiwipiepy 형태소 분석 + 전문가 설계 체크리스트 |
+| Voice-Fit | 말속도 · 침묵 구조(개시 지연·긴 침묵) · 성량 안정성/후반 변화 · 억양 다이내믹스(자기상관 F0 추적) | numpy DSP (서버) — 합성 신호 대조 테스트로 검증 |
+| Eye-Fit | 정면 응시 비율 · 이탈 방향 분포(아래/위/옆) · 최장 연속 이탈 · 깜빡임 빈도(blendshape) | MediaPipe Face Landmarker (브라우저) |
+| Posture-Fit | 어깨 기울기 · 고개 숙임 · 상체 흔들림 · 전/후반 자세 붕괴 추세 | MediaPipe Pose Landmarker (브라우저) |
 
 ## 아키텍처
 

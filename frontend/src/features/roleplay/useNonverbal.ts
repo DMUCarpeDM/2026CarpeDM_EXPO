@@ -43,9 +43,15 @@ interface Accumulator {
   frontFrames: number;
   gazeOffCount: number;
   lastFront: boolean;
-  tiltSum: number;
+  tiltSamples: number[]; // 전/후반 추세 분석용 시계열
   headDownFrames: number;
   shoulderXs: number[];
+  frontFlags: boolean[]; // 전/후반 정면 비율 비교용
+  offDirs: Record<'down' | 'up' | 'left' | 'right', number>; // 이탈 방향 분포
+  curOffStreak: number;
+  maxOffStreak: number; // 최장 연속 이탈 (프레임)
+  blinkCount: number;
+  blinkActive: boolean;
   tips: string[]; // 이 턴에서 발생한 실시간 코칭 (리포트 연동, S-JKEYHS)
 }
 
@@ -54,9 +60,15 @@ const emptyAcc = (): Accumulator => ({
   frontFrames: 0,
   gazeOffCount: 0,
   lastFront: true,
-  tiltSum: 0,
+  tiltSamples: [],
   headDownFrames: 0,
   shoulderXs: [],
+  frontFlags: [],
+  offDirs: { down: 0, up: 0, left: 0, right: 0 },
+  curOffStreak: 0,
+  maxOffStreak: 0,
+  blinkCount: 0,
+  blinkActive: false,
   tips: [],
 });
 
@@ -158,6 +170,7 @@ export function useNonverbal(
           baseOptions: { modelAssetPath: faceModel },
           runningMode: 'VIDEO',
           numFaces: 1,
+          outputFaceBlendshapes: true, // 시선 상하·깜빡임 측정용
         });
         const pose = await vision.PoseLandmarker.createFromOptions(fileset, {
           baseOptions: { modelAssetPath: poseModel },
@@ -191,15 +204,30 @@ export function useNonverbal(
             const lm = faceResult.faceLandmarks?.[0];
             const plm = poseResult.landmarks?.[0];
 
+            // 블렌드셰이프: 안구 상하 시선 + 깜빡임 (머리 회전과 독립적인 눈동자 신호)
+            const shapes: Record<string, number> = {};
+            for (const c of faceResult.faceBlendshapes?.[0]?.categories ?? []) {
+              shapes[c.categoryName] = c.score;
+            }
+            const eyeDown = ((shapes.eyeLookDownLeft ?? 0) + (shapes.eyeLookDownRight ?? 0)) / 2;
+            const eyeUp = ((shapes.eyeLookUpLeft ?? 0) + (shapes.eyeLookUpRight ?? 0)) / 2;
+            const blink = ((shapes.eyeBlinkLeft ?? 0) + (shapes.eyeBlinkRight ?? 0)) / 2 > 0.5;
+
             let front = true;
+            let offDir: 'down' | 'up' | 'left' | 'right' | null = null;
             if (lm) {
               const nose = lm[1];
               const left = lm[234];
               const right = lm[454];
               const dl = Math.abs(nose.x - left.x);
               const dr = Math.abs(right.x - nose.x);
-              const asym = Math.abs(dl - dr) / Math.max(dl + dr, 1e-6);
-              front = asym < YAW_ASYM_THRESHOLD;
+              const signedAsym = (dl - dr) / Math.max(dl + dr, 1e-6);
+              const yawOff = Math.abs(signedAsym) >= YAW_ASYM_THRESHOLD;
+              // 머리는 정면이어도 눈동자가 아래/위로 쏠리면 시선 이탈 (대본 읽기·회피 패턴)
+              if (yawOff) offDir = signedAsym > 0 ? 'right' : 'left';
+              else if (eyeDown > 0.55) offDir = 'down';
+              else if (eyeUp > 0.55) offDir = 'up';
+              front = offDir === null;
             }
 
             let tiltDeg = 0;
@@ -222,15 +250,26 @@ export function useNonverbal(
             // 턴 진행 중일 때만 집계
             if (runningRef.current && (lm || plm)) {
               acc.frames += 1;
-              if (front) acc.frontFrames += 1;
-              if (!front && acc.lastFront) acc.gazeOffCount += 1;
+              acc.frontFlags.push(front);
+              if (front) {
+                acc.frontFrames += 1;
+                acc.curOffStreak = 0;
+              } else {
+                if (acc.lastFront) acc.gazeOffCount += 1;
+                if (offDir) acc.offDirs[offDir] += 1;
+                acc.curOffStreak += 1;
+                acc.maxOffStreak = Math.max(acc.maxOffStreak, acc.curOffStreak);
+              }
               acc.lastFront = front;
+              // 깜빡임: 상승 에지 1회 = 1깜빡임
+              if (blink && !acc.blinkActive) acc.blinkCount += 1;
+              acc.blinkActive = blink;
               if (plm) {
                 const ls = plm[11];
                 const rs = plm[12];
                 const width = Math.abs(ls.x - rs.x);
                 if (width > 0.05) {
-                  acc.tiltSum += tiltDeg;
+                  acc.tiltSamples.push(tiltDeg);
                   acc.shoulderXs.push(((ls.x + rs.x) / 2) / width);
                   if (headDown) acc.headDownFrames += 1;
                   if (tiltDeg > 10) maybeCoach('어깨를 수평으로 펴보세요');
@@ -273,19 +312,46 @@ export function useNonverbal(
     runningRef.current = false;
     const acc = accRef.current;
     if (acc.frames < 5) return null;
+    const mean = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
     const xs = acc.shoulderXs;
     let sway = 0;
     if (xs.length > 2) {
-      const mean = xs.reduce((a, b) => a + b, 0) / xs.length;
-      sway = Math.sqrt(xs.reduce((a, b) => a + (b - mean) ** 2, 0) / xs.length);
+      const m = mean(xs);
+      sway = Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / xs.length);
     }
+
+    // 전/후반 추세: 후반부 자세 붕괴·시선 저하 감지
+    let tiltDrift = 0;
+    if (acc.tiltSamples.length >= 10) {
+      const h = Math.floor(acc.tiltSamples.length / 2);
+      tiltDrift = mean(acc.tiltSamples.slice(h)) - mean(acc.tiltSamples.slice(0, h));
+    }
+    let frontDrift = 0;
+    if (acc.frontFlags.length >= 10) {
+      const h = Math.floor(acc.frontFlags.length / 2);
+      const ratio = (flags: boolean[]) => flags.filter(Boolean).length / flags.length;
+      frontDrift = Math.round(
+        (ratio(acc.frontFlags.slice(h)) - ratio(acc.frontFlags.slice(0, h))) * 100,
+      );
+    }
+
+    // 이탈 방향 분포에서 지배 방향 (표본 3프레임 이상일 때만)
+    const dirEntries = Object.entries(acc.offDirs) as ['down' | 'up' | 'left' | 'right', number][];
+    const [domDir, domCount] = dirEntries.reduce((a, b) => (b[1] > a[1] ? b : a));
+    const minutes = (acc.frames * SAMPLE_MS) / 60000;
+
     return {
       front_gaze_ratio: acc.frontFrames / acc.frames,
       gaze_off_count: acc.gazeOffCount,
-      avg_shoulder_tilt_deg: xs.length ? acc.tiltSum / xs.length : 0,
+      avg_shoulder_tilt_deg: acc.tiltSamples.length ? mean(acc.tiltSamples) : 0,
       head_down_ratio: acc.headDownFrames / acc.frames,
       posture_sway: sway,
       frames: acc.frames,
+      longest_off_sec: Math.round((acc.maxOffStreak * SAMPLE_MS) / 100) / 10,
+      blink_per_min: minutes > 0.05 ? Math.round(acc.blinkCount / minutes) : 0,
+      gaze_off_dir: domCount >= 3 ? domDir : null,
+      tilt_drift_deg: Math.round(tiltDrift * 10) / 10,
+      front_drift_pct: frontDrift,
       tips: acc.tips,
     };
   }, []);

@@ -19,6 +19,8 @@ from app.ai.scoring import band_score, clamp, weighted_mean
 FRONT_GAZE_BANDS = (0.65, 1.0, 0.15, 1.01)
 # 시선 이탈 빈도: 분당 4회 이하는 자연스러운 시선 이동, 15회 이상은 산만한 인상.
 GAZE_OFF_PER_MIN_BANDS = (0.0, 4.0, 0.0, 15.0)
+# 최장 연속 이탈: 2.5초까지는 생각하는 시선, 8초 이상 지속되면 회피로 읽힌다.
+LONGEST_OFF_BANDS = (0.0, 2.5, 0.0, 8.0)
 # 어깨 기울기: 좌우 어깨 높이차 6° 이내는 정상 자세 편차,
 # 10°를 넘으면 관찰자가 비대칭을 인지하기 시작하고 20°는 명확히 기운 자세.
 SHOULDER_TILT_BANDS = (0.0, 6.0, 0.0, 20.0)
@@ -35,10 +37,12 @@ MIN_FRAMES = 5  # 이보다 적으면 신뢰 불가로 미측정 처리
 def score_eye(metrics: dict, duration_sec: float) -> float | None:
     if not metrics or metrics.get("frames", 0) < MIN_FRAMES:
         return None
-    parts = [(band_score(metrics.get("front_gaze_ratio", 0.0), *FRONT_GAZE_BANDS), 0.7)]
+    parts = [(band_score(metrics.get("front_gaze_ratio", 0.0), *FRONT_GAZE_BANDS), 0.55)]
     if duration_sec > 1:
         off_per_min = metrics.get("gaze_off_count", 0) / (duration_sec / 60)
-        parts.append((band_score(off_per_min, *GAZE_OFF_PER_MIN_BANDS), 0.3))
+        parts.append((band_score(off_per_min, *GAZE_OFF_PER_MIN_BANDS), 0.25))
+    if "longest_off_sec" in metrics:
+        parts.append((band_score(metrics["longest_off_sec"], *LONGEST_OFF_BANDS), 0.20))
     return clamp(weighted_mean(parts))
 
 

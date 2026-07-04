@@ -245,6 +245,8 @@ export default function ReportPage() {
         <p className="analysis-time">
           {report.mode}분 모드 · {report.difficulty === 'pressure' ? '압박' : '기본'} 난이도 ·
           턴 {report.turn_breakdown.length}개 · 분석 {(report.analysis_ms / 1000).toFixed(1)}초
+          {report.speech_stats.measurement &&
+            ` · 측정 신뢰도 ${report.speech_stats.measurement.level}`}
         </p>
         {report.speech_stats.turns !== undefined && (
           <div className="stats-strip">
@@ -329,6 +331,16 @@ export default function ReportPage() {
                 <div className="fit-bar">
                   <div className="fit-bar-fill" style={{ width: `${data.score}%` }} />
                 </div>
+              )}
+              {data.metrics && data.metrics.length > 0 && (
+                <dl className="fit-metrics">
+                  {data.metrics.map((m) => (
+                    <div key={m.label} className="fit-metric-row">
+                      <dt>{m.label}</dt>
+                      <dd>{m.value}</dd>
+                    </div>
+                  ))}
+                </dl>
               )}
               <p className="fit-summary">{data.summary}</p>
               {fitDelta !== null && (

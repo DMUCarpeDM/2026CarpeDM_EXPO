@@ -131,8 +131,22 @@ def _voice_evidence(turn_results: list[AnalysisResult]) -> dict | None:
     rate = m.get("speech_rate_sps", 0)
     pause = m.get("pause_ratio")
     cv = m.get("energy_cv")
+    lead_in = m.get("lead_in_sec")
+    long_pauses = m.get("long_pause_count", 0)
+    f0_cv = m.get("f0_cv")
+    drift = m.get("energy_drift_pct", 0)
 
-    if rate and rate > 5.5:
+    if lead_in is not None and lead_in > 3:
+        observed = f"응답 개시까지 {lead_in}초 — 질문 후 침묵이 길었어요 (권장 2.5초 이내)"
+        interp = "첫 마디가 늦어질수록 듣는 사람의 긴장이 올라가고, 답변 준비가 안 된 인상을 줘요."
+        sugg = ("침묵 대신 소리 내어 시작해보세요: \"네, 그 부분은—\" "
+                "첫 두 글자를 내뱉으면 나머지는 따라옵니다.")
+    elif long_pauses >= 2:
+        observed = f"발화 중 긴 침묵(1.2초 이상)이 {long_pauses}회, 평균 {m.get('mean_pause_sec', 0)}초"
+        interp = "문장 중간의 긴 침묵이 반복되면 생각이 끊긴 것으로 들려요."
+        sugg = ("문장을 짧게 끝내고 쉬세요. 쉼은 문장 '사이'에 오면 여유, "
+                "문장 '중간'에 오면 막힘으로 들립니다.")
+    elif rate and rate > 5.5:
         observed = f"말속도 {rate}음절/초 — 뉴스 낭독(5.5~6.5)보다 빠른 구간이 있었어요 (권장 3.5~5.5)"
         interp = "빨라지는 구간은 대개 긴장 신호로 들리고, 정보가 흘러가 버려요."
         sugg = ("문장 사이에 반 박자 쉼을 넣어보세요. 시작 문장을 정해두면 쉬워져요: "
@@ -147,17 +161,23 @@ def _voice_evidence(turn_results: list[AnalysisResult]) -> dict | None:
         interp = "긴 침묵이 반복되면 '답을 못 찾고 있다'는 인상을 줘요."
         sugg = ("생각할 시간이 필요할 땐 침묵 대신 이렇게 말해보세요: "
                 "\"잠시 정리해서 말씀드리겠습니다.\" 3초를 벌면서도 준비된 사람으로 보여요.")
+    elif f0_cv is not None and f0_cv < 0.05:
+        observed = f"억양 변동(F0 CV) {int(f0_cv * 1000) / 10}% — 톤이 거의 한 음으로 유지됐어요 (권장 8~35%)"
+        interp = "단조로운 억양은 안정적이지만, 핵심이 어디인지 듣는 사람이 놓치게 만들어요."
+        sugg = ("핵심 단어 하나만 반음 올려보세요: \"**15분 안에** 회신드리겠습니다.\" "
+                "숫자와 결론에 억양을 실으면 전달력이 크게 올라갑니다.")
+    elif drift < -35:
+        observed = f"후반 성량이 전반 대비 {abs(drift)}% 감소 — 목소리가 점점 작아졌어요"
+        interp = "끝으로 갈수록 잦아드는 목소리는 확신이 빠져나가는 것처럼 들려요."
+        sugg = "마지막 문장을 첫 문장과 같은 크기로 말하는 걸 목표로 해보세요. 끝이 단단하면 전체가 단단해 보입니다."
     elif cv is not None and cv > 0.60:
         observed = f"성량 변동계수 {cv} — 목소리 크기가 출렁였어요 (권장 0.2~0.6)"
         interp = "문장 끝이 흐려지거나 커졌다 작아지면 자신 없는 인상을 줘요."
         sugg = ("문장 끝 세 글자를 또렷하게 맺는 연습을 해보세요: "
                 "\"~하겠습니다.\"까지 같은 크기로.")
-    elif cv is not None and cv < 0.20:
-        observed = f"성량 변동계수 {cv} — 톤 변화가 거의 없었어요 (권장 0.2~0.6)"
-        interp = "일정한 톤은 안정적이지만, 길어지면 핵심이 어디인지 놓치게 만들어요."
-        sugg = ("핵심 단어 하나만 살짝 힘줘보세요: \"**15분 안에** 회신드리겠습니다.\"")
     else:
-        observed = f"말속도 {rate}음절/초, 무음 {int((pause or 0) * 100)}% — 안정 구간이에요"
+        f0_note = f", 억양 변동 {int(f0_cv * 100)}%" if f0_cv is not None else ""
+        observed = f"말속도 {rate}음절/초, 무음 {int((pause or 0) * 100)}%{f0_note} — 안정 구간이에요"
         interp = "듣는 사람이 편안하게 따라올 수 있는 페이스였어요."
         sugg = ("다음 단계 도전: 가장 중요한 문장 앞에서 일부러 한 박자 멈춰보세요. "
                 "잘 쓰는 침묵은 강조가 됩니다.")
@@ -168,6 +188,9 @@ def _voice_evidence(turn_results: list[AnalysisResult]) -> dict | None:
 # Eye-Fit — 케이스: 심한 이탈 / 부족 / 순간 이탈 잦음 / 양호 / 우수
 # ---------------------------------------------------------------------------
 
+DIR_LABEL = {"down": "아래", "up": "위", "left": "옆", "right": "옆"}
+
+
 def _eye_evidence(turn_results: list[AnalysisResult]) -> dict | None:
     worst = min(turn_results, key=lambda r: r.score, default=None)
     if worst is None:
@@ -175,24 +198,39 @@ def _eye_evidence(turn_results: list[AnalysisResult]) -> dict | None:
     m = worst.raw_metrics
     ratio = m.get("front_gaze_ratio", 0)
     off_count = m.get("gaze_off_count", 0)
+    longest = m.get("longest_off_sec", 0)
+    blink = m.get("blink_per_min", 0)
+    dir_label = DIR_LABEL.get(m.get("gaze_off_dir") or "")
+    dir_note = f" (주로 {dir_label} 방향)" if dir_label else ""
 
     if ratio < 0.4:
-        observed = f"정면 응시 {int(ratio * 100)}% — 발화의 절반 이상 시선이 밖에 있었어요 (권장 65% 이상)"
-        interp = "시선이 떠나 있으면 아무리 좋은 답도 '자신 없음'으로 포장돼요."
+        observed = f"정면 응시 {int(ratio * 100)}%{dir_note} — 발화의 절반 이상 시선이 밖에 있었어요 (권장 65% 이상)"
+        interp = (
+            "아래로 떨어지는 시선은 대본을 읽거나 자신 없는 인상을, 옆으로 새는 시선은 회피하는 인상을 줘요."
+            if dir_label else "시선이 떠나 있으면 아무리 좋은 답도 '자신 없음'으로 포장돼요."
+        )
         sugg = ("눈을 계속 맞추기 어렵다면 상대의 눈썹 사이를 보세요. "
                 "듣는 사람에겐 아이컨택으로 보이고, 부담은 훨씬 적어요.")
     elif ratio < 0.65:
-        observed = f"정면 응시 {int(ratio * 100)}% — 권장(65%)에 조금 못 미쳤어요"
+        observed = f"정면 응시 {int(ratio * 100)}%{dir_note} — 권장(65%)에 조금 못 미쳤어요"
         interp = "핵심 문장에서 시선이 빠지면 그 문장의 힘도 같이 빠져요."
         sugg = ("전부 볼 필요는 없어요. '결론 문장을 말할 때만 정면' — "
                 "이 규칙 하나로 65%는 자연스럽게 넘어요.")
+    elif longest > 3.5:
+        observed = f"한 번에 최장 {longest}초 연속으로 시선이 이탈했어요{dir_note}"
+        interp = "긴 이탈 한 번이 짧은 이탈 여러 번보다 강하게 기억돼요 — '딴 데 보고 있다'는 인상이에요."
+        sugg = "생각이 필요할 땐 시선을 내리지 말고, 잠시 눈을 감았다 뜨는 편이 훨씬 안정적으로 보여요."
     elif off_count >= 5:
         observed = f"응시율은 {int(ratio * 100)}%로 좋은데, 시선 이탈이 {off_count}회로 잦았어요"
         interp = "짧게 자주 흔들리는 시선은 '불안한 눈빛'으로 기억돼요."
         sugg = ("시선을 옮길 땐 문장이 끝난 뒤에 천천히. "
                 "'한 문장, 한 시선'을 의식해보세요.")
+    elif blink > 32:
+        observed = f"정면 응시는 {int(ratio * 100)}%로 좋지만, 깜빡임이 분당 {int(blink)}회였어요 (평상시 15~20회)"
+        interp = "잦은 깜빡임은 본인도 모르는 긴장 신호로 전달될 수 있어요."
+        sugg = "답변 시작 전에 한 번 길게 숨을 내쉬어 보세요. 호흡이 내려가면 깜빡임도 함께 줄어요."
     else:
-        observed = f"정면 응시 {int(ratio * 100)}%, 이탈 {off_count}회 — 안정적이었어요"
+        observed = f"정면 응시 {int(ratio * 100)}%, 이탈 {off_count}회, 최장 이탈 {longest}초 — 안정적이었어요"
         interp = "말의 신뢰도를 시선이 받쳐주고 있었어요."
         sugg = ("다음 단계 도전: 질문을 받는 동안에도 시선을 유지해보세요. "
                 "듣는 자세까지 좋아 보이는 사람은 드물어요.")
@@ -211,8 +249,14 @@ def _posture_evidence(turn_results: list[AnalysisResult]) -> dict | None:
     tilt = m.get("avg_shoulder_tilt_deg", 0)
     head_down = m.get("head_down_ratio", 0)
     sway = m.get("posture_sway", 0)
+    tilt_drift = m.get("tilt_drift_deg", 0)
 
-    if head_down > 0.2:
+    if tilt_drift > 4:
+        observed = f"후반부 어깨 기울기가 전반 대비 +{tilt_drift}° — 갈수록 자세가 무너졌어요"
+        interp = "집중이 풀리면서 자세가 흘러내리는 전형적인 패턴이에요. 듣는 사람은 '끝나기를 기다리는구나'로 읽어요."
+        sugg = ("답변 중간에 한 번, 문장이 끝나는 타이밍에 어깨를 다시 세팅해보세요. "
+                "'재발 방지' 같은 핵심 단어를 말할 때가 좋은 리셋 포인트예요.")
+    elif head_down > 0.2:
         observed = f"고개 숙임 {int(head_down * 100)}% — 답변 중 자주 시선이 아래로 갔어요 (권장 20% 이내)"
         interp = "고개가 내려가면 목소리도 같이 작아지고, 위축된 인상이 굳어져요."
         sugg = ("답변 시작 전에 1초 루틴을 만들어보세요: 턱 살짝 들고, 어깨 펴고, 그다음 첫 문장. "
@@ -275,6 +319,61 @@ def _build_rebuild(session: RoleplaySession, response_results: list[AnalysisResu
     }
 
 
+def _mean_metric(results: list[AnalysisResult], key: str) -> float | None:
+    vals = [r.raw_metrics[key] for r in results if r.raw_metrics.get(key) is not None]
+    return sum(vals) / len(vals) if vals else None
+
+
+def _fit_detail_metrics(fit: FitType, results: list[AnalysisResult]) -> list[dict]:
+    """지표 카드에 노출할 세부 실측값 행 — '계기판' 역할."""
+    if not results:
+        return []
+    rows: list[dict] = []
+
+    def add(label: str, value: str | None):
+        if value is not None:
+            rows.append({"label": label, "value": value})
+
+    if fit == FitType.response:
+        cov = _mean_metric(results, "coverage")
+        add("핵심 요소 커버리지", f"{round(cov * 100)}%" if cov is not None else None)
+        banned = sum(len(r.raw_metrics.get("banned_hits", [])) for r in results)
+        add("위험 표현", f"{banned}회")
+        formals = [
+            r.raw_metrics["politeness"]["formal_ratio"]
+            for r in results if r.raw_metrics.get("politeness")
+        ]
+        if formals:
+            add("존댓말 유지", f"{round(sum(formals) / len(formals) * 100)}%")
+    elif fit == FitType.voice:
+        rate = _mean_metric(results, "speech_rate_sps")
+        add("말속도", f"{rate:.1f}음절/초" if rate else None)
+        pause = _mean_metric(results, "pause_ratio")
+        add("무음 비율", f"{round(pause * 100)}%" if pause is not None else None)
+        lead = _mean_metric(results, "lead_in_sec")
+        add("응답 개시", f"{lead:.1f}초" if lead is not None else None)
+        f0cv = _mean_metric(results, "f0_cv")
+        add("억양 변동(F0)", f"{round(f0cv * 100)}%" if f0cv is not None else None)
+    elif fit == FitType.eye:
+        ratio = _mean_metric(results, "front_gaze_ratio")
+        add("정면 응시", f"{round(ratio * 100)}%" if ratio is not None else None)
+        longest = max((r.raw_metrics.get("longest_off_sec", 0) for r in results), default=0)
+        if longest:
+            add("최장 이탈", f"{longest}초")
+        blink = _mean_metric(results, "blink_per_min")
+        if blink:
+            add("깜빡임", f"분당 {round(blink)}회")
+    elif fit == FitType.posture:
+        tilt = _mean_metric(results, "avg_shoulder_tilt_deg")
+        add("어깨 기울기", f"{tilt:.1f}°" if tilt is not None else None)
+        head = _mean_metric(results, "head_down_ratio")
+        add("고개 숙임", f"{round(head * 100)}%" if head is not None else None)
+        drift = max((r.raw_metrics.get("tilt_drift_deg", 0) for r in results), default=0)
+        if drift > 1:
+            add("후반 변화", f"+{drift}°")
+    return rows[:4]
+
+
 def _build_speech_stats(turn_results: list[AnalysisResult], session: RoleplaySession) -> dict:
     """이번 세션의 말하기 데이터 요약 — 리포트 상단 통계 스트립용."""
     response = [r for r in turn_results if r.fit_type == FitType.response]
@@ -294,6 +393,19 @@ def _build_speech_stats(turn_results: list[AnalysisResult], session: RoleplaySes
         for r in voice
         if r.raw_metrics.get("speech_rate_sps")
     ]
+    # 측정 신뢰도: 비언어 프레임 수 + 실측 오디오 길이 기반
+    frames = sum((t.nonverbal_metrics or {}).get("frames", 0) for t in session.turns)
+    audio_sec = sum(
+        r.raw_metrics.get("duration_sec", 0)
+        for r in voice if not r.raw_metrics.get("estimated")
+    )
+    if frames >= 60 and audio_sec >= 8:
+        level = "높음"
+    elif frames >= 20 or audio_sec >= 4:
+        level = "보통"
+    else:
+        level = "제한적"
+
     return {
         "turns": len(response),
         "total_syllables": total_syllables,
@@ -302,6 +414,7 @@ def _build_speech_stats(turn_results: list[AnalysisResult], session: RoleplaySes
         "recommended_count": recommended,
         "formal_pct": round(sum(formal_ratios) / len(formal_ratios) * 100) if formal_ratios else None,
         "avg_speech_rate": round(sum(rates) / len(rates), 1) if rates else None,
+        "measurement": {"frames": frames, "audio_sec": round(audio_sec, 1), "level": level},
     }
 
 
@@ -380,6 +493,7 @@ def build_report(
             "score": round(score, 1),
             "label": FIT_LABELS[fit],
             "summary": summary,
+            "metrics": _fit_detail_metrics(fit, by_fit.get(fit, [])),
         }
         if segment:
             segment["turn_order"] = turn_order.get(segment["turn_id"], 0)
