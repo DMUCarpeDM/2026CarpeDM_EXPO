@@ -3,6 +3,27 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { createSession, getProgress, getReport } from '../../api/client';
 import type { Report } from '../../api/types';
 import { useSessionStore } from '../../stores/sessionStore';
+import RadarChart from './RadarChart';
+
+/** 점수 카운트업 애니메이션 (0 → target, 800ms) */
+function useCountUp(target: number, ready: boolean): number {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    if (!ready) return;
+    const start = performance.now();
+    let raf = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / 800);
+      setValue(target * (1 - (1 - t) ** 3)); // ease-out
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, ready]);
+  return value;
+}
+
+const KIOSK_IDLE_MS = 90_000;
 
 const STAGE_LABEL: Record<string, string> = {
   queued: '분석 대기 중',
@@ -32,6 +53,24 @@ export default function ReportPage() {
   const [error, setError] = useState('');
   const [retryCountdown, setRetryCountdown] = useState<number | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const displayScore = useCountUp(report?.total_score ?? 0, !!report);
+
+  // 전시(키오스크) 모드: 무조작 90초 후 자동으로 대기 화면 복귀 (S-RKGLXP)
+  useEffect(() => {
+    if (localStorage.getItem('mirroting-kiosk') !== '1' || !report) return;
+    let idle: ReturnType<typeof setTimeout>;
+    const reset = () => {
+      clearTimeout(idle);
+      idle = setTimeout(() => navigate('/'), KIOSK_IDLE_MS);
+    };
+    reset();
+    const events: (keyof WindowEventMap)[] = ['pointerdown', 'keydown', 'scroll'];
+    events.forEach((e) => window.addEventListener(e, reset));
+    return () => {
+      clearTimeout(idle);
+      events.forEach((e) => window.removeEventListener(e, reset));
+    };
+  }, [report, navigate]);
 
   useEffect(() => {
     const id = Number(sessionId);
@@ -121,7 +160,7 @@ export default function ReportPage() {
             />
           </svg>
           <div className="gauge-center">
-            <span className="gauge-score">{Math.round(report.total_score)}</span>
+            <span className="gauge-score">{Math.round(displayScore)}</span>
             <span className="gauge-label">종합 점수</span>
           </div>
         </div>
@@ -140,6 +179,46 @@ export default function ReportPage() {
           <p className="headline-context">{report.headline.context}</p>
         </section>
       )}
+
+      <section className="analysis-visuals">
+        <div className="card radar-card">
+          <h2>4-Fit 프로파일 {report.previous && <small className="legend">─ 이번 &nbsp; ┄ 직전</small>}</h2>
+          <RadarChart
+            current={Object.fromEntries(
+              Object.entries(report.fit_scores).map(([k, v]) => [k, v.score]),
+            )}
+            previous={report.previous?.fit_scores ?? null}
+          />
+        </div>
+        {report.turn_breakdown.length > 0 && (
+          <div className="card timeline-card">
+            <h2>턴별 흐름</h2>
+            <div className="turn-timeline">
+              {report.turn_breakdown.map((t) => (
+                <div key={t.turn_order} className="turn-row">
+                  <div className="turn-row-head">
+                    <span className="evidence-turn">턴 {t.turn_order}</span>
+                    {t.question_type !== 'initial' && (
+                      <span className={`type-chip ${t.question_type}`}>
+                        {t.question_type === 'pressure' ? '압박' : '후속'}
+                      </span>
+                    )}
+                    <span className="turn-episode">{t.episode_title}</span>
+                  </div>
+                  {t.scores.response !== undefined && (
+                    <div className="turn-score-bar">
+                      <span className="turn-score-label">응답 {Math.round(t.scores.response)}</span>
+                      <div className="fit-bar">
+                        <div className="fit-bar-fill" style={{ width: `${t.scores.response}%` }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
 
       <section className="fit-grid">
         {Object.entries(report.fit_scores).map(([fit, data]) => {

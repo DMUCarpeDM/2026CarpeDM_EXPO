@@ -342,13 +342,20 @@ h2 {
   }
 }
 
+.camera-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .camera-panel {
   position: relative;
   background: var(--card);
   border: 1px solid var(--card-border);
   border-radius: var(--radius);
   overflow: hidden;
-  aspect-ratio: 3 / 4;
+  /* 4:3 — 웹캠 원본 비율 유지 (스켈레톤 오버레이 정렬을 위해 크롭하지 않음) */
+  aspect-ratio: 4 / 3;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -357,8 +364,67 @@ h2 {
 .camera-video {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: fill;
   transform: scaleX(-1);
+}
+
+.camera-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: scaleX(-1); /* 비디오와 동일하게 미러링 */
+  pointer-events: none;
+}
+
+.live-gauges {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+
+.gauge-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+}
+
+.gauge-item-label {
+  width: 40px;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.gauge-item-value {
+  font-weight: 700;
+}
+
+.gauge-item.ok .gauge-item-value {
+  color: var(--good);
+}
+
+.gauge-item.warn .gauge-item-value {
+  color: var(--warn);
+}
+
+.mic-meter {
+  flex: 1;
+  height: 8px;
+  background: var(--card-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.mic-meter-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--good), var(--warn));
+  transition: width 0.15s ease;
 }
 
 .camera-placeholder {
@@ -715,6 +781,117 @@ h2 {
   color: var(--text-dim);
   font-size: 0.88rem;
   margin: 0;
+}
+
+.analysis-visuals {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: 12px;
+}
+
+@media (max-width: 700px) {
+  .analysis-visuals {
+    grid-template-columns: 1fr;
+  }
+}
+
+.radar-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.radar-card h2 {
+  align-self: flex-start;
+}
+
+.radar-card .legend {
+  color: var(--text-dim);
+  font-weight: 400;
+  font-size: 0.75rem;
+  margin-left: 8px;
+}
+
+.radar-chart {
+  width: min(260px, 100%);
+}
+
+.radar-grid {
+  fill: none;
+  stroke: var(--card-border);
+  stroke-width: 1;
+}
+
+.radar-current {
+  fill: rgba(91, 140, 255, 0.25);
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.radar-previous {
+  fill: none;
+  stroke: var(--text-dim);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+}
+
+.radar-label {
+  fill: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.turn-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.turn-row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.turn-row-head .type-chip {
+  margin-left: 0;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+}
+
+.turn-episode {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+}
+
+.turn-score-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.turn-score-label {
+  width: 64px;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.turn-score-bar .fit-bar {
+  flex: 1;
+}
+
+.admin-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.admin-actions a.ghost-btn {
+  text-decoration: none;
+  display: inline-block;
 }
 
 .fit-grid {

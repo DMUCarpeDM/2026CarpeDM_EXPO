@@ -11,7 +11,7 @@ from app.core.database import get_db
 from app.models import Consent, Episode, RoleplaySession, Scenario, SessionStatus, Turn, User
 from app.schemas import NextTurnOut, ProgressOut, ResponseIn, SessionCreateIn, SessionOut, TurnOut
 from app.services.analysis import run_analysis
-from app.services.dialogue import QuestionSpec, provider
+from app.services.dialogue import QuestionSpec, get_dialogue_provider
 from app.services.session_fsm import InvalidTransition, transition
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -74,7 +74,7 @@ def create_session(
     transition(session, SessionStatus.in_progress)
     db.commit()
 
-    spec = provider.first_question(session, scenario.episodes)
+    spec = get_dialogue_provider().first_question(session, scenario.episodes)
     turn = _create_turn(db, session, spec, order=1)
 
     return SessionOut(
@@ -111,7 +111,7 @@ def submit_response(
     turn.answered_at = datetime.now(timezone.utc)
     db.commit()
 
-    spec = provider.next_question(session, session.scenario.episodes, list(session.turns))
+    spec = get_dialogue_provider().next_question(session, session.scenario.episodes, list(session.turns))
     if spec is None:
         return NextTurnOut(finished=True)
     next_turn = _create_turn(db, session, spec, order=turn.order + 1)

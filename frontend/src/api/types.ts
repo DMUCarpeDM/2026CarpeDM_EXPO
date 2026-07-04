@@ -91,6 +91,13 @@ export interface Report {
   improvements: string[];
   evidence_segments: EvidenceSegment[];
   headline: Headline | Record<string, never>;
+  turn_breakdown: {
+    turn_order: number;
+    question_type: string;
+    episode_title: string;
+    question: string;
+    scores: Record<string, number>;
+  }[];
   analysis_ms: number;
   mode: number;
   difficulty: string;

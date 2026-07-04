@@ -18,7 +18,8 @@ export default function RoleplayPage() {
   const navigate = useNavigate();
   const { session, currentTurn, turnHistory, advance } = useSessionStore();
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const { cameraReady, tip, startTurn, endTurn } = useNonverbal(videoRef);
+  const overlayRef = useRef<HTMLCanvasElement | null>(null);
+  const { cameraReady, tip, live, startTurn, endTurn } = useNonverbal(videoRef, overlayRef);
 
   const [recording, setRecording] = useState(false);
   const [draft, setDraft] = useState('');
@@ -186,16 +187,39 @@ export default function RoleplayPage() {
       </div>
 
       <div className="roleplay-body">
-        <aside className="camera-panel">
-          <video ref={videoRef} muted playsInline className="camera-video" />
-          {!cameraReady && (
-            <div className="camera-placeholder">
-              카메라 미사용
-              <small>시선·자세 분석 없이 진행됩니다</small>
+        <aside className="camera-column">
+          <div className="camera-panel">
+            <video ref={videoRef} muted playsInline className="camera-video" />
+            <canvas ref={overlayRef} width={640} height={480} className="camera-overlay" />
+            {!cameraReady && (
+              <div className="camera-placeholder">
+                카메라 미사용
+                <small>시선·자세 분석 없이 진행됩니다</small>
+              </div>
+            )}
+            {tip && <div className="coaching-toast">{tip.text}</div>}
+            {cameraReady && <span className="live-dot">● 실시간 분석 중 (영상 미전송)</span>}
+          </div>
+          {cameraReady && (
+            <div className="live-gauges">
+              <div className={`gauge-item ${live.front ? 'ok' : 'warn'}`}>
+                <span className="gauge-item-label">시선</span>
+                <span className="gauge-item-value">{live.front ? '정면 유지' : '이탈'}</span>
+              </div>
+              <div className={`gauge-item ${live.tiltDeg <= 6 && !live.headDown ? 'ok' : 'warn'}`}>
+                <span className="gauge-item-label">자세</span>
+                <span className="gauge-item-value">
+                  {live.headDown ? '고개 숙임' : `기울기 ${live.tiltDeg.toFixed(0)}°`}
+                </span>
+              </div>
+              <div className="gauge-item">
+                <span className="gauge-item-label">음량</span>
+                <span className="mic-meter">
+                  <span className="mic-meter-fill" style={{ width: `${Math.round(live.micLevel * 100)}%` }} />
+                </span>
+              </div>
             </div>
           )}
-          {tip && <div className="coaching-toast">{tip.text}</div>}
-          {cameraReady && <span className="live-dot">● 실시간 분석 중 (영상 미전송)</span>}
         </aside>
 
         <main className="chat-panel">

@@ -3,9 +3,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { adminMetrics, adminReset } from '../../api/client';
 import type { AdminMetrics } from '../../api/types';
 
+const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api';
+
 export default function AdminPage() {
   const [metrics, setMetrics] = useState<AdminMetrics | null>(null);
   const [message, setMessage] = useState('');
+  const [kiosk, setKiosk] = useState(localStorage.getItem('mirroting-kiosk') === '1');
 
   const load = useCallback(() => {
     adminMetrics().then(setMetrics).catch(() => setMessage('지표를 불러오지 못했습니다.'));
@@ -19,13 +22,28 @@ export default function AdminPage() {
     load();
   }
 
+  function toggleKiosk() {
+    const next = !kiosk;
+    localStorage.setItem('mirroting-kiosk', next ? '1' : '0');
+    setKiosk(next);
+    setMessage(next ? '전시 모드 ON — 리포트 90초 무조작 시 자동 초기화됩니다.' : '전시 모드 OFF');
+  }
+
   return (
     <div className="page admin">
       <header className="admin-header">
         <h1>운영 대시보드</h1>
-        <button className="primary-btn" onClick={reset}>
-          🔄 다음 체험자 준비 (1클릭 초기화)
-        </button>
+        <div className="admin-actions">
+          <button className="ghost-btn" onClick={toggleKiosk}>
+            {kiosk ? '🖼 전시 모드 ON' : '🖼 전시 모드 OFF'}
+          </button>
+          <a className="ghost-btn" href={`${API_BASE}/admin/export.csv`} download>
+            ⬇️ CSV 내보내기
+          </a>
+          <button className="primary-btn" onClick={reset}>
+            🔄 다음 체험자 준비 (1클릭 초기화)
+          </button>
+        </div>
       </header>
       {message && <div className="notice">{message}</div>}
 

@@ -1,5 +1,9 @@
 """전시 운영/기관 대시보드 API 골격 (R-HYJRLN, R-NCULBP)."""
+import csv
+import io
+
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -22,6 +26,38 @@ def exhibition_reset(db: Session = Depends(get_db)):
     )
     db.commit()
     return {"ok": True, "aborted_sessions": aborted}
+
+
+@router.get("/export.csv")
+def export_csv(db: Session = Depends(get_db)):
+    """익명 집계 CSV 내보내기 (S-BHJBJS) — 개인 식별 정보(client_key 등) 제외."""
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow([
+        "session_id", "started_at", "mode_min", "difficulty", "status",
+        "total_score", "response_fit", "voice_fit", "eye_fit", "posture_fit", "analysis_ms",
+    ])
+    sessions = db.query(RoleplaySession).order_by(RoleplaySession.id).all()
+    for s in sessions:
+        report = s.report
+        fits = report.fit_scores if report else {}
+        writer.writerow([
+            s.id,
+            s.started_at.isoformat(timespec="seconds") if s.started_at else "",
+            s.mode,
+            s.difficulty,
+            s.status.value,
+            report.total_score if report else "",
+            *[fits.get(f, {}).get("score", "") if report else "" for f in
+              ("response", "voice", "eye", "posture")],
+            report.analysis_ms if report else "",
+        ])
+    buf.seek(0)
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=mirroting_sessions.csv"},
+    )
 
 
 @router.get("/metrics", response_model=AdminMetricsOut)

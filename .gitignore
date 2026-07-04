@@ -13,3 +13,7 @@ dist/
 # 환경
 .env
 .DS_Store
+
+# 오프라인 자산 (npm run setup-offline 생성물)
+public/mediapipe-wasm/
+public/models/

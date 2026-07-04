@@ -14,8 +14,27 @@
 | **Posture-Fit** | 어깨 기울기·고개 숙임·흔들림 | MediaPipe Pose Landmarker (브라우저) |
 
 **API 키 없이 동작합니다** — STT는 브라우저 Web Speech API, TTS는 speechSynthesis,
-대화는 템플릿+규칙 기반 엔진(`DialogueProvider` 인터페이스로 추후 로컬 LLM 교체 가능),
-영상 분석은 브라우저 내 MediaPipe(영상 원본은 서버로 전송하지 않음).
+대화는 템플릿+규칙 기반 엔진, 영상 분석은 브라우저 내 MediaPipe(영상 원본은 서버로
+전송하지 않음 — 스켈레톤 오버레이와 실시간 게이지로 분석 과정을 가시화).
+
+### 하이브리드 AI 대화 (선택)
+
+로컬 LLM(Ollama)을 켜면 후속·압박 질문이 사용자 답변을 반영해 개인화됩니다.
+연결 실패·타임아웃·형식 오류 시 자동으로 템플릿 질문으로 폴백하므로 시연이 끊기지 않습니다.
+
+```bash
+# 1) https://ollama.com 설치 후 한국어 특화 공개 모델 다운로드
+ollama pull exaone3.5:2.4b
+# 2) 백엔드를 ollama 모드로 실행
+MIRROTING_DIALOGUE_PROVIDER=ollama ./.venv/bin/uvicorn app.main:app --port 8000
+```
+
+### 전시장 오프라인 준비
+
+```bash
+cd frontend && npm run setup-offline   # MediaPipe wasm/모델을 public/에 다운로드 (1회)
+```
+이후 시선·자세 분석이 인터넷 없이 동작합니다 (로컬 자산 우선, 없으면 CDN 폴백).
 
 ## 실행 방법
 
@@ -62,12 +81,16 @@ frontend/
   src/lib/                   stt.ts · tts.ts · recorder.ts(WAV 인코딩)
 ```
 
+## 전시 운영 기능
+
+- **운영 대시보드**(`/admin`): 완료율·재도전율·평균 점수, 1클릭 초기화, **CSV 내보내기**
+- **전시 모드**: 대시보드에서 ON 하면 리포트 화면 90초 무조작 시 자동으로 대기 화면 복귀
+
 ## 다음 확장 (기획서 로드맵)
 
-- 로컬 LLM(Ollama + EXAONE 등)으로 꼬리 질문 개인화 (`DialogueProvider` 구현체 추가)
-- faster-whisper 서버 STT (전시장 오프라인 대비, `pip install faster-whisper`)
-- 기관 대시보드 완성: 기간/시나리오/기기 필터, 익명 ID(QR) 연동, CSV 내보내기
-- 스마트 미러 키오스크 모드 (세로형 디스플레이 레이아웃)
+- faster-whisper 서버 STT (전시장 오프라인 STT 대비, `pip install faster-whisper`)
+- 기관 대시보드 완성: 기간/시나리오/기기 필터, 익명 ID(QR) 연동
+- 스마트 미러 세로형 키오스크 레이아웃, 하프미러 하드웨어 연동
 
 ## 참고
 

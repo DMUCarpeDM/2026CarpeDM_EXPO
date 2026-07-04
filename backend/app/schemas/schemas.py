@@ -112,6 +112,7 @@ class ReportOut(BaseModel):
     improvements: list
     evidence_segments: list
     headline: dict = {}  # 오늘의 한 문장 {sentence, fit_type, context}
+    turn_breakdown: list = []  # 턴별 점수 [{turn_order, question_type, scores}]
     analysis_ms: int
     mode: int
     difficulty: str

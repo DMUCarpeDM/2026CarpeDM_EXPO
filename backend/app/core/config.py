@@ -12,6 +12,12 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
     media_dir: Path = Path("./media")
 
+    # 대화 엔진: template(기본) | ollama(로컬 LLM으로 후속 질문 개인화, 실패 시 템플릿 폴백)
+    dialogue_provider: str = "template"
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_model: str = "exaone3.5:2.4b"
+    ollama_timeout_sec: float = 2.5
+
     model_config = {"env_prefix": "MIRROTING_", "env_file": ".env"}
 
 
