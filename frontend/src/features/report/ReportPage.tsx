@@ -61,6 +61,13 @@ function useCountUp(target: number, ready: boolean): number {
 
 const KIOSK_IDLE_MS = 90_000;
 
+function gradeLabel(score: number): string {
+  if (score >= 85) return '훌륭해요';
+  if (score >= 70) return '좋아요';
+  if (score >= 55) return '성장 중';
+  return '시작이 반';
+}
+
 const STAGE_LABEL: Record<string, string> = {
   queued: '분석 대기 중',
   stt: '음성 텍스트 변환',
@@ -222,15 +229,38 @@ export default function ReportPage() {
           </svg>
           <div className="gauge-center">
             <span className="gauge-score">{Math.round(displayScore)}</span>
-            <span className="gauge-label">종합 점수</span>
+            <span className="gauge-label">{gradeLabel(report.total_score)}</span>
           </div>
         </div>
-        {delta !== null && (
-          <p className={`delta-badge ${delta >= 0 ? 'up' : 'down'}`}>
-            직전 도전 대비 {delta >= 0 ? '▲' : '▼'} {Math.abs(delta).toFixed(1)}점
-          </p>
+        <div className="badge-row">
+          {report.percentile_top !== null && report.percentile_top <= 50 && (
+            <p className="delta-badge up">체험자 상위 {report.percentile_top}%</p>
+          )}
+          {delta !== null && (
+            <p className={`delta-badge ${delta >= 0 ? 'up' : 'down'}`}>
+              직전 도전 대비 {delta >= 0 ? '▲' : '▼'} {Math.abs(delta).toFixed(1)}점
+            </p>
+          )}
+        </div>
+        <p className="analysis-time">
+          {report.mode}분 모드 · {report.difficulty === 'pressure' ? '압박' : '기본'} 난이도 ·
+          턴 {report.turn_breakdown.length}개 · 분석 {(report.analysis_ms / 1000).toFixed(1)}초
+        </p>
+        {report.speech_stats.turns !== undefined && (
+          <div className="stats-strip">
+            <span>발화 {report.speech_stats.total_syllables}음절</span>
+            <span className={report.speech_stats.banned_count ? 'stat-bad' : 'stat-good'}>
+              위험 표현 {report.speech_stats.banned_count}회
+            </span>
+            <span className="stat-good">권장 표현 {report.speech_stats.recommended_count}회</span>
+            {report.speech_stats.formal_pct != null && (
+              <span>존댓말 {report.speech_stats.formal_pct}%</span>
+            )}
+            {report.speech_stats.avg_speech_rate != null && (
+              <span>말속도 {report.speech_stats.avg_speech_rate}음절/초</span>
+            )}
+          </div>
         )}
-        <p className="analysis-time">분석 소요 {(report.analysis_ms / 1000).toFixed(1)}초</p>
       </header>
 
       {'sentence' in report.headline && (
@@ -330,6 +360,33 @@ export default function ReportPage() {
               <li key={s}>{s}</li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {report.rebuild.items && report.rebuild.items.length > 0 && (
+        <section className="card rebuild-card">
+          <h2><Icon name="message" size={16} /> 코치와 다시 쓰기
+            <small className="legend">「{report.rebuild.episode_title}」 답변 첨삭</small>
+          </h2>
+          {report.rebuild.quote && <blockquote>“{report.rebuild.quote}”</blockquote>}
+          <p className="section-sub">
+            잘 담은 요소는 그대로, 빠진 요소는 아래 문장을 더하면 완성된 답변이 됩니다.
+          </p>
+          <div className="rebuild-list">
+            {report.rebuild.items.map((item) => (
+              <div key={item.label} className={`rebuild-item ${item.covered ? 'covered' : 'missing'}`}>
+                <span className="rebuild-mark">
+                  <Icon name={item.covered ? 'check' : 'spark'} size={14} />
+                </span>
+                <div>
+                  <span className="rebuild-label">
+                    {item.label} {item.covered ? '— 이미 잘 담았어요' : '— 이 문장을 더해보세요'}
+                  </span>
+                  {!item.covered && <p className="rebuild-sentence">“{item.sentence}”</p>}
+                </div>
+              </div>
+            ))}
+          </div>
         </section>
       )}
 

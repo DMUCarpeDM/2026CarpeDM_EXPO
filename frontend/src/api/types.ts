@@ -7,6 +7,15 @@ export interface Character {
   tts: { rate: number; pitch: number };
 }
 
+export interface EpisodeBriefing {
+  title: string;
+  situation: string;
+  intent: string;
+  points: string[];
+  character_id: string;
+  modes: string;
+}
+
 export interface Scenario {
   id: number;
   slug: string;
@@ -20,6 +29,7 @@ export interface Scenario {
   };
   characters: Character[];
   episode_titles: Record<string, string[]>;
+  episodes: EpisodeBriefing[];
 }
 
 export interface Turn {
@@ -92,6 +102,22 @@ export interface Report {
   improvements: string[];
   evidence_segments: EvidenceSegment[];
   headline: Headline | Record<string, never>;
+  rebuild: {
+    turn_order?: number;
+    episode_title?: string;
+    quote?: string;
+    items?: { label: string; sentence: string; covered: boolean }[];
+  };
+  speech_stats: {
+    turns?: number;
+    total_syllables?: number;
+    banned_count?: number;
+    banned_phrases?: string[];
+    recommended_count?: number;
+    formal_pct?: number | null;
+    avg_speech_rate?: number | null;
+  };
+  percentile_top: number | null;
   turn_breakdown: {
     turn_order: number;
     question_type: string;

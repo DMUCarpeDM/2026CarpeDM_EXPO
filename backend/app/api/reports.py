@@ -67,6 +67,19 @@ def get_report(session_id: int, db: Session = Depends(get_db)):
             },
         }
 
+    # 현장 체험자 백분위 (표본 5건 이상일 때만) — 전시 경쟁 요소
+    percentile_top = None
+    other_scores = [
+        row[0]
+        for row in db.query(Report.total_score)
+        .join(RoleplaySession, Report.session_id == RoleplaySession.id)
+        .filter(Report.session_id != session.id)
+        .all()
+    ]
+    if len(other_scores) >= 5:
+        beaten = sum(1 for s in other_scores if s < report.total_score)
+        percentile_top = max(1, 100 - round(beaten / len(other_scores) * 100))
+
     return ReportOut(
         session_id=session.id,
         total_score=report.total_score,
@@ -75,6 +88,9 @@ def get_report(session_id: int, db: Session = Depends(get_db)):
         improvements=report.improvements,
         evidence_segments=report.evidence_segments,
         headline=report.headline,
+        rebuild=report.rebuild,
+        speech_stats=report.speech_stats,
+        percentile_top=percentile_top,
         turn_breakdown=_turn_breakdown(db, session),
         analysis_ms=report.analysis_ms,
         mode=session.mode,

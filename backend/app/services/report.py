@@ -243,6 +243,68 @@ EVIDENCE_BUILDERS = {
 }
 
 # 점수 구간별 강점 문구 — 90+는 도전 과제형, 75+는 인정형
+def _build_rebuild(session: RoleplaySession, response_results: list[AnalysisResult]) -> dict:
+    """코치와 다시 쓰기 — 사용자 답변에서 잘 담은 요소는 인정하고,
+    빠진 요소는 추천 문장으로 채워 '완성된 답변'을 재조립한다 (첨삭 경험의 핵심)."""
+    worst = min(response_results, key=lambda r: r.score, default=None)
+    if worst is None:
+        return {}
+    turn = next((t for t in session.turns if t.id == worst.turn_id), None)
+    if turn is None or not turn.episode.checklist:
+        return {}
+    # 같은 에피소드의 모든 응답을 합산 — 어느 턴에서든 한 번 담았으면 인정
+    episode_turn_ids = {t.id for t in session.turns if t.episode_id == turn.episode_id}
+    covered: set[str] = set()
+    for r in response_results:
+        if r.turn_id in episode_turn_ids:
+            covered.update(r.raw_metrics.get("covered_ids", []))
+    items = [
+        {
+            "label": item["label"],
+            "sentence": _prescription_for(item["label"]).strip('"'),
+            "covered": item["id"] in covered,
+        }
+        for item in turn.episode.checklist
+    ]
+    quote = turn.response_text
+    return {
+        "turn_order": turn.order,
+        "episode_title": turn.episode.title,
+        "quote": quote[:120] + ("…" if len(quote) > 120 else ""),
+        "items": items,
+    }
+
+
+def _build_speech_stats(turn_results: list[AnalysisResult], session: RoleplaySession) -> dict:
+    """이번 세션의 말하기 데이터 요약 — 리포트 상단 통계 스트립용."""
+    response = [r for r in turn_results if r.fit_type == FitType.response]
+    voice = [r for r in turn_results if r.fit_type == FitType.voice]
+    if not response:
+        return {}
+    total_syllables = sum(r.raw_metrics.get("syllables", 0) for r in response)
+    banned = [h["phrase"] for r in response for h in r.raw_metrics.get("banned_hits", [])]
+    recommended = sum(len(r.raw_metrics.get("recommended_hits", [])) for r in response)
+    formal_ratios = [
+        r.raw_metrics.get("politeness", {}).get("formal_ratio")
+        for r in response
+        if r.raw_metrics.get("politeness")
+    ]
+    rates = [
+        r.raw_metrics.get("speech_rate_sps")
+        for r in voice
+        if r.raw_metrics.get("speech_rate_sps")
+    ]
+    return {
+        "turns": len(response),
+        "total_syllables": total_syllables,
+        "banned_count": len(banned),
+        "banned_phrases": sorted(set(banned))[:4],
+        "recommended_count": recommended,
+        "formal_pct": round(sum(formal_ratios) / len(formal_ratios) * 100) if formal_ratios else None,
+        "avg_speech_rate": round(sum(rates) / len(rates), 1) if rates else None,
+    }
+
+
 STRENGTH_BY_BAND = {
     FitType.response: {
         90: "상황에 필요한 요소를 빠짐없이, 순서대로 담았어요. 이젠 수치를 넣는 연습만 남았어요.",
@@ -363,6 +425,8 @@ def build_report(
         improvements=improvements,
         evidence_segments=sorted(evidence_segments + live_segments, key=lambda s: s["turn_order"]),
         headline=headline,
+        rebuild=_build_rebuild(session, by_fit.get(FitType.response, [])),
+        speech_stats=_build_speech_stats(turn_results, session),
         analysis_ms=analysis_ms,
     )
     db.add(report)

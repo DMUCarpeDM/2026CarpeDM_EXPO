@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { finishSession, getHealth, submitResponse, uploadAudio } from '../../api/client';
 import type { Character, Turn } from '../../api/types';
+import Avatar from '../../components/Avatar';
 import Icon from '../../components/Icon';
 import { AudioTurnRecorder } from '../../lib/recorder';
 import { isSpeechRecognitionSupported, SpeechCapture } from '../../lib/stt';
@@ -30,6 +31,8 @@ export default function RoleplayPage() {
   const [sttAvailable] = useState(isSpeechRecognitionSupported());
   const [serverStt, setServerStt] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
+  // 시작 전 상황 브리핑 (기능명세 1.1.1 — 목표·연습 포인트·상대 확인)
+  const [briefingOpen, setBriefingOpen] = useState(true);
 
   useEffect(() => {
     getHealth().then((h) => setServerStt(h.server_stt)).catch(() => undefined);
@@ -51,20 +54,30 @@ export default function RoleplayPage() {
     if (!session) navigate('/', { replace: true });
   }, [session, navigate]);
 
-  // 새 질문마다 TTS 재생 + 비언어 측정 시작
+  // 브리핑을 표시할 수 없는 상황(에피소드 미매칭·2턴 이후)이면 자동 해제 — TTS가 막히지 않도록
   useEffect(() => {
-    if (!currentTurn || !character) return;
+    if (!briefingOpen || !session || !currentTurn) return;
+    const hasBriefing = session.scenario.episodes?.some(
+      (ep) => ep.title === currentTurn.episode_title,
+    );
+    if (currentTurn.order !== 1 || !hasBriefing) setBriefingOpen(false);
+  }, [briefingOpen, session, currentTurn]);
+
+  // 새 질문마다 TTS 재생 + 비언어 측정 시작 (브리핑이 닫힌 뒤부터)
+  useEffect(() => {
+    if (!currentTurn || !character || briefingOpen) return;
     startTurn();
     turnStartedAtRef.current = Date.now();
     speak(currentTurn.question_text, character.tts);
     return stopSpeaking;
-  }, [currentTurn, character, startTurn]);
+  }, [currentTurn, character, startTurn, briefingOpen]);
 
-  // 세션 타이머
+  // 세션 타이머 (브리핑 중에는 정지)
   useEffect(() => {
+    if (briefingOpen) return;
     const timer = setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [briefingOpen]);
 
   const finish = useCallback(async () => {
     if (!session) return;
@@ -192,6 +205,7 @@ export default function RoleplayPage() {
 
   if (!session || !currentTurn) return null;
 
+  const briefing = session.scenario.episodes?.find((ep) => ep.title === currentTurn.episode_title);
   const totalSeconds = session.mode * 60;
   const minutes = Math.floor(secondsLeft / 60);
   const seconds = String(secondsLeft % 60).padStart(2, '0');
@@ -200,6 +214,37 @@ export default function RoleplayPage() {
 
   return (
     <div className="page roleplay">
+      {briefingOpen && currentTurn.order === 1 && briefing && character && (
+        <div className="briefing-overlay">
+          <div className="briefing-card">
+            <p className="hero-badge">상황을 미리 확인해요</p>
+            <h2 className="briefing-title">{briefing.title}</h2>
+            <p className="briefing-situation">{briefing.situation}</p>
+            <div className="briefing-opponent">
+              <Avatar characterId={character.id} name={character.name} size={44} />
+              <div>
+                <strong>{character.name}</strong>
+                <span className="character-role">{character.role}</span>
+                <p className="character-personality">{character.personality}</p>
+              </div>
+              <span className="briefing-difficulty">
+                {session.difficulty === 'pressure' ? '압박 난이도' : '기본 난이도'}
+              </span>
+            </div>
+            <div className="briefing-points">
+              <span className="briefing-points-label">연습 포인트</span>
+              <div className="briefing-chips">
+                {briefing.points.map((p) => (
+                  <span key={p} className="briefing-chip">{p}</span>
+                ))}
+              </div>
+            </div>
+            <button className="primary-btn start-btn" onClick={() => setBriefingOpen(false)}>
+              준비됐어요, 시작하기
+            </button>
+          </div>
+        </div>
+      )}
       <header className="roleplay-header">
         <div>
           <span className="episode-chip">

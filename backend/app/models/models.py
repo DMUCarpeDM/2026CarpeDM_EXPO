@@ -167,6 +167,10 @@ class Report(Base):
     evidence_segments: Mapped[list] = mapped_column(JSON, default=list)
     # 오늘의 한 문장: {sentence(따라 말할 처방 문장), fit_type, context(왜 이 문장인지)}
     headline: Mapped[dict] = mapped_column(JSON, default=dict)
+    # 코치와 다시 쓰기: {turn_order, episode_title, quote, items: [{label, sentence, covered}]}
+    rebuild: Mapped[dict] = mapped_column(JSON, default=dict)
+    # 말하기 데이터: {total_syllables, banned_count, recommended_count, formal_pct, ...}
+    speech_stats: Mapped[dict] = mapped_column(JSON, default=dict)
     analysis_ms: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 

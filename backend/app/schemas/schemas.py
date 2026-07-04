@@ -37,6 +37,8 @@ class ScenarioOut(BaseModel):
     world_setting: dict
     characters: list
     episode_titles: dict[str, list[str]] = {}  # {"5": [...], "10": [...]}
+    # 브리핑용 에피소드 상세: [{title, situation, intent, points, character_id, modes}]
+    episodes: list = []
 
 
 # ---- sessions / turns ----
@@ -113,6 +115,9 @@ class ReportOut(BaseModel):
     improvements: list
     evidence_segments: list
     headline: dict = {}  # 오늘의 한 문장 {sentence, fit_type, context}
+    rebuild: dict = {}  # 코치와 다시 쓰기 {episode_title, quote, items}
+    speech_stats: dict = {}  # 말하기 데이터 요약
+    percentile_top: int | None = None  # 현장 체험자 상위 N%
     turn_breakdown: list = []  # 턴별 점수 [{turn_order, question_type, scores}]
     analysis_ms: int
     mode: int

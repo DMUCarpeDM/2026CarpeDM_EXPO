@@ -22,6 +22,17 @@ def to_scenario_out(scenario: Scenario) -> ScenarioOut:
         world_setting=scenario.world_setting,
         characters=scenario.characters,
         episode_titles=titles,
+        episodes=[
+            {
+                "title": ep.title,
+                "situation": ep.situation,
+                "intent": ep.question_intent,
+                "points": [item["label"] for item in ep.checklist],
+                "character_id": ep.character_id,
+                "modes": ep.modes,
+            }
+            for ep in scenario.episodes
+        ],
     )
 
 

@@ -1229,6 +1229,194 @@ h2 .icon {
   font-variant-numeric: tabular-nums;
 }
 
+/* ---- 리포트 확장: 배지·통계·첨삭 ---- */
+.badge-row {
+  display: flex;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.stats-strip {
+  display: flex;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: var(--s-2);
+}
+
+.stats-strip span {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-strip .stat-good {
+  color: var(--good);
+}
+
+.stats-strip .stat-bad {
+  color: var(--warn);
+}
+
+.rebuild-card blockquote {
+  margin: var(--s-2) 0 var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  border-left: 2px solid var(--border-strong);
+  background: var(--surface-2);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  color: var(--text-2);
+  font-size: 0.9rem;
+}
+
+.rebuild-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.rebuild-item {
+  display: flex;
+  gap: var(--s-3);
+  align-items: flex-start;
+}
+
+.rebuild-mark {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-full);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.rebuild-item.covered .rebuild-mark {
+  background: var(--good-weak);
+  color: var(--good);
+}
+
+.rebuild-item.missing .rebuild-mark {
+  background: var(--accent-weak);
+  color: var(--accent);
+}
+
+.rebuild-label {
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.rebuild-item.covered .rebuild-label {
+  color: var(--text-2);
+}
+
+.rebuild-sentence {
+  margin: 6px 0 0;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+/* ---- 상황 브리핑 오버레이 ---- */
+.briefing-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 10, 14, 0.82);
+  backdrop-filter: blur(4px);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s-5);
+}
+
+.briefing-card {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  padding: var(--s-8) var(--s-6) var(--s-6);
+  max-width: 520px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  text-align: center;
+}
+
+.briefing-title {
+  justify-content: center;
+  font-size: 1.3rem;
+  margin: 0;
+}
+
+.briefing-situation {
+  color: var(--text-2);
+  line-height: 1.7;
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.briefing-opponent {
+  display: flex;
+  gap: var(--s-3);
+  align-items: center;
+  text-align: left;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--s-4);
+}
+
+.briefing-opponent > div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.briefing-opponent .character-personality {
+  margin: 2px 0 0;
+}
+
+.briefing-difficulty {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--warn);
+  background: rgba(226, 185, 59, 0.12);
+  padding: 4px 10px;
+  border-radius: var(--r-full);
+  white-space: nowrap;
+}
+
+.briefing-points-label {
+  display: block;
+  color: var(--text-3);
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-bottom: var(--s-2);
+}
+
+.briefing-chips {
+  display: flex;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.briefing-chip {
+  background: var(--accent-weak);
+  color: var(--accent);
+  border-radius: var(--r-full);
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
 /* ---- 인증 ---- */
 .auth {
   justify-content: center;
