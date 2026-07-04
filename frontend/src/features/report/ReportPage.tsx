@@ -1,9 +1,43 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { createSession, getProgress, getReport } from '../../api/client';
+import {
+  createSession,
+  getHistory,
+  getProgress,
+  getReport,
+  issueCode,
+  type HistoryItem,
+} from '../../api/client';
 import type { Report } from '../../api/types';
 import { useSessionStore } from '../../stores/sessionStore';
 import RadarChart from './RadarChart';
+
+/** 성장 추이 스파크라인 — 최근 도전들의 종합 점수 */
+function TrendChart({ items }: { items: HistoryItem[] }) {
+  const W = 320;
+  const H = 90;
+  const PAD = 14;
+  const xs = items.map((_, i) =>
+    items.length === 1 ? W / 2 : PAD + (i * (W - PAD * 2)) / (items.length - 1),
+  );
+  const ys = items.map((it) => H - PAD - ((H - PAD * 2) * it.total_score) / 100);
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="trend-chart" role="img" aria-label="점수 추이">
+      <polyline
+        points={xs.map((x, i) => `${x},${ys[i]}`).join(' ')}
+        className="trend-line"
+      />
+      {items.map((it, i) => (
+        <g key={it.session_id}>
+          <circle cx={xs[i]} cy={ys[i]} r="4" className="trend-dot" />
+          <text x={xs[i]} y={ys[i] - 8} textAnchor="middle" className="trend-value">
+            {Math.round(it.total_score)}
+          </text>
+        </g>
+      ))}
+    </svg>
+  );
+}
 
 /** 점수 카운트업 애니메이션 (0 → target, 800ms) */
 function useCountUp(target: number, ready: boolean): number {
@@ -52,8 +86,17 @@ export default function ReportPage() {
   const [pct, setPct] = useState(0);
   const [error, setError] = useState('');
   const [retryCountdown, setRetryCountdown] = useState<number | null>(null);
+  const [code, setCode] = useState('');
+  const [history, setHistory] = useState<HistoryItem[]>([]);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const displayScore = useCountUp(report?.total_score ?? 0, !!report);
+
+  // 체험 코드 발급 + 연습 추이 로드
+  useEffect(() => {
+    if (!report) return;
+    issueCode().then(setCode).catch(() => undefined);
+    getHistory().then(setHistory).catch(() => undefined);
+  }, [report]);
 
   // 전시(키오스크) 모드: 무조작 90초 후 자동으로 대기 화면 복귀 (S-RKGLXP)
   useEffect(() => {
@@ -61,7 +104,7 @@ export default function ReportPage() {
     let idle: ReturnType<typeof setTimeout>;
     const reset = () => {
       clearTimeout(idle);
-      idle = setTimeout(() => navigate('/'), KIOSK_IDLE_MS);
+      idle = setTimeout(() => navigate('/kiosk'), KIOSK_IDLE_MS);
     };
     reset();
     const events: (keyof WindowEventMap)[] = ['pointerdown', 'keydown', 'scroll'];
@@ -289,6 +332,25 @@ export default function ReportPage() {
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="analysis-visuals">
+        {history.length >= 2 && (
+          <div className="card">
+            <h2>📈 나의 성장 추이 <small className="legend">최근 {history.length}회 종합 점수</small></h2>
+            <TrendChart items={history} />
+          </div>
+        )}
+        {code && (
+          <div className="card code-card">
+            <h2>🔑 내 체험 코드</h2>
+            <p className="my-code">{code}</p>
+            <p className="section-sub">
+              다음 방문 때 시작 화면에서 이 코드를 입력하면, 개인정보 없이도
+              오늘의 기록에 이어서 성장 추이를 볼 수 있어요.
+            </p>
+          </div>
+        )}
       </section>
 
       <div className="report-actions">

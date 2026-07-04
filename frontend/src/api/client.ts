@@ -64,10 +64,43 @@ export async function submitResponse(
   return data;
 }
 
-export async function uploadAudio(sessionId: number, turnId: number, wav: Blob): Promise<void> {
+export async function uploadAudio(
+  sessionId: number,
+  turnId: number,
+  wav: Blob,
+): Promise<{ ok: boolean; transcript: string }> {
   const form = new FormData();
   form.append('file', wav, 'response.wav');
-  await api.post(`/sessions/${sessionId}/turns/${turnId}/audio`, form);
+  return (await api.post(`/sessions/${sessionId}/turns/${turnId}/audio`, form)).data;
+}
+
+export async function getHealth(): Promise<{ ok: boolean; server_stt: string | null }> {
+  return (await api.get('/health')).data;
+}
+
+export async function issueCode(): Promise<string> {
+  const { data } = await api.post('/codes', { client_key: clientKey() });
+  return data.code;
+}
+
+/** 체험 코드로 이전 기록을 이어받는다 (client_key 교체) */
+export async function claimCode(code: string): Promise<void> {
+  const { data } = await api.post(`/codes/${encodeURIComponent(code)}/claim`);
+  localStorage.setItem('mirroting-client-key', data.client_key);
+}
+
+export interface HistoryItem {
+  session_id: number;
+  started_at: string;
+  mode: number;
+  difficulty: string;
+  total_score: number;
+  fit_scores: Record<string, number | null>;
+}
+
+export async function getHistory(): Promise<HistoryItem[]> {
+  const { data } = await api.get('/history', { params: { client_key: clientKey() } });
+  return data.items;
 }
 
 export async function finishSession(sessionId: number): Promise<Progress> {

@@ -29,12 +29,33 @@ ollama pull exaone3.5:2.4b
 MIRROTING_DIALOGUE_PROVIDER=ollama ./.venv/bin/uvicorn app.main:app --port 8000
 ```
 
-### 전시장 오프라인 준비
+### 전시장 오프라인 준비 (인터넷 되는 곳에서 각 1회)
 
 ```bash
-cd frontend && npm run setup-offline   # MediaPipe wasm/모델을 public/에 다운로드 (1회)
+cd frontend && npm run setup-offline                      # MediaPipe wasm/모델 → 시선·자세 분석 오프라인화
+cd backend && ./.venv/bin/python scripts/setup_offline_stt.py   # Vosk 한국어 모델(82MB) → 음성 인식 오프라인화
 ```
-이후 시선·자세 분석이 인터넷 없이 동작합니다 (로컬 자산 우선, 없으면 CDN 폴백).
+- 시선·자세: 로컬 자산 우선, 없으면 CDN 폴백
+- 음성 인식: 평소엔 브라우저 Web Speech(정확도 높음), 오프라인이면 서버 Vosk가
+  업로드된 음성을 자동 변환 (`/api/health`의 `server_stt`로 감지 확인)
+
+### 체험 코드 (익명 ID)
+
+리포트에서 4자리 코드가 발급됩니다. 다음 방문 때 시작 화면의 "이어서 하기"에 입력하면
+개인정보 없이 성장 추이(최근 10회 점수 차트)가 이어집니다.
+
+### 스마트 미러 키오스크
+
+`/kiosk` — 전시 부스 대기 화면. 진입하면 전시 모드가 자동으로 켜져,
+리포트 90초 무조작 시 대기 화면으로 복귀합니다. 세로형 대형 디스플레이에서 폰트가 자동 확대됩니다.
+
+### 시연용 데모 데이터
+
+```bash
+cd backend && ./.venv/bin/python -m app.seed.demo_data          # 대시보드 리허설용 가상 세션 생성
+./.venv/bin/python -m app.seed.demo_data --clean                # 제거
+```
+⚠️ 시연/리허설 전용입니다. 실제 KPI 발표에는 실사용 데이터(CSV)를 쓰세요.
 
 ## 실행 방법
 

@@ -195,9 +195,15 @@ class Device(Base):
 
 
 class AnonymousId(Base):
+    """체험 코드 (F-SFIWUO) — 개인정보 없이 client_key를 코드로 이어주는 매핑.
+
+    코드만 알면 다른 기기/재방문에서도 연습 기록(추이)을 이어갈 수 있다.
+    이메일·이름 등 식별 정보는 저장하지 않는다.
+    """
     __tablename__ = "anonymous_ids"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     institution_id: Mapped[int | None] = mapped_column(ForeignKey("institutions.id"), nullable=True)
-    code: Mapped[str] = mapped_column(String(64), unique=True)
+    code: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    client_key: Mapped[str] = mapped_column(String(64), index=True, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

@@ -17,3 +17,6 @@ dist/
 # 오프라인 자산 (npm run setup-offline 생성물)
 public/mediapipe-wasm/
 public/models/
+
+# 오프라인 STT 모델 (backend/scripts/setup_offline_stt.py 생성물)
+backend/models/

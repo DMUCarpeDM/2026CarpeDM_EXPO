@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createSession, getScenarios } from '../../api/client';
+import { claimCode, createSession, getScenarios } from '../../api/client';
 import type { Scenario } from '../../api/types';
 import { useSessionStore } from '../../stores/sessionStore';
 
@@ -20,6 +20,18 @@ export default function OnboardingPage() {
   const [agreed, setAgreed] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
+  const [codeInput, setCodeInput] = useState('');
+  const [codeMessage, setCodeMessage] = useState('');
+
+  async function linkCode() {
+    if (codeInput.trim().length < 4) return;
+    try {
+      await claimCode(codeInput.trim());
+      setCodeMessage('✅ 기록을 이어갑니다 — 이번 결과부터 성장 추이에 쌓여요.');
+    } catch {
+      setCodeMessage('등록되지 않은 코드예요. 리포트 화면의 코드를 다시 확인해주세요.');
+    }
+  }
 
   useEffect(() => {
     getScenarios()
@@ -132,6 +144,22 @@ export default function OnboardingPage() {
       <button className="primary-btn start-btn" disabled={!agreed || starting} onClick={start}>
         {starting ? '입장 중…' : '출근하기 →'}
       </button>
+
+      <details className="code-link">
+        <summary>🔑 지난 기록 이어서 하기 (체험 코드 입력)</summary>
+        <div className="code-link-row">
+          <input
+            className="code-input"
+            placeholder="예: A3K7"
+            maxLength={6}
+            value={codeInput}
+            onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
+            onKeyDown={(e) => e.key === 'Enter' && linkCode()}
+          />
+          <button className="ghost-btn" onClick={linkCode}>연결</button>
+        </div>
+        {codeMessage && <p className="section-sub">{codeMessage}</p>}
+      </details>
     </div>
   );
 }

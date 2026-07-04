@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { finishSession, submitResponse, uploadAudio } from '../../api/client';
+import { finishSession, getHealth, submitResponse, uploadAudio } from '../../api/client';
 import type { Character, Turn } from '../../api/types';
 import { AudioTurnRecorder } from '../../lib/recorder';
 import { isSpeechRecognitionSupported, SpeechCapture } from '../../lib/stt';
@@ -27,7 +27,12 @@ export default function RoleplayPage() {
   const [submitting, setSubmitting] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState((session?.mode ?? 5) * 60);
   const [sttAvailable] = useState(isSpeechRecognitionSupported());
+  const [serverStt, setServerStt] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
+
+  useEffect(() => {
+    getHealth().then((h) => setServerStt(h.server_stt)).catch(() => undefined);
+  }, []);
 
   const captureRef = useRef(new SpeechCapture());
   const recorderRef = useRef(new AudioTurnRecorder());
@@ -106,6 +111,10 @@ export default function RoleplayPage() {
     if (ok) {
       setRecording(true);
       sttUsedRef.current = true;
+    } else if (serverStt && stream) {
+      // 브라우저 STT 불가(오프라인 등) → 녹음만 하고 서버가 텍스트로 변환
+      setRecording(true);
+      setNotice('🎙 오프라인 인식 모드 — 말한 뒤 ■를 누르고 전달하면 서버가 텍스트로 바꿔드려요.');
     } else {
       setNotice('이 브라우저는 음성 인식을 지원하지 않아요. 텍스트로 입력해주세요. (Chrome 권장)');
     }
@@ -119,10 +128,6 @@ export default function RoleplayPage() {
       setRecording(false);
       setInterim('');
     }
-    if (!text) {
-      setNotice('응답을 말하거나 입력한 뒤 전달해주세요.');
-      return;
-    }
     setSubmitting(true);
     setNotice('');
     stopSpeaking();
@@ -130,12 +135,28 @@ export default function RoleplayPage() {
     const durationMs = Date.now() - turnStartedAtRef.current;
     const nonverbal = endTurn();
     const wav = await recorderRef.current.stop();
+    let audioUploaded = false;
     if (wav) {
       try {
-        await uploadAudio(session.id, currentTurn.id, wav);
+        const result = await uploadAudio(session.id, currentTurn.id, wav);
+        audioUploaded = true;
+        // 오프라인 인식 모드: 서버 STT가 만든 텍스트를 사용
+        if (!text && result.transcript) {
+          text = result.transcript;
+          sttUsedRef.current = true;
+        }
       } catch {
         /* 오디오 업로드 실패 → 텍스트 기반 근사 분석으로 진행 */
       }
+    }
+    if (!text) {
+      setNotice(
+        wav && audioUploaded
+          ? '음성을 인식하지 못했어요. 조금 더 길게 말하거나 텍스트로 입력해주세요.'
+          : '응답을 말하거나 입력한 뒤 전달해주세요.',
+      );
+      setSubmitting(false);
+      return;
     }
 
     try {

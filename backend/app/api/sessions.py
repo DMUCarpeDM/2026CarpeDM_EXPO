@@ -103,8 +103,13 @@ def submit_response(
     if turn.answered_at is not None:
         raise HTTPException(status_code=409, detail="이미 응답한 턴입니다")
 
-    turn.response_text = body.text.strip()
-    turn.stt_source = body.stt_source
+    # 텍스트가 비어 있으면 오디오 업로드 시 서버 STT가 채운 텍스트를 유지
+    incoming = body.text.strip()
+    if incoming:
+        turn.response_text = incoming
+        turn.stt_source = body.stt_source
+    elif not turn.response_text:
+        raise HTTPException(status_code=422, detail="응답 텍스트가 비어 있습니다")
     turn.response_duration_ms = body.duration_ms
     if body.nonverbal:
         turn.nonverbal_metrics = body.nonverbal.model_dump()
@@ -131,8 +136,23 @@ async def upload_audio(
     dest = settings.media_dir / f"session{session_id}_turn{turn_id}.wav"
     dest.write_bytes(await file.read())
     turn.audio_path = str(dest)
+
+    # 브라우저 STT가 없는(오프라인) 턴은 서버가 즉시 변환 — 대화 엔진이 바로 사용
+    transcript = ""
+    if not turn.response_text:
+        from app.ai.stt import get_stt_provider
+
+        provider = get_stt_provider()
+        if provider:
+            try:
+                transcript = provider.transcribe(str(dest))
+            except Exception:
+                transcript = ""
+            if transcript:
+                turn.response_text = transcript
+                turn.stt_source = provider.name
     db.commit()
-    return {"ok": True, "path": str(dest)}
+    return {"ok": True, "path": str(dest), "transcript": transcript}
 
 
 @router.post("/{session_id}/finish", response_model=ProgressOut, status_code=202)

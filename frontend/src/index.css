@@ -1118,6 +1118,178 @@ h2 {
   font-size: 0.8rem;
 }
 
+/* ---- 성장 추이 / 체험 코드 ---- */
+.trend-chart {
+  width: 100%;
+}
+
+.trend-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+
+.trend-dot {
+  fill: var(--accent);
+}
+
+.trend-value {
+  fill: var(--text-dim);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.code-card {
+  text-align: center;
+}
+
+.my-code {
+  font-size: 2.6rem;
+  font-weight: 800;
+  letter-spacing: 0.35em;
+  margin: 8px 0 12px;
+  padding-left: 0.35em; /* letter-spacing 시각 보정 */
+  color: var(--accent);
+}
+
+.code-link {
+  align-self: center;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+.code-link summary {
+  cursor: pointer;
+}
+
+.code-link-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  justify-content: center;
+}
+
+.code-input {
+  width: 120px;
+  background: var(--bg-soft);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: var(--text);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-align: center;
+  font-family: inherit;
+}
+
+.code-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* ---- 키오스크 (스마트 미러 대기 화면) ---- */
+.kiosk {
+  flex: 1;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  text-align: center;
+}
+
+.kiosk-fullscreen {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: transparent;
+  border: 1px solid var(--card-border);
+  color: var(--text-dim);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.kiosk-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 24px;
+}
+
+.kiosk-title {
+  font-size: clamp(3rem, 9vw, 5.5rem);
+  letter-spacing: -0.03em;
+}
+
+.kiosk-sub {
+  color: var(--text-dim);
+  font-size: clamp(1rem, 2.4vw, 1.35rem);
+  line-height: 1.7;
+  margin: 0;
+}
+
+.kiosk-fits {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.kiosk-fits span {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.kiosk-cta {
+  margin-top: 14px;
+  background: linear-gradient(135deg, #5b8cff, #7c5bff);
+  color: #fff;
+  font-size: clamp(1.1rem, 3vw, 1.5rem);
+  font-weight: 800;
+  padding: 20px 44px;
+  border-radius: 999px;
+  animation: kiosk-pulse 2s ease-in-out infinite;
+}
+
+@keyframes kiosk-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(91, 140, 255, 0.45);
+  }
+  50% {
+    transform: scale(1.04);
+    box-shadow: 0 0 0 24px rgba(91, 140, 255, 0);
+  }
+}
+
+.kiosk-time {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+/* 세로형 대형 디스플레이(스마트 미러)에서 가독성 확대 */
+@media (orientation: portrait) and (min-height: 1200px) {
+  html {
+    font-size: 20px;
+  }
+  .page {
+    max-width: 92vw;
+  }
+}
+
 /* ---- 푸터 ---- */
 .app-footer {
   display: flex;
