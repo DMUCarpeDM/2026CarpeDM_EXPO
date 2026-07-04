@@ -232,8 +232,12 @@ def _eye_evidence(turn_results: list[AnalysisResult]) -> dict | None:
     else:
         observed = f"정면 응시 {int(ratio * 100)}%, 이탈 {off_count}회, 최장 이탈 {longest}초 — 안정적이었어요"
         interp = "말의 신뢰도를 시선이 받쳐주고 있었어요."
-        sugg = ("다음 단계 도전: 질문을 받는 동안에도 시선을 유지해보세요. "
-                "듣는 자세까지 좋아 보이는 사람은 드물어요.")
+        smile = m.get("smile_ratio", 0)
+        sugg = (
+            "다음 단계 도전: 인사와 감사 표현에서 가벼운 미소를 더해보세요. 시선이 안정된 사람의 미소는 여유로 읽혀요."
+            if smile < 0.05 else
+            "다음 단계 도전: 질문을 받는 동안에도 시선을 유지해보세요. 듣는 자세까지 좋아 보이는 사람은 드물어요."
+        )
     return _segment(worst, "eye", observed, interp, sugg)
 
 
@@ -363,11 +367,17 @@ def _fit_detail_metrics(fit: FitType, results: list[AnalysisResult]) -> list[dic
         blink = _mean_metric(results, "blink_per_min")
         if blink:
             add("깜빡임", f"분당 {round(blink)}회")
+        smile = _mean_metric(results, "smile_ratio")
+        if smile is not None and smile > 0.02:
+            add("미소 표현", f"{round(smile * 100)}%")
     elif fit == FitType.posture:
         tilt = _mean_metric(results, "avg_shoulder_tilt_deg")
         add("어깨 기울기", f"{tilt:.1f}°" if tilt is not None else None)
         head = _mean_metric(results, "head_down_ratio")
         add("고개 숙임", f"{round(head * 100)}%" if head is not None else None)
+        roll = _mean_metric(results, "head_roll_deg")
+        if roll is not None and roll > 0.5:
+            add("고개 갸웃", f"{roll:.1f}°")
         drift = max((r.raw_metrics.get("tilt_drift_deg", 0) for r in results), default=0)
         if drift > 1:
             add("후반 변화", f"+{drift}°")

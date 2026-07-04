@@ -1418,6 +1418,30 @@ h2 .icon {
   white-space: nowrap;
 }
 
+.briefing-calib {
+  color: var(--good);
+  font-size: 0.8rem;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.briefing-calib::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--good);
+  animation: calib-blink 1.2s ease-in-out infinite;
+}
+
+@keyframes calib-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
 .briefing-points-label {
   display: block;
   color: var(--text-3);

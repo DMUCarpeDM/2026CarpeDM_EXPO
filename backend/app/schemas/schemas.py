@@ -89,6 +89,9 @@ class NonverbalIn(BaseModel):
     gaze_off_dir: str | None = None  # down | up | left | right
     tilt_drift_deg: float = 0.0  # 후반-전반 어깨 기울기 변화
     front_drift_pct: float = 0.0  # 후반-전반 정면 응시 변화 (%p)
+    smile_ratio: float = 0.0  # 미소 표현 비율 (관찰 지표)
+    head_roll_deg: float = 0.0  # 고개 갸웃 평균 편차
+    calibrated: bool = False  # 정면 기준 캘리브레이션 적용 여부
     tips: list[str] = []  # 턴 중 발생한 실시간 코칭 (S-JKEYHS 리포트 연동)
 
 

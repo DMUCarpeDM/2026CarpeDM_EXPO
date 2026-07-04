@@ -21,7 +21,16 @@ export default function RoleplayPage() {
   const { session, currentTurn, turnHistory, advance } = useSessionStore();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const overlayRef = useRef<HTMLCanvasElement | null>(null);
-  const { cameraReady, tip, live, startTurn, endTurn } = useNonverbal(videoRef, overlayRef);
+  const {
+    cameraReady,
+    visionStatus,
+    tip,
+    live,
+    startTurn,
+    endTurn,
+    startCalibration,
+    finishCalibration,
+  } = useNonverbal(videoRef, overlayRef);
 
   const [recording, setRecording] = useState(false);
   const [draft, setDraft] = useState('');
@@ -62,6 +71,11 @@ export default function RoleplayPage() {
     );
     if (currentTurn.order !== 1 || !hasBriefing) setBriefingOpen(false);
   }, [briefingOpen, session, currentTurn]);
+
+  // 브리핑을 읽는 동안 정면 기준값 캘리브레이션 (카메라 각도·체형 보정)
+  useEffect(() => {
+    if (briefingOpen && cameraReady) startCalibration();
+  }, [briefingOpen, cameraReady, startCalibration]);
 
   // 새 질문마다 TTS 재생 + 비언어 측정 시작 (브리핑이 닫힌 뒤부터)
   useEffect(() => {
@@ -239,7 +253,18 @@ export default function RoleplayPage() {
                 ))}
               </div>
             </div>
-            <button className="primary-btn start-btn" onClick={() => setBriefingOpen(false)}>
+            {cameraReady && (
+              <p className="briefing-calib">
+                카메라가 정면 기준을 측정하고 있어요 — 평소처럼 편하게 화면을 봐주세요
+              </p>
+            )}
+            <button
+              className="primary-btn start-btn"
+              onClick={() => {
+                finishCalibration();
+                setBriefingOpen(false);
+              }}
+            >
               준비됐어요, 시작하기
             </button>
           </div>
@@ -270,23 +295,42 @@ export default function RoleplayPage() {
           <div className="camera-panel">
             <video ref={videoRef} muted playsInline className="camera-video" />
             <canvas ref={overlayRef} width={640} height={480} className="camera-overlay" />
-            {!cameraReady && (
+            {visionStatus === 'no-camera' && (
               <div className="camera-placeholder">
                 <Icon name="cameraOff" size={22} />
                 카메라 미사용
                 <small>시선·자세 분석 없이 진행됩니다</small>
               </div>
             )}
+            {visionStatus === 'loading' && (
+              <div className="camera-placeholder">
+                분석 모듈 준비 중…
+                <small>MediaPipe 모델을 불러오고 있어요</small>
+              </div>
+            )}
+            {visionStatus === 'failed' && (
+              <div className="camera-placeholder">
+                <Icon name="cameraOff" size={22} />
+                시선·자세 모듈 로드 실패
+                <small>네트워크 확인 후 새로고침 하거나, npm run setup-offline으로 오프라인 자산을 준비하세요</small>
+              </div>
+            )}
             {tip && <div className="coaching-toast">{tip.text}</div>}
             {cameraReady && (
-              <span className="live-dot">실시간 분석 중 · 영상은 전송되지 않습니다</span>
+              <span className="live-dot">
+                실시간 분석 중{live.calibrated ? ' · 기준 보정됨' : ''} · 영상은 전송되지 않습니다
+              </span>
             )}
           </div>
           {cameraReady && (
             <div className="live-gauges">
               <div className={`gauge-item ${live.front ? 'ok' : 'warn'}`}>
                 <span className="gauge-item-label">시선</span>
-                <span className="gauge-item-value">{live.front ? '정면 유지' : '이탈'}</span>
+                <span className="gauge-item-value">
+                  {live.front
+                    ? '정면 유지'
+                    : `이탈${live.offDir ? ` (${{ down: '아래', up: '위', left: '옆', right: '옆' }[live.offDir]})` : ''}`}
+                </span>
               </div>
               <div className={`gauge-item ${live.tiltDeg <= 6 && !live.headDown ? 'ok' : 'warn'}`}>
                 <span className="gauge-item-label">자세</span>

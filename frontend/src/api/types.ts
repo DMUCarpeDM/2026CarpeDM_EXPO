@@ -63,6 +63,9 @@ export interface NonverbalMetrics {
   gaze_off_dir: 'down' | 'up' | 'left' | 'right' | null; // 지배적 이탈 방향
   tilt_drift_deg: number; // 후반-전반 어깨 기울기 변화 (자세 붕괴 추세)
   front_drift_pct: number; // 후반-전반 정면 응시 변화 (%p)
+  smile_ratio: number; // 미소 표현 프레임 비율
+  head_roll_deg: number; // 고개 갸웃(눈선 각도) 평균 편차
+  calibrated: boolean; // 정면 기준 캘리브레이션 적용 여부
   tips: string[]; // 턴 중 발생한 실시간 코칭 문구
 }
 

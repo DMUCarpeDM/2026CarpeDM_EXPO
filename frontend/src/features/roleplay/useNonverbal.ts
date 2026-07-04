@@ -3,13 +3,13 @@
  * 원본 영상은 어디에도 저장·전송하지 않고, 브라우저 안에서 프레임을 분석해
  * 턴 단위 집계 지표만 서버로 보낸다 (개인정보 최소화 — 기본 미저장 원칙).
  *
+ * ── 캘리브레이션 ──────────────────────────────────────────────
+ * 카메라 각도·앉은 자세는 사람/기기마다 달라 절대 임계값은 오판을 만든다.
+ * 상황 브리핑 동안 정면 기준값(시선 비대칭·어깨 기울기·코-어깨 거리·눈선 각도)을
+ * 수집하고, 이후 모든 판정은 "기준 대비 변화량"으로 수행한다.
+ *
  * 오프라인 전시 대비: `npm run setup-offline`으로 wasm/모델을 public/에 받아두면
  * 로컬 자산을 우선 사용하고, 없으면 CDN에서 로드한다.
- *
- * 지표 산출은 랜드마크 기하 휴리스틱:
- * - 시선(정면): 코 끝과 좌/우 볼 사이 거리 비대칭 → 고개 요(yaw) 근사
- * - 고개 숙임: 포즈의 코-어깨 중점 수직 거리 / 어깨 너비
- * - 어깨 기울기: 좌우 어깨 랜드마크 각도
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { NonverbalMetrics } from '../../api/types';
@@ -28,8 +28,12 @@ const MODELS = {
 };
 
 const SAMPLE_MS = 200;
-const YAW_ASYM_THRESHOLD = 0.3; // 이보다 크면 시선 이탈로 간주
-const HEAD_DOWN_THRESHOLD = 0.3; // (어깨중점y - 코y)/어깨너비 가 이보다 작으면 고개 숙임
+// 기준 대비 허용 편차 (캘리브레이션 후 상대 판정)
+const YAW_DELTA_THRESHOLD = 0.22; // 시선 좌우: 비대칭 변화량
+const HEAD_DROP_THRESHOLD = 0.1; // 고개 숙임: 코-어깨 거리(어깨너비 정규화) 감소량
+// 캘리브레이션이 없을 때(직접 URL 진입 등) 쓰는 절대 폴백 임계값
+const YAW_ABS_THRESHOLD = 0.3;
+const HEAD_DOWN_ABS_THRESHOLD = 0.3;
 
 // 얼굴 윤곽 표시용 랜드마크 (Face Mesh 인덱스 서브셋)
 const FACE_POINTS = [10, 152, 234, 454, 1, 33, 263, 61, 291, 199];
@@ -43,7 +47,7 @@ interface Accumulator {
   frontFrames: number;
   gazeOffCount: number;
   lastFront: boolean;
-  tiltSamples: number[]; // 전/후반 추세 분석용 시계열
+  tiltSamples: number[]; // 전/후반 추세 분석용 시계열 (보정값)
   headDownFrames: number;
   shoulderXs: number[];
   frontFlags: boolean[]; // 전/후반 정면 비율 비교용
@@ -52,6 +56,8 @@ interface Accumulator {
   maxOffStreak: number; // 최장 연속 이탈 (프레임)
   blinkCount: number;
   blinkActive: boolean;
+  smileFrames: number; // 미소 표현 프레임
+  rollSamples: number[]; // 고개 갸웃 각도 (보정값)
   tips: string[]; // 이 턴에서 발생한 실시간 코칭 (리포트 연동, S-JKEYHS)
 }
 
@@ -69,24 +75,47 @@ const emptyAcc = (): Accumulator => ({
   maxOffStreak: 0,
   blinkCount: 0,
   blinkActive: false,
+  smileFrames: 0,
+  rollSamples: [],
   tips: [],
 });
+
+interface Baseline {
+  set: boolean;
+  asym: number; // 정면일 때 코-볼 비대칭 (카메라 좌우 오프셋 보정)
+  tilt: number; // 평상시 어깨 기울기 (카메라 기울기·체형 보정)
+  headGap: number | null; // 코-어깨 수직 거리 / 어깨너비
+  roll: number; // 평상시 눈선 각도
+}
+
+const emptyBaseline = (): Baseline => ({ set: false, asym: 0, tilt: 0, headGap: null, roll: 0 });
 
 export interface CoachingTip {
   id: number;
   text: string;
 }
 
+export type VisionStatus = 'idle' | 'loading' | 'ready' | 'no-camera' | 'failed';
+
 /** 라이브 게이지용 실시간 상태 (매 샘플 갱신) */
 export interface LiveState {
   tracking: boolean;
   front: boolean;
-  tiltDeg: number;
+  offDir: 'down' | 'up' | 'left' | 'right' | null;
+  tiltDeg: number; // 기준 보정된 기울기
   headDown: boolean;
   micLevel: number; // 0~1
+  calibrated: boolean;
 }
 
-const idleLive: LiveState = { tracking: false, front: true, tiltDeg: 0, headDown: false, micLevel: 0 };
+const idleLive: LiveState = {
+  tracking: false, front: true, offDir: null, tiltDeg: 0, headDown: false, micLevel: 0, calibrated: false,
+};
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)];
+}
 
 async function checkLocal(url: string): Promise<boolean> {
   try {
@@ -101,7 +130,7 @@ export function useNonverbal(
   videoRef: React.RefObject<HTMLVideoElement | null>,
   overlayRef?: React.RefObject<HTMLCanvasElement | null>,
 ) {
-  const [cameraReady, setCameraReady] = useState(false);
+  const [visionStatus, setVisionStatus] = useState<VisionStatus>('idle');
   const [tip, setTip] = useState<CoachingTip | null>(null);
   const [live, setLive] = useState<LiveState>(idleLive);
   const accRef = useRef<Accumulator>(emptyAcc());
@@ -109,7 +138,11 @@ export function useNonverbal(
   const tipCountRef = useRef(0);
   const lastTipAtRef = useRef(0);
   const runningRef = useRef(false);
-  const streamRef = useRef<MediaStream | null>(null);
+  const baselineRef = useRef<Baseline>(emptyBaseline());
+  const calibratingRef = useRef(false);
+  const calibSamplesRef = useRef<{ asym: number[]; tilt: number[]; headGap: number[]; roll: number[] }>({
+    asym: [], tilt: [], headGap: [], roll: [],
+  });
 
   // 실시간 코칭 오버레이 (F-KYJJQW) — 세션당 3회, 20초 쿨다운
   const maybeCoach = useCallback((text: string) => {
@@ -130,16 +163,20 @@ export function useNonverbal(
     let audioCtx: AudioContext | null = null;
 
     async function init() {
+      setVisionStatus('loading');
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           video: { width: 640, height: 480 },
           audio: true, // 오디오 트랙은 녹음기·음량 미터에서 재사용
         });
       } catch {
+        setVisionStatus('no-camera');
         return; // 카메라/마이크 거부 → 비언어 미측정으로 진행
       }
-      if (cancelled || !videoRef.current) return;
-      streamRef.current = stream;
+      if (cancelled || !videoRef.current) {
+        stream.getTracks().forEach((t) => t.stop()); // StrictMode 이중 실행 누수 방지
+        return;
+      }
       videoRef.current.srcObject = stream;
       await videoRef.current.play().catch(() => undefined);
 
@@ -170,7 +207,7 @@ export function useNonverbal(
           baseOptions: { modelAssetPath: faceModel },
           runningMode: 'VIDEO',
           numFaces: 1,
-          outputFaceBlendshapes: true, // 시선 상하·깜빡임 측정용
+          outputFaceBlendshapes: true, // 시선 상하·깜빡임·미소 측정용
         });
         const pose = await vision.PoseLandmarker.createFromOptions(fileset, {
           baseOptions: { modelAssetPath: poseModel },
@@ -178,13 +215,14 @@ export function useNonverbal(
           numPoses: 1,
         });
         if (cancelled) return;
-        setCameraReady(true);
+        setVisionStatus('ready');
 
         timer = setInterval(() => {
           const video = videoRef.current;
           if (!video || video.readyState < 2) return;
           const ts = performance.now();
           const acc = accRef.current;
+          const base = baselineRef.current;
 
           // 음량 (측정 여부와 무관하게 항상 표시)
           let micLevel = 0;
@@ -204,7 +242,7 @@ export function useNonverbal(
             const lm = faceResult.faceLandmarks?.[0];
             const plm = poseResult.landmarks?.[0];
 
-            // 블렌드셰이프: 안구 상하 시선 + 깜빡임 (머리 회전과 독립적인 눈동자 신호)
+            // 블렌드셰이프: 안구 상하 시선 + 깜빡임 + 미소
             const shapes: Record<string, number> = {};
             for (const c of faceResult.faceBlendshapes?.[0]?.categories ?? []) {
               shapes[c.categoryName] = c.score;
@@ -212,40 +250,83 @@ export function useNonverbal(
             const eyeDown = ((shapes.eyeLookDownLeft ?? 0) + (shapes.eyeLookDownRight ?? 0)) / 2;
             const eyeUp = ((shapes.eyeLookUpLeft ?? 0) + (shapes.eyeLookUpRight ?? 0)) / 2;
             const blink = ((shapes.eyeBlinkLeft ?? 0) + (shapes.eyeBlinkRight ?? 0)) / 2 > 0.5;
+            const smile = ((shapes.mouthSmileLeft ?? 0) + (shapes.mouthSmileRight ?? 0)) / 2 > 0.35;
 
-            let front = true;
-            let offDir: 'down' | 'up' | 'left' | 'right' | null = null;
+            // ---- 얼굴 기하: 좌우 비대칭(요), 눈선 각도(갸웃) ----
+            let signedAsym: number | null = null;
+            let rollDeg: number | null = null;
             if (lm) {
               const nose = lm[1];
               const left = lm[234];
               const right = lm[454];
               const dl = Math.abs(nose.x - left.x);
               const dr = Math.abs(right.x - nose.x);
-              const signedAsym = (dl - dr) / Math.max(dl + dr, 1e-6);
-              const yawOff = Math.abs(signedAsym) >= YAW_ASYM_THRESHOLD;
-              // 머리는 정면이어도 눈동자가 아래/위로 쏠리면 시선 이탈 (대본 읽기·회피 패턴)
-              if (yawOff) offDir = signedAsym > 0 ? 'right' : 'left';
-              else if (eyeDown > 0.55) offDir = 'down';
-              else if (eyeUp > 0.55) offDir = 'up';
-              front = offDir === null;
+              signedAsym = (dl - dr) / Math.max(dl + dr, 1e-6);
+              const le = lm[33];
+              const re = lm[263];
+              rollDeg = (Math.atan2(re.y - le.y, Math.abs(re.x - le.x) + 1e-6) * 180) / Math.PI;
             }
 
-            let tiltDeg = 0;
-            let headDown = false;
+            // ---- 포즈 기하: 어깨 기울기, 코-어깨 거리(고개 숙임) ----
+            let tiltRaw: number | null = null;
+            let headGap: number | null = null;
+            let shoulderX: number | null = null;
             if (plm) {
               const ls = plm[11];
               const rs = plm[12];
               const noseP = plm[0];
               const width = Math.abs(ls.x - rs.x);
               if (width > 0.05) {
-                tiltDeg = (Math.atan2(Math.abs(ls.y - rs.y), width) * 180) / Math.PI;
-                const midY = (ls.y + rs.y) / 2;
-                headDown = (midY - noseP.y) / width < HEAD_DOWN_THRESHOLD;
+                tiltRaw = (Math.atan2(Math.abs(ls.y - rs.y), width) * 180) / Math.PI;
+                headGap = ((ls.y + rs.y) / 2 - noseP.y) / width;
+                shoulderX = ((ls.x + rs.x) / 2) / width;
               }
             }
 
+            // ---- 캘리브레이션 수집 (브리핑 동안: 정면·평상 자세 기준값) ----
+            if (calibratingRef.current) {
+              const cal = calibSamplesRef.current;
+              if (signedAsym !== null) cal.asym.push(signedAsym);
+              if (tiltRaw !== null) cal.tilt.push(tiltRaw);
+              if (headGap !== null) cal.headGap.push(headGap);
+              if (rollDeg !== null) cal.roll.push(rollDeg);
+            }
+
+            // ---- 기준 대비 판정 ----
+            let front = true;
+            let offDir: 'down' | 'up' | 'left' | 'right' | null = null;
+            if (signedAsym !== null) {
+              const asymDelta = base.set ? signedAsym - base.asym : signedAsym;
+              const yawThreshold = base.set ? YAW_DELTA_THRESHOLD : YAW_ABS_THRESHOLD;
+              if (Math.abs(asymDelta) >= yawThreshold) {
+                offDir = asymDelta > 0 ? 'right' : 'left';
+              } else if (eyeDown > 0.55) {
+                offDir = 'down'; // 머리는 정면, 눈동자만 아래 (대본 읽기 패턴)
+              } else if (eyeUp > 0.55) {
+                offDir = 'up';
+              }
+              front = offDir === null;
+            }
+            const tiltAdj = tiltRaw !== null
+              ? Math.max(0, tiltRaw - (base.set ? base.tilt : 0))
+              : null;
+            const rollAdj = rollDeg !== null && base.set ? rollDeg - base.roll : rollDeg;
+            const headDown = headGap !== null && (
+              base.set && base.headGap !== null
+                ? base.headGap - headGap > HEAD_DROP_THRESHOLD
+                : headGap < HEAD_DOWN_ABS_THRESHOLD
+            );
+
             drawOverlay(overlayRef?.current, lm, plm);
-            setLive({ tracking: !!(lm || plm), front, tiltDeg, headDown, micLevel });
+            setLive({
+              tracking: !!(lm || plm),
+              front,
+              offDir,
+              tiltDeg: tiltAdj ?? 0,
+              headDown,
+              micLevel,
+              calibrated: base.set,
+            });
 
             // 턴 진행 중일 때만 집계
             if (runningRef.current && (lm || plm)) {
@@ -261,19 +342,15 @@ export function useNonverbal(
                 acc.maxOffStreak = Math.max(acc.maxOffStreak, acc.curOffStreak);
               }
               acc.lastFront = front;
-              // 깜빡임: 상승 에지 1회 = 1깜빡임
               if (blink && !acc.blinkActive) acc.blinkCount += 1;
               acc.blinkActive = blink;
-              if (plm) {
-                const ls = plm[11];
-                const rs = plm[12];
-                const width = Math.abs(ls.x - rs.x);
-                if (width > 0.05) {
-                  acc.tiltSamples.push(tiltDeg);
-                  acc.shoulderXs.push(((ls.x + rs.x) / 2) / width);
-                  if (headDown) acc.headDownFrames += 1;
-                  if (tiltDeg > 10) maybeCoach('어깨를 수평으로 펴보세요');
-                }
+              if (smile) acc.smileFrames += 1;
+              if (rollAdj !== null) acc.rollSamples.push(rollAdj);
+              if (tiltAdj !== null && shoulderX !== null) {
+                acc.tiltSamples.push(tiltAdj);
+                acc.shoulderXs.push(shoulderX);
+                if (headDown) acc.headDownFrames += 1;
+                if (tiltAdj > 8) maybeCoach('어깨를 수평으로 펴보세요');
               }
               const recent = recentOffRef.current;
               recent.push(!front);
@@ -288,7 +365,8 @@ export function useNonverbal(
           }
         }, SAMPLE_MS);
       } catch {
-        // MediaPipe 로드 실패(오프라인 등) → 카메라 프리뷰만 유지
+        // MediaPipe 로드 실패(오프라인·차단 등) → 사유를 화면에 표시
+        if (!cancelled) setVisionStatus('failed');
       }
     }
 
@@ -298,9 +376,29 @@ export function useNonverbal(
       if (timer) clearInterval(timer);
       stream?.getTracks().forEach((t) => t.stop());
       void audioCtx?.close();
-      streamRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** 브리핑 표시 중 호출 — 정면 기준값 수집 시작 */
+  const startCalibration = useCallback(() => {
+    calibSamplesRef.current = { asym: [], tilt: [], headGap: [], roll: [] };
+    calibratingRef.current = true;
+  }, []);
+
+  /** 브리핑 종료 시 호출 — 중앙값으로 기준 확정 (표본 4개 미만이면 절대 판정 유지) */
+  const finishCalibration = useCallback(() => {
+    calibratingRef.current = false;
+    const cal = calibSamplesRef.current;
+    if (cal.asym.length >= 4) {
+      baselineRef.current = {
+        set: true,
+        asym: median(cal.asym),
+        tilt: cal.tilt.length >= 4 ? median(cal.tilt) : 0,
+        headGap: cal.headGap.length >= 4 ? median(cal.headGap) : null,
+        roll: cal.roll.length >= 4 ? median(cal.roll) : 0,
+      };
+    }
   }, []);
 
   const startTurn = useCallback(() => {
@@ -352,11 +450,25 @@ export function useNonverbal(
       gaze_off_dir: domCount >= 3 ? domDir : null,
       tilt_drift_deg: Math.round(tiltDrift * 10) / 10,
       front_drift_pct: frontDrift,
+      smile_ratio: Math.round((acc.smileFrames / acc.frames) * 100) / 100,
+      head_roll_deg: acc.rollSamples.length
+        ? Math.round(mean(acc.rollSamples.map(Math.abs)) * 10) / 10
+        : 0,
+      calibrated: baselineRef.current.set,
       tips: acc.tips,
     };
   }, []);
 
-  return { cameraReady, tip, live, startTurn, endTurn };
+  return {
+    cameraReady: visionStatus === 'ready',
+    visionStatus,
+    tip,
+    live,
+    startTurn,
+    endTurn,
+    startCalibration,
+    finishCalibration,
+  };
 }
 
 interface Landmark {
@@ -377,7 +489,7 @@ function drawOverlay(
   ctx.clearRect(0, 0, w, h);
 
   if (poseLm) {
-    ctx.strokeStyle = 'rgba(91, 140, 255, 0.9)';
+    ctx.strokeStyle = 'rgba(91, 124, 250, 0.9)';
     ctx.lineWidth = 3;
     for (const [a, b] of POSE_LINKS) {
       const pa = poseLm[a];
@@ -388,7 +500,7 @@ function drawOverlay(
       ctx.lineTo(pb.x * w, pb.y * h);
       ctx.stroke();
     }
-    ctx.fillStyle = '#5b8cff';
+    ctx.fillStyle = '#5b7cfa';
     for (const idx of [0, 11, 12]) {
       const p = poseLm[idx];
       if (!p) continue;
@@ -399,7 +511,7 @@ function drawOverlay(
   }
 
   if (faceLm) {
-    ctx.fillStyle = 'rgba(74, 222, 128, 0.9)';
+    ctx.fillStyle = 'rgba(62, 207, 142, 0.9)';
     for (const idx of FACE_POINTS) {
       const p = faceLm[idx];
       if (!p) continue;
