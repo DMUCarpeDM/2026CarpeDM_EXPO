@@ -10,5 +10,6 @@ bcrypt
 numpy
 soundfile
 kiwipiepy
+vosk            # 서버 STT (오프라인 폴백) — 모델은 scripts/setup_offline_stt.py로 준비
 pytest
 httpx

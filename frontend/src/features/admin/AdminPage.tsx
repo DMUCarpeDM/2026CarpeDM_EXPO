@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { adminMetrics, adminReset } from '../../api/client';
 import type { AdminMetrics } from '../../api/types';
+import Icon from '../../components/Icon';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api';
 
@@ -35,13 +36,13 @@ export default function AdminPage() {
         <h1>운영 대시보드</h1>
         <div className="admin-actions">
           <button className="ghost-btn" onClick={toggleKiosk}>
-            {kiosk ? '🖼 전시 모드 ON' : '🖼 전시 모드 OFF'}
+            <Icon name="monitor" size={15} /> 전시 모드 {kiosk ? 'ON' : 'OFF'}
           </button>
           <a className="ghost-btn" href={`${API_BASE}/admin/export.csv`} download>
-            ⬇️ CSV 내보내기
+            <Icon name="download" size={15} /> CSV 내보내기
           </a>
           <button className="primary-btn" onClick={reset}>
-            🔄 다음 체험자 준비 (1클릭 초기화)
+            <Icon name="refresh" size={15} /> 다음 체험자 준비
           </button>
         </div>
       </header>

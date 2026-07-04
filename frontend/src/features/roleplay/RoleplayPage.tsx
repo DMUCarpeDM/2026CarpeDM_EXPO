@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { finishSession, getHealth, submitResponse, uploadAudio } from '../../api/client';
 import type { Character, Turn } from '../../api/types';
+import Icon from '../../components/Icon';
 import { AudioTurnRecorder } from '../../lib/recorder';
 import { isSpeechRecognitionSupported, SpeechCapture } from '../../lib/stt';
 import { speak, stopSpeaking } from '../../lib/tts';
@@ -114,7 +115,7 @@ export default function RoleplayPage() {
     } else if (serverStt && stream) {
       // 브라우저 STT 불가(오프라인 등) → 녹음만 하고 서버가 텍스트로 변환
       setRecording(true);
-      setNotice('🎙 오프라인 인식 모드 — 말한 뒤 ■를 누르고 전달하면 서버가 텍스트로 바꿔드려요.');
+      setNotice('오프라인 인식 모드 — 말한 뒤 정지 버튼을 누르고 전달하면 서버가 텍스트로 변환합니다.');
     } else {
       setNotice('이 브라우저는 음성 인식을 지원하지 않아요. 텍스트로 입력해주세요. (Chrome 권장)');
     }
@@ -214,12 +215,15 @@ export default function RoleplayPage() {
             <canvas ref={overlayRef} width={640} height={480} className="camera-overlay" />
             {!cameraReady && (
               <div className="camera-placeholder">
+                <Icon name="cameraOff" size={22} />
                 카메라 미사용
                 <small>시선·자세 분석 없이 진행됩니다</small>
               </div>
             )}
             {tip && <div className="coaching-toast">{tip.text}</div>}
-            {cameraReady && <span className="live-dot">● 실시간 분석 중 (영상 미전송)</span>}
+            {cameraReady && (
+              <span className="live-dot">실시간 분석 중 · 영상은 전송되지 않습니다</span>
+            )}
           </div>
           {cameraReady && (
             <div className="live-gauges">
@@ -269,7 +273,7 @@ export default function RoleplayPage() {
                   className="replay-btn"
                   onClick={() => character && speak(currentTurn.question_text, character.tts)}
                 >
-                  🔊 다시 듣기
+                  <Icon name="volume" size={13} /> 다시 듣기
                 </button>
               </div>
               {(draft || interim) && (
@@ -292,7 +296,7 @@ export default function RoleplayPage() {
               disabled={submitting}
               title={sttAvailable ? '음성으로 답하기' : '이 브라우저는 음성 인식 미지원'}
             >
-              {recording ? '■' : '🎤'}
+              <Icon name={recording ? 'stop' : 'mic'} size={22} />
             </button>
             <input
               className="response-input"

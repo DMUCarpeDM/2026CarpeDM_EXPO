@@ -230,14 +230,14 @@ export function useNonverbal(
                   acc.tiltSum += tiltDeg;
                   acc.shoulderXs.push(((ls.x + rs.x) / 2) / width);
                   if (headDown) acc.headDownFrames += 1;
-                  if (tiltDeg > 10) maybeCoach('어깨를 수평으로 펴보세요 🙆');
+                  if (tiltDeg > 10) maybeCoach('어깨를 수평으로 펴보세요');
                 }
               }
               const recent = recentOffRef.current;
               recent.push(!front);
               if (recent.length > 15) recent.shift();
               if (recent.length >= 10 && recent.filter(Boolean).length >= 7) {
-                maybeCoach('화면 정면을 바라봐주세요 👀');
+                maybeCoach('화면 정면을 바라봐주세요');
                 recentOffRef.current = [];
               }
             }

@@ -2,14 +2,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { claimCode, createSession, getScenarios } from '../../api/client';
 import type { Scenario } from '../../api/types';
+import Avatar from '../../components/Avatar';
+import Icon from '../../components/Icon';
 import { useSessionStore } from '../../stores/sessionStore';
-
-const CHARACTER_EMOJI: Record<string, string> = {
-  kim_teamlead: '👔',
-  park_senior: '👩‍💻',
-  lee_peer: '😊',
-  han_cs: '📞',
-};
 
 export default function OnboardingPage() {
   const navigate = useNavigate();
@@ -27,7 +22,7 @@ export default function OnboardingPage() {
     if (codeInput.trim().length < 4) return;
     try {
       await claimCode(codeInput.trim());
-      setCodeMessage('✅ 기록을 이어갑니다 — 이번 결과부터 성장 추이에 쌓여요.');
+      setCodeMessage('기록이 연결됐습니다. 이번 결과부터 성장 추이에 이어집니다.');
     } catch {
       setCodeMessage('등록되지 않은 코드예요. 리포트 화면의 코드를 다시 확인해주세요.');
     }
@@ -75,7 +70,7 @@ export default function OnboardingPage() {
           <div className="character-grid">
             {scenario.characters.map((c) => (
               <div key={c.id} className="character-card">
-                <div className="character-emoji">{CHARACTER_EMOJI[c.id] ?? '🙂'}</div>
+                <Avatar characterId={c.id} name={c.name} size={44} />
                 <strong>{c.name}</strong>
                 <span className="character-role">{c.role}</span>
                 <p className="character-personality">{c.personality}</p>
@@ -146,7 +141,9 @@ export default function OnboardingPage() {
       </button>
 
       <details className="code-link">
-        <summary>🔑 지난 기록 이어서 하기 (체험 코드 입력)</summary>
+        <summary>
+          <Icon name="key" size={14} /> 지난 기록 이어서 하기 (체험 코드 입력)
+        </summary>
         <div className="code-link-row">
           <input
             className="code-input"

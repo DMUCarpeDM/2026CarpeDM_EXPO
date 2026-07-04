@@ -9,6 +9,7 @@ import {
   type HistoryItem,
 } from '../../api/client';
 import type { Report } from '../../api/types';
+import Icon, { type IconName } from '../../components/Icon';
 import { useSessionStore } from '../../stores/sessionStore';
 import RadarChart from './RadarChart';
 
@@ -70,11 +71,11 @@ const STAGE_LABEL: Record<string, string> = {
   done: '완료',
 };
 
-const FIT_EMOJI: Record<string, string> = {
-  response: '💬',
-  voice: '🎙',
-  eye: '👀',
-  posture: '🧍',
+const FIT_ICON: Record<string, IconName> = {
+  response: 'message',
+  voice: 'activity',
+  eye: 'eye',
+  posture: 'user',
 };
 
 export default function ReportPage() {
@@ -271,7 +272,7 @@ export default function ReportPage() {
           return (
             <div key={fit} className={`fit-card ${data.score === null ? 'unmeasured' : ''}`}>
               <div className="fit-head">
-                <span className="fit-emoji">{FIT_EMOJI[fit]}</span>
+                <span className="fit-icon"><Icon name={FIT_ICON[fit]} size={16} /></span>
                 <strong>{data.label}</strong>
                 <span className="fit-score">
                   {data.score === null ? '—' : Math.round(data.score)}
@@ -295,7 +296,7 @@ export default function ReportPage() {
 
       {report.strengths.length > 0 && (
         <section className="card">
-          <h2>💪 잘한 점</h2>
+          <h2><Icon name="check" size={16} /> 잘한 점</h2>
           <ul className="feedback-list">
             {report.strengths.map((s) => (
               <li key={s}>{s}</li>
@@ -306,7 +307,7 @@ export default function ReportPage() {
 
       {report.improvements.length > 0 && (
         <section className="card">
-          <h2>🔧 다음에 이렇게</h2>
+          <h2><Icon name="spark" size={16} /> 다음에 이렇게</h2>
           <ul className="feedback-list">
             {report.improvements.map((s) => (
               <li key={s}>{s}</li>
@@ -316,14 +317,16 @@ export default function ReportPage() {
       )}
 
       <section className="card">
-        <h2>🔍 근거 구간</h2>
+        <h2><Icon name="search" size={16} /> 근거 구간</h2>
         <p className="section-sub">왜 이런 점수가 나왔는지, 실제 응답에서 확인해보세요.</p>
         <div className="evidence-list">
           {report.evidence_segments.map((seg) => (
             <div key={`${seg.fit_type}-${seg.turn_id}`} className="evidence-item">
               <div className="evidence-meta">
                 <span className="evidence-turn">턴 {seg.turn_order}</span>
-                <span className="evidence-fit">{FIT_EMOJI[seg.fit_type]} {seg.fit_type}-fit</span>
+                <span className="evidence-fit">
+                  <Icon name={FIT_ICON[seg.fit_type]} size={13} /> {seg.fit_type}-fit
+                </span>
               </div>
               {seg.quote && <blockquote>“{seg.quote}”</blockquote>}
               <p><strong>관측</strong> {seg.observed}</p>
@@ -337,13 +340,16 @@ export default function ReportPage() {
       <section className="analysis-visuals">
         {history.length >= 2 && (
           <div className="card">
-            <h2>📈 나의 성장 추이 <small className="legend">최근 {history.length}회 종합 점수</small></h2>
+            <h2>
+              <Icon name="trend" size={16} /> 나의 성장 추이
+              <small className="legend">최근 {history.length}회 종합 점수</small>
+            </h2>
             <TrendChart items={history} />
           </div>
         )}
         {code && (
           <div className="card code-card">
-            <h2>🔑 내 체험 코드</h2>
+            <h2><Icon name="key" size={16} /> 내 체험 코드</h2>
             <p className="my-code">{code}</p>
             <p className="section-sub">
               다음 방문 때 시작 화면에서 이 코드를 입력하면, 개인정보 없이도
@@ -357,7 +363,7 @@ export default function ReportPage() {
         {retryCountdown === null ? (
           <>
             <button className="primary-btn" onClick={() => setRetryCountdown(10)}>
-              ⚡ 10초 재도전 — 방금 배운 걸 바로 적용해보기
+              10초 재도전 — 방금 배운 것을 바로 적용해보기
             </button>
             <button className="ghost-btn" onClick={() => navigate('/')}>처음으로</button>
           </>
