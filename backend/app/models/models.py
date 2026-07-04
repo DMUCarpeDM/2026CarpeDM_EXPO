@@ -165,6 +165,8 @@ class Report(Base):
     improvements: Mapped[list] = mapped_column(JSON, default=list)
     # [{turn_order, fit_type, quote, observed, interpretation, suggestion}]
     evidence_segments: Mapped[list] = mapped_column(JSON, default=list)
+    # 오늘의 한 문장: {sentence(따라 말할 처방 문장), fit_type, context(왜 이 문장인지)}
+    headline: Mapped[dict] = mapped_column(JSON, default=dict)
     analysis_ms: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 

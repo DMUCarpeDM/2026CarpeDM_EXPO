@@ -57,14 +57,17 @@ def run_analysis(session_id: int) -> None:
             weight = sum(i.get("weight", 1.0) for i in t.episode.checklist) or 1.0
             response_scores.append((score, weight))
 
-        # 3) Voice-Fit (오디오 있으면 실측, 없으면 발화 시간 기반 근사)
+        # 3) Voice-Fit — 오디오가 있으면 실측, 음성 인식(webspeech) 턴만 발화 시간 근사.
+        #    텍스트 입력 턴은 duration이 타이핑 시간이라 말속도 추정이 무의미하므로 측정 제외.
         _set_progress(db, session, "voice", 45)
         voice_scores: list[tuple[float, float]] = []
         for t in turns:
             if t.audio_path:
                 metrics = voice_fit.analyze_audio(t.audio_path, t.response_text)
-            else:
+            elif t.stt_source == "webspeech":
                 metrics = voice_fit.estimate_from_text(t.response_text, t.response_duration_ms)
+            else:
+                metrics = {}
             score = voice_fit.score_voice(metrics)
             if score is None:
                 continue

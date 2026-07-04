@@ -160,12 +160,17 @@ export default function RoleplayPage() {
   const totalSeconds = session.mode * 60;
   const minutes = Math.floor(secondsLeft / 60);
   const seconds = String(secondsLeft % 60).padStart(2, '0');
+  const episodeTitles = session.scenario.episode_titles[String(session.mode)] ?? [];
+  const episodeIndex = episodeTitles.indexOf(currentTurn.episode_title);
 
   return (
     <div className="page roleplay">
       <header className="roleplay-header">
         <div>
-          <span className="episode-chip">{currentTurn.episode_title}</span>
+          <span className="episode-chip">
+            {episodeIndex >= 0 && `상황 ${episodeIndex + 1}/${episodeTitles.length} · `}
+            {currentTurn.episode_title}
+          </span>
           {QUESTION_TYPE_LABEL[currentTurn.question_type] && (
             <span className={`type-chip ${currentTurn.question_type}`}>
               {QUESTION_TYPE_LABEL[currentTurn.question_type]}

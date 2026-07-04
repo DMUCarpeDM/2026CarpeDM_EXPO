@@ -133,6 +133,14 @@ export default function ReportPage() {
         <p className="analysis-time">분석 소요 {(report.analysis_ms / 1000).toFixed(1)}초</p>
       </header>
 
+      {'sentence' in report.headline && (
+        <section className="headline-card">
+          <span className="headline-label">오늘의 한 문장</span>
+          <p className="headline-sentence">{report.headline.sentence}</p>
+          <p className="headline-context">{report.headline.context}</p>
+        </section>
+      )}
+
       <section className="fit-grid">
         {Object.entries(report.fit_scores).map(([fit, data]) => {
           const prevScore = report.previous?.fit_scores[fit];

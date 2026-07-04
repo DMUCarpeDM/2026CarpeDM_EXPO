@@ -44,6 +44,20 @@ def test_response_fit_banned_phrase_penalized():
     assert any(h["phrase"] == "몰라요" for h in bad["banned_hits"])
 
 
+def test_politeness_formal_speech_scores_full_ratio():
+    m = analyze_response("네, 알겠습니다. 바로 선임님께 보고드리겠습니다.", CHECKLIST)
+    assert m["politeness"]["formal_ratio"] == 1.0
+    assert m["politeness"]["banmal_count"] == 0
+
+
+def test_politeness_banmal_detected_and_quoted():
+    m = analyze_response("몰라. 그냥 내가 알아서 했다.", CHECKLIST)
+    assert m["politeness"]["banmal_count"] >= 1
+    assert m["politeness"]["banmal_quotes"], "반말 문장 인용이 있어야 함"
+    polite = analyze_response("모르겠습니다. 제가 알아서 처리했습니다.", CHECKLIST)
+    assert score_response(m) < score_response(polite)
+
+
 def test_voice_fit_estimate_and_score():
     # 10초 동안 40음절 → 4.0 sps (이상 구간)
     m = estimate_from_text("가" * 40, duration_ms=10000)

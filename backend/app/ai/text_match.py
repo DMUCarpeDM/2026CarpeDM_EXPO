@@ -44,3 +44,71 @@ def matched_checklist_ids(text: str, checklist: list[dict]) -> set[str]:
 
 def count_hangul_syllables(text: str) -> int:
     return sum(1 for ch in text if "가" <= ch <= "힣")
+
+
+# ---------------------------------------------------------------------------
+# 격식 분석 — 종결어미(EF) 형태소 기반
+# ---------------------------------------------------------------------------
+# 합쇼체(격식): -습니다/-ㅂ니다/-습니까 → form에 "니다"/"니까" 포함
+# 해요체(비격식 존대): -어요/-네요/-세요/-죠 → form이 "요"로 끝나거나 "죠"
+# 그 외 EF(-다/-어/-야/-자/-냐 등)는 구어 응답 맥락에서 반말로 분류
+_FALLBACK_FORMAL_MARKERS = ["습니다", "니다", "세요", "드리", "겠습", "입니다", "요"]
+
+
+def _classify_ef(form: str) -> str:
+    if "니다" in form or "니까" in form:
+        return "formal"
+    if form.endswith("요") or form in ("죠", "지요", "네요", "세요"):
+        return "polite"
+    return "banmal"
+
+
+def politeness_profile(text: str) -> dict:
+    """문장별 종결어미를 분석해 격식 비율과 반말 문장 인용을 반환.
+
+    returns: {formal_ratio: 0~1, ef_count, banmal_count, banmal_quotes: [문장...]}
+    kiwipiepy가 없으면 마커 휴리스틱으로 근사(반말 인용은 비활성).
+    """
+    if _kiwi is None or not text.strip():
+        stripped = text.strip()
+        formal = any(m in stripped for m in _FALLBACK_FORMAL_MARKERS)
+        return {
+            "formal_ratio": 1.0 if formal else 0.0,
+            "ef_count": 0,
+            "banmal_count": 0 if formal else 1,
+            "banmal_quotes": [],
+        }
+
+    try:
+        sentences = [s.text for s in _kiwi.split_into_sents(text)]
+    except Exception:
+        sentences = [text]
+
+    counts = {"formal": 0, "polite": 0, "banmal": 0}
+    banmal_quotes: list[str] = []
+    for sent in sentences:
+        efs = [t.form for t in _kiwi.tokenize(sent) if t.tag == "EF"]
+        if not efs:
+            continue
+        # 문장의 마지막 종결어미가 그 문장의 격식을 결정
+        kind = _classify_ef(efs[-1])
+        counts[kind] += 1
+        if kind == "banmal":
+            banmal_quotes.append(sent.strip()[:60])
+
+    total = sum(counts.values())
+    if total == 0:
+        # 종결어미가 없으면(명사구 답변 등) 마커 휴리스틱으로 근사
+        formal = any(m in text for m in _FALLBACK_FORMAL_MARKERS)
+        return {
+            "formal_ratio": 1.0 if formal else 0.5,
+            "ef_count": 0,
+            "banmal_count": 0,
+            "banmal_quotes": [],
+        }
+    return {
+        "formal_ratio": (counts["formal"] + counts["polite"]) / total,
+        "ef_count": total,
+        "banmal_count": counts["banmal"],
+        "banmal_quotes": banmal_quotes[:3],
+    }

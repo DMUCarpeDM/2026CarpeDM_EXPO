@@ -111,6 +111,7 @@ class ReportOut(BaseModel):
     strengths: list
     improvements: list
     evidence_segments: list
+    headline: dict = {}  # 오늘의 한 문장 {sentence, fit_type, context}
     analysis_ms: int
     mode: int
     difficulty: str

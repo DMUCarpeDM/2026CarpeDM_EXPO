@@ -48,6 +48,7 @@ def get_report(session_id: int, db: Session = Depends(get_db)):
         strengths=report.strengths,
         improvements=report.improvements,
         evidence_segments=report.evidence_segments,
+        headline=report.headline,
         analysis_ms=report.analysis_ms,
         mode=session.mode,
         difficulty=session.difficulty,

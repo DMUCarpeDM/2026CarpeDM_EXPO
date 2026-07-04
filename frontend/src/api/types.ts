@@ -77,6 +77,12 @@ export interface EvidenceSegment {
   suggestion: string;
 }
 
+export interface Headline {
+  sentence: string;
+  fit_type: string;
+  context: string;
+}
+
 export interface Report {
   session_id: number;
   total_score: number;
@@ -84,6 +90,7 @@ export interface Report {
   strengths: string[];
   improvements: string[];
   evidence_segments: EvidenceSegment[];
+  headline: Headline | Record<string, never>;
   analysis_ms: number;
   mode: number;
   difficulty: string;
