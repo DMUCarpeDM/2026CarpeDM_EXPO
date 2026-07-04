@@ -282,6 +282,20 @@ def build_report(
     turn_order = {t.id: t.order for t in session.turns}
     turn_quote = {t.id: t.response_text for t in session.turns}
 
+    # 실시간 코칭 발생 구간 (S-JKEYHS): 어느 턴에서 어떤 안내가 나갔는지 리포트에 재노출
+    live_segments: list[dict] = []
+    for t in session.turns:
+        for tip in (t.nonverbal_metrics or {}).get("tips", [])[:2]:
+            live_segments.append({
+                "turn_id": t.id,
+                "turn_order": t.order,
+                "fit_type": "live",
+                "quote": "",
+                "observed": f"역할극 중 실시간 코칭이 표시됐어요: \"{tip}\"",
+                "interpretation": "안내가 나간 순간이 비언어 습관이 드러난 지점이에요.",
+                "suggestion": "다음 도전에서는 이 구간에서 자세와 시선을 의식적으로 잡아보세요.",
+            })
+
     fit_scores: dict[str, dict] = {}
     strengths: list[str] = []
     improvements: list[str] = []
@@ -347,7 +361,7 @@ def build_report(
         fit_scores=fit_scores,
         strengths=strengths,
         improvements=improvements,
-        evidence_segments=sorted(evidence_segments, key=lambda s: s["turn_order"]),
+        evidence_segments=sorted(evidence_segments + live_segments, key=lambda s: s["turn_order"]),
         headline=headline,
         analysis_ms=analysis_ms,
     )

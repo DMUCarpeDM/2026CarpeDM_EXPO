@@ -39,6 +39,7 @@ export default function RoleplayPage() {
   const recorderRef = useRef(new AudioTurnRecorder());
   const turnStartedAtRef = useRef(0);
   const sttUsedRef = useRef(false);
+  const qualityWarnedRef = useRef(false); // STT 품질 플래그 (S-LFMFHP) — 턴당 1회만 경고
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   const character: Character | undefined = session?.scenario.characters.find(
@@ -160,6 +161,16 @@ export default function RoleplayPage() {
       return;
     }
 
+    // STT 품질 플래그 (S-LFMFHP): 인식 결과가 비정상적으로 짧으면 재응답 권장 (턴당 1회)
+    const syllables = (text.match(/[가-힣]/g) ?? []).length;
+    if (sttUsedRef.current && syllables < 6 && !qualityWarnedRef.current) {
+      qualityWarnedRef.current = true;
+      setDraft(text);
+      setNotice('인식된 내용이 짧아요. 한 문장으로 다시 말하거나, 이대로 보내려면 전달을 한 번 더 눌러주세요.');
+      setSubmitting(false);
+      return;
+    }
+
     try {
       const result = await submitResponse(session.id, currentTurn.id, {
         text,
@@ -170,6 +181,7 @@ export default function RoleplayPage() {
       advance(currentTurn, text, result.next_turn);
       setDraft('');
       sttUsedRef.current = false;
+      qualityWarnedRef.current = false;
       if (result.finished) await finish();
     } catch {
       setNotice('응답 전송에 실패했습니다. 다시 시도해주세요.');

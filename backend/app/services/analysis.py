@@ -5,12 +5,13 @@ FastAPI BackgroundTask로 실행되며 단계별로 session.analysis_progress를
 """
 import time
 import traceback
+from pathlib import Path
 
 from app.ai import nonverbal, response_fit, voice_fit
 from app.ai.scoring import weighted_mean
 from app.ai.stt import get_stt_provider
 from app.core.database import SessionLocal
-from app.models import AnalysisResult, FitType, RoleplaySession, SessionStatus, Turn
+from app.models import AnalysisResult, Consent, FitType, RoleplaySession, SessionStatus, Turn
 from app.services import report as report_service
 from app.services.session_fsm import transition
 
@@ -120,6 +121,15 @@ def run_analysis(session_id: int) -> None:
         _set_progress(db, session, "report", 92)
         analysis_ms = int((time.monotonic() - started) * 1000)
         report_service.build_report(db, session, session_scores, analysis_ms)
+
+        # 7) 저장 정책 적용 (S-CBYKOH): '미저장' 동의면 분석이 끝난 음성 파일을 즉시 삭제
+        consent = db.query(Consent).filter_by(session_id=session.id).first()
+        if consent is None or consent.storage_policy == "none":
+            for t in session.turns:
+                if t.audio_path:
+                    Path(t.audio_path).unlink(missing_ok=True)
+                    t.audio_path = ""
+            db.commit()
 
         transition(session, SessionStatus.completed)
         _set_progress(db, session, "done", 100)

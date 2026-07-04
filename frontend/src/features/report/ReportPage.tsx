@@ -6,6 +6,7 @@ import {
   getProgress,
   getReport,
   issueCode,
+  retryAnalysis,
   type HistoryItem,
 } from '../../api/client';
 import type { Report } from '../../api/types';
@@ -76,6 +77,7 @@ const FIT_ICON: Record<string, IconName> = {
   voice: 'activity',
   eye: 'eye',
   posture: 'user',
+  live: 'spark', // 실시간 코칭 발생 구간
 };
 
 export default function ReportPage() {
@@ -166,7 +168,22 @@ export default function ReportPage() {
     return (
       <div className="page report">
         <div className="error-banner">{error}</div>
-        <button className="primary-btn" onClick={() => navigate('/')}>처음으로</button>
+        <div className="report-actions">
+          <button
+            className="primary-btn"
+            onClick={async () => {
+              try {
+                await retryAnalysis(Number(sessionId));
+                window.location.reload(); // 폴링 재시작
+              } catch {
+                navigate('/');
+              }
+            }}
+          >
+            분석 다시 시도
+          </button>
+          <button className="ghost-btn" onClick={() => navigate('/')}>처음으로</button>
+        </div>
       </div>
     );
   }
@@ -325,7 +342,8 @@ export default function ReportPage() {
               <div className="evidence-meta">
                 <span className="evidence-turn">턴 {seg.turn_order}</span>
                 <span className="evidence-fit">
-                  <Icon name={FIT_ICON[seg.fit_type]} size={13} /> {seg.fit_type}-fit
+                  <Icon name={FIT_ICON[seg.fit_type] ?? 'search'} size={13} />{' '}
+                  {seg.fit_type === 'live' ? '실시간 코칭' : `${seg.fit_type}-fit`}
                 </span>
               </div>
               {seg.quote && <blockquote>“{seg.quote}”</blockquote>}

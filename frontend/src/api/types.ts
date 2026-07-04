@@ -48,6 +48,7 @@ export interface NonverbalMetrics {
   head_down_ratio: number;
   posture_sway: number;
   frames: number;
+  tips: string[]; // 턴 중 발생한 실시간 코칭 문구
 }
 
 export interface NextTurnResult {

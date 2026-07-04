@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60 * 24
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
     media_dir: Path = Path("./media")
+    # 익명/계정 저장 동의 시 음성 파일 보관 일수 (S-CBYKOH). '미저장' 동의는 분석 직후 삭제.
+    media_retention_days: int = 7
 
     # 서버 STT(오프라인 폴백)용 Vosk 한국어 모델 경로 — scripts/setup_offline_stt.py로 다운로드
     stt_model_dir: Path = Path("./models/vosk-ko")

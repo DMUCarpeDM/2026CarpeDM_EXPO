@@ -71,7 +71,17 @@ export async function uploadAudio(
 ): Promise<{ ok: boolean; transcript: string }> {
   const form = new FormData();
   form.append('file', wav, 'response.wav');
-  return (await api.post(`/sessions/${sessionId}/turns/${turnId}/audio`, form)).data;
+  const url = `/sessions/${sessionId}/turns/${turnId}/audio`;
+  try {
+    return (await api.post(url, form)).data;
+  } catch {
+    // 전시장 네트워크 순단 대비 1회 자동 재전송 (S-UKMAHL)
+    return (await api.post(url, form)).data;
+  }
+}
+
+export async function retryAnalysis(sessionId: number): Promise<void> {
+  await api.post(`/sessions/${sessionId}/retry-analysis`);
 }
 
 export async function getHealth(): Promise<{ ok: boolean; server_stt: string | null }> {

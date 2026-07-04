@@ -175,6 +175,25 @@ def finish_session(
     return ProgressOut(status=session.status.value, stage="queued", pct=0)
 
 
+@router.post("/{session_id}/retry-analysis", response_model=ProgressOut, status_code=202)
+def retry_analysis(
+    session_id: int,
+    background: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    """분석 실패 시 재시도 (S-TLJZWB) — analyzing 상태에서 error로 멈춘 세션만 재큐잉."""
+    session = db.get(RoleplaySession, session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다")
+    progress = session.analysis_progress or {}
+    if session.status != SessionStatus.analyzing or progress.get("stage") != "error":
+        raise HTTPException(status_code=409, detail="재시도할 수 있는 상태가 아닙니다")
+    session.analysis_progress = {"stage": "queued", "pct": 0}
+    db.commit()
+    background.add_task(run_analysis, session_id)
+    return ProgressOut(status=session.status.value, stage="queued", pct=0)
+
+
 @router.get("/{session_id}/progress", response_model=ProgressOut)
 def get_progress(session_id: int, db: Session = Depends(get_db)):
     session = db.get(RoleplaySession, session_id)

@@ -46,6 +46,7 @@ interface Accumulator {
   tiltSum: number;
   headDownFrames: number;
   shoulderXs: number[];
+  tips: string[]; // 이 턴에서 발생한 실시간 코칭 (리포트 연동, S-JKEYHS)
 }
 
 const emptyAcc = (): Accumulator => ({
@@ -56,6 +57,7 @@ const emptyAcc = (): Accumulator => ({
   tiltSum: 0,
   headDownFrames: 0,
   shoulderXs: [],
+  tips: [],
 });
 
 export interface CoachingTip {
@@ -103,6 +105,7 @@ export function useNonverbal(
     if (tipCountRef.current >= 3 || now - lastTipAtRef.current < 20000) return;
     tipCountRef.current += 1;
     lastTipAtRef.current = now;
+    accRef.current.tips.push(text); // 발생 턴에 기록 → 리포트 근거 구간에 표시
     const id = now;
     setTip({ id, text });
     setTimeout(() => setTip((t) => (t?.id === id ? null : t)), 4000);
@@ -283,6 +286,7 @@ export function useNonverbal(
       head_down_ratio: acc.headDownFrames / acc.frames,
       posture_sway: sway,
       frames: acc.frames,
+      tips: acc.tips,
     };
   }, []);
 

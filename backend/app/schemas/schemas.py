@@ -82,6 +82,7 @@ class NonverbalIn(BaseModel):
     head_down_ratio: float = 0.0
     posture_sway: float = 0.0
     frames: int = 0
+    tips: list[str] = []  # 턴 중 발생한 실시간 코칭 (S-JKEYHS 리포트 연동)
 
 
 class ResponseIn(BaseModel):
