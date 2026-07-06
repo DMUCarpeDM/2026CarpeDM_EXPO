@@ -2,7 +2,7 @@
 
 > 사용법: 아래 코드 블록 전체를 새 Claude Code 세션의 첫 메시지로 붙여넣는다.
 > 이 문서 자체가 최신 상태 스냅샷이므로, 큰 작업이 끝날 때마다 갱신해서 커밋할 것.
-> (마지막 갱신: 2026-07-07, 교차 분석 마스터 완료 시점)
+> (마지막 갱신: 2026-07-07, Posture 마스터(③) 완료 시점 — 마스터리 ⓪①②③⑥ 완료)
 
 ```
 너는 2026 동양미래EXPO 출품작 "4-Fit 미러팅"의 개발 파트너다. 이전 세션들에서
@@ -51,7 +51,7 @@ QR로 폰에서 상세 첨삭을 가져간다. 목표: 8/1 중간심사, 10월 �
 - 백엔드 venv가 워크트리에 없을 수 있다 → /Users/do_not_delay/Desktop/EXPO/backend/.venv/bin/python 사용
 - Vosk 모델: backend/models가 없으면
   ln -s /Users/do_not_delay/Desktop/EXPO/backend/models backend/models (gitignored)
-- 테스트: cd backend && <venv>/python -m pytest tests/ -q  (현재 173 passed, 4 skipped
+- 테스트: cd backend && <venv>/python -m pytest tests/ -q  (현재 176 passed, 4 skipped
   — skipped는 라이브 Ollama 임베딩 검증, 전시 PC에서 실행)
 - 실행: backend 포트 8000 (uvicorn), frontend 5173 (npm run dev). 미러 모드는
   /kiosk 진입으로 활성화(localStorage 유지, 운영자 우상단 3초 롱프레스로 해제)
@@ -72,7 +72,7 @@ QR로 폰에서 상세 첨삭을 가져간다. 목표: 8/1 중간심사, 10월 �
 상태 머신 → 에피소드 도입 변주·하루의 결말 3분기. Ollama exaone3.5:2.4b로
 리액션/후속 질문 개인화(템플릿 폴백). 시드는 in-medias-res·신입 개발자 서사.
 
-[AI 측정 스택 — 마스터리 플랜 ⓪①②⑥ 완료]
+[AI 측정 스택 — 마스터리 플랜 ⓪①②③⑥ 완료]
 - Response: 키워드+로컬 임베딩 의미 매칭(semantic_match.py, nomic-embed-text,
   임계 0.66 — scripts/calibrate_semantic.py로 보정), 담화 구조(discourse.py:
   결론 선행 BLUF·기한 있는 약속·책임 문형·헤지 밀도·질문 정합성·만연체·대안 없는
@@ -84,8 +84,10 @@ QR로 폰에서 상세 첨삭을 가져간다. 목표: 8/1 중간심사, 10월 �
 - Eye: 홍채 기반 시선(468~477 랜드마크, 머리 자세 보상 — "구제 전용" 보수 설계),
   눈-단독 이탈, 듣기/말하기 응시 분리(페이즈 태깅), 응시 리듬(바우트 3~8s 밴드),
   개시 회피 관용(2.5s), 3×3 시선 존, score_eye v2(v1 하위 호환)
-- Posture/표정(관찰): 손-얼굴·팔짱 습관, 입술 압축·찡그림, 미소 타이밍(압박 교차),
-  리닝 추세, 시선 안정성·회복
+- Posture: 3D 월드 랜드마크(worldLandmarks, 거리 불변) — 몸통 수직 정렬(중립
+  보정)·체중 이동(cm)·제스처 에너지·경직(답변 중 손 정지)·후반 붕괴(3D)·가시성
+  게이트·다인 난입 가드·측정 범위(full/torso/upper)·score v2 하위 호환. 습관
+  카드에 경직·체중 이동 추가. 표정(관찰): 입술 압축·찡그림, 미소 타이밍
 - 교차 분석(deep_analysis.py + moments.py): 결정적 순간 감지(2s 빈 타임라인 ×
   음성 스팬 × 턴 맥락 시간 정렬, 복합 순간 승격, "그때 하던 말" 인용, 상위 3건),
   압박 내성 프로파일(침착/회복/동요형), 적응 곡선, 신뢰도 라벨(확실/참고/보류),
@@ -102,15 +104,14 @@ frontend/src/features/roleplay/: RoleplayPage(로직), RoleplayMirrorView,
   useNonverbal(MediaPipe 측정 전부)
 frontend/src/components/: MirrorStage, FrameGlow, OperatorPanel
 frontend/src/lib/: mirrorMode, useFaceWake, visionAssets, tts, stt, recorder
-docs/: mirror-ux-plan(UX 헌법), ai-mastery-plan(진행: ⓪①②⑥ 완료, ③④⑤ 남음),
+docs/: mirror-ux-plan(UX 헌법), ai-mastery-plan(진행: ⓪①②③⑥ 완료, ④⑤ 남음),
   planning-council(기획 리부트 프롬프트 8종), hardware-plan(발주 마지노선 7/11),
   fable-playbook(역할 프롬프트 11종), pitch/(발표 키트), demo-checklist
 
 ■ 남은 백로그 (우선순위 순)
 1. 마스터리 ⑤ 표정 레이어(짧음): Duchenne 미소 근사(mouthSmile+eyeSquint 동시),
    표정 복구 시간(압박 직후) — 관찰 지표 원칙 유지, moments의 재료로 연결
-2. 마스터리 ③ Posture(실기기 주간 7/14~18 동기): MediaPipe worldLandmarks 3D
-   전환(거리 불변), 제스처 에너지(경직 감지), visibility 신뢰 게이트, 다인 배제
+2. (③ Posture 완료 — 실기기 검증만 demo-checklist §2.5에 남음)
 3. 마스터리 ④ Eye 마무리: 수직 홍채, 시선 존 히트맵 웹 리포트 시각화, 깜빡임
    동역학(기저선 대비), 실기기 부호 검증
 4. 실기기 검증 항목(사람+Fable): demo-checklist §2.5 — 떨림 임계값 육성 보정,

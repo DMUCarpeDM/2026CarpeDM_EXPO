@@ -82,6 +82,17 @@ interface Accumulator {
   // 교차 분석용 2초 빈 타임라인 — 영상이 아니라 빈당 집계 숫자 3개만 (프라이버시 유지)
   turnStartedAt: number;
   bins: { frames: number; front: number; press: number; tiltSum: number }[];
+  // ---- Posture 마스터: 3D 월드 랜드마크 기반 (미터 단위, 거리 불변) ----
+  torsoLeanSamples: number[]; // 몸통 수직 정렬 편차 (deg, 기준 보정)
+  hipXs: number[]; // 골반 중심 x (m) — 좌우 체중 이동
+  gestureSpeeds: number[]; // 손목 이동 속도 (cm/s) — 제스처 에너지
+  answerGestureFrames: number; // 답변 중 제스처 측정 프레임
+  answerFreezeFrames: number; // 답변 중 손이 얼어 있던 프레임 (<1cm/s)
+  poseVisSum: number; // 포즈 가시성 합 (신뢰 게이트)
+  poseVisFrames: number;
+  hipVisibleFrames: number; // 골반 가시 = 몸통 측정 가능
+  kneeVisibleFrames: number; // 무릎 가시 = 전신 측정
+  personSwitchSkips: number; // 다인 난입 가드로 폐기한 프레임
   tips: string[]; // 이 턴에서 발생한 실시간 코칭 (리포트 연동, S-JKEYHS)
 }
 
@@ -120,11 +131,26 @@ const emptyAcc = (): Accumulator => ({
   gazeZones: [0, 0, 0, 0, 0, 0, 0, 0, 0],
   turnStartedAt: 0,
   bins: [],
+  torsoLeanSamples: [],
+  hipXs: [],
+  gestureSpeeds: [],
+  answerGestureFrames: 0,
+  answerFreezeFrames: 0,
+  poseVisSum: 0,
+  poseVisFrames: 0,
+  hipVisibleFrames: 0,
+  kneeVisibleFrames: 0,
+  personSwitchSkips: 0,
   tips: [],
 });
 
 const TIMELINE_BIN_MS = 2000;
 const TIMELINE_MAX_BINS = 120; // 4분 상한 — 페이로드 폭주 방지
+
+// ---- Posture 마스터 상수 ----
+const POSE_VIS_MIN = 0.5; // 이 미만 가시성 랜드마크는 측정에서 제외 (신뢰 게이트)
+const PERSON_SWITCH_JUMP = 0.25; // 어깨 폭(m) 프레임 간 급변 비율 — 난입/전환 가드
+const FREEZE_SPEED_CMS = 1.0; // 이 미만이면 손이 '얼어 있음'
 
 interface Baseline {
   set: boolean;
@@ -133,10 +159,13 @@ interface Baseline {
   headGap: number | null; // 코-어깨 수직 거리 / 어깨너비
   roll: number; // 평상시 눈선 각도
   eyeX: number | null; // 정면 응시 때의 홍채 수평 편향 (개인별 눈 정렬 보정)
+  torsoLean: number | null; // 평상시 몸통 수직 정렬 각 (3D, 개인 중립 자세 보정)
+  shoulderWidthM: number | null; // 어깨 폭(m) — 사람 고유값, 난입 가드 기준
 }
 
 const emptyBaseline = (): Baseline => ({
   set: false, asym: 0, tilt: 0, headGap: null, roll: 0, eyeX: null,
+  torsoLean: null, shoulderWidthM: null,
 });
 
 export interface CoachingTip {
@@ -188,7 +217,12 @@ export function useNonverbal(
   const calibratingRef = useRef(false);
   const calibSamplesRef = useRef<{
     asym: number[]; tilt: number[]; headGap: number[]; roll: number[]; eyeX: number[];
-  }>({ asym: [], tilt: [], headGap: [], roll: [], eyeX: [] });
+    torsoLean: number[]; shoulderWidthM: number[];
+  }>({ asym: [], tilt: [], headGap: [], roll: [], eyeX: [], torsoLean: [], shoulderWidthM: [] });
+  // 제스처 에너지: 직전 프레임 손목 월드 좌표 (속도 계산용)
+  const prevWristsRef = useRef<{ l: [number, number, number] | null; r: [number, number, number] | null }>({
+    l: null, r: null,
+  });
   // 대화 페이즈 — 듣기(상대 TTS) vs 말하기(답변). 듣기 시선과 말하기 시선은
   // 커뮤니케이션에서 다른 역량이므로 분리 측정한다.
   const gazePhaseRef = useRef<'listening' | 'answering' | null>(null);
@@ -286,6 +320,7 @@ export function useNonverbal(
           try {
             const faceResult = face.detectForVideo(video, ts);
             const poseResult = pose.detectForVideo(video, ts + 0.001);
+            const wlm = poseResult.worldLandmarks?.[0]; // 미터 단위 3D — 거리 불변 측정
             const lm = faceResult.faceLandmarks?.[0];
             const plm = poseResult.landmarks?.[0];
 
@@ -369,6 +404,86 @@ export function useNonverbal(
               }
             }
 
+            // ---- 3D 월드 포즈: 몸통 정렬·체중 이동·제스처 (미터 단위, 거리 불변) ----
+            let torsoLeanDelta: number | null = null;
+            let hipX: number | null = null;
+            let gestureSpeed: number | null = null; // cm/s
+            let hipVisible = false;
+            let kneeVisible = false;
+            let torsoLeanRaw: number | null = null;
+            let shoulderWidthM: number | null = null;
+            let personGuardSkip = false;
+            if (wlm) {
+              const vis = (p?: { visibility?: number }) => p?.visibility ?? 0;
+              const d3 = (a: { x: number; y: number; z: number }, b: { x: number; y: number; z: number }) =>
+                Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+              const wls = wlm[11];
+              const wrs = wlm[12];
+              if (vis(wls) > POSE_VIS_MIN && vis(wrs) > POSE_VIS_MIN) {
+                shoulderWidthM = d3(wls, wrs);
+                // 다인 난입 가드: 어깨 폭(m)은 사람 고유 — 기준 대비 급변 프레임 폐기
+                if (base.shoulderWidthM
+                    && Math.abs(shoulderWidthM - base.shoulderWidthM) / base.shoulderWidthM
+                       > PERSON_SWITCH_JUMP) {
+                  personGuardSkip = true;
+                  acc.personSwitchSkips += 1;
+                }
+                acc.poseVisSum += (vis(wls) + vis(wrs)) / 2;
+                acc.poseVisFrames += 1;
+
+                const wlh = wlm[23];
+                const wrh = wlm[24];
+                if (!personGuardSkip && vis(wlh) > POSE_VIS_MIN && vis(wrh) > POSE_VIS_MIN) {
+                  hipVisible = true;
+                  // 몸통 수직 정렬: 골반 중심→어깨 중심 벡터가 수직축에서 벗어난 각.
+                  // 절대 부호 대신 크기 + 개인 중립 자세(캘리브레이션) 델타로 판정.
+                  const sx = (wls.x + wrs.x) / 2 - (wlh.x + wrh.x) / 2;
+                  const sy = (wls.y + wrs.y) / 2 - (wlh.y + wrh.y) / 2;
+                  const sz = (wls.z + wrs.z) / 2 - (wlh.z + wrh.z) / 2;
+                  torsoLeanRaw =
+                    (Math.atan2(Math.hypot(sx, sz), Math.abs(sy) + 1e-6) * 180) / Math.PI;
+                  torsoLeanDelta = base.torsoLean !== null
+                    ? torsoLeanRaw - base.torsoLean
+                    : null;
+                  hipX = (wlh.x + wrh.x) / 2;
+                  kneeVisible = vis(wlm[25]) > POSE_VIS_MIN && vis(wlm[26]) > POSE_VIS_MIN;
+                }
+
+                // 제스처 에너지: 손목 이동 속도(cm/s) — 경직/과다 양끝 관찰
+                if (!personGuardSkip) {
+                  const wlw = wlm[15];
+                  const wrw = wlm[16];
+                  const prev = prevWristsRef.current;
+                  const speeds: number[] = [];
+                  if (vis(wlw) > POSE_VIS_MIN) {
+                    if (prev.l) {
+                      speeds.push(
+                        Math.hypot(wlw.x - prev.l[0], wlw.y - prev.l[1], wlw.z - prev.l[2])
+                        * 100 / (SAMPLE_MS / 1000),
+                      );
+                    }
+                    prev.l = [wlw.x, wlw.y, wlw.z];
+                  } else {
+                    prev.l = null;
+                  }
+                  if (vis(wrw) > POSE_VIS_MIN) {
+                    if (prev.r) {
+                      speeds.push(
+                        Math.hypot(wrw.x - prev.r[0], wrw.y - prev.r[1], wrw.z - prev.r[2])
+                        * 100 / (SAMPLE_MS / 1000),
+                      );
+                    }
+                    prev.r = [wrw.x, wrw.y, wrw.z];
+                  } else {
+                    prev.r = null;
+                  }
+                  if (speeds.length) {
+                    gestureSpeed = speeds.reduce((a, b) => a + b, 0) / speeds.length;
+                  }
+                }
+              }
+            }
+
             // ---- 캘리브레이션 수집 (브리핑 동안: 정면·평상 자세 기준값) ----
             if (calibratingRef.current) {
               const cal = calibSamplesRef.current;
@@ -377,6 +492,10 @@ export function useNonverbal(
               if (headGap !== null) cal.headGap.push(headGap);
               if (rollDeg !== null) cal.roll.push(rollDeg);
               if (eyeInHeadX !== null) cal.eyeX.push(eyeInHeadX);
+              if (torsoLeanRaw !== null) cal.torsoLean.push(torsoLeanRaw);
+              if (shoulderWidthM !== null && !personGuardSkip) {
+                cal.shoulderWidthM.push(shoulderWidthM);
+              }
             }
 
             // ---- 기준 대비 판정: 시선 = 머리 자세 + 홍채 보상 ----
@@ -501,6 +620,19 @@ export function useNonverbal(
                 acc.asymSamples.push(base.set ? signedAsym - base.asym : signedAsym);
               }
               if (shoulderWidth !== null) acc.shoulderWidths.push(shoulderWidth);
+
+              // ---- 3D 포즈 집계 ----
+              if (torsoLeanDelta !== null) acc.torsoLeanSamples.push(torsoLeanDelta);
+              if (hipX !== null) acc.hipXs.push(hipX);
+              if (hipVisible) acc.hipVisibleFrames += 1;
+              if (kneeVisible) acc.kneeVisibleFrames += 1;
+              if (gestureSpeed !== null) {
+                acc.gestureSpeeds.push(gestureSpeed);
+                if (gazePhaseRef.current === 'answering') {
+                  acc.answerGestureFrames += 1;
+                  if (gestureSpeed < FREEZE_SPEED_CMS) acc.answerFreezeFrames += 1;
+                }
+              }
               acc.lastFront = front;
               if (blink && !acc.blinkActive) acc.blinkCount += 1;
               acc.blinkActive = blink;
@@ -546,7 +678,9 @@ export function useNonverbal(
 
   /** 브리핑 표시 중 호출 — 정면 기준값 수집 시작 */
   const startCalibration = useCallback(() => {
-    calibSamplesRef.current = { asym: [], tilt: [], headGap: [], roll: [], eyeX: [] };
+    calibSamplesRef.current = {
+      asym: [], tilt: [], headGap: [], roll: [], eyeX: [], torsoLean: [], shoulderWidthM: [],
+    };
     calibratingRef.current = true;
   }, []);
 
@@ -563,6 +697,9 @@ export function useNonverbal(
         roll: cal.roll.length >= 4 ? median(cal.roll) : 0,
         // 홍채 기준은 표본 분산까지 확인 — 흔들리는 표본으로 보상하면 오판을 만든다
         eyeX: cal.eyeX.length >= 4 && stdDev(cal.eyeX) < 0.08 ? median(cal.eyeX) : null,
+        // 3D 몸통 기준: 개인 중립 자세 + 어깨 폭(난입 가드 기준값)
+        torsoLean: cal.torsoLean.length >= 4 ? median(cal.torsoLean) : null,
+        shoulderWidthM: cal.shoulderWidthM.length >= 4 ? median(cal.shoulderWidthM) : null,
       };
     }
   }, []);
@@ -681,6 +818,40 @@ export function useNonverbal(
         const h = Math.floor(w.length / 2);
         return Math.round((mean(w.slice(h)) / mean(w.slice(0, h)) - 1) * 100);
       })(),
+      // ---- 3D 월드 포즈 (미터 단위, 거리 불변 — 카메라와의 거리가 달라도 같은 판정) ----
+      // 몸통 수직 정렬 편차: 개인 중립 자세 대비 평균 |기울어짐| (캘리브레이션 없으면 0)
+      torso_lean_deg: acc.torsoLeanSamples.length >= 5
+        ? Math.round(mean(acc.torsoLeanSamples.map(Math.abs)) * 10) / 10
+        : 0,
+      // 몸통 붕괴 추세: 후반-전반 정렬 편차 변화 (양수 = 후반에 더 기울어짐)
+      torso_drift_deg: (() => {
+        const s = acc.torsoLeanSamples;
+        if (s.length < 10) return 0;
+        const h = Math.floor(s.length / 2);
+        return Math.round(
+          (mean(s.slice(h).map(Math.abs)) - mean(s.slice(0, h).map(Math.abs))) * 10,
+        ) / 10;
+      })(),
+      // 좌우 체중 이동: 골반 중심 x 표준편차 (cm) — 초조한 흔들림의 물리량
+      weight_shift_cm: acc.hipXs.length >= 10
+        ? Math.round(stdDev(acc.hipXs) * 1000) / 10
+        : 0,
+      // 제스처 에너지: 손목 평균 속도 (cm/s) — 경직(≈0)과 과다 양끝 관찰
+      gesture_energy: acc.gestureSpeeds.length >= 10
+        ? Math.round(mean(acc.gestureSpeeds) * 10) / 10
+        : null,
+      // 답변 중 손이 얼어 있던 비율 — "말하는 동안 몸이 정지"는 긴장 경직 신호
+      gesture_freeze_ratio: acc.answerGestureFrames >= 10
+        ? Math.round((acc.answerFreezeFrames / acc.answerGestureFrames) * 100) / 100
+        : null,
+      // 측정 범위: full(무릎까지) / torso(골반까지) / upper(어깨만) — 판정 신뢰 맥락
+      body_coverage: acc.kneeVisibleFrames / acc.frames >= 0.3
+        ? 'full'
+        : acc.hipVisibleFrames / acc.frames >= 0.3 ? 'torso' : 'upper',
+      pose_confidence: acc.poseVisFrames
+        ? Math.round((acc.poseVisSum / acc.poseVisFrames) * 100) / 100
+        : 0,
+      person_switch_skips: acc.personSwitchSkips,
       calibrated: baselineRef.current.set,
       tips: acc.tips,
     };

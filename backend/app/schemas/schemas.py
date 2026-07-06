@@ -111,6 +111,15 @@ class NonverbalIn(BaseModel):
     gaze_stability: float = 0.0  # 정면 내 시선 흔들림 표준편차 (스캐닝 습관)
     gaze_recover_sec: float = 0.0  # 이탈 후 정면 복귀 평균 시간 (회복 탄력)
     lean_drift_pct: float = 0.0  # 후반 어깨폭 변화 % (+ 다가옴 / - 물러남)
+    # ---- 3D 월드 포즈 (미터 단위, 거리 불변) ----
+    torso_lean_deg: float = 0.0  # 몸통 수직 정렬 편차 (개인 중립 대비)
+    torso_drift_deg: float = 0.0  # 몸통 붕괴 추세 (후반-전반)
+    weight_shift_cm: float = 0.0  # 좌우 체중 이동 (골반 x 표준편차 cm)
+    gesture_energy: float | None = None  # 손목 평균 속도 (cm/s)
+    gesture_freeze_ratio: float | None = None  # 답변 중 손 정지 비율 (경직)
+    body_coverage: str = "upper"  # full | torso | upper — 측정 범위
+    pose_confidence: float = 0.0  # 포즈 가시성 평균
+    person_switch_skips: int = 0  # 다인 난입 가드 폐기 프레임
     calibrated: bool = False  # 정면 기준 캘리브레이션 적용 여부
     tips: list[str] = []  # 턴 중 발생한 실시간 코칭 (S-JKEYHS 리포트 연동)
 

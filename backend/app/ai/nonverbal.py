@@ -39,6 +39,13 @@ HEAD_DOWN_BANDS = (0.0, 0.2, 0.0, 0.7)
 # 상체 흔들림(어깨 중심 x 표준편차/어깨너비): 5% 이내는 정지 자세로 인지,
 # 22% 이상은 몸을 흔드는 습관으로 보인다.
 SWAY_BANDS = (0.0, 0.05, 0.0, 0.22)
+# ---- 3D 월드 포즈 밴드 (미터 단위 — 카메라 거리와 무관) ----
+# 몸통 수직 정렬: 개인 중립 자세 대비 6° 이내는 자연 변동, 15°+ 는 확연히
+# 기울어진/구부정한 자세로 관찰자가 인지한다.
+TORSO_LEAN_BANDS = (0.0, 6.0, 0.0, 15.0)
+# 좌우 체중 이동(골반 x 표준편차): 서서 말할 때 2.5cm 이내는 안정,
+# 7cm+ 반복 이동은 초조한 몸짓으로 읽힌다.
+WEIGHT_SHIFT_BANDS = (0.0, 2.5, 0.0, 7.0)
 
 MIN_FRAMES = 5  # 이보다 적으면 신뢰 불가로 미측정 처리
 
@@ -87,11 +94,29 @@ def score_eye(metrics: dict, duration_sec: float) -> float | None:
 
 
 def score_posture(metrics: dict) -> float | None:
+    """Posture-Fit v2 — 3D 월드 지표(몸통 정렬·체중 이동)가 있으면 반영.
+
+    v1 페이로드(2D만)에는 v1과 동일하게 동작한다(하위 호환).
+    3D 지표는 카메라 거리 불변이므로, 있으면 더 신뢰할 수 있는 축이 된다.
+    제스처(경직/과다)는 관찰 지표 — 점수에 넣지 않는다 (개인차가 커서 오판 위험).
+    """
     if not metrics or metrics.get("frames", 0) < MIN_FRAMES:
         return None
-    parts = [
-        (band_score(metrics.get("avg_shoulder_tilt_deg", 0.0), *SHOULDER_TILT_BANDS), 0.4),
-        (band_score(metrics.get("head_down_ratio", 0.0), *HEAD_DOWN_BANDS), 0.35),
-        (band_score(metrics.get("posture_sway", 0.0), *SWAY_BANDS), 0.25),
-    ]
+    torso = metrics.get("torso_lean_deg", 0)
+    weight = metrics.get("weight_shift_cm", 0)
+    has_3d = bool(torso) or bool(weight)
+    if has_3d:
+        parts = [
+            (band_score(metrics.get("avg_shoulder_tilt_deg", 0.0), *SHOULDER_TILT_BANDS), 0.25),
+            (band_score(torso, *TORSO_LEAN_BANDS), 0.25),
+            (band_score(metrics.get("head_down_ratio", 0.0), *HEAD_DOWN_BANDS), 0.20),
+            (band_score(metrics.get("posture_sway", 0.0), *SWAY_BANDS), 0.15),
+            (band_score(weight, *WEIGHT_SHIFT_BANDS), 0.15),
+        ]
+    else:
+        parts = [
+            (band_score(metrics.get("avg_shoulder_tilt_deg", 0.0), *SHOULDER_TILT_BANDS), 0.4),
+            (band_score(metrics.get("head_down_ratio", 0.0), *HEAD_DOWN_BANDS), 0.35),
+            (band_score(metrics.get("posture_sway", 0.0), *SWAY_BANDS), 0.25),
+        ]
     return clamp(weighted_mean(parts))

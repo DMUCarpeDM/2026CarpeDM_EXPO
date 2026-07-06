@@ -120,3 +120,28 @@ def test_eye_v2_natural_bout_rhythm_rewarded():
     natural = score_eye({**base, "contact_bout_mean_sec": 5.0}, 30)   # 3~8초 리듬
     darting = score_eye({**base, "contact_bout_mean_sec": 0.6}, 30)   # 눈맞춤 미성립
     assert natural > darting
+
+
+# ---- Posture-Fit v2: 3D 몸통 정렬·체중 이동 (하위 호환) ----
+
+def test_posture_v2_backward_compatible():
+    v1 = {"avg_shoulder_tilt_deg": 3.0, "head_down_ratio": 0.1,
+          "posture_sway": 0.03, "frames": 40}
+    assert score_posture(dict(v1)) == score_posture(dict(v1))
+    assert score_posture(v1) > 80
+
+
+def test_posture_v2_torso_lean_penalized():
+    base = {"avg_shoulder_tilt_deg": 3.0, "head_down_ratio": 0.1,
+            "posture_sway": 0.03, "frames": 40, "weight_shift_cm": 1.0}
+    upright = score_posture({**base, "torso_lean_deg": 2.0})
+    slouched = score_posture({**base, "torso_lean_deg": 14.0})
+    assert upright > slouched + 10
+
+
+def test_posture_v2_weight_shift_penalized():
+    base = {"avg_shoulder_tilt_deg": 3.0, "head_down_ratio": 0.1,
+            "posture_sway": 0.03, "frames": 40, "torso_lean_deg": 2.0}
+    steady = score_posture({**base, "weight_shift_cm": 1.0})
+    swaying = score_posture({**base, "weight_shift_cm": 6.5})
+    assert steady > swaying + 8

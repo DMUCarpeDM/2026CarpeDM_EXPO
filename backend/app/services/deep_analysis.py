@@ -98,6 +98,7 @@ _COMPOSURE_PROBES = [
     ("긴장 표정(입술 압축)", +0.15, lambda nv, vm: nv.get("mouth_press_ratio")),
     ("목소리 떨림", +4.0, lambda nv, vm: vm.get("f0_jitter_pct")),
     ("침묵 비율", +0.15, lambda nv, vm: vm.get("pause_ratio")),
+    ("체중 이동", +2.0, lambda nv, vm: nv.get("weight_shift_cm") or None),
 ]
 
 

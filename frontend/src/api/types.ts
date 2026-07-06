@@ -84,6 +84,15 @@ export interface NonverbalMetrics {
   gaze_stability: number; // 정면 내 시선 흔들림 표준편차 (스캐닝 습관)
   gaze_recover_sec: number; // 이탈 후 정면 복귀 평균 시간 (회복 탄력)
   lean_drift_pct: number; // 후반 어깨폭 변화 % (+는 다가옴, -는 물러남)
+  // ---- 3D 월드 포즈 (미터 단위, 거리 불변) ----
+  torso_lean_deg: number; // 몸통 수직 정렬 편차 (개인 중립 자세 대비)
+  torso_drift_deg: number; // 몸통 붕괴 추세 (후반-전반)
+  weight_shift_cm: number; // 좌우 체중 이동 (골반 x 표준편차, cm)
+  gesture_energy: number | null; // 손목 평균 속도 (cm/s)
+  gesture_freeze_ratio: number | null; // 답변 중 손 정지 비율 (경직)
+  body_coverage: 'full' | 'torso' | 'upper'; // 측정 범위
+  pose_confidence: number; // 포즈 가시성 평균 (신뢰 게이트)
+  person_switch_skips: number; // 다인 난입 가드로 폐기한 프레임
   calibrated: boolean; // 정면 기준 캘리브레이션 적용 여부
   tips: string[]; // 턴 중 발생한 실시간 코칭 문구
 }

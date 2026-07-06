@@ -424,6 +424,15 @@ def _fit_detail_metrics(fit: FitType, results: list[AnalysisResult]) -> list[dic
         if blink:
             add("깜빡임", f"분당 {round(blink)}회")
     elif fit == FitType.posture:
+        torso = _mean_metric(results, "torso_lean_deg")
+        if torso:
+            add("몸통 정렬(3D)", f"중립 대비 {torso:.1f}°")
+        weight = _mean_metric(results, "weight_shift_cm")
+        if weight and weight >= 1.5:
+            add("체중 이동", f"좌우 {weight:.1f}cm")
+        gesture = _mean_metric(results, "gesture_energy")
+        if gesture is not None:
+            add("제스처 에너지", f"{gesture:.0f}cm/s")
         tilt = _mean_metric(results, "avg_shoulder_tilt_deg")
         add("어깨 기울기", f"{tilt:.1f}°" if tilt is not None else None)
         head = _mean_metric(results, "head_down_ratio")
@@ -431,12 +440,9 @@ def _fit_detail_metrics(fit: FitType, results: list[AnalysisResult]) -> list[dic
         hand = sum(r.raw_metrics.get("hand_face_sec", 0) for r in results)
         if hand >= 3:
             add("손-얼굴 터치", f"누적 {hand:.0f}초")
-        roll = _mean_metric(results, "head_roll_deg")
-        if roll is not None and roll > 0.5:
-            add("고개 갸웃", f"{roll:.1f}°")
-        drift = max((r.raw_metrics.get("tilt_drift_deg", 0) for r in results), default=0)
-        if drift > 1:
-            add("후반 변화", f"+{drift}°")
+        drift = max((r.raw_metrics.get("torso_drift_deg", 0) for r in results), default=0)
+        if drift > 2:
+            add("후반 붕괴(3D)", f"+{drift}°")
     return rows[:4]
 
 
@@ -545,6 +551,28 @@ def _habit_segments(session: RoleplaySession) -> list[dict]:
             "입술을 꾹 누르는 긴장 표정이 반복적으로 관찰됐어요.",
             "긴장 자체는 자연스러워요 — 다만 말 사이 침묵과 겹치면 위축돼 보일 수 있어요.",
             "답하기 전에 숨을 한 번 내쉬고 시작하면 표정이 함께 풀려요.",
+        ))
+
+    # 경직: 답변 중 손이 거의 움직이지 않음 — 아무도 안 잡는 축 (제스처 부재)
+    freeze = [
+        t.nonverbal_metrics.get("gesture_freeze_ratio")
+        for t in turns
+        if t.nonverbal_metrics.get("gesture_freeze_ratio") is not None
+    ]
+    if len(freeze) >= 2 and sum(freeze) / len(freeze) >= 0.85:
+        segs.append(seg(
+            "답변하는 동안 손이 거의 움직이지 않았어요 (정지 비율 85%+).",
+            "몸이 얼어 있으면 말도 경직되게 들려요 — 긴장이 몸부터 잠그는 패턴이에요.",
+            "핵심 단어에서 손바닥을 살짝 펴 보이는 것 하나만 연습해보세요. 몸이 풀리면 목소리도 풀립니다.",
+        ))
+
+    # 체중 이동: 좌우로 반복해서 무게를 옮기는 초조한 몸짓
+    weight = [t.nonverbal_metrics.get("weight_shift_cm", 0) for t in turns]
+    if weight and sum(weight) / len(weight) >= 4.0:
+        segs.append(seg(
+            f"발화 중 좌우 체중 이동이 평균 {sum(weight) / len(weight):.1f}cm 관찰됐어요.",
+            "몸이 좌우로 흔들리면 듣는 사람도 시선이 흔들려서, 말의 안정감이 깎여요.",
+            "발을 어깨너비로 두고 무게를 양발에 고정해보세요. 하체가 고요하면 상체는 자유로워집니다.",
         ))
 
     # 미소 타이밍: 압박 질문 중의 미소는 당황·비웃음으로 오해될 수 있다
