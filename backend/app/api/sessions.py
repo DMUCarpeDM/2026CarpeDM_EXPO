@@ -9,9 +9,18 @@ from app.api.scenarios import to_scenario_out
 from app.core.config import settings
 from app.core.database import get_db
 from app.models import Consent, Episode, RoleplaySession, Scenario, SessionStatus, Turn, User
-from app.schemas import NextTurnOut, ProgressOut, ResponseIn, SessionCreateIn, SessionOut, TurnOut
+from app.schemas import (
+    NextTurnOut,
+    ProgressOut,
+    ResponseIn,
+    SessionCreateIn,
+    SessionOut,
+    TurnOut,
+    TurnSignalsOut,
+)
 from app.services.analysis import run_analysis
 from app.services.dialogue import QuestionSpec, get_dialogue_provider
+from app.services.dialogue import reactions
 from app.services.session_fsm import InvalidTransition, transition
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -22,7 +31,14 @@ def _episode_title(db: Session, episode_id: int) -> str:
     return ep.title if ep else ""
 
 
-def _create_turn(db: Session, session: RoleplaySession, spec: QuestionSpec, order: int) -> Turn:
+def _create_turn(
+    db: Session,
+    session: RoleplaySession,
+    spec: QuestionSpec,
+    order: int,
+    reaction_text: str = "",
+    reaction_character_id: str = "",
+) -> Turn:
     turn = Turn(
         session_id=session.id,
         episode_id=spec.episode_id,
@@ -30,6 +46,8 @@ def _create_turn(db: Session, session: RoleplaySession, spec: QuestionSpec, orde
         question_type=spec.question_type,
         question_text=spec.question_text,
         character_id=spec.character_id,
+        reaction_text=reaction_text,
+        reaction_character_id=reaction_character_id,
     )
     db.add(turn)
     db.commit()
@@ -38,7 +56,9 @@ def _create_turn(db: Session, session: RoleplaySession, spec: QuestionSpec, orde
 
 def _turn_out(db: Session, turn: Turn) -> TurnOut:
     out = TurnOut.model_validate(turn)
-    out.episode_title = _episode_title(db, turn.episode_id)
+    ep = db.get(Episode, turn.episode_id)
+    out.episode_title = ep.title if ep else ""
+    out.virtual_time = (ep.virtual_time or "") if ep else ""
     return out
 
 
@@ -114,13 +134,34 @@ def submit_response(
     if body.nonverbal:
         turn.nonverbal_metrics = body.nonverbal.model_dump()
     turn.answered_at = datetime.now(timezone.utc)
+
+    # 리액션 비트 + 수행도 갱신 — 이 답변이 상대의 반응과 하루의 전개를 결정한다
+    episode = db.get(Episode, turn.episode_id)
+    signals = reactions.classify(turn.response_text, episode.checklist if episode else [])
+    reactions.update_rapport(session, signals["case"])
     db.commit()
 
     spec = get_dialogue_provider().next_question(session, session.scenario.episodes, list(session.turns))
+    signals_out = TurnSignalsOut(
+        case=signals["case"], coverage=signals["coverage"], risk_hits=signals["risk_hits"],
+    )
     if spec is None:
-        return NextTurnOut(finished=True)
-    next_turn = _create_turn(db, session, spec, order=turn.order + 1)
-    return NextTurnOut(finished=False, next_turn=_turn_out(db, next_turn))
+        return NextTurnOut(finished=True, turn_signals=signals_out)
+
+    # 반응하는 인물 = 방금 답변을 들은 사람 (에피소드가 넘어가도 반응은 직전 화자의 몫)
+    reaction = reactions.pick_reaction(session, turn.character_id, signals["case"])
+    if reaction:
+        character = next(
+            (c for c in session.scenario.characters if c["id"] == turn.character_id), {},
+        )
+        reaction = reactions.personalize_reaction(reaction, character, turn.response_text)
+    db.commit()  # pick_reaction이 갱신한 used_reactions 저장
+
+    next_turn = _create_turn(
+        db, session, spec, order=turn.order + 1,
+        reaction_text=reaction, reaction_character_id=turn.character_id if reaction else "",
+    )
+    return NextTurnOut(finished=False, next_turn=_turn_out(db, next_turn), turn_signals=signals_out)
 
 
 @router.post("/{session_id}/turns/{turn_id}/audio")

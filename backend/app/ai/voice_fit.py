@@ -145,6 +145,69 @@ def analyze_audio(path: str, response_text: str) -> dict:
         float(np.std(f0_values) / np.mean(f0_values))
         if f0_mean is not None else None
     )
+    # 피치 흔들림(jitter 근사): 인접 F0 표본 간 상대 변화율의 중앙값.
+    # 억양(느린 변화)보다 미세 떨림(빠른 변화)에 민감 — 긴장 관찰 지표, 감점 없음.
+    f0_jitter_pct = None
+    if len(f0_values) >= 8:
+        arr = np.asarray(f0_values)
+        rel = np.abs(np.diff(arr)) / arr[:-1]
+        f0_jitter_pct = float(np.median(rel) * 100)
+
+    # 성량 흔들림(shimmer 근사): 인접 유성 프레임 RMS의 상대 변화율 중앙값.
+    # jitter(주파수)와 짝을 이루는 진폭 축의 미세 불안정 — 음성 품질 관찰 지표.
+    shimmer_pct = None
+    if len(voiced_rms) >= 8:
+        rel_amp = np.abs(np.diff(voiced_rms)) / np.maximum(voiced_rms[:-1], 1e-9)
+        shimmer_pct = float(np.median(rel_amp) * 100)
+
+    # 주기성 강도(HNR 근사): 유성 프레임 정규화 자기상관 피크의 평균.
+    # 낮으면 숨이 많이 섞인 소리(속삭임·긴장으로 조여진 발성) — 관찰 지표.
+    periodicity = None
+    peaks: list[float] = []
+    for i in np.flatnonzero(voiced)[::8]:
+        frame = samples[i * HOP: i * HOP + FRAME]
+        if len(frame) < FRAME:
+            continue
+        f = frame - frame.mean()
+        e = float(np.dot(f, f))
+        if e < 1e-6:
+            continue
+        corr = np.correlate(f, f, mode="full")[len(f) - 1:]
+        lag_min = int(sr / F0_MAX)
+        lag_max = min(int(sr / F0_MIN), len(corr) - 1)
+        if lag_max > lag_min:
+            peaks.append(float(corr[lag_min:lag_max].max() / corr[0]))
+    if len(peaks) >= 4:
+        periodicity = float(np.mean(peaks))
+
+    # 문말 억양: 마지막 유성 구간의 F0 선형 기울기(Hz/s).
+    # 뚜렷한 하강(-)은 단정적 종결, 상승(+)은 의문/불확실하게 들리는 말끝 — 관찰 지표.
+    final_f0_slope = None
+    voiced_segs = [(s, e) for s, e, v in segs if v]
+    if voiced_segs:
+        fs, fe = voiced_segs[-1]
+        tail_f0: list[tuple[float, float]] = []  # (시각, f0)
+        for i in range(fs, fe):
+            frame = samples[i * HOP: i * HOP + FRAME]
+            if len(frame) < FRAME:
+                continue
+            f0 = _estimate_f0(frame, sr)
+            if f0 is not None:
+                tail_f0.append((i * sec_per_frame, f0))
+        if len(tail_f0) >= 5:
+            ts = np.array([t for t, _ in tail_f0])
+            fs_arr = np.array([f for _, f in tail_f0])
+            final_f0_slope = float(np.polyfit(ts - ts[0], fs_arr, 1)[0])
+
+    # 말속도 추세: 전/후반 유성 프레임 밀도 변화(%) — 후반에 급해지는지.
+    rate_drift_pct = 0
+    span_len = last_voiced_idx - first_voiced_idx
+    if span_len >= 20:
+        mid = first_voiced_idx + span_len // 2
+        d_front = float(voiced[first_voiced_idx:mid].mean())
+        d_back = float(voiced[mid:last_voiced_idx].mean())
+        if d_front > 0.05:
+            rate_drift_pct = round((d_back / d_front - 1.0) * 100)
 
     return {
         "duration_sec": round(duration, 2),
@@ -157,6 +220,11 @@ def analyze_audio(path: str, response_text: str) -> dict:
         "energy_drift_pct": energy_drift_pct,
         "f0_mean_hz": round(f0_mean) if f0_mean is not None else None,
         "f0_cv": round(f0_cv, 3) if f0_cv is not None else None,
+        "f0_jitter_pct": round(f0_jitter_pct, 1) if f0_jitter_pct is not None else None,
+        "shimmer_pct": round(shimmer_pct, 1) if shimmer_pct is not None else None,
+        "periodicity": round(periodicity, 3) if periodicity is not None else None,
+        "final_f0_slope": round(final_f0_slope, 1) if final_f0_slope is not None else None,
+        "rate_drift_pct": rate_drift_pct,
         "syllables": syllables,
     }
 

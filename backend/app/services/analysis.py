@@ -8,6 +8,7 @@ import traceback
 from pathlib import Path
 
 from app.ai import nonverbal, response_fit, voice_fit
+from app.ai.discourse import analyze_discourse
 from app.ai.scoring import weighted_mean
 from app.ai.stt import get_stt_provider
 from app.core.database import SessionLocal
@@ -43,13 +44,14 @@ def run_analysis(session_id: int) -> None:
                     t.stt_source = "whisper"
                 db.commit()
 
-        # 2) Response-Fit (턴별)
+        # 2) Response-Fit (턴별) + 담화 구조 분석 (심층 리포트용)
         _set_progress(db, session, "response", 25)
         response_scores: list[tuple[float, float]] = []
         for t in turns:
             if not t.response_text:
                 continue
             metrics = response_fit.analyze_response(t.response_text, t.episode.checklist)
+            metrics["discourse"] = analyze_discourse(t.response_text, t.question_text)
             score = response_fit.score_response(metrics)
             db.add(AnalysisResult(
                 session_id=session.id, turn_id=t.id,

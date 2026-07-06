@@ -13,19 +13,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { NonverbalMetrics } from '../../api/types';
-
-const LOCAL_WASM = '/mediapipe-wasm';
-const CDN_WASM = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm';
-const MODELS = {
-  face: {
-    local: '/models/face_landmarker.task',
-    cdn: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
-  },
-  pose: {
-    local: '/models/pose_landmarker_lite.task',
-    cdn: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
-  },
-};
+import { resolveModel, resolveWasmUrl } from '../../lib/visionAssets';
 
 const SAMPLE_MS = 200;
 // 기준 대비 허용 편차 (캘리브레이션 후 상대 판정)
@@ -58,6 +46,14 @@ interface Accumulator {
   blinkActive: boolean;
   smileFrames: number; // 미소 표현 프레임
   rollSamples: number[]; // 고개 갸웃 각도 (보정값)
+  // 지각 확장 — 이미 로드된 모델의 미사용 출력 (새 모델 없음)
+  mouthPressFrames: number; // 입술 압축 = 긴장 신호 (blendshape)
+  browDownFrames: number; // 찡그림 (blendshape)
+  handFaceFrames: number; // 손-얼굴 터치 (무의식 습관, pose 손목)
+  armCrossFrames: number; // 팔짱 근사 (pose 손목 교차)
+  asymSamples: number[]; // 시선 미세 안정성용 좌우 비대칭 시계열 (보정값)
+  offStreaks: number[]; // 완료된 이탈 스트릭 길이들 — 회복 시간 분석
+  shoulderWidths: number[]; // 어깨 픽셀 폭 시계열 — 앞/뒤 리닝 추세
   tips: string[]; // 이 턴에서 발생한 실시간 코칭 (리포트 연동, S-JKEYHS)
 }
 
@@ -77,6 +73,13 @@ const emptyAcc = (): Accumulator => ({
   blinkActive: false,
   smileFrames: 0,
   rollSamples: [],
+  mouthPressFrames: 0,
+  browDownFrames: 0,
+  handFaceFrames: 0,
+  armCrossFrames: 0,
+  asymSamples: [],
+  offStreaks: [],
+  shoulderWidths: [],
   tips: [],
 });
 
@@ -112,19 +115,16 @@ const idleLive: LiveState = {
   tracking: false, front: true, offDir: null, tiltDeg: 0, headDown: false, micLevel: 0, calibrated: false,
 };
 
+function stdDev(values: number[]): number {
+  const m = values.reduce((a, b) => a + b, 0) / values.length;
+  return Math.sqrt(values.reduce((a, b) => a + (b - m) ** 2, 0) / values.length);
+}
+
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
   return sorted[Math.floor(sorted.length / 2)];
 }
 
-async function checkLocal(url: string): Promise<boolean> {
-  try {
-    const res = await fetch(url, { method: 'HEAD' });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
 
 export function useNonverbal(
   videoRef: React.RefObject<HTMLVideoElement | null>,
@@ -196,11 +196,9 @@ export function useNonverbal(
 
       try {
         const vision = await import('@mediapipe/tasks-vision');
-        const wasmUrl = (await checkLocal(`${LOCAL_WASM}/vision_wasm_internal.wasm`))
-          ? LOCAL_WASM
-          : CDN_WASM;
-        const faceModel = (await checkLocal(MODELS.face.local)) ? MODELS.face.local : MODELS.face.cdn;
-        const poseModel = (await checkLocal(MODELS.pose.local)) ? MODELS.pose.local : MODELS.pose.cdn;
+        const wasmUrl = await resolveWasmUrl();
+        const faceModel = await resolveModel('face');
+        const poseModel = await resolveModel('pose');
 
         const fileset = await vision.FilesetResolver.forVisionTasks(wasmUrl);
         const face = await vision.FaceLandmarker.createFromOptions(fileset, {
@@ -251,6 +249,9 @@ export function useNonverbal(
             const eyeUp = ((shapes.eyeLookUpLeft ?? 0) + (shapes.eyeLookUpRight ?? 0)) / 2;
             const blink = ((shapes.eyeBlinkLeft ?? 0) + (shapes.eyeBlinkRight ?? 0)) / 2 > 0.5;
             const smile = ((shapes.mouthSmileLeft ?? 0) + (shapes.mouthSmileRight ?? 0)) / 2 > 0.35;
+            // 긴장 신호 (관찰 지표 — 감점 아님): 입술 압축·찡그림. 보수적 임계값
+            const mouthPress = ((shapes.mouthPressLeft ?? 0) + (shapes.mouthPressRight ?? 0)) / 2 > 0.45;
+            const browDown = ((shapes.browDownLeft ?? 0) + (shapes.browDownRight ?? 0)) / 2 > 0.5;
 
             // ---- 얼굴 기하: 좌우 비대칭(요), 눈선 각도(갸웃) ----
             let signedAsym: number | null = null;
@@ -271,15 +272,35 @@ export function useNonverbal(
             let tiltRaw: number | null = null;
             let headGap: number | null = null;
             let shoulderX: number | null = null;
+            let shoulderWidth: number | null = null;
+            let handFace = false;
+            let armCross = false;
             if (plm) {
               const ls = plm[11];
               const rs = plm[12];
               const noseP = plm[0];
               const width = Math.abs(ls.x - rs.x);
               if (width > 0.05) {
+                shoulderWidth = width; // 앞/뒤 리닝 추세용 (커지면 몸이 카메라 쪽으로)
                 tiltRaw = (Math.atan2(Math.abs(ls.y - rs.y), width) * 180) / Math.PI;
                 headGap = ((ls.y + rs.y) / 2 - noseP.y) / width;
                 shoulderX = ((ls.x + rs.x) / 2) / width;
+
+                // ---- 무의식 습관 (BlazePose 손목 15/16 재사용, 보수적 판정) ----
+                const lw = plm[15];
+                const rw = plm[16];
+                const nearFace = (w: { x: number; y: number }) =>
+                  Math.hypot(w.x - noseP.x, w.y - noseP.y) < width * 0.6 && w.y < (ls.y + rs.y) / 2;
+                if (lw && rw) {
+                  handFace = nearFace(lw) || nearFace(rw);
+                  // 팔짱: 각 손목이 반대쪽 어깨에 더 가깝고(교차), 어깨 아래 비슷한 높이
+                  const shoulderY = (ls.y + rs.y) / 2;
+                  const crossedL = Math.abs(lw.x - rs.x) < Math.abs(lw.x - ls.x);
+                  const crossedR = Math.abs(rw.x - ls.x) < Math.abs(rw.x - rs.x);
+                  armCross = crossedL && crossedR
+                    && lw.y > shoulderY && rw.y > shoulderY
+                    && Math.abs(lw.y - rw.y) < width * 0.4;
+                }
               }
             }
 
@@ -334,6 +355,7 @@ export function useNonverbal(
               acc.frontFlags.push(front);
               if (front) {
                 acc.frontFrames += 1;
+                if (acc.curOffStreak > 0) acc.offStreaks.push(acc.curOffStreak); // 회복 완료
                 acc.curOffStreak = 0;
               } else {
                 if (acc.lastFront) acc.gazeOffCount += 1;
@@ -341,10 +363,18 @@ export function useNonverbal(
                 acc.curOffStreak += 1;
                 acc.maxOffStreak = Math.max(acc.maxOffStreak, acc.curOffStreak);
               }
+              if (signedAsym !== null) {
+                acc.asymSamples.push(base.set ? signedAsym - base.asym : signedAsym);
+              }
+              if (shoulderWidth !== null) acc.shoulderWidths.push(shoulderWidth);
               acc.lastFront = front;
               if (blink && !acc.blinkActive) acc.blinkCount += 1;
               acc.blinkActive = blink;
               if (smile) acc.smileFrames += 1;
+              if (mouthPress) acc.mouthPressFrames += 1;
+              if (browDown) acc.browDownFrames += 1;
+              if (handFace) acc.handFaceFrames += 1;
+              if (armCross) acc.armCrossFrames += 1;
               if (rollAdj !== null) acc.rollSamples.push(rollAdj);
               if (tiltAdj !== null && shoulderX !== null) {
                 acc.tiltSamples.push(tiltAdj);
@@ -454,6 +484,26 @@ export function useNonverbal(
       head_roll_deg: acc.rollSamples.length
         ? Math.round(mean(acc.rollSamples.map(Math.abs)) * 10) / 10
         : 0,
+      mouth_press_ratio: Math.round((acc.mouthPressFrames / acc.frames) * 100) / 100,
+      brow_down_ratio: Math.round((acc.browDownFrames / acc.frames) * 100) / 100,
+      hand_face_sec: Math.round((acc.handFaceFrames * SAMPLE_MS) / 100) / 10,
+      arm_cross_ratio: Math.round((acc.armCrossFrames / acc.frames) * 100) / 100,
+      gaze_dirs: { ...acc.offDirs },
+      // 시선 미세 안정성: 정면 판정 내에서의 흔들림 (표준편차) — 스캐닝 습관 감지
+      gaze_stability: acc.asymSamples.length > 5
+        ? Math.round(stdDev(acc.asymSamples) * 1000) / 1000
+        : 0,
+      // 이탈 후 정면 복귀까지 평균 시간 — 회복 탄력
+      gaze_recover_sec: acc.offStreaks.length
+        ? Math.round((mean(acc.offStreaks) * SAMPLE_MS) / 100) / 10
+        : 0,
+      // 앞/뒤 리닝 추세: 후반 어깨폭 / 전반 대비 (%) — +는 카메라 쪽으로 다가옴
+      lean_drift_pct: (() => {
+        const w = acc.shoulderWidths;
+        if (w.length < 10) return 0;
+        const h = Math.floor(w.length / 2);
+        return Math.round((mean(w.slice(h)) / mean(w.slice(0, h)) - 1) * 100);
+      })(),
       calibrated: baselineRef.current.set,
       tips: acc.tips,
     };

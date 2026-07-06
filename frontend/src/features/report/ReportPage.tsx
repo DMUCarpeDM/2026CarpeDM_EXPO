@@ -11,7 +11,9 @@ import {
 } from '../../api/client';
 import type { Report } from '../../api/types';
 import Icon, { type IconName } from '../../components/Icon';
+import { useMirrorMode } from '../../lib/mirrorMode';
 import { useSessionStore } from '../../stores/sessionStore';
+import MirrorReportView from './MirrorReportView';
 import RadarChart from './RadarChart';
 
 /** 성장 추이 스파크라인 — 최근 도전들의 종합 점수 */
@@ -85,12 +87,15 @@ const FIT_ICON: Record<string, IconName> = {
   eye: 'eye',
   posture: 'user',
   live: 'spark', // 실시간 코칭 발생 구간
+  habit: 'spark', // 무의식 습관 관찰 (지각 확장)
 };
 
 export default function ReportPage() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
+  const mirror = useMirrorMode();
   const setSession = useSessionStore((s) => s.setSession);
+  const scenario = useSessionStore((s) => s.session?.scenario ?? null);
   const [report, setReport] = useState<Report | null>(null);
   const [stage, setStage] = useState('queued');
   const [pct, setPct] = useState(0);
@@ -196,6 +201,21 @@ export default function ReportPage() {
   }
 
   if (!report) {
+    // 미러 모드: 분석 대기도 서사의 일부 — "퇴근하는 중"
+    if (mirror) {
+      return (
+        <div className="mirror-analyzing">
+          <div className="loader-ring" />
+          <h2 className="mirror-ob-title">퇴근하는 중…</h2>
+          <p className="mirror-analyzing-sub">
+            오늘 하루를 정리하고 있어요 — {STAGE_LABEL[stage] ?? '분석 중'}
+          </p>
+          <div className="progress-track">
+            <div className="progress-fill" style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="page report loading">
         <div className="analysis-loader">
@@ -207,6 +227,24 @@ export default function ReportPage() {
           <p className="loading-sub">발화 내용 · 말하기 · 시선 · 자세를 종합 분석하고 있어요</p>
         </div>
       </div>
+    );
+  }
+
+  // 미러 모드: 스크롤 없는 시상식 3막 + QR (상세 첨삭은 폰의 웹 리포트가 담당)
+  if (mirror) {
+    return (
+      <MirrorReportView
+        report={report}
+        code={code}
+        displayScore={displayScore}
+        gradeLabel={gradeLabel(report.total_score)}
+        characterName={(id) =>
+          scenario?.characters.find((c) => c.id === id)?.name ?? '김태호 팀장'
+        }
+        onRetry={() => setRetryCountdown(retryCountdown === null ? 10 : retryCountdown)}
+        retryCountdown={retryCountdown}
+        onFinish={() => navigate('/kiosk')}
+      />
     );
   }
 
@@ -312,6 +350,74 @@ export default function ReportPage() {
           </div>
         )}
       </section>
+
+      {/* 심층 교차 분석 — 단일 지표를 넘어 지표 사이의 관계 (담화 구조·압박 내성·적응 곡선) */}
+      {(report.deep_analysis?.delivery ||
+        report.deep_analysis?.composure ||
+        report.deep_analysis?.adaptation) && (
+        <section className="card deep-analysis">
+          <h2>
+            <Icon name="spark" size={15} /> 심층 분석
+            <span className="legend">지표 사이의 관계를 읽습니다</span>
+          </h2>
+          <div className="deep-grid">
+            {report.deep_analysis.delivery && (
+              <div className="deep-card">
+                <strong>{report.deep_analysis.delivery.title}</strong>
+                <ul>
+                  {report.deep_analysis.delivery.rows.map((r) => (
+                    <li key={r.label}>
+                      <span>{r.label}</span>
+                      <em>{r.value}</em>
+                    </li>
+                  ))}
+                </ul>
+                <p>{report.deep_analysis.delivery.comment}</p>
+              </div>
+            )}
+            {report.deep_analysis.composure && (
+              <div className="deep-card">
+                <strong>
+                  {report.deep_analysis.composure.title}
+                  <span className="deep-level">{report.deep_analysis.composure.level}</span>
+                </strong>
+                <ul>
+                  {report.deep_analysis.composure.rows.map((r) => (
+                    <li key={r.label}>
+                      <span>{r.label}</span>
+                      <em>{r.value}</em>
+                    </li>
+                  ))}
+                </ul>
+                <p>{report.deep_analysis.composure.comment}</p>
+              </div>
+            )}
+            {report.deep_analysis.adaptation && (
+              <div className="deep-card">
+                <strong>
+                  {report.deep_analysis.adaptation.title}
+                  <span className="deep-level">
+                    {{ up: '상승 ↗', flat: '유지 →', down: '하강 ↘' }[
+                      report.deep_analysis.adaptation.trend
+                    ]}
+                  </span>
+                </strong>
+                <div className="deep-curve">
+                  {report.deep_analysis.adaptation.points.map((p) => (
+                    <span
+                      key={p.turn_order}
+                      className="deep-curve-bar"
+                      style={{ height: `${Math.max(8, p.score)}%` }}
+                      title={`턴 ${p.turn_order}: ${p.score}점`}
+                    />
+                  ))}
+                </div>
+                <p>{report.deep_analysis.adaptation.comment}</p>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       <section className="fit-grid">
         {Object.entries(report.fit_scores).map(([fit, data]) => {

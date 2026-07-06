@@ -70,3 +70,57 @@ def test_monotone_penalized_in_score(wav_path):
     varied_sig = np.concatenate([tone(120, 1), tone(180, 1), tone(140, 1), tone(200, 1)])
     varied = analyze_audio(wav_path(varied_sig), "가" * 18)
     assert score_voice(varied) > score_voice(mono)
+
+
+def test_jitter_low_for_steady_tone(wav_path):
+    # 순음은 주기 변동이 거의 없어야 한다 (긴장 떨림 오탐 방지)
+    m = analyze_audio(wav_path(tone(150, 3)), "가" * 12)
+    assert m["f0_jitter_pct"] is not None
+    assert m["f0_jitter_pct"] < 3
+
+
+def test_jitter_detects_pitch_tremor(wav_path):
+    # 150Hz에 6Hz 비브라토(±12Hz) — 목소리 떨림 모사 → 순음보다 지터가 커야 한다
+    t = np.arange(int(SR * 3)) / SR
+    freq = 150 + 12 * np.sin(2 * np.pi * 6 * t)
+    phase = 2 * np.pi * np.cumsum(freq) / SR
+    tremor = (0.3 * np.sin(phase)).astype(np.float32)
+    m_tremor = analyze_audio(wav_path(tremor), "가" * 12)
+    m_steady = analyze_audio(wav_path(tone(150, 3)), "가" * 12)
+    assert m_tremor["f0_jitter_pct"] is not None
+    assert m_tremor["f0_jitter_pct"] > m_steady["f0_jitter_pct"]
+
+
+def test_shimmer_detects_amplitude_tremor(wav_path):
+    # 8Hz 진폭 변조(±40%) — 성량 떨림 모사 → 순음보다 shimmer가 커야 한다
+    t = np.arange(int(SR * 3)) / SR
+    am = (0.3 * (1 + 0.4 * np.sin(2 * np.pi * 8 * t)) * np.sin(2 * np.pi * 150 * t)).astype(np.float32)
+    m_am = analyze_audio(wav_path(am), "가" * 12)
+    m_steady = analyze_audio(wav_path(tone(150, 3)), "가" * 12)
+    assert m_am["shimmer_pct"] is not None
+    assert m_am["shimmer_pct"] > m_steady["shimmer_pct"]
+
+
+def test_final_f0_slope_direction(wav_path):
+    # 마지막 구간의 피치가 내려가면 음수(단정), 올라가면 양수(불확실)
+    t = np.arange(int(SR * 2)) / SR
+    def sweep(f_start, f_end):
+        freq = np.linspace(f_start, f_end, len(t))
+        phase = 2 * np.pi * np.cumsum(freq) / SR
+        return (0.3 * np.sin(phase)).astype(np.float32)
+    falling = analyze_audio(wav_path(sweep(220, 130)), "가" * 10)
+    rising = analyze_audio(wav_path(sweep(130, 220)), "가" * 10)
+    assert falling["final_f0_slope"] is not None and falling["final_f0_slope"] < -10
+    assert rising["final_f0_slope"] is not None and rising["final_f0_slope"] > 10
+
+
+def test_periodicity_high_for_pure_tone(wav_path):
+    # 순음은 주기성이 매우 높고, 백색소음 섞인 신호는 낮아야 한다
+    rng = np.random.default_rng(42)
+    t = np.arange(int(SR * 3)) / SR
+    breathy = (0.15 * np.sin(2 * np.pi * 150 * t) + 0.15 * rng.standard_normal(len(t))).astype(np.float32)
+    m_pure = analyze_audio(wav_path(tone(150, 3)), "가" * 12)
+    m_breathy = analyze_audio(wav_path(breathy), "가" * 12)
+    assert m_pure["periodicity"] is not None and m_pure["periodicity"] > 0.8
+    assert m_breathy["periodicity"] is not None
+    assert m_pure["periodicity"] > m_breathy["periodicity"]

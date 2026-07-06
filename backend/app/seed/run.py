@@ -1,10 +1,35 @@
 """DB 초기화 + 시나리오 시드. `python -m app.seed.run`으로 실행."""
+from sqlalchemy import inspect, text
+
 from app.core.database import Base, SessionLocal, engine
 from app.models import Episode, Scenario
 from app.seed.seed_data import CHARACTERS, EPISODES, SCENARIO, WORLD_SETTING
 
+# SQLite 경량 마이그레이션 — 기존 DB에 신규 컬럼만 추가 (데이터 보존).
+# create_all은 새 테이블만 만들고 기존 테이블에는 컬럼을 더하지 않는다.
+_NEW_COLUMNS: dict[str, dict[str, str]] = {
+    "episodes": {"virtual_time": "VARCHAR(10) DEFAULT ''", "intro_variants": "JSON"},
+    "turns": {"reaction_text": "TEXT DEFAULT ''", "reaction_character_id": "VARCHAR(50) DEFAULT ''"},
+    "roleplay_sessions": {"rapport": "JSON"},
+    "reports": {"day_ending": "JSON", "deep_analysis": "JSON"},
+}
+
+
+def _migrate_columns() -> None:
+    inspector = inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+    with engine.begin() as conn:
+        for table, cols in _NEW_COLUMNS.items():
+            if table not in existing_tables:
+                continue  # 신규 테이블은 create_all이 완전한 스키마로 만든다
+            existing = {c["name"] for c in inspector.get_columns(table)}
+            for col, ddl in cols.items():
+                if col not in existing:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}"))
+
 
 def seed(db=None) -> None:
+    _migrate_columns()
     Base.metadata.create_all(engine)
     own_session = db is None
     db = db or SessionLocal()

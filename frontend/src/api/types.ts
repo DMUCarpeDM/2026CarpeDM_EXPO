@@ -40,6 +40,9 @@ export interface Turn {
   character_id: string;
   episode_id: number;
   episode_title: string;
+  reaction_text: string; // 직전 답변에 대한 상대의 반응 — 질문 TTS 전에 재생
+  reaction_character_id: string; // 반응하는 인물 (직전 질문의 화자)
+  virtual_time: string; // 에피소드 가상 시각 "09:04" — 하루 프레이밍
 }
 
 export interface RoleplaySession {
@@ -65,13 +68,28 @@ export interface NonverbalMetrics {
   front_drift_pct: number; // 후반-전반 정면 응시 변화 (%p)
   smile_ratio: number; // 미소 표현 프레임 비율
   head_roll_deg: number; // 고개 갸웃(눈선 각도) 평균 편차
+  mouth_press_ratio: number; // 입술 압축(긴장) 프레임 비율 — 관찰 지표
+  brow_down_ratio: number; // 찡그림 프레임 비율 — 관찰 지표
+  hand_face_sec: number; // 손-얼굴 터치 누적 초 (무의식 습관)
+  arm_cross_ratio: number; // 팔짱 자세 프레임 비율 (무의식 습관)
+  gaze_dirs: Record<'down' | 'up' | 'left' | 'right', number>; // 시선 이탈 방향 분포
+  gaze_stability: number; // 정면 내 시선 흔들림 표준편차 (스캐닝 습관)
+  gaze_recover_sec: number; // 이탈 후 정면 복귀 평균 시간 (회복 탄력)
+  lean_drift_pct: number; // 후반 어깨폭 변화 % (+는 다가옴, -는 물러남)
   calibrated: boolean; // 정면 기준 캘리브레이션 적용 여부
   tips: string[]; // 턴 중 발생한 실시간 코칭 문구
+}
+
+export interface TurnSignals {
+  case: 'excellent' | 'covered' | 'missing' | 'short' | 'risky';
+  coverage: number;
+  risk_hits: number;
 }
 
 export interface NextTurnResult {
   finished: boolean;
   next_turn: Turn | null;
+  turn_signals: TurnSignals | null; // 라이브 오라(Response 축)용 경량 즉시 신호
 }
 
 export interface Progress {
@@ -126,6 +144,27 @@ export interface Report {
     formal_pct?: number | null;
     avg_speech_rate?: number | null;
     measurement?: { frames: number; audio_sec: number; level: string };
+  };
+  day_ending: {
+    level?: 'high' | 'mid' | 'low';
+    label?: string;
+    character_id?: string;
+    text?: string;
+  };
+  deep_analysis: {
+    delivery?: { title: string; rows: { label: string; value: string }[]; comment: string };
+    composure?: {
+      title: string;
+      level: string;
+      rows: { label: string; value: string }[];
+      comment: string;
+    };
+    adaptation?: {
+      title: string;
+      trend: 'up' | 'flat' | 'down';
+      points: { turn_order: number; score: number }[];
+      comment: string;
+    };
   };
   percentile_top: number | null;
   turn_breakdown: {

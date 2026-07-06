@@ -6,10 +6,13 @@
 - 압박 난이도에서는 누락이 없어도 에피소드당 1회 압박 질문을 던진다.
 - 에피소드별 max_turns와 세션 전체 턴 예산을 지키며, 남은 에피소드가 최소 1턴씩
   진행될 수 있도록 후속 질문을 아낀다.
+- 새 에피소드 도입은 수행도(rapport) 3단계에 따라 변주된다(intro_variants) —
+  체험자의 대답이 하루의 전개를 실제로 바꾸는 분기 장치.
 """
 from app.ai.text_match import matched_checklist_ids
 from app.models import Episode, RoleplaySession, Turn
 from app.services.dialogue.base import QuestionSpec
+from app.services.dialogue.reactions import rapport_level
 
 # 세션 전체 턴 예산 (모드별) — 프론트 타이머와 함께 이중 안전장치
 TURN_BUDGET = {5: 6, 10: 11}
@@ -33,6 +36,7 @@ class TemplateDialogueProvider:
             question_text=first.initial_question,
             character_id=first.character_id,
             intent=first.question_intent,
+            virtual_time=first.virtual_time or "",
         )
 
     def next_question(
@@ -70,6 +74,7 @@ class TemplateDialogueProvider:
                     question_text=item["followup"],
                     character_id=current_ep.character_id,
                     intent=f"누락 요소 확인: {item['label']}",
+                    virtual_time=current_ep.virtual_time or "",
                 )
             if session.difficulty == "pressure" and current_ep.pressure_questions:
                 pressure_used = any(t.question_type == "pressure" for t in ep_turns)
@@ -81,16 +86,21 @@ class TemplateDialogueProvider:
                         question_text=pq["text"],
                         character_id=current_ep.character_id,
                         intent="압박 상황 대응 확인",
+                        virtual_time=current_ep.virtual_time or "",
                     )
 
         if remaining_eps:
             nxt = remaining_eps[0]
+            # 수행도 분기 — 지금까지의 대답이 다음 장면의 첫마디를 바꾼다
+            variants = nxt.intro_variants or {}
+            intro = variants.get(rapport_level(session)) or nxt.initial_question
             return QuestionSpec(
                 episode_id=nxt.id,
                 question_type="initial",
-                question_text=nxt.initial_question,
+                question_text=intro,
                 character_id=nxt.character_id,
                 intent=nxt.question_intent,
+                virtual_time=nxt.virtual_time or "",
             )
         return None
 

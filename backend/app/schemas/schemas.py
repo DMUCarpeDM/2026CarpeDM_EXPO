@@ -64,6 +64,10 @@ class TurnOut(BaseModel):
     character_id: str
     episode_id: int
     episode_title: str = ""
+    # 직전 답변에 대한 상대의 반응 — 프론트는 질문 TTS 전에 이것을 먼저 재생한다
+    reaction_text: str = ""
+    reaction_character_id: str = ""
+    virtual_time: str = ""  # 에피소드 가상 시각 (하루 프레이밍)
 
     model_config = {"from_attributes": True}
 
@@ -91,6 +95,14 @@ class NonverbalIn(BaseModel):
     front_drift_pct: float = 0.0  # 후반-전반 정면 응시 변화 (%p)
     smile_ratio: float = 0.0  # 미소 표현 비율 (관찰 지표)
     head_roll_deg: float = 0.0  # 고개 갸웃 평균 편차
+    mouth_press_ratio: float = 0.0  # 입술 압축(긴장) 비율 — 관찰 지표, 감점 없음
+    brow_down_ratio: float = 0.0  # 찡그림 비율 — 관찰 지표
+    hand_face_sec: float = 0.0  # 손-얼굴 터치 누적 초 (무의식 습관)
+    arm_cross_ratio: float = 0.0  # 팔짱 자세 비율 (무의식 습관)
+    gaze_dirs: dict = {}  # 시선 이탈 방향 분포 {down,up,left,right: frames}
+    gaze_stability: float = 0.0  # 정면 내 시선 흔들림 표준편차 (스캐닝 습관)
+    gaze_recover_sec: float = 0.0  # 이탈 후 정면 복귀 평균 시간 (회복 탄력)
+    lean_drift_pct: float = 0.0  # 후반 어깨폭 변화 % (+ 다가옴 / - 물러남)
     calibrated: bool = False  # 정면 기준 캘리브레이션 적용 여부
     tips: list[str] = []  # 턴 중 발생한 실시간 코칭 (S-JKEYHS 리포트 연동)
 
@@ -102,9 +114,18 @@ class ResponseIn(BaseModel):
     nonverbal: NonverbalIn | None = None
 
 
+class TurnSignalsOut(BaseModel):
+    """제출 직후의 경량 즉시 신호 — 미러 라이브 오라(Response 축)용.
+    전체 분석은 기존대로 세션 종료 후 파이프라인이 수행한다."""
+    case: str  # excellent | covered | missing | short | risky
+    coverage: float
+    risk_hits: int
+
+
 class NextTurnOut(BaseModel):
     finished: bool
     next_turn: TurnOut | None = None
+    turn_signals: TurnSignalsOut | None = None
 
 
 class ProgressOut(BaseModel):
@@ -127,6 +148,8 @@ class ReportOut(BaseModel):
     speech_stats: dict = {}  # 말하기 데이터 요약
     percentile_top: int | None = None  # 현장 체험자 상위 N%
     turn_breakdown: list = []  # 턴별 점수 [{turn_order, question_type, scores}]
+    day_ending: dict = {}  # 하루의 결말 (수행도 분기): {level, label, character_id, text}
+    deep_analysis: dict = {}  # 심층 교차 분석 {delivery, composure, adaptation}
     analysis_ms: int
     mode: int
     difficulty: str

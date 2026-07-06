@@ -4,10 +4,13 @@ import { claimCode, createSession, getScenarios } from '../../api/client';
 import type { Scenario } from '../../api/types';
 import Avatar from '../../components/Avatar';
 import Icon from '../../components/Icon';
+import { useMirrorMode } from '../../lib/mirrorMode';
 import { useSessionStore } from '../../stores/sessionStore';
+import OnboardingMirrorView from './OnboardingMirrorView';
 
 export default function OnboardingPage() {
   const navigate = useNavigate();
+  const mirror = useMirrorMode();
   const setSession = useSessionStore((s) => s.setSession);
   const [scenario, setScenario] = useState<Scenario | null>(null);
   const [mode, setMode] = useState<5 | 10>(5);
@@ -45,6 +48,29 @@ export default function OnboardingPage() {
       setError('세션을 시작하지 못했습니다. 잠시 후 다시 시도해주세요.');
       setStarting(false);
     }
+  }
+
+  // 미러 모드 — 3탭 온보딩 (동의는 버튼 = 동의)
+  if (mirror) {
+    return (
+      <OnboardingMirrorView
+        scenario={scenario}
+        error={error}
+        starting={starting}
+        onStart={async (m, d) => {
+          if (starting) return;
+          setStarting(true);
+          try {
+            const session = await createSession({ mode: m, difficulty: d, agreed: true });
+            setSession(session);
+            navigate(`/roleplay/${session.id}`);
+          } catch {
+            setError('세션을 시작하지 못했어요. 운영자를 불러주세요.');
+            setStarting(false);
+          }
+        }}
+      />
+    );
   }
 
   return (

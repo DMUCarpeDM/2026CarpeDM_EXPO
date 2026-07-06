@@ -1,45 +1,78 @@
-/** 스마트 미러 대기(어트랙트) 화면 — 전시 부스용.
- * 진입 시 전시 모드가 자동으로 켜져, 리포트 방치 시 이 화면으로 복귀한다.
+/** 깨어나는 거울 — 전시 대기 화면 (기획서 §4.0).
+ *
+ * 화면 대부분이 순수 검정(=거울). 사람이 다가오면 거울이 깨어나 인사하고
+ * 출근 CTA가 떠오른다. 카메라를 못 쓰는 환경에서는 터치로 시작한다.
+ * 진입 시 미러 모드가 켜져, 이후 모든 화면이 거울 문법으로 렌더된다.
  */
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import FrameGlow from '../../components/FrameGlow';
 import Icon from '../../components/Icon';
+import { enterMirrorMode } from '../../lib/mirrorMode';
+import { speak, stopSpeaking } from '../../lib/tts';
+import { useFaceWake } from '../../lib/useFaceWake';
+
+const GREETING = '거기 계신 분 — 오늘 하루, 신입 개발자로 살아보실래요?';
 
 export default function KioskPage() {
   const navigate = useNavigate();
+  const { awake, watching } = useFaceWake(true);
+  const greetedRef = useRef(false);
 
   useEffect(() => {
-    localStorage.setItem('mirroting-kiosk', '1');
+    enterMirrorMode();
   }, []);
+
+  // 깨어날 때 한 번만 인사 — 사람이 떠났다 돌아오면 다시 인사한다
+  useEffect(() => {
+    if (awake && !greetedRef.current) {
+      greetedRef.current = true;
+      speak(GREETING, { rate: 1.0, pitch: 1.05 });
+    }
+    if (!awake) greetedRef.current = false;
+    return stopSpeaking;
+  }, [awake]);
 
   function enterFullscreen(e: React.MouseEvent) {
     e.stopPropagation();
     void document.documentElement.requestFullscreen?.();
   }
 
+  function start() {
+    stopSpeaking();
+    navigate('/');
+  }
+
   return (
-    <div className="kiosk" onClick={() => navigate('/')}>
+    <div className={`mirror-idle ${awake ? 'awake' : ''}`} onClick={start}>
+      <FrameGlow state={awake ? 'mine' : 'off'} />
       <button className="kiosk-fullscreen" onClick={enterFullscreen} title="전체화면">
         <Icon name="expand" size={18} />
       </button>
-      <div className="kiosk-center">
-        <p className="hero-badge">2026 동양미래EXPO · CarpeDM</p>
-        <h1 className="kiosk-title">
-          4-Fit <span className="accent">미러팅</span>
-        </h1>
-        <p className="kiosk-sub">
-          AI 상사·동료와 직장생활 역할극을 하고
+
+      {/* 잠든 거울 — 낮은 휘도로 숨쉬는 한 줄 */}
+      <div className="mirror-idle-sleep">
+        <p className="mirror-idle-brand">4-Fit 미러팅</p>
+        <p className="mirror-idle-whisper">{watching ? '다가와 보세요' : '화면을 터치해 보세요'}</p>
+      </div>
+
+      {/* 깨어난 거울 — 인사와 출근 CTA */}
+      <div className="mirror-idle-awake">
+        <p className="mirror-idle-time">㈜클라우드밋 · 오늘</p>
+        <h1 className="mirror-idle-greeting">
+          오늘 하루,
           <br />
-          응답 · 말하기 · 시선 · 자세 코칭을 받아보세요
+          <span className="accent">신입 개발자</span>로
+          <br />
+          살아보실래요?
+        </h1>
+        <p className="mirror-idle-sub">
+          AI 상사·동료와의 하루 — 응답 · 말하기 · 시선 · 자세를 코칭해드려요
         </p>
-        <div className="kiosk-fits">
-          <span><Icon name="message" size={15} /> Response</span>
-          <span><Icon name="activity" size={15} /> Voice</span>
-          <span><Icon name="eye" size={15} /> Eye</span>
-          <span><Icon name="user" size={15} /> Posture</span>
-        </div>
-        <div className="kiosk-cta">화면을 터치해 출근하기</div>
-        <p className="kiosk-time">체험 시간 약 5분 · 영상은 저장되지 않습니다</p>
+        <button className="primary-btn mirror-start-btn" onClick={start}>
+          출근하기
+        </button>
+        <p className="mirror-idle-note">약 5분 · 영상은 이 거울 밖으로 나가지 않습니다</p>
       </div>
     </div>
   );

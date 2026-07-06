@@ -22,7 +22,7 @@ if (typeof speechSynthesis !== 'undefined') {
 
 export function speak(
   text: string,
-  opts: { rate?: number; pitch?: number; onEnd?: () => void } = {},
+  opts: { rate?: number; pitch?: number; onStart?: () => void; onEnd?: () => void } = {},
 ): void {
   if (typeof speechSynthesis === 'undefined') {
     opts.onEnd?.();
@@ -35,6 +35,7 @@ export function speak(
   if (voice) utterance.voice = voice;
   utterance.rate = opts.rate ?? 1.0;
   utterance.pitch = opts.pitch ?? 1.0;
+  if (opts.onStart) utterance.onstart = opts.onStart;
   if (opts.onEnd) utterance.onend = opts.onEnd;
   speechSynthesis.speak(utterance);
 }
