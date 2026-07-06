@@ -1691,3 +1691,521 @@ h2 .icon {
 .app-footer a:hover {
   color: var(--text);
 }
+
+/* ============================================================
+   미러 모드 — 거울 문법 (docs/mirror-ux-plan.md)
+   하프미러에서 검은 픽셀은 투명(=거울)이다. 배경은 순수 #000,
+   면(面)을 채우지 않고 빛·라인·타이포로만 그린다.
+   ============================================================ */
+.mirror-mode {
+  --bg: #000;
+  --surface: #000;
+  --surface-2: #05060a;
+  --border: #1c2130;
+  --border-strong: #2c3348;
+  /* 하프미러 투과율(~30-50%) 보정 — 휘도 상향 토큰 */
+  --accent: #7d99ff;
+  --accent-strong: #93abff;
+  --accent-weak: rgba(125, 153, 255, 0.14);
+  --text: #f2f5ff;
+  --text-2: #aeb8d4;
+  --text-3: #7c86a3;
+  --frame-glow: rgba(125, 153, 255, 0.35);
+
+  /* 1m 거리 타이포 스케일 */
+  --fs-caption: 24px;
+  --fs-body: 30px;
+  --fs-subtitle: 40px;
+  --fs-title: 56px;
+  --fs-display: 84px;
+
+  /* 공용 키오스크 터치 타깃 */
+  --touch-min: 88px;
+  --touch-primary: 120px;
+}
+
+.mirror-mode body,
+.mirror-mode #root {
+  background: #000;
+}
+
+/* ---- 미러 무대: 세로 1080×1920 존 레이아웃 ---- */
+.mirror-stage {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden; /* 거울에 스크롤은 없다 */
+  background: #000;
+}
+
+.mirror-zone-presence {
+  flex: 0 0 18%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: var(--s-6) var(--s-6) var(--s-3);
+}
+
+.mirror-zone-reflection {
+  flex: 1 1 auto; /* 비움 — 체험자의 반사가 맺히는 자리 */
+  position: relative;
+}
+
+.mirror-zone-subtitle {
+  flex: 0 0 15%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--s-8);
+  text-align: center;
+}
+
+.mirror-zone-controls {
+  flex: 0 0 20%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-6);
+  padding: var(--s-4) var(--s-6) var(--s-8);
+}
+
+/* ---- 운영자 탈출구 (모서리 3초 롱프레스) ---- */
+.operator-hotzone {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 96px;
+  height: 96px;
+  z-index: 90;
+  /* 시각적 표시 없음 — 관람객에게 보이지 않는 핫존 */
+}
+
+.operator-hotzone.holding {
+  background: radial-gradient(circle at top right, var(--accent-weak), transparent 70%);
+}
+
+.operator-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.82);
+}
+
+.operator-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  min-width: 340px;
+  padding: var(--s-6);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+
+.operator-panel h2 {
+  margin-bottom: var(--s-2);
+}
+
+.mirror-mode .operator-panel .primary-btn,
+.mirror-mode .operator-panel .ghost-btn {
+  min-height: 64px;
+  font-size: 1.05rem;
+}
+
+/* ---- 미러 역할극: 거울 속 면담 ---- */
+.mirror-roleplay {
+  position: fixed;
+  inset: 0;
+  background: #000;
+}
+
+/* 앰비언트 타이머 — 하루가 상단 빛의 선으로 줄어든다 */
+.mirror-timeline {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 20;
+  background: rgba(125, 153, 255, 0.08);
+}
+
+.mirror-timeline-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), rgba(125, 153, 255, 0.4));
+  box-shadow: 0 0 12px var(--frame-glow);
+  transition: width 1s linear;
+}
+
+.mirror-timeline.urgent .mirror-timeline-fill {
+  background: linear-gradient(90deg, var(--bad), rgba(229, 100, 95, 0.4));
+  box-shadow: 0 0 14px rgba(229, 100, 95, 0.5);
+}
+
+.mirror-urgent-count {
+  position: absolute;
+  right: var(--s-6);
+  bottom: var(--s-4);
+  font-size: var(--fs-body);
+  font-weight: 700;
+  color: var(--bad);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 상대의 존재 — 상단 밴드. 카메라가 이 근처에 있어 "상대를 보면 카메라를 본다" */
+.mirror-presence {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.mirror-clock {
+  font-size: var(--fs-caption);
+  letter-spacing: 0.14em;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.mirror-clock.large {
+  font-size: var(--fs-title);
+  color: var(--text-2);
+}
+
+.mirror-presence-avatar {
+  border-radius: 50%;
+  padding: 6px;
+  transition: box-shadow 0.6s ease;
+}
+
+.mirror-presence.speaking .mirror-presence-avatar {
+  box-shadow: 0 0 0 3px var(--accent-weak), 0 0 42px var(--frame-glow);
+  animation: mirror-speak-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes mirror-speak-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px var(--accent-weak), 0 0 34px var(--frame-glow); }
+  50% { box-shadow: 0 0 0 5px var(--accent-weak), 0 0 58px var(--frame-glow); }
+}
+
+.mirror-presence-name {
+  font-size: var(--fs-body);
+  font-weight: 700;
+}
+
+.mirror-presence-role {
+  font-size: var(--fs-caption);
+  color: var(--text-3);
+}
+
+.mirror-pressure-chip {
+  margin-top: var(--s-1);
+  padding: 4px 16px;
+  border-radius: var(--r-full);
+  border: 1px solid rgba(229, 100, 95, 0.5);
+  color: var(--bad);
+  font-size: var(--fs-caption);
+}
+
+/* 압박 질문 — 색온도가 차가워진다 (텍스트 라벨은 보조) */
+.mirror-roleplay.pressure .mirror-timeline-fill {
+  background: linear-gradient(90deg, #8fb4ff, rgba(143, 180, 255, 0.35));
+}
+
+/* 카메라는 보이지 않는 센서 */
+.mirror-camera-hidden {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.mirror-camera-hidden video,
+.mirror-camera-hidden canvas {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 코칭 토스트 — 반사 존 하단 가장자리, 4초 자동 소멸 (useNonverbal이 관리) */
+.mirror-toast {
+  position: absolute;
+  left: 50%;
+  bottom: var(--s-4);
+  transform: translateX(-50%);
+  max-width: 80%;
+  padding: var(--s-3) var(--s-6);
+  border-radius: var(--r-full);
+  border: 1px solid var(--border-strong);
+  background: rgba(5, 6, 10, 0.85);
+  color: var(--text);
+  font-size: var(--fs-caption);
+  text-align: center;
+  animation: mirror-toast-in 0.4s ease;
+}
+
+@keyframes mirror-toast-in {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* 자막 밴드 */
+.mirror-subtitle {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  align-items: center;
+}
+
+.mirror-subtitle-line {
+  margin: 0;
+  font-size: var(--fs-subtitle);
+  line-height: 1.45;
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+.mirror-subtitle-line.reaction {
+  color: var(--accent-strong);
+  font-weight: 500;
+}
+
+.mirror-subtitle-mine {
+  margin: 0;
+  font-size: var(--fs-body);
+  line-height: 1.5;
+  color: var(--good);
+  font-weight: 500;
+}
+
+.mirror-subtitle-mine .interim {
+  color: var(--text-3);
+}
+
+.mirror-subtitle-listening {
+  margin: 0;
+  font-size: var(--fs-body);
+  color: var(--text-2);
+  animation: mirror-breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes mirror-breathe {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+.mirror-notice {
+  margin: 0;
+  font-size: var(--fs-caption);
+  color: var(--warn);
+}
+
+/* 컨트롤 밴드 — 손 닿는 높이 */
+.mirror-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-3);
+  width: 100%;
+}
+
+.mirror-controls-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+}
+
+.mirror-mic-btn {
+  width: var(--touch-primary);
+  height: var(--touch-primary);
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.mirror-mic-btn.recording {
+  border-color: var(--bad);
+  color: var(--bad);
+  box-shadow: 0 0 0 6px rgba(229, 100, 95, 0.12), 0 0 44px rgba(229, 100, 95, 0.35);
+  animation: mirror-rec-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes mirror-rec-pulse {
+  0%, 100% { box-shadow: 0 0 0 6px rgba(229, 100, 95, 0.12), 0 0 36px rgba(229, 100, 95, 0.3); }
+  50% { box-shadow: 0 0 0 10px rgba(229, 100, 95, 0.16), 0 0 60px rgba(229, 100, 95, 0.45); }
+}
+
+.mirror-submit-btn {
+  min-width: 220px;
+  min-height: var(--touch-min);
+  font-size: var(--fs-body);
+  border-radius: var(--r-full);
+}
+
+.mirror-finish-link {
+  border: none;
+  background: none;
+  color: var(--text-3);
+  font-size: var(--fs-caption);
+  cursor: pointer;
+  padding: var(--s-2) var(--s-4);
+}
+
+.mirror-privacy {
+  font-size: 15px;
+  color: var(--text-3);
+  opacity: 0.7;
+}
+
+/* 4-Fit 라이브 오라 — 숫자 없는 실시간 반영. 밝고 고요하면 좋은 상태 */
+.mirror-aura-row {
+  display: flex;
+  gap: var(--s-8);
+}
+
+.mirror-aura {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.mirror-aura-orb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text-3);
+  opacity: 0.3;
+  transition: all 0.5s ease;
+}
+
+.mirror-aura.ok .mirror-aura-orb {
+  background: var(--accent);
+  opacity: 1;
+  box-shadow: 0 0 16px var(--frame-glow);
+}
+
+.mirror-aura.mid .mirror-aura-orb {
+  background: var(--accent);
+  opacity: 0.55;
+}
+
+.mirror-aura.warn .mirror-aura-orb {
+  background: var(--warn);
+  opacity: 0.85;
+  animation: mirror-aura-tremble 0.9s ease-in-out infinite;
+}
+
+@keyframes mirror-aura-tremble {
+  0%, 100% { transform: translateX(0); opacity: 0.85; }
+  25% { transform: translateX(-1.5px); }
+  50% { opacity: 0.55; }
+  75% { transform: translateX(1.5px); }
+}
+
+.mirror-aura-label {
+  font-size: 15px;
+  color: var(--text-3);
+}
+
+/* 브리핑 — 장면 자막 + 눈맞춤 캘리브레이션 의식 */
+.mirror-briefing {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-5);
+  padding: var(--s-8);
+  background: #000;
+  text-align: center;
+}
+
+.mirror-briefing-title {
+  font-size: var(--fs-title);
+  margin: 0;
+  text-wrap: balance;
+}
+
+.mirror-briefing-scene {
+  font-size: var(--fs-body);
+  color: var(--text-2);
+  line-height: 1.6;
+  max-width: 34ch;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.mirror-briefing-points {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  justify-content: center;
+}
+
+.mirror-mode .briefing-chip {
+  font-size: var(--fs-caption);
+  padding: var(--s-2) var(--s-4);
+}
+
+.mirror-gaze-ring {
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  opacity: 0.4;
+  transition: all 0.8s ease;
+}
+
+.mirror-gaze-ring.active {
+  border-color: var(--accent);
+  opacity: 1;
+  box-shadow: 0 0 40px var(--frame-glow), inset 0 0 24px rgba(125, 153, 255, 0.12);
+  animation: mirror-breathe 3s ease-in-out infinite;
+}
+
+.mirror-briefing-calib {
+  font-size: var(--fs-caption);
+  color: var(--text-2);
+  margin: 0;
+}
+
+.mirror-start-btn {
+  min-height: var(--touch-min);
+  min-width: 380px;
+  font-size: var(--fs-body);
+  border-radius: var(--r-full);
+}
+
+/* 웹 모드 — 리액션 버블 (미러와 같은 데이터, 다른 문법) */
+.reaction-bubble {
+  opacity: 0.85;
+  border-style: dashed;
+}
+
+/* 긴 대사는 자막 폰트를 한 단계 줄여 반사 존을 지킨다 */
+.mirror-subtitle-line.long {
+  font-size: var(--fs-body);
+  line-height: 1.55;
+}
+
+.mirror-zone-subtitle {
+  min-height: 15%;
+  flex: 0 1 auto;
+}

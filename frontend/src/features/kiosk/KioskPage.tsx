@@ -4,12 +4,13 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Icon from '../../components/Icon';
+import { enterMirrorMode } from '../../lib/mirrorMode';
 
 export default function KioskPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    localStorage.setItem('mirroting-kiosk', '1');
+    enterMirrorMode();
   }, []);
 
   function enterFullscreen(e: React.MouseEvent) {

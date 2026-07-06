@@ -1,14 +1,19 @@
 import { BrowserRouter, Link, Route, Routes, useLocation } from 'react-router-dom';
+import OperatorPanel from './components/OperatorPanel';
 import AdminPage from './features/admin/AdminPage';
 import { LoginPage, SignupPage } from './features/auth/AuthPages';
 import KioskPage from './features/kiosk/KioskPage';
 import OnboardingPage from './features/onboarding/OnboardingPage';
 import ReportPage from './features/report/ReportPage';
 import RoleplayPage from './features/roleplay/RoleplayPage';
+import { restoreMirrorMode, useMirrorMode } from './lib/mirrorMode';
+
+restoreMirrorMode(); // 부팅 시 저장된 모드를 <html> 클래스에 복원
 
 function Shell() {
   const location = useLocation();
   const isKiosk = location.pathname === '/kiosk';
+  const mirror = useMirrorMode();
   return (
     <div className="app-shell">
       <Routes>
@@ -20,7 +25,8 @@ function Shell() {
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/admin" element={<AdminPage />} />
       </Routes>
-      {!isKiosk && (
+      {mirror && <OperatorPanel />}
+      {!isKiosk && !mirror && (
         <footer className="app-footer">
           <span>4-Fit 미러팅 · CarpeDM · 2026 동양미래EXPO</span>
           <nav>
