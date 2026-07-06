@@ -184,6 +184,8 @@ class Report(Base):
     speech_stats: Mapped[dict] = mapped_column(JSON, default=dict)
     # 하루의 결말 (수행도 분기): {level, label, character_id, text}
     day_ending: Mapped[dict] = mapped_column(JSON, default=dict)
+    # 심층 교차 분석: {delivery(담화 구조), composure(압박 내성), adaptation(적응 곡선)}
+    deep_analysis: Mapped[dict] = mapped_column(JSON, default=dict)
     analysis_ms: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 

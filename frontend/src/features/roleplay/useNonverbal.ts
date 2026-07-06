@@ -51,6 +51,9 @@ interface Accumulator {
   browDownFrames: number; // 찡그림 (blendshape)
   handFaceFrames: number; // 손-얼굴 터치 (무의식 습관, pose 손목)
   armCrossFrames: number; // 팔짱 근사 (pose 손목 교차)
+  asymSamples: number[]; // 시선 미세 안정성용 좌우 비대칭 시계열 (보정값)
+  offStreaks: number[]; // 완료된 이탈 스트릭 길이들 — 회복 시간 분석
+  shoulderWidths: number[]; // 어깨 픽셀 폭 시계열 — 앞/뒤 리닝 추세
   tips: string[]; // 이 턴에서 발생한 실시간 코칭 (리포트 연동, S-JKEYHS)
 }
 
@@ -74,6 +77,9 @@ const emptyAcc = (): Accumulator => ({
   browDownFrames: 0,
   handFaceFrames: 0,
   armCrossFrames: 0,
+  asymSamples: [],
+  offStreaks: [],
+  shoulderWidths: [],
   tips: [],
 });
 
@@ -108,6 +114,11 @@ export interface LiveState {
 const idleLive: LiveState = {
   tracking: false, front: true, offDir: null, tiltDeg: 0, headDown: false, micLevel: 0, calibrated: false,
 };
+
+function stdDev(values: number[]): number {
+  const m = values.reduce((a, b) => a + b, 0) / values.length;
+  return Math.sqrt(values.reduce((a, b) => a + (b - m) ** 2, 0) / values.length);
+}
 
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
@@ -261,6 +272,7 @@ export function useNonverbal(
             let tiltRaw: number | null = null;
             let headGap: number | null = null;
             let shoulderX: number | null = null;
+            let shoulderWidth: number | null = null;
             let handFace = false;
             let armCross = false;
             if (plm) {
@@ -269,6 +281,7 @@ export function useNonverbal(
               const noseP = plm[0];
               const width = Math.abs(ls.x - rs.x);
               if (width > 0.05) {
+                shoulderWidth = width; // 앞/뒤 리닝 추세용 (커지면 몸이 카메라 쪽으로)
                 tiltRaw = (Math.atan2(Math.abs(ls.y - rs.y), width) * 180) / Math.PI;
                 headGap = ((ls.y + rs.y) / 2 - noseP.y) / width;
                 shoulderX = ((ls.x + rs.x) / 2) / width;
@@ -342,6 +355,7 @@ export function useNonverbal(
               acc.frontFlags.push(front);
               if (front) {
                 acc.frontFrames += 1;
+                if (acc.curOffStreak > 0) acc.offStreaks.push(acc.curOffStreak); // 회복 완료
                 acc.curOffStreak = 0;
               } else {
                 if (acc.lastFront) acc.gazeOffCount += 1;
@@ -349,6 +363,10 @@ export function useNonverbal(
                 acc.curOffStreak += 1;
                 acc.maxOffStreak = Math.max(acc.maxOffStreak, acc.curOffStreak);
               }
+              if (signedAsym !== null) {
+                acc.asymSamples.push(base.set ? signedAsym - base.asym : signedAsym);
+              }
+              if (shoulderWidth !== null) acc.shoulderWidths.push(shoulderWidth);
               acc.lastFront = front;
               if (blink && !acc.blinkActive) acc.blinkCount += 1;
               acc.blinkActive = blink;
@@ -471,6 +489,21 @@ export function useNonverbal(
       hand_face_sec: Math.round((acc.handFaceFrames * SAMPLE_MS) / 100) / 10,
       arm_cross_ratio: Math.round((acc.armCrossFrames / acc.frames) * 100) / 100,
       gaze_dirs: { ...acc.offDirs },
+      // 시선 미세 안정성: 정면 판정 내에서의 흔들림 (표준편차) — 스캐닝 습관 감지
+      gaze_stability: acc.asymSamples.length > 5
+        ? Math.round(stdDev(acc.asymSamples) * 1000) / 1000
+        : 0,
+      // 이탈 후 정면 복귀까지 평균 시간 — 회복 탄력
+      gaze_recover_sec: acc.offStreaks.length
+        ? Math.round((mean(acc.offStreaks) * SAMPLE_MS) / 100) / 10
+        : 0,
+      // 앞/뒤 리닝 추세: 후반 어깨폭 / 전반 대비 (%) — +는 카메라 쪽으로 다가옴
+      lean_drift_pct: (() => {
+        const w = acc.shoulderWidths;
+        if (w.length < 10) return 0;
+        const h = Math.floor(w.length / 2);
+        return Math.round((mean(w.slice(h)) / mean(w.slice(0, h)) - 1) * 100);
+      })(),
       calibrated: baselineRef.current.set,
       tips: acc.tips,
     };

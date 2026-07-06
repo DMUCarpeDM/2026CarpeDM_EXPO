@@ -100,6 +100,9 @@ class NonverbalIn(BaseModel):
     hand_face_sec: float = 0.0  # 손-얼굴 터치 누적 초 (무의식 습관)
     arm_cross_ratio: float = 0.0  # 팔짱 자세 비율 (무의식 습관)
     gaze_dirs: dict = {}  # 시선 이탈 방향 분포 {down,up,left,right: frames}
+    gaze_stability: float = 0.0  # 정면 내 시선 흔들림 표준편차 (스캐닝 습관)
+    gaze_recover_sec: float = 0.0  # 이탈 후 정면 복귀 평균 시간 (회복 탄력)
+    lean_drift_pct: float = 0.0  # 후반 어깨폭 변화 % (+ 다가옴 / - 물러남)
     calibrated: bool = False  # 정면 기준 캘리브레이션 적용 여부
     tips: list[str] = []  # 턴 중 발생한 실시간 코칭 (S-JKEYHS 리포트 연동)
 
@@ -146,6 +149,7 @@ class ReportOut(BaseModel):
     percentile_top: int | None = None  # 현장 체험자 상위 N%
     turn_breakdown: list = []  # 턴별 점수 [{turn_order, question_type, scores}]
     day_ending: dict = {}  # 하루의 결말 (수행도 분기): {level, label, character_id, text}
+    deep_analysis: dict = {}  # 심층 교차 분석 {delivery, composure, adaptation}
     analysis_ms: int
     mode: int
     difficulty: str

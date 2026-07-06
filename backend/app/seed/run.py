@@ -11,7 +11,7 @@ _NEW_COLUMNS: dict[str, dict[str, str]] = {
     "episodes": {"virtual_time": "VARCHAR(10) DEFAULT ''", "intro_variants": "JSON"},
     "turns": {"reaction_text": "TEXT DEFAULT ''", "reaction_character_id": "VARCHAR(50) DEFAULT ''"},
     "roleplay_sessions": {"rapport": "JSON"},
-    "reports": {"day_ending": "JSON"},
+    "reports": {"day_ending": "JSON", "deep_analysis": "JSON"},
 }
 
 

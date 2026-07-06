@@ -351,6 +351,74 @@ export default function ReportPage() {
         )}
       </section>
 
+      {/* 심층 교차 분석 — 단일 지표를 넘어 지표 사이의 관계 (담화 구조·압박 내성·적응 곡선) */}
+      {(report.deep_analysis?.delivery ||
+        report.deep_analysis?.composure ||
+        report.deep_analysis?.adaptation) && (
+        <section className="card deep-analysis">
+          <h2>
+            <Icon name="spark" size={15} /> 심층 분석
+            <span className="legend">지표 사이의 관계를 읽습니다</span>
+          </h2>
+          <div className="deep-grid">
+            {report.deep_analysis.delivery && (
+              <div className="deep-card">
+                <strong>{report.deep_analysis.delivery.title}</strong>
+                <ul>
+                  {report.deep_analysis.delivery.rows.map((r) => (
+                    <li key={r.label}>
+                      <span>{r.label}</span>
+                      <em>{r.value}</em>
+                    </li>
+                  ))}
+                </ul>
+                <p>{report.deep_analysis.delivery.comment}</p>
+              </div>
+            )}
+            {report.deep_analysis.composure && (
+              <div className="deep-card">
+                <strong>
+                  {report.deep_analysis.composure.title}
+                  <span className="deep-level">{report.deep_analysis.composure.level}</span>
+                </strong>
+                <ul>
+                  {report.deep_analysis.composure.rows.map((r) => (
+                    <li key={r.label}>
+                      <span>{r.label}</span>
+                      <em>{r.value}</em>
+                    </li>
+                  ))}
+                </ul>
+                <p>{report.deep_analysis.composure.comment}</p>
+              </div>
+            )}
+            {report.deep_analysis.adaptation && (
+              <div className="deep-card">
+                <strong>
+                  {report.deep_analysis.adaptation.title}
+                  <span className="deep-level">
+                    {{ up: '상승 ↗', flat: '유지 →', down: '하강 ↘' }[
+                      report.deep_analysis.adaptation.trend
+                    ]}
+                  </span>
+                </strong>
+                <div className="deep-curve">
+                  {report.deep_analysis.adaptation.points.map((p) => (
+                    <span
+                      key={p.turn_order}
+                      className="deep-curve-bar"
+                      style={{ height: `${Math.max(8, p.score)}%` }}
+                      title={`턴 ${p.turn_order}: ${p.score}점`}
+                    />
+                  ))}
+                </div>
+                <p>{report.deep_analysis.adaptation.comment}</p>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
       <section className="fit-grid">
         {Object.entries(report.fit_scores).map(([fit, data]) => {
           const prevScore = report.previous?.fit_scores[fit];

@@ -73,6 +73,9 @@ export interface NonverbalMetrics {
   hand_face_sec: number; // 손-얼굴 터치 누적 초 (무의식 습관)
   arm_cross_ratio: number; // 팔짱 자세 프레임 비율 (무의식 습관)
   gaze_dirs: Record<'down' | 'up' | 'left' | 'right', number>; // 시선 이탈 방향 분포
+  gaze_stability: number; // 정면 내 시선 흔들림 표준편차 (스캐닝 습관)
+  gaze_recover_sec: number; // 이탈 후 정면 복귀 평균 시간 (회복 탄력)
+  lean_drift_pct: number; // 후반 어깨폭 변화 % (+는 다가옴, -는 물러남)
   calibrated: boolean; // 정면 기준 캘리브레이션 적용 여부
   tips: string[]; // 턴 중 발생한 실시간 코칭 문구
 }
@@ -147,6 +150,21 @@ export interface Report {
     label?: string;
     character_id?: string;
     text?: string;
+  };
+  deep_analysis: {
+    delivery?: { title: string; rows: { label: string; value: string }[]; comment: string };
+    composure?: {
+      title: string;
+      level: string;
+      rows: { label: string; value: string }[];
+      comment: string;
+    };
+    adaptation?: {
+      title: string;
+      trend: 'up' | 'flat' | 'down';
+      points: { turn_order: number; score: number }[];
+      comment: string;
+    };
   };
   percentile_top: number | null;
   turn_breakdown: {

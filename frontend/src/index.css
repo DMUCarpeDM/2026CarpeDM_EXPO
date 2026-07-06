@@ -2705,3 +2705,85 @@ h2 .icon {
   78% { opacity: 1; }   /* 다음 장면의 시각·제목이 머무는 시간 */
   100% { opacity: 0; }
 }
+
+/* ---- 심층 교차 분석 (웹 리포트 — QR 상세의 전문가 섹션) ---- */
+.deep-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--s-4);
+}
+
+.deep-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+
+.deep-card > strong {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: 0.9rem;
+}
+
+.deep-level {
+  padding: 2px 10px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--border-strong);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.deep-card ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+
+.deep-card li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-2);
+  font-size: 0.8rem;
+  color: var(--text-2);
+}
+
+.deep-card li em {
+  font-style: normal;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.deep-card p {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--text-2);
+  border-top: 1px solid var(--border);
+  padding-top: var(--s-3);
+}
+
+.deep-curve {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s-2);
+  height: 64px;
+  padding: var(--s-1) 0;
+}
+
+.deep-curve-bar {
+  flex: 1;
+  max-width: 36px;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(180deg, var(--accent), var(--accent-weak));
+  min-height: 6px;
+}
