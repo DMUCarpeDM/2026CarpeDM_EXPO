@@ -505,7 +505,7 @@ STRENGTH_BY_BAND = {
 
 
 def _habit_segments(session: RoleplaySession) -> list[dict]:
-    """무의식 습관 카드 — 지각 확장 지표(손-얼굴·팔짱·긴장 표정·미소 타이밍).
+    """무의식 습관 카드 — 지각 확장 지표(손-얼굴·팔짱·긴장 표정·미소 타이밍·진정성 미소).
 
     체험자가 가장 놀라는 종류의 피드백. 보수적 임계값으로 확실할 때만 말하고,
     감점이 아니라 관찰로 전달한다. 데이터 없으면 카드도 없다.
@@ -564,6 +564,29 @@ def _habit_segments(session: RoleplaySession) -> list[dict]:
                 "압박 질문에서도 표정이 흔들리지 않고 안정적이었어요.",
                 "지적 앞에서 표정이 유지되는 건 신뢰를 주는 강점이에요.",
                 "이 안정감을 유지하면서, 답변 첫 문장에 인정 표현을 얹으면 완성이에요.",
+            ))
+
+    # 진정성 미소 근사(Duchenne proxy, 마스터리 ⑤): 미소 중 눈둘레근 동시 활성 비율.
+    # 미소 표본이 부족한 턴은 프론트가 null로 보류하므로 값이 있는 턴만 평균한다.
+    # 표정 자체가 아니라 '어떻게 전달되는지'만 말한다 — 외모 지적으로 읽히지 않게.
+    duchenne_vals = [
+        v for t in turns
+        if (v := t.nonverbal_metrics.get("smile_duchenne_ratio")) is not None
+    ]
+    if duchenne_vals:
+        duchenne = sum(duchenne_vals) / len(duchenne_vals)
+        smile_avg = sum(t.nonverbal_metrics.get("smile_ratio", 0) for t in turns) / len(turns)
+        if smile_avg >= 0.15 and duchenne <= 0.15:
+            segs.append(seg(
+                "미소를 자주 지었는데, 눈 주변 근육은 거의 함께 움직이지 않았어요.",
+                "입꼬리만 올라가는 미소는 상대에게 의례적인 표정으로 읽히기 쉬워요 — 표정이 아니라 전달의 문제예요.",
+                "웃음을 억지로 늘릴 필요는 없어요. 진짜 반가운 지점(인사·감사)에서만 웃으면 눈은 저절로 따라옵니다.",
+            ))
+        elif duchenne >= 0.6:
+            segs.append(seg(
+                "미소를 지을 때 눈까지 함께 웃는 표정이 관찰됐어요.",
+                "눈이 함께 움직이는 미소는 듣는 사람에게 진심으로 전달돼요 — 훈련으로 만들기 어려운 강점이에요.",
+                "이 표정은 그대로 두세요. 첫인사와 마무리 감사에서 특히 힘을 발휘합니다.",
             ))
 
     return segs[:2]  # 과잉 지적 방지 — 가장 중요한 것만

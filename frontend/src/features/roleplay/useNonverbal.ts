@@ -59,6 +59,10 @@ interface Accumulator {
   blinkCount: number;
   blinkActive: boolean;
   smileFrames: number; // 미소 표현 프레임
+  // ---- 표정 관찰 레이어 (마스터리 ⑤ — 전부 감점 없는 관찰 지표) ----
+  duchenneFrames: number; // 미소 중 눈둘레근(eyeSquint) 동시 활성 — 진정성 미소 근사
+  tensionStreaks: number[]; // 완료된 긴장 표정 에피소드 길이들 — 표정 복구 시간
+  curTensionStreak: number;
   rollSamples: number[]; // 고개 갸웃 각도 (보정값)
   // 지각 확장 — 이미 로드된 모델의 미사용 출력 (새 모델 없음)
   mouthPressFrames: number; // 입술 압축 = 긴장 신호 (blendshape)
@@ -100,6 +104,9 @@ const emptyAcc = (): Accumulator => ({
   blinkCount: 0,
   blinkActive: false,
   smileFrames: 0,
+  duchenneFrames: 0,
+  tensionStreaks: [],
+  curTensionStreak: 0,
   rollSamples: [],
   mouthPressFrames: 0,
   browDownFrames: 0,
@@ -301,6 +308,12 @@ export function useNonverbal(
             // 긴장 신호 (관찰 지표 — 감점 아님): 입술 압축·찡그림. 보수적 임계값
             const mouthPress = ((shapes.mouthPressLeft ?? 0) + (shapes.mouthPressRight ?? 0)) / 2 > 0.45;
             const browDown = ((shapes.browDownLeft ?? 0) + (shapes.browDownRight ?? 0)) / 2 > 0.5;
+            const tension = mouthPress || browDown; // 긴장 표정 에피소드 판정용
+            // 진정성 미소 근사(Duchenne proxy): 입꼬리(mouthSmile)와 눈둘레근(eyeSquint)이
+            // 동시에 움직여야 눈까지 웃는 미소다. 깜빡임 중에는 eyeSquint가 함께 올라가
+            // 오판을 만들므로 제외한다 — 임계값은 실기기 검증 항목(demo-checklist §2.5).
+            const eyeSquint = ((shapes.eyeSquintLeft ?? 0) + (shapes.eyeSquintRight ?? 0)) / 2;
+            const duchenne = smile && !blink && eyeSquint > 0.35;
 
             // ---- 얼굴 기하: 좌우 비대칭(요), 눈선 각도(갸웃) ----
             let signedAsym: number | null = null;
@@ -493,7 +506,8 @@ export function useNonverbal(
                 const bin = acc.bins[binIdx];
                 bin.frames += 1;
                 if (front) bin.front += 1;
-                if (mouthPress) bin.press += 1;
+                // 긴장 = 입술 압축 ∥ 찡그림 — moments의 '긴장 표정' 순간 감지 재료
+                if (tension) bin.press += 1;
                 if (tiltAdj !== null) bin.tiltSum += tiltAdj;
               }
 
@@ -504,9 +518,20 @@ export function useNonverbal(
               acc.lastFront = front;
               if (blink && !acc.blinkActive) acc.blinkCount += 1;
               acc.blinkActive = blink;
-              if (smile) acc.smileFrames += 1;
+              if (smile) {
+                acc.smileFrames += 1;
+                if (duchenne) acc.duchenneFrames += 1;
+              }
               if (mouthPress) acc.mouthPressFrames += 1;
               if (browDown) acc.browDownFrames += 1;
+              // 긴장 표정 에피소드: 시작~풀림까지의 연속 구간 (표정 복구 시간 재료).
+              // 2프레임(0.4s) 미만의 단발 깜빡임 잡음은 에피소드로 세지 않는다.
+              if (tension) {
+                acc.curTensionStreak += 1;
+              } else {
+                if (acc.curTensionStreak >= 2) acc.tensionStreaks.push(acc.curTensionStreak);
+                acc.curTensionStreak = 0;
+              }
               if (handFace) acc.handFaceFrames += 1;
               if (armCross) acc.armCrossFrames += 1;
               if (rollAdj !== null) acc.rollSamples.push(rollAdj);
@@ -627,6 +652,18 @@ export function useNonverbal(
       tilt_drift_deg: Math.round(tiltDrift * 10) / 10,
       front_drift_pct: frontDrift,
       smile_ratio: Math.round((acc.smileFrames / acc.frames) * 100) / 100,
+      // 진정성 미소 근사: 미소 프레임 중 눈둘레근 동시 활성 비율 —
+      // 입만 웃는 서비스 미소와 눈까지 웃는 미소의 구분. 미소 표본 2초 미만은 판정 보류(null)
+      smile_duchenne_ratio: acc.smileFrames >= 10
+        ? Math.round((acc.duchenneFrames / acc.smileFrames) * 100) / 100
+        : null,
+      // 표정 복구 시간: 긴장 표정(입술 압축·찡그림) 에피소드가 풀리기까지 평균 초 —
+      // 압박 턴 vs 평상 턴 비교(교차 분석 composure)의 재료. 에피소드 없으면 0
+      expr_recover_sec: (() => {
+        const eps = [...acc.tensionStreaks];
+        if (acc.curTensionStreak >= 2) eps.push(acc.curTensionStreak);
+        return eps.length ? Math.round((mean(eps) * SAMPLE_MS) / 100) / 10 : 0;
+      })(),
       head_roll_deg: acc.rollSamples.length
         ? Math.round(mean(acc.rollSamples.map(Math.abs)) * 10) / 10
         : 0,

@@ -96,6 +96,9 @@ _COMPOSURE_PROBES = [
     ("정면 응시", -0.10, lambda nv, vm: nv.get("front_gaze_ratio")),
     ("깜빡임", +8.0, lambda nv, vm: nv.get("blink_per_min")),
     ("긴장 표정(입술 압축)", +0.15, lambda nv, vm: nv.get("mouth_press_ratio")),
+    # 표정 복구(마스터리 ⑤): 긴장 표정이 풀리기까지의 평균 초 — 압박에서 0.8초 이상
+    # 길어지면 '표정이 오래 굳는' 반응. 구 페이로드에는 키가 없어 자동 제외된다.
+    ("표정 복구 시간", +0.8, lambda nv, vm: nv.get("expr_recover_sec")),
     ("목소리 떨림", +4.0, lambda nv, vm: vm.get("f0_jitter_pct")),
     ("침묵 비율", +0.15, lambda nv, vm: vm.get("pause_ratio")),
 ]
@@ -114,7 +117,7 @@ def build_composure(
 
     shaken: list[str] = []
     held: list[str] = []
-    rows: list[dict] = []
+    flagged_rows: list[tuple[bool, dict]] = []
     for label, threshold, probe in _COMPOSURE_PROBES:
         p_vals = [v for nv, vm in pressure_pairs if (v := probe(nv, vm)) is not None]
         n_vals = [v for nv, vm in normal_pairs if (v := probe(nv, vm)) is not None]
@@ -124,10 +127,15 @@ def build_composure(
         worsened = delta <= threshold if threshold < 0 else delta >= threshold
         (shaken if worsened else held).append(label)
         direction = "▲" if delta > 0 else "▼"
-        rows.append({"label": label, "value": f"압박 시 {direction}{abs(delta):.2f}".rstrip("0").rstrip(".")})
+        flagged_rows.append((worsened, {
+            "label": label,
+            "value": f"압박 시 {direction}{abs(delta):.2f}".rstrip("0").rstrip("."),
+        }))
 
-    if not rows:
+    if not flagged_rows:
         return None
+    # 표시 상한(4행)에서 악화 지표가 밀리지 않게 앞세운다 (안정 정렬 — 프로브 순 유지)
+    rows = [row for _, row in sorted(flagged_rows, key=lambda fr: not fr[0])]
 
     if not shaken:
         level, comment = "침착형", (

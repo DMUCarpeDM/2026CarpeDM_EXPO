@@ -94,6 +94,8 @@ class NonverbalIn(BaseModel):
     tilt_drift_deg: float = 0.0  # 후반-전반 어깨 기울기 변화
     front_drift_pct: float = 0.0  # 후반-전반 정면 응시 변화 (%p)
     smile_ratio: float = 0.0  # 미소 표현 비율 (관찰 지표)
+    smile_duchenne_ratio: float | None = None  # 미소 중 눈 참여(진정성 미소 근사) — 표본 부족 시 null
+    expr_recover_sec: float = 0.0  # 긴장 표정 에피소드 평균 지속 초 (표정 복구 — 교차 분석 재료)
     head_roll_deg: float = 0.0  # 고개 갸웃 평균 편차
     mouth_press_ratio: float = 0.0  # 입술 압축(긴장) 비율 — 관찰 지표, 감점 없음
     brow_down_ratio: float = 0.0  # 찡그림 비율 — 관찰 지표
@@ -107,6 +109,7 @@ class NonverbalIn(BaseModel):
     onset_aversion_sec: float = 0.0  # 답변 개시 유예 구간 회피 (감점 제외 근거)
     gaze_zones: list[int] = []  # 3×3 시선 존 (위/중/아래 × 좌/중/우)
     # 교차 분석 타임라인: [{t, front, press, tilt}] — 2초 빈당 집계 숫자만
+    # (press = 긴장 표정 비율: 입술 압축 ∥ 찡그림)
     timeline: list[dict] = []
     gaze_stability: float = 0.0  # 정면 내 시선 흔들림 표준편차 (스캐닝 습관)
     gaze_recover_sec: float = 0.0  # 이탈 후 정면 복귀 평균 시간 (회복 탄력)

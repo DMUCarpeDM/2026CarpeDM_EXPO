@@ -67,6 +67,8 @@ export interface NonverbalMetrics {
   tilt_drift_deg: number; // 후반-전반 어깨 기울기 변화 (자세 붕괴 추세)
   front_drift_pct: number; // 후반-전반 정면 응시 변화 (%p)
   smile_ratio: number; // 미소 표현 프레임 비율
+  smile_duchenne_ratio: number | null; // 미소 중 눈 참여 비율(진정성 미소 근사) — 미소 2초 미만이면 null
+  expr_recover_sec: number; // 긴장 표정(압축·찡그림) 에피소드 평균 지속 초 — 표정 복구, 교차 분석 재료
   head_roll_deg: number; // 고개 갸웃(눈선 각도) 평균 편차
   mouth_press_ratio: number; // 입술 압축(긴장) 프레임 비율 — 관찰 지표
   brow_down_ratio: number; // 찡그림 프레임 비율 — 관찰 지표
@@ -80,7 +82,7 @@ export interface NonverbalMetrics {
   onset_aversion_sec: number; // 답변 개시 2.5초 유예 구간의 시선 회피 (감점 제외 근거)
   gaze_zones: number[]; // 3×3 시선 존 분포 (위/중/아래 × 좌/중/우)
   // 교차 분석용 2초 빈 타임라인 — 빈당 집계 숫자만 (영상·좌표 미전송)
-  timeline: { t: number; front: number | null; press: number | null; tilt: number | null }[];
+  timeline: { t: number; front: number | null; press: number | null; tilt: number | null }[]; // press=긴장(입술 압축∥찡그림)
   gaze_stability: number; // 정면 내 시선 흔들림 표준편차 (스캐닝 습관)
   gaze_recover_sec: number; // 이탈 후 정면 복귀 평균 시간 (회복 탄력)
   lean_drift_pct: number; // 후반 어깨폭 변화 % (+는 다가옴, -는 물러남)
