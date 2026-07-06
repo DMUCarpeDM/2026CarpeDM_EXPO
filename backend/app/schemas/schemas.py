@@ -106,6 +106,8 @@ class NonverbalIn(BaseModel):
     contact_bout_mean_sec: float = 0.0  # 연속 응시 평균 길이 (응시 리듬)
     onset_aversion_sec: float = 0.0  # 답변 개시 유예 구간 회피 (감점 제외 근거)
     gaze_zones: list[int] = []  # 3×3 시선 존 (위/중/아래 × 좌/중/우)
+    # 교차 분석 타임라인: [{t, front, press, tilt}] — 2초 빈당 집계 숫자만
+    timeline: list[dict] = []
     gaze_stability: float = 0.0  # 정면 내 시선 흔들림 표준편차 (스캐닝 습관)
     gaze_recover_sec: float = 0.0  # 이탈 후 정면 복귀 평균 시간 (회복 탄력)
     lean_drift_pct: float = 0.0  # 후반 어깨폭 변화 % (+ 다가옴 / - 물러남)

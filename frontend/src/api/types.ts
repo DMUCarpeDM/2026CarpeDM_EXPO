@@ -79,6 +79,8 @@ export interface NonverbalMetrics {
   contact_bout_mean_sec: number; // 연속 응시 구간 평균 길이 (응시 리듬)
   onset_aversion_sec: number; // 답변 개시 2.5초 유예 구간의 시선 회피 (감점 제외 근거)
   gaze_zones: number[]; // 3×3 시선 존 분포 (위/중/아래 × 좌/중/우)
+  // 교차 분석용 2초 빈 타임라인 — 빈당 집계 숫자만 (영상·좌표 미전송)
+  timeline: { t: number; front: number | null; press: number | null; tilt: number | null }[];
   gaze_stability: number; // 정면 내 시선 흔들림 표준편차 (스캐닝 습관)
   gaze_recover_sec: number; // 이탈 후 정면 복귀 평균 시간 (회복 탄력)
   lean_drift_pct: number; // 후반 어깨폭 변화 % (+는 다가옴, -는 물러남)
@@ -158,19 +160,43 @@ export interface Report {
     text?: string;
   };
   deep_analysis: {
-    delivery?: { title: string; rows: { label: string; value: string }[]; comment: string };
+    delivery?: {
+      title: string;
+      rows: { label: string; value: string }[];
+      comment: string;
+      confidence?: { level: string; n: number };
+    };
     composure?: {
       title: string;
       level: string;
       rows: { label: string; value: string }[];
       comment: string;
+      confidence?: { level: string; n: number };
     };
     adaptation?: {
       title: string;
       trend: 'up' | 'flat' | 'down';
       points: { turn_order: number; score: number }[];
       comment: string;
+      confidence?: { level: string; n: number };
     };
+    // 결정적 순간 — 시간 정렬 교차 감지 (그때 하던 말 인용 포함)
+    moments?: {
+      turn_order: number;
+      at_sec: number;
+      kinds: string[];
+      composite: boolean;
+      description: string;
+      quote: string | null;
+      pressure_context: boolean;
+    }[];
+    // 현장 코호트 백분위 (표본 20+에서만)
+    cohort?: {
+      title: string;
+      rows: { fit: string; label: string; top_pct: number; n: number }[];
+    };
+    // 재방문 성장 델타
+    growth?: { from: string; to: string; improved: boolean; comment: string };
   };
   percentile_top: number | null;
   turn_breakdown: {

@@ -79,6 +79,9 @@ interface Accumulator {
   answerStartedAt: number; // 답변 페이즈 시작 시각 — 개시 회피 관용 측정
   onsetOffFrames: number; // 답변 개시 직후 유예 구간의 이탈 프레임
   gazeZones: number[]; // 3×3 시선 존 (행: 위/중/아래 × 열: 좌/중/우)
+  // 교차 분석용 2초 빈 타임라인 — 영상이 아니라 빈당 집계 숫자 3개만 (프라이버시 유지)
+  turnStartedAt: number;
+  bins: { frames: number; front: number; press: number; tiltSum: number }[];
   tips: string[]; // 이 턴에서 발생한 실시간 코칭 (리포트 연동, S-JKEYHS)
 }
 
@@ -115,8 +118,13 @@ const emptyAcc = (): Accumulator => ({
   answerStartedAt: 0,
   onsetOffFrames: 0,
   gazeZones: [0, 0, 0, 0, 0, 0, 0, 0, 0],
+  turnStartedAt: 0,
+  bins: [],
   tips: [],
 });
+
+const TIMELINE_BIN_MS = 2000;
+const TIMELINE_MAX_BINS = 120; // 4분 상한 — 페이로드 폭주 방지
 
 interface Baseline {
   set: boolean;
@@ -473,6 +481,22 @@ export function useNonverbal(
                 acc.gazeZones[row * 3 + col] += 1;
               }
 
+              // 교차 분석 타임라인 — 2초 빈당 집계 3개 (영상·좌표는 전송하지 않는다)
+              if (acc.turnStartedAt) {
+                const binIdx = Math.min(
+                  TIMELINE_MAX_BINS - 1,
+                  Math.floor((Date.now() - acc.turnStartedAt) / TIMELINE_BIN_MS),
+                );
+                while (acc.bins.length <= binIdx) {
+                  acc.bins.push({ frames: 0, front: 0, press: 0, tiltSum: 0 });
+                }
+                const bin = acc.bins[binIdx];
+                bin.frames += 1;
+                if (front) bin.front += 1;
+                if (mouthPress) bin.press += 1;
+                if (tiltAdj !== null) bin.tiltSum += tiltAdj;
+              }
+
               if (signedAsym !== null) {
                 acc.asymSamples.push(base.set ? signedAsym - base.asym : signedAsym);
               }
@@ -545,6 +569,7 @@ export function useNonverbal(
 
   const startTurn = useCallback(() => {
     accRef.current = emptyAcc();
+    accRef.current.turnStartedAt = Date.now();
     runningRef.current = true;
     gazePhaseRef.current = null;
   }, []);
@@ -632,6 +657,15 @@ export function useNonverbal(
       onset_aversion_sec: Math.round((acc.onsetOffFrames * SAMPLE_MS) / 100) / 10,
       // 3×3 시선 존 분포 (위/중/아래 × 좌/중/우) — 시선 지도
       gaze_zones: [...acc.gazeZones],
+      // 교차 분석 타임라인: 2초 빈당 (t=초, front=정면율, press=긴장율, tilt=평균 기울기)
+      timeline: acc.bins
+        .map((b, i) => ({
+          t: i * (TIMELINE_BIN_MS / 1000),
+          front: b.frames ? Math.round((b.front / b.frames) * 100) / 100 : null,
+          press: b.frames ? Math.round((b.press / b.frames) * 100) / 100 : null,
+          tilt: b.frames ? Math.round((b.tiltSum / b.frames) * 10) / 10 : null,
+        }))
+        .filter((b) => b.front !== null),
       // 시선 미세 안정성: 정면 판정 내에서의 흔들림 (표준편차) — 스캐닝 습관 감지
       gaze_stability: acc.asymSamples.length > 5
         ? Math.round(stdDev(acc.asymSamples) * 1000) / 1000

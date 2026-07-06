@@ -2787,3 +2787,85 @@ h2 .icon {
   background: linear-gradient(180deg, var(--accent), var(--accent-weak));
   min-height: 6px;
 }
+
+/* ---- 심층 분석 확장: 결정적 순간·성장·신뢰도 ---- */
+.deep-growth {
+  margin: 0 0 var(--s-4);
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border-strong);
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.deep-growth.up {
+  border-color: rgba(62, 207, 142, 0.45);
+  background: var(--good-weak);
+}
+
+.deep-growth strong {
+  color: var(--good);
+}
+
+.deep-moments {
+  margin-bottom: var(--s-4);
+  padding: var(--s-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--accent-weak);
+}
+
+.deep-moments-title {
+  font-size: 0.85rem;
+}
+
+.deep-moments ul {
+  list-style: none;
+  margin: var(--s-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.deep-moment-when {
+  font-size: 0.74rem;
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.deep-moment-badge {
+  font-style: normal;
+  padding: 1px 8px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: 0.68rem;
+}
+
+.deep-moments p {
+  margin: 2px 0 0;
+  font-size: 0.84rem;
+  color: var(--text);
+}
+
+.deep-moments blockquote {
+  margin: var(--s-1) 0 0;
+  padding-left: var(--s-3);
+  border-left: 2px solid var(--accent);
+  font-size: 0.8rem;
+  color: var(--text-2);
+}
+
+.deep-confidence {
+  margin-left: auto;
+  font-size: 0.66rem;
+  font-weight: 500;
+  color: var(--text-3);
+  border: 1px solid var(--border);
+  padding: 1px 8px;
+  border-radius: var(--r-full);
+}
