@@ -64,6 +64,10 @@ class TurnOut(BaseModel):
     character_id: str
     episode_id: int
     episode_title: str = ""
+    # 직전 답변에 대한 상대의 반응 — 프론트는 질문 TTS 전에 이것을 먼저 재생한다
+    reaction_text: str = ""
+    reaction_character_id: str = ""
+    virtual_time: str = ""  # 에피소드 가상 시각 (하루 프레이밍)
 
     model_config = {"from_attributes": True}
 
@@ -102,9 +106,18 @@ class ResponseIn(BaseModel):
     nonverbal: NonverbalIn | None = None
 
 
+class TurnSignalsOut(BaseModel):
+    """제출 직후의 경량 즉시 신호 — 미러 라이브 오라(Response 축)용.
+    전체 분석은 기존대로 세션 종료 후 파이프라인이 수행한다."""
+    case: str  # excellent | covered | missing | short | risky
+    coverage: float
+    risk_hits: int
+
+
 class NextTurnOut(BaseModel):
     finished: bool
     next_turn: TurnOut | None = None
+    turn_signals: TurnSignalsOut | None = None
 
 
 class ProgressOut(BaseModel):
@@ -127,6 +140,7 @@ class ReportOut(BaseModel):
     speech_stats: dict = {}  # 말하기 데이터 요약
     percentile_top: int | None = None  # 현장 체험자 상위 N%
     turn_breakdown: list = []  # 턴별 점수 [{turn_order, question_type, scores}]
+    day_ending: dict = {}  # 하루의 결말 (수행도 분기): {level, label, character_id, text}
     analysis_ms: int
     mode: int
     difficulty: str

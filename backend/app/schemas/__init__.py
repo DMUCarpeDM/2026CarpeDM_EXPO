@@ -13,11 +13,12 @@ from app.schemas.schemas import (
     SignupIn,
     TokenOut,
     TurnOut,
+    TurnSignalsOut,
     UserOut,
 )
 
 __all__ = [
     "AdminMetricsOut", "ConsentIn", "LoginIn", "NextTurnOut", "NonverbalIn",
     "ProgressOut", "ReportOut", "ResponseIn", "ScenarioOut", "SessionCreateIn",
-    "SessionOut", "SignupIn", "TokenOut", "TurnOut", "UserOut",
+    "SessionOut", "SignupIn", "TokenOut", "TurnOut", "TurnSignalsOut", "UserOut",
 ]

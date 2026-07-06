@@ -9,6 +9,7 @@
 from sqlalchemy import select
 
 from app.models import AnalysisResult, FitType, Report, RoleplaySession
+from app.services.dialogue.reactions import select_ending
 
 FIT_LABELS = {
     FitType.response: "Response-Fit (응답 적절성)",
@@ -551,6 +552,8 @@ def build_report(
         headline=headline,
         rebuild=_build_rebuild(session, by_fit.get(FitType.response, [])),
         speech_stats=_build_speech_stats(turn_results, session),
+        # 하루의 결말 — 수행도(rapport) 분기. "내 대답이 하루를 바꿨다"는 정서적 마침표
+        day_ending=select_ending(session),
         analysis_ms=analysis_ms,
     )
     db.add(report)

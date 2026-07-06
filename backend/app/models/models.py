@@ -83,6 +83,10 @@ class Episode(Base):
     # 포함 모드: "5,10" 또는 "10" (10분 모드 전용)
     modes: Mapped[str] = mapped_column(String(20), default="5,10")
     initial_question: Mapped[str] = mapped_column(Text)
+    # 하루 프레이밍: 에피소드가 벌어지는 가상 시각 "09:04" (S-미러 서사)
+    virtual_time: Mapped[str] = mapped_column(String(10), default="")
+    # 수행도 분기: {"high": "...", "low": "..."} — 기본 initial_question이 보통(mid)
+    intro_variants: Mapped[dict] = mapped_column(JSON, default=dict)
     question_intent: Mapped[str] = mapped_column(Text, default="")
     # [{id, label, keywords: [...], followup, weight}] — 누락 항목이 후속 질문 트리거
     checklist: Mapped[list] = mapped_column(JSON, default=list)
@@ -106,6 +110,9 @@ class RoleplaySession(Base):
     status: Mapped[SessionStatus] = mapped_column(Enum(SessionStatus), default=SessionStatus.ready)
     # {stage: str, pct: int} — 분석 진행률 (S-TTQEUS)
     analysis_progress: Mapped[dict] = mapped_column(JSON, default=dict)
+    # 수행도 상태 — 리액션·도입 변주·하루의 결말 분기의 심장.
+    # {"points": float, "answered": int, "used_reactions": [str]}
+    rapport: Mapped[dict] = mapped_column(JSON, default=dict)
     started_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
@@ -125,6 +132,10 @@ class Turn(Base):
     question_type: Mapped[str] = mapped_column(String(20), default="initial")  # initial | followup | pressure
     question_text: Mapped[str] = mapped_column(Text)
     character_id: Mapped[str] = mapped_column(String(50))
+    # 직전 답변에 대한 상대의 반응 — 질문 전에 재생된다 (챗봇 탈피의 핵심)
+    reaction_text: Mapped[str] = mapped_column(Text, default="")
+    # 반응하는 인물 — 직전 질문의 화자 (에피소드 전환 시 질문 화자와 다를 수 있음)
+    reaction_character_id: Mapped[str] = mapped_column(String(50), default="")
     response_text: Mapped[str] = mapped_column(Text, default="")
     stt_source: Mapped[str] = mapped_column(String(20), default="")  # webspeech | whisper | text
     response_duration_ms: Mapped[int] = mapped_column(Integer, default=0)
@@ -171,6 +182,8 @@ class Report(Base):
     rebuild: Mapped[dict] = mapped_column(JSON, default=dict)
     # 말하기 데이터: {total_syllables, banned_count, recommended_count, formal_pct, ...}
     speech_stats: Mapped[dict] = mapped_column(JSON, default=dict)
+    # 하루의 결말 (수행도 분기): {level, label, character_id, text}
+    day_ending: Mapped[dict] = mapped_column(JSON, default=dict)
     analysis_ms: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 

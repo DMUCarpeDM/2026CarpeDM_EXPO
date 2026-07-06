@@ -90,6 +90,7 @@ def get_report(session_id: int, db: Session = Depends(get_db)):
         headline=report.headline,
         rebuild=report.rebuild,
         speech_stats=report.speech_stats,
+        day_ending=report.day_ending or {},
         percentile_top=percentile_top,
         turn_breakdown=_turn_breakdown(db, session),
         analysis_ms=report.analysis_ms,
