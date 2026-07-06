@@ -10,8 +10,9 @@
 ## 2. 소프트웨어 (5분)
 - [ ] 백엔드 기동: `cd backend && ./.venv/bin/uvicorn app.main:app --port 8000`
 - [ ] 프론트 기동: `cd frontend && npm run dev -- --host` (또는 빌드 서빙)
-- [ ] (선택) Ollama 기동 확인: `ollama list`에 exaone3.5:2.4b —
-      안 떠 있어도 템플릿 폴백으로 동작함
+- [ ] (선택) Ollama 기동 확인: `ollama list`에 exaone3.5:2.4b(리액션 개인화)와
+      nomic-embed-text(의미 매칭) — 없어도 템플릿·키워드 폴백으로 동작함
+- [ ] (선택) 의미 매칭 임계값 보정: `python scripts/calibrate_semantic.py`
 - [ ] 오프라인 자산 확인: `npm run setup-offline` 완료 여부
       (전시장 인터넷 불안정 대비 — MediaPipe wasm/모델 로컬 서빙)
 - [ ] `VITE_PUBLIC_ORIGIN`을 미러 PC의 LAN 주소로 설정했는지

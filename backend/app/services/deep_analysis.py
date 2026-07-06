@@ -44,10 +44,18 @@ def build_delivery(discourse_list: list[dict]) -> dict | None:
     if alignment is not None:
         rows.append({"label": "질문 정합성", "value": f"{round(alignment * 100)}%"})
 
+    negatives = sum(d.get("negative_no_alternative", 0) for d in ds)
+    if negatives:
+        rows.append({"label": "대안 없는 불가 통보", "value": f"{negatives}회"})
+
     # 코치 코멘트 — 가장 큰 개선 지점 하나만 (과잉 지적 금지).
     # 정합성은 보수적 임계값(0.15) — 자기소개처럼 질문 명사 재사용이 원래 낮은
     # 턴이 섞이므로, 진짜 동문서답 수준일 때만 지적한다.
-    if alignment is not None and alignment < 0.15:
+    if negatives >= 2:
+        comment = ("'안 됩니다'가 대안 없이 반복됐어요. 불가 통보 자체는 문제가 아니에요 — "
+                   "\"지금은 어렵지만, 내일 오전까지는 가능합니다\"처럼 문장 뒤에 다음 문을 "
+                   "하나 열어두면 같은 거절도 협력으로 들려요.")
+    elif alignment is not None and alignment < 0.15:
         comment = ("질문의 핵심 단어가 답변에 거의 이어지지 않았어요. 답을 시작하기 전에 "
                    "질문 속 단어 하나를 그대로 받아 말하면(\"로그인 장애는요—\") 동문서답 인상이 사라져요.")
     elif conclusion_ratio < 0.34:

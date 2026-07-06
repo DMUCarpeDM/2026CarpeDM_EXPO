@@ -114,8 +114,14 @@ def _response_evidence(turn_results: list[AnalysisResult]) -> dict | None:
         interp = "길어질수록 듣는 사람은 '그래서 결론이 뭐지?'를 기다리게 돼요."
         sugg = "첫 문장을 이렇게 시작해보세요: \"결론부터 말씀드리면 ~입니다.\""
     else:
-        observed = f"핵심 요소를 모두 담았어요 (커버리지 {int(coverage * 100)}%)"
-        interp = "필요한 정보가 순서대로 들어간, 되묻지 않아도 되는 응답이었어요."
+        best_quote = (m.get("quotes") or {}).get("best")
+        if best_quote:
+            observed = (f"핵심 요소를 모두 담았어요. 가장 좋았던 문장: "
+                        f"“{best_quote['text']}”")
+            interp = "이 문장 하나에 필요한 구조가 다 들어 있어요 — 이 감각을 기억하세요."
+        else:
+            observed = f"핵심 요소를 모두 담았어요 (커버리지 {int(coverage * 100)}%)"
+            interp = "필요한 정보가 순서대로 들어간, 되묻지 않아도 되는 응답이었어요."
         sugg = ("다음 단계 도전: 숫자를 하나 넣어보세요. "
                 "\"문의 5건, 고객사 3곳\"처럼 수치가 들어가면 보고의 급이 달라져요.")
     return _segment(worst, "response", observed, interp, sugg)
@@ -359,6 +365,9 @@ def _fit_detail_metrics(fit: FitType, results: list[AnalysisResult]) -> list[dic
     if fit == FitType.response:
         cov = _mean_metric(results, "coverage")
         add("핵심 요소 커버리지", f"{round(cov * 100)}%" if cov is not None else None)
+        semantic = sum(len(r.raw_metrics.get("semantic_hits", [])) for r in results)
+        if semantic:
+            add("의미 인식 보완", f"{semantic}건 (키워드 없이 뜻으로 인정)")
         banned = sum(len(r.raw_metrics.get("banned_hits", [])) for r in results)
         add("위험 표현", f"{banned}회")
         formals = [

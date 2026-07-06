@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     ollama_model: str = "exaone3.5:2.4b"
     ollama_timeout_sec: float = 2.5
 
+    # 의미 매칭 (마스터리 ②): 로컬 임베딩으로 패러프레이즈 커버리지 인식.
+    # Ollama가 없으면 자동으로 키워드 매칭만 사용 (완전 폴백, API 키 무관).
+    # 준비: ollama pull nomic-embed-text
+    semantic_match_enabled: bool = True
+    ollama_embed_model: str = "nomic-embed-text"
+
     model_config = {"env_prefix": "MIRROTING_", "env_file": ".env"}
 
 

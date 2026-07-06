@@ -27,7 +27,8 @@ BY_ORDER = {ep["order"]: ep for ep in EPISODES}
 def _run(case: dict) -> dict:
     ep = BY_ORDER[case["episode"]]
     checklist = ep["checklist"]
-    m = analyze_response(case["text"], checklist)
+    # 키워드 계약 고정 — 의미 매칭 검증은 test_semantic_match(가짜 임베더/라이브)가 담당
+    m = analyze_response(case["text"], checklist, use_semantic=False)
     m["discourse"] = analyze_discourse(case["text"], ep["initial_question"])
     m["_case"] = reactions.classify(case["text"], checklist)["case"]
     m["_score"] = score_response(m)
