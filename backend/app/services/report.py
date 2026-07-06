@@ -357,6 +357,9 @@ def _fit_detail_metrics(fit: FitType, results: list[AnalysisResult]) -> list[dic
         add("무음 비율", f"{round(pause * 100)}%" if pause is not None else None)
         lead = _mean_metric(results, "lead_in_sec")
         add("응답 개시", f"{lead:.1f}초" if lead is not None else None)
+        jitter = _mean_metric(results, "f0_jitter_pct")
+        if jitter is not None and jitter > 8:
+            add("피치 흔들림", f"{jitter:.0f}%")
         f0cv = _mean_metric(results, "f0_cv")
         add("억양 변동(F0)", f"{round(f0cv * 100)}%" if f0cv is not None else None)
     elif fit == FitType.eye:
@@ -376,6 +379,9 @@ def _fit_detail_metrics(fit: FitType, results: list[AnalysisResult]) -> list[dic
         add("어깨 기울기", f"{tilt:.1f}°" if tilt is not None else None)
         head = _mean_metric(results, "head_down_ratio")
         add("고개 숙임", f"{round(head * 100)}%" if head is not None else None)
+        hand = sum(r.raw_metrics.get("hand_face_sec", 0) for r in results)
+        if hand >= 3:
+            add("손-얼굴 터치", f"누적 {hand:.0f}초")
         roll = _mean_metric(results, "head_roll_deg")
         if roll is not None and roll > 0.5:
             add("고개 갸웃", f"{roll:.1f}°")
@@ -447,6 +453,71 @@ STRENGTH_BY_BAND = {
         75: "상체가 안정적이라 위축돼 보이지 않았어요.",
     },
 }
+
+
+def _habit_segments(session: RoleplaySession) -> list[dict]:
+    """무의식 습관 카드 — 지각 확장 지표(손-얼굴·팔짱·긴장 표정·미소 타이밍).
+
+    체험자가 가장 놀라는 종류의 피드백. 보수적 임계값으로 확실할 때만 말하고,
+    감점이 아니라 관찰로 전달한다. 데이터 없으면 카드도 없다.
+    """
+    turns = [t for t in session.turns if t.nonverbal_metrics and t.answered_at]
+    if not turns:
+        return []
+    segs: list[dict] = []
+    last = turns[-1]
+
+    def seg(observed: str, interpretation: str, suggestion: str) -> dict:
+        return {
+            "turn_id": last.id, "turn_order": last.order, "fit_type": "habit",
+            "quote": "", "observed": observed,
+            "interpretation": interpretation, "suggestion": suggestion,
+        }
+
+    hand_face = sum(t.nonverbal_metrics.get("hand_face_sec", 0) for t in turns)
+    if hand_face >= 4:
+        segs.append(seg(
+            f"답변 중 손이 얼굴 근처에 누적 {hand_face:.0f}초 머물렀어요.",
+            "무의식적인 손-얼굴 터치는 듣는 사람에게 긴장·불확신의 신호로 읽힐 수 있어요.",
+            "손을 책상 위나 무릎에 살짝 얹어두면 같은 말도 더 안정적으로 들려요.",
+        ))
+
+    arm = [t.nonverbal_metrics.get("arm_cross_ratio", 0) for t in turns]
+    if arm and sum(arm) / len(arm) >= 0.25:
+        segs.append(seg(
+            f"발화 시간의 약 {round(sum(arm) / len(arm) * 100)}%에서 팔짱 자세가 관찰됐어요.",
+            "팔짱은 본인은 편해도 상대에게는 방어적·평가적 태도로 보일 수 있어요.",
+            "손을 풀어 가볍게 모으면 개방적인 인상으로 바뀌어요.",
+        ))
+
+    press = [t.nonverbal_metrics.get("mouth_press_ratio", 0) for t in turns]
+    if press and sum(press) / len(press) >= 0.2:
+        segs.append(seg(
+            "입술을 꾹 누르는 긴장 표정이 반복적으로 관찰됐어요.",
+            "긴장 자체는 자연스러워요 — 다만 말 사이 침묵과 겹치면 위축돼 보일 수 있어요.",
+            "답하기 전에 숨을 한 번 내쉬고 시작하면 표정이 함께 풀려요.",
+        ))
+
+    # 미소 타이밍: 압박 질문 중의 미소는 당황·비웃음으로 오해될 수 있다
+    pressure_turns = [t for t in turns if t.question_type == "pressure"]
+    if pressure_turns:
+        smile = sum(t.nonverbal_metrics.get("smile_ratio", 0) for t in pressure_turns) / len(pressure_turns)
+        if smile >= 0.35:
+            segs.append(seg(
+                "압박 질문을 받는 동안 미소 표정이 길게 유지됐어요.",
+                "긴장을 풀려는 자연스러운 반응이지만, 심각한 상황에서는 가볍게 넘긴다는 오해를 살 수 있어요.",
+                "지적을 들을 때는 표정을 잠시 중립으로 두고, 답변을 시작할 때 옅은 미소로 돌아오세요.",
+            ))
+        elif smile <= 0.05 and all(
+            t.nonverbal_metrics.get("mouth_press_ratio", 0) < 0.2 for t in pressure_turns
+        ):
+            segs.append(seg(
+                "압박 질문에서도 표정이 흔들리지 않고 안정적이었어요.",
+                "지적 앞에서 표정이 유지되는 건 신뢰를 주는 강점이에요.",
+                "이 안정감을 유지하면서, 답변 첫 문장에 인정 표현을 얹으면 완성이에요.",
+            ))
+
+    return segs[:2]  # 과잉 지적 방지 — 가장 중요한 것만
 
 
 def build_report(
@@ -548,7 +619,10 @@ def build_report(
         fit_scores=fit_scores,
         strengths=strengths,
         improvements=improvements,
-        evidence_segments=sorted(evidence_segments + live_segments, key=lambda s: s["turn_order"]),
+        evidence_segments=sorted(
+            evidence_segments + live_segments + _habit_segments(session),
+            key=lambda s: s["turn_order"],
+        ),
         headline=headline,
         rebuild=_build_rebuild(session, by_fit.get(FitType.response, [])),
         speech_stats=_build_speech_stats(turn_results, session),

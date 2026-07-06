@@ -46,6 +46,11 @@ interface Accumulator {
   blinkActive: boolean;
   smileFrames: number; // 미소 표현 프레임
   rollSamples: number[]; // 고개 갸웃 각도 (보정값)
+  // 지각 확장 — 이미 로드된 모델의 미사용 출력 (새 모델 없음)
+  mouthPressFrames: number; // 입술 압축 = 긴장 신호 (blendshape)
+  browDownFrames: number; // 찡그림 (blendshape)
+  handFaceFrames: number; // 손-얼굴 터치 (무의식 습관, pose 손목)
+  armCrossFrames: number; // 팔짱 근사 (pose 손목 교차)
   tips: string[]; // 이 턴에서 발생한 실시간 코칭 (리포트 연동, S-JKEYHS)
 }
 
@@ -65,6 +70,10 @@ const emptyAcc = (): Accumulator => ({
   blinkActive: false,
   smileFrames: 0,
   rollSamples: [],
+  mouthPressFrames: 0,
+  browDownFrames: 0,
+  handFaceFrames: 0,
+  armCrossFrames: 0,
   tips: [],
 });
 
@@ -229,6 +238,9 @@ export function useNonverbal(
             const eyeUp = ((shapes.eyeLookUpLeft ?? 0) + (shapes.eyeLookUpRight ?? 0)) / 2;
             const blink = ((shapes.eyeBlinkLeft ?? 0) + (shapes.eyeBlinkRight ?? 0)) / 2 > 0.5;
             const smile = ((shapes.mouthSmileLeft ?? 0) + (shapes.mouthSmileRight ?? 0)) / 2 > 0.35;
+            // 긴장 신호 (관찰 지표 — 감점 아님): 입술 압축·찡그림. 보수적 임계값
+            const mouthPress = ((shapes.mouthPressLeft ?? 0) + (shapes.mouthPressRight ?? 0)) / 2 > 0.45;
+            const browDown = ((shapes.browDownLeft ?? 0) + (shapes.browDownRight ?? 0)) / 2 > 0.5;
 
             // ---- 얼굴 기하: 좌우 비대칭(요), 눈선 각도(갸웃) ----
             let signedAsym: number | null = null;
@@ -249,6 +261,8 @@ export function useNonverbal(
             let tiltRaw: number | null = null;
             let headGap: number | null = null;
             let shoulderX: number | null = null;
+            let handFace = false;
+            let armCross = false;
             if (plm) {
               const ls = plm[11];
               const rs = plm[12];
@@ -258,6 +272,22 @@ export function useNonverbal(
                 tiltRaw = (Math.atan2(Math.abs(ls.y - rs.y), width) * 180) / Math.PI;
                 headGap = ((ls.y + rs.y) / 2 - noseP.y) / width;
                 shoulderX = ((ls.x + rs.x) / 2) / width;
+
+                // ---- 무의식 습관 (BlazePose 손목 15/16 재사용, 보수적 판정) ----
+                const lw = plm[15];
+                const rw = plm[16];
+                const nearFace = (w: { x: number; y: number }) =>
+                  Math.hypot(w.x - noseP.x, w.y - noseP.y) < width * 0.6 && w.y < (ls.y + rs.y) / 2;
+                if (lw && rw) {
+                  handFace = nearFace(lw) || nearFace(rw);
+                  // 팔짱: 각 손목이 반대쪽 어깨에 더 가깝고(교차), 어깨 아래 비슷한 높이
+                  const shoulderY = (ls.y + rs.y) / 2;
+                  const crossedL = Math.abs(lw.x - rs.x) < Math.abs(lw.x - ls.x);
+                  const crossedR = Math.abs(rw.x - ls.x) < Math.abs(rw.x - rs.x);
+                  armCross = crossedL && crossedR
+                    && lw.y > shoulderY && rw.y > shoulderY
+                    && Math.abs(lw.y - rw.y) < width * 0.4;
+                }
               }
             }
 
@@ -323,6 +353,10 @@ export function useNonverbal(
               if (blink && !acc.blinkActive) acc.blinkCount += 1;
               acc.blinkActive = blink;
               if (smile) acc.smileFrames += 1;
+              if (mouthPress) acc.mouthPressFrames += 1;
+              if (browDown) acc.browDownFrames += 1;
+              if (handFace) acc.handFaceFrames += 1;
+              if (armCross) acc.armCrossFrames += 1;
               if (rollAdj !== null) acc.rollSamples.push(rollAdj);
               if (tiltAdj !== null && shoulderX !== null) {
                 acc.tiltSamples.push(tiltAdj);
@@ -432,6 +466,11 @@ export function useNonverbal(
       head_roll_deg: acc.rollSamples.length
         ? Math.round(mean(acc.rollSamples.map(Math.abs)) * 10) / 10
         : 0,
+      mouth_press_ratio: Math.round((acc.mouthPressFrames / acc.frames) * 100) / 100,
+      brow_down_ratio: Math.round((acc.browDownFrames / acc.frames) * 100) / 100,
+      hand_face_sec: Math.round((acc.handFaceFrames * SAMPLE_MS) / 100) / 10,
+      arm_cross_ratio: Math.round((acc.armCrossFrames / acc.frames) * 100) / 100,
+      gaze_dirs: { ...acc.offDirs },
       calibrated: baselineRef.current.set,
       tips: acc.tips,
     };

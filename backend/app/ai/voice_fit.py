@@ -145,6 +145,13 @@ def analyze_audio(path: str, response_text: str) -> dict:
         float(np.std(f0_values) / np.mean(f0_values))
         if f0_mean is not None else None
     )
+    # 피치 흔들림(jitter 근사): 인접 F0 표본 간 상대 변화율의 중앙값.
+    # 억양(느린 변화)보다 미세 떨림(빠른 변화)에 민감 — 긴장 관찰 지표, 감점 없음.
+    f0_jitter_pct = None
+    if len(f0_values) >= 8:
+        arr = np.asarray(f0_values)
+        rel = np.abs(np.diff(arr)) / arr[:-1]
+        f0_jitter_pct = float(np.median(rel) * 100)
 
     return {
         "duration_sec": round(duration, 2),
@@ -157,6 +164,7 @@ def analyze_audio(path: str, response_text: str) -> dict:
         "energy_drift_pct": energy_drift_pct,
         "f0_mean_hz": round(f0_mean) if f0_mean is not None else None,
         "f0_cv": round(f0_cv, 3) if f0_cv is not None else None,
+        "f0_jitter_pct": round(f0_jitter_pct, 1) if f0_jitter_pct is not None else None,
         "syllables": syllables,
     }
 

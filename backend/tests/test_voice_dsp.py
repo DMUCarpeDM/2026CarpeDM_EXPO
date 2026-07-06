@@ -70,3 +70,22 @@ def test_monotone_penalized_in_score(wav_path):
     varied_sig = np.concatenate([tone(120, 1), tone(180, 1), tone(140, 1), tone(200, 1)])
     varied = analyze_audio(wav_path(varied_sig), "가" * 18)
     assert score_voice(varied) > score_voice(mono)
+
+
+def test_jitter_low_for_steady_tone(wav_path):
+    # 순음은 주기 변동이 거의 없어야 한다 (긴장 떨림 오탐 방지)
+    m = analyze_audio(wav_path(tone(150, 3)), "가" * 12)
+    assert m["f0_jitter_pct"] is not None
+    assert m["f0_jitter_pct"] < 3
+
+
+def test_jitter_detects_pitch_tremor(wav_path):
+    # 150Hz에 6Hz 비브라토(±12Hz) — 목소리 떨림 모사 → 순음보다 지터가 커야 한다
+    t = np.arange(int(SR * 3)) / SR
+    freq = 150 + 12 * np.sin(2 * np.pi * 6 * t)
+    phase = 2 * np.pi * np.cumsum(freq) / SR
+    tremor = (0.3 * np.sin(phase)).astype(np.float32)
+    m_tremor = analyze_audio(wav_path(tremor), "가" * 12)
+    m_steady = analyze_audio(wav_path(tone(150, 3)), "가" * 12)
+    assert m_tremor["f0_jitter_pct"] is not None
+    assert m_tremor["f0_jitter_pct"] > m_steady["f0_jitter_pct"]

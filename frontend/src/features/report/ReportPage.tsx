@@ -87,6 +87,7 @@ const FIT_ICON: Record<string, IconName> = {
   eye: 'eye',
   posture: 'user',
   live: 'spark', // 실시간 코칭 발생 구간
+  habit: 'spark', // 무의식 습관 관찰 (지각 확장)
 };
 
 export default function ReportPage() {
