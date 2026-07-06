@@ -63,6 +63,7 @@ export interface NonverbalMetrics {
   frames: number;
   longest_off_sec: number; // 최장 연속 시선 이탈
   blink_per_min: number; // 깜빡임 빈도 (긴장 지표)
+  blink_base_per_min: number | null; // 브리핑 중 깜빡임 기저선 — 급증 판정의 개인 기준 (표본 10초 미만 null)
   gaze_off_dir: 'down' | 'up' | 'left' | 'right' | null; // 지배적 이탈 방향
   tilt_drift_deg: number; // 후반-전반 어깨 기울기 변화 (자세 붕괴 추세)
   front_drift_pct: number; // 후반-전반 정면 응시 변화 (%p)

@@ -140,10 +140,11 @@ interface Baseline {
   headGap: number | null; // 코-어깨 수직 거리 / 어깨너비
   roll: number; // 평상시 눈선 각도
   eyeX: number | null; // 정면 응시 때의 홍채 수평 편향 (개인별 눈 정렬 보정)
+  blinkPerMin: number | null; // 안정 상태(브리핑) 깜빡임 기저선 — 급증 판정의 개인 기준
 }
 
 const emptyBaseline = (): Baseline => ({
-  set: false, asym: 0, tilt: 0, headGap: null, roll: 0, eyeX: null,
+  set: false, asym: 0, tilt: 0, headGap: null, roll: 0, eyeX: null, blinkPerMin: null,
 });
 
 export interface CoachingTip {
@@ -195,7 +196,8 @@ export function useNonverbal(
   const calibratingRef = useRef(false);
   const calibSamplesRef = useRef<{
     asym: number[]; tilt: number[]; headGap: number[]; roll: number[]; eyeX: number[];
-  }>({ asym: [], tilt: [], headGap: [], roll: [], eyeX: [] });
+    blinks: number; blinkFrames: number; blinkOn: boolean;
+  }>({ asym: [], tilt: [], headGap: [], roll: [], eyeX: [], blinks: 0, blinkFrames: 0, blinkOn: false });
   // 대화 페이즈 — 듣기(상대 TTS) vs 말하기(답변). 듣기 시선과 말하기 시선은
   // 커뮤니케이션에서 다른 역량이므로 분리 측정한다.
   const gazePhaseRef = useRef<'listening' | 'answering' | null>(null);
@@ -390,6 +392,12 @@ export function useNonverbal(
               if (headGap !== null) cal.headGap.push(headGap);
               if (rollDeg !== null) cal.roll.push(rollDeg);
               if (eyeInHeadX !== null) cal.eyeX.push(eyeInHeadX);
+              // 깜빡임 기저선(동역학): 얼굴이 추적된 프레임에서만 세어 비율 왜곡 방지
+              if (lm) {
+                cal.blinkFrames += 1;
+                if (blink && !cal.blinkOn) cal.blinks += 1;
+                cal.blinkOn = blink;
+              }
             }
 
             // ---- 기준 대비 판정: 시선 = 머리 자세 + 홍채 보상 ----
@@ -571,7 +579,10 @@ export function useNonverbal(
 
   /** 브리핑 표시 중 호출 — 정면 기준값 수집 시작 */
   const startCalibration = useCallback(() => {
-    calibSamplesRef.current = { asym: [], tilt: [], headGap: [], roll: [], eyeX: [] };
+    calibSamplesRef.current = {
+      asym: [], tilt: [], headGap: [], roll: [], eyeX: [],
+      blinks: 0, blinkFrames: 0, blinkOn: false,
+    };
     calibratingRef.current = true;
   }, []);
 
@@ -588,6 +599,10 @@ export function useNonverbal(
         roll: cal.roll.length >= 4 ? median(cal.roll) : 0,
         // 홍채 기준은 표본 분산까지 확인 — 흔들리는 표본으로 보상하면 오판을 만든다
         eyeX: cal.eyeX.length >= 4 && stdDev(cal.eyeX) < 0.08 ? median(cal.eyeX) : null,
+        // 깜빡임 기저선은 표본 10초(50프레임) 이상일 때만 — 짧은 창의 비율 추정은 오차가 크다
+        blinkPerMin: cal.blinkFrames >= 50
+          ? Math.round(cal.blinks / ((cal.blinkFrames * SAMPLE_MS) / 60000))
+          : null,
       };
     }
   }, []);
@@ -648,6 +663,8 @@ export function useNonverbal(
       frames: acc.frames,
       longest_off_sec: Math.round((acc.maxOffStreak * SAMPLE_MS) / 100) / 10,
       blink_per_min: minutes > 0.05 ? Math.round(acc.blinkCount / minutes) : 0,
+      // 깜빡임 동역학: 안정 상태(브리핑) 기저선 — 서버가 '기저선 대비 급증'으로 판정
+      blink_base_per_min: baselineRef.current.blinkPerMin,
       gaze_off_dir: domCount >= 3 ? domDir : null,
       tilt_drift_deg: Math.round(tiltDrift * 10) / 10,
       front_drift_pct: frontDrift,

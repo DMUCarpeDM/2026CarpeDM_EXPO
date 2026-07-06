@@ -90,6 +90,7 @@ class NonverbalIn(BaseModel):
     frames: int = 0
     longest_off_sec: float = 0.0  # 최장 연속 시선 이탈
     blink_per_min: float = 0.0  # 깜빡임 빈도 (긴장 관찰 지표 — 감점 없음)
+    blink_base_per_min: float | None = None  # 브리핑 중 기저선 — 깜빡임 동역학의 개인 기준
     gaze_off_dir: str | None = None  # down | up | left | right
     tilt_drift_deg: float = 0.0  # 후반-전반 어깨 기울기 변화
     front_drift_pct: float = 0.0  # 후반-전반 정면 응시 변화 (%p)

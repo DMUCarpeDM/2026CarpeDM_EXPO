@@ -227,6 +227,16 @@ def _eye_evidence(turn_results: list[AnalysisResult]) -> dict | None:
     dir_label = DIR_LABEL.get(m.get("gaze_off_dir") or "")
     dir_note = f" (주로 {dir_label} 방향)" if dir_label else ""
 
+    # 깜빡임 동역학(마스터리 ④): 안정 깜빡임 빈도는 사람마다 달라(분당 10~30회)
+    # 절대 임계는 오판을 만든다. 기저선(브리핑)이 있으면 '본인 대비 급증'으로만
+    # 판정하고(기저선 높은 사람 구제), 없으면 기존 절대 임계 32로 폴백한다.
+    blink_base = m.get("blink_base_per_min")
+    if blink_base is not None and blink_base >= 5:
+        blink_flag = blink >= 20 and blink >= blink_base * 1.6
+    else:
+        blink_base = None  # 기저선 5 미만은 표본 잡음 — 절대 폴백으로
+        blink_flag = blink > 32
+
     if ratio < 0.4:
         observed = f"정면 응시 {int(ratio * 100)}%{dir_note} — 발화의 절반 이상 시선이 밖에 있었어요 (권장 65% 이상)"
         interp = (
@@ -249,8 +259,12 @@ def _eye_evidence(turn_results: list[AnalysisResult]) -> dict | None:
         interp = "짧게 자주 흔들리는 시선은 '불안한 눈빛'으로 기억돼요."
         sugg = ("시선을 옮길 땐 문장이 끝난 뒤에 천천히. "
                 "'한 문장, 한 시선'을 의식해보세요.")
-    elif blink > 32:
-        observed = f"정면 응시는 {int(ratio * 100)}%로 좋지만, 깜빡임이 분당 {int(blink)}회였어요 (평상시 15~20회)"
+    elif blink_flag:
+        observed = (
+            f"브리핑 때 분당 {int(blink_base)}회였던 깜빡임이 답변 중 {int(blink)}회로 늘었어요"
+            if blink_base is not None else
+            f"정면 응시는 {int(ratio * 100)}%로 좋지만, 깜빡임이 분당 {int(blink)}회였어요 (평상시 15~20회)"
+        )
         interp = "잦은 깜빡임은 본인도 모르는 긴장 신호로 전달될 수 있어요."
         sugg = "답변 시작 전에 한 번 길게 숨을 내쉬어 보세요. 호흡이 내려가면 깜빡임도 함께 줄어요."
     else:
