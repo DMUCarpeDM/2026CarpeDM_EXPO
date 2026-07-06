@@ -61,6 +61,37 @@ def _frame_rms(samples: np.ndarray) -> np.ndarray:
     ])
 
 
+def _spectral_flatness(samples: np.ndarray) -> np.ndarray:
+    """프레임별 스펙트럼 평탄도 — 0에 가까우면 음조(음성), 1에 가까우면 광대역 소음.
+
+    전시장 웅성거림 대응의 핵심: 에너지 임계만으로는 배경 소음이 발화로
+    오인된다. 음성은 스펙트럼이 뾰족하고(조화 구조) 소음은 평탄하다.
+    """
+    n = max(1, (len(samples) - FRAME) // HOP + 1)
+    win = np.hanning(FRAME)
+    flat = np.empty(n)
+    for i in range(n):
+        seg = samples[i * HOP: i * HOP + FRAME]
+        if len(seg) < FRAME:
+            flat[i] = 1.0
+            continue
+        power = np.abs(np.fft.rfft(seg * win)) ** 2 + 1e-12
+        flat[i] = float(np.exp(np.mean(np.log(power))) / np.mean(power))
+    return flat
+
+
+# 소음 강건 VAD: 에너지 임계(발화량 대비)는 v1 그대로 두고, 소음 판별은
+# 스펙트럼 평탄도가 전담한다. 에너지 기반 소음 바닥 추정은 "작게 말한 구간"과
+# "배경 소음"을 원리적으로 구분할 수 없어 폐기했다 (드리프트 회귀로 검증됨).
+FLATNESS_MAX = 0.5  # 이보다 평탄하면 소음으로 판정 (순음/음성 ~0.0x, 백색소음 ~1)
+
+
+def _voiced_mask(samples: np.ndarray, rms: np.ndarray) -> np.ndarray:
+    """에너지 임계 + 스펙트럼 평탄도 게이트 — 소음 강건 발화 검출."""
+    threshold = max(0.008, float(np.median(rms)) * 0.25)
+    return (rms > threshold) & (_spectral_flatness(samples) < FLATNESS_MAX)
+
+
 def _segments(mask: np.ndarray) -> list[tuple[int, int, bool]]:
     """프레임 마스크 → (시작, 끝(미포함), 유성 여부) 연속 구간 목록."""
     segs = []
@@ -149,8 +180,7 @@ def analyze_audio(path: str, response_text: str) -> dict:
     rms = _frame_rms(samples)
     duration = len(samples) / sr
     sec_per_frame = HOP / sr
-    threshold = max(0.008, float(np.median(rms)) * 0.25)
-    voiced = rms > threshold
+    voiced = _voiced_mask(samples, rms)
     if not voiced.any():
         return {}
 

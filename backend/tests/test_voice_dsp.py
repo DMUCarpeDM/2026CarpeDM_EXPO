@@ -124,3 +124,36 @@ def test_periodicity_high_for_pure_tone(wav_path):
     assert m_pure["periodicity"] is not None and m_pure["periodicity"] > 0.8
     assert m_breathy["periodicity"] is not None
     assert m_pure["periodicity"] > m_breathy["periodicity"]
+
+
+# ---- 소음 강건 VAD: 전시장 배경 소음에서도 발화 구조가 살아있어야 한다 ----
+
+def noisy(sec: float, amp: float = 0.06, seed: int = 7) -> np.ndarray:
+    rng = np.random.default_rng(seed)
+    return (amp * rng.standard_normal(int(SR * sec))).astype(np.float32)
+
+
+def test_vad_lead_in_survives_background_noise(wav_path):
+    # [소음만 1.5s][발화+소음 2s] — 에너지 임계만 쓰면 소음 구간이 발화로 오인돼
+    # 개시 지연이 0으로 붕괴한다. 평탄도 게이트가 이를 막아야 한다.
+    signal = np.concatenate([noisy(1.5), tone(150, 2) + noisy(2, seed=8)])
+    m = analyze_audio(wav_path(signal), "가" * 10)
+    assert m, "소음 환경에서 분석이 죽으면 안 된다"
+    assert 1.1 <= m["lead_in_sec"] <= 1.9
+
+
+def test_vad_pause_structure_under_noise(wav_path):
+    # 발화 사이 0.7초 침묵이 배경 소음으로 채워져도 침묵으로 인지돼야 한다
+    signal = np.concatenate([
+        tone(150, 1.5) + noisy(1.5, seed=9), noisy(0.7, seed=10),
+        tone(150, 1.5) + noisy(1.5, seed=11),
+    ])
+    m = analyze_audio(wav_path(signal), "가" * 12)
+    assert m["mean_pause_sec"] >= 0.4
+    assert m["pause_ratio"] >= 0.10
+
+
+def test_vad_noise_only_recording_rejected(wav_path):
+    # 마이크가 소음만 담았다면 발화로 오인하지 말고 미측정 처리해야 한다
+    m = analyze_audio(wav_path(noisy(4.0, amp=0.1)), "가" * 10)
+    assert m == {}

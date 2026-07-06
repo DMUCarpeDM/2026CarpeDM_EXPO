@@ -137,8 +137,24 @@ def _voice_evidence(turn_results: list[AnalysisResult]) -> dict | None:
     long_pauses = m.get("long_pause_count", 0)
     f0_cv = m.get("f0_cv")
     drift = m.get("energy_drift_pct", 0)
+    alignment = m.get("alignment") or {}
+    spans = alignment.get("spans", [])
 
-    if lead_in is not None and lead_in > 3:
+    # 문장 인용 코칭 — 정렬 분석이 있으면 '어느 문장에서' 무너졌는지 직접 짚는다
+    if "quietest" in alignment and spans:
+        q = spans[alignment["quietest"]]
+        observed = (f"이 대목에서 성량이 평균보다 {abs(q['rms_rel_pct'])}% 낮았어요: "
+                    f"“{q['text']}”")
+        interp = "중요한 내용일수록 목소리가 작아지면, 듣는 사람은 확신이 없다고 느껴요."
+        sugg = ("작아진 그 문장을 첫 문장과 같은 크기로 다시 말해보세요. "
+                "특히 사과·요청일수록 또렷해야 진심으로 들립니다.")
+    elif "fastest" in alignment and spans:
+        f = spans[alignment["fastest"]]
+        observed = (f"이 대목에서 말이 {f['rate_sps']}음절/초로 급해졌어요: "
+                    f"“{f['text']}”")
+        interp = "특정 대목에서만 빨라지는 건 그 내용을 빨리 지나가고 싶다는 신호로 들려요."
+        sugg = "급해진 그 문장 앞에서 일부러 반 박자 쉬고, 또박또박 다시 말해보세요."
+    elif lead_in is not None and lead_in > 3:
         observed = f"응답 개시까지 {lead_in}초 — 질문 후 침묵이 길었어요 (권장 2.5초 이내)"
         interp = "첫 마디가 늦어질수록 듣는 사람의 긴장이 올라가고, 답변 준비가 안 된 인상을 줘요."
         sugg = ("침묵 대신 소리 내어 시작해보세요: \"네, 그 부분은—\" "
@@ -361,6 +377,20 @@ def _fit_detail_metrics(fit: FitType, results: list[AnalysisResult]) -> list[dic
         jitter = _mean_metric(results, "f0_jitter_pct")
         if jitter is not None and jitter > 8:
             add("피치 흔들림", f"{jitter:.0f}%")
+        fillers = [
+            r.raw_metrics["alignment"]["fillers"]
+            for r in results if r.raw_metrics.get("alignment")
+        ]
+        if fillers:
+            per_min = sum(f["per_min"] for f in fillers) / len(fillers)
+            if per_min >= 2:
+                add("간투어(음·어)", f"분당 {per_min:.0f}회")
+            designed = [
+                r.raw_metrics["alignment"].get("emphasis", {}).get("designed")
+                for r in results if r.raw_metrics.get("alignment")
+            ]
+            if any(d is True for d in designed):
+                add("강조 설계", "문장 간 대비 있음")
         f0cv = _mean_metric(results, "f0_cv")
         add("억양 변동(F0)", f"{round(f0cv * 100)}%" if f0cv is not None else None)
     elif fit == FitType.eye:
