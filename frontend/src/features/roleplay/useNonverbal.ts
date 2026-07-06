@@ -13,19 +13,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { NonverbalMetrics } from '../../api/types';
-
-const LOCAL_WASM = '/mediapipe-wasm';
-const CDN_WASM = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm';
-const MODELS = {
-  face: {
-    local: '/models/face_landmarker.task',
-    cdn: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
-  },
-  pose: {
-    local: '/models/pose_landmarker_lite.task',
-    cdn: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
-  },
-};
+import { resolveModel, resolveWasmUrl } from '../../lib/visionAssets';
 
 const SAMPLE_MS = 200;
 // 기준 대비 허용 편차 (캘리브레이션 후 상대 판정)
@@ -117,14 +105,6 @@ function median(values: number[]): number {
   return sorted[Math.floor(sorted.length / 2)];
 }
 
-async function checkLocal(url: string): Promise<boolean> {
-  try {
-    const res = await fetch(url, { method: 'HEAD' });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
 
 export function useNonverbal(
   videoRef: React.RefObject<HTMLVideoElement | null>,
@@ -196,11 +176,9 @@ export function useNonverbal(
 
       try {
         const vision = await import('@mediapipe/tasks-vision');
-        const wasmUrl = (await checkLocal(`${LOCAL_WASM}/vision_wasm_internal.wasm`))
-          ? LOCAL_WASM
-          : CDN_WASM;
-        const faceModel = (await checkLocal(MODELS.face.local)) ? MODELS.face.local : MODELS.face.cdn;
-        const poseModel = (await checkLocal(MODELS.pose.local)) ? MODELS.pose.local : MODELS.pose.cdn;
+        const wasmUrl = await resolveWasmUrl();
+        const faceModel = await resolveModel('face');
+        const poseModel = await resolveModel('pose');
 
         const fileset = await vision.FilesetResolver.forVisionTasks(wasmUrl);
         const face = await vision.FaceLandmarker.createFromOptions(fileset, {

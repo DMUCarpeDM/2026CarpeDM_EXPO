@@ -11,7 +11,9 @@ import {
 } from '../../api/client';
 import type { Report } from '../../api/types';
 import Icon, { type IconName } from '../../components/Icon';
+import { useMirrorMode } from '../../lib/mirrorMode';
 import { useSessionStore } from '../../stores/sessionStore';
+import MirrorReportView from './MirrorReportView';
 import RadarChart from './RadarChart';
 
 /** 성장 추이 스파크라인 — 최근 도전들의 종합 점수 */
@@ -90,7 +92,9 @@ const FIT_ICON: Record<string, IconName> = {
 export default function ReportPage() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
+  const mirror = useMirrorMode();
   const setSession = useSessionStore((s) => s.setSession);
+  const scenario = useSessionStore((s) => s.session?.scenario ?? null);
   const [report, setReport] = useState<Report | null>(null);
   const [stage, setStage] = useState('queued');
   const [pct, setPct] = useState(0);
@@ -196,6 +200,21 @@ export default function ReportPage() {
   }
 
   if (!report) {
+    // 미러 모드: 분석 대기도 서사의 일부 — "퇴근하는 중"
+    if (mirror) {
+      return (
+        <div className="mirror-analyzing">
+          <div className="loader-ring" />
+          <h2 className="mirror-ob-title">퇴근하는 중…</h2>
+          <p className="mirror-analyzing-sub">
+            오늘 하루를 정리하고 있어요 — {STAGE_LABEL[stage] ?? '분석 중'}
+          </p>
+          <div className="progress-track">
+            <div className="progress-fill" style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="page report loading">
         <div className="analysis-loader">
@@ -207,6 +226,24 @@ export default function ReportPage() {
           <p className="loading-sub">발화 내용 · 말하기 · 시선 · 자세를 종합 분석하고 있어요</p>
         </div>
       </div>
+    );
+  }
+
+  // 미러 모드: 스크롤 없는 시상식 3막 + QR (상세 첨삭은 폰의 웹 리포트가 담당)
+  if (mirror) {
+    return (
+      <MirrorReportView
+        report={report}
+        code={code}
+        displayScore={displayScore}
+        gradeLabel={gradeLabel(report.total_score)}
+        characterName={(id) =>
+          scenario?.characters.find((c) => c.id === id)?.name ?? '김태호 팀장'
+        }
+        onRetry={() => setRetryCountdown(retryCountdown === null ? 10 : retryCountdown)}
+        retryCountdown={retryCountdown}
+        onFinish={() => navigate('/kiosk')}
+      />
     );
   }
 
