@@ -8,6 +8,7 @@ import QRCode from 'qrcode';
 import { useEffect, useMemo, useState } from 'react';
 import type { Report } from '../../api/types';
 import Avatar from '../../components/Avatar';
+import FrameGlow from '../../components/FrameGlow';
 import { speak, stopSpeaking } from '../../lib/tts';
 import RadarChart from './RadarChart';
 
@@ -70,6 +71,7 @@ export default function MirrorReportView({
 
   return (
     <div className="mirror-report" onClick={act !== 'takeaway' ? advance : undefined}>
+      <FrameGlow state="complete" />
       {act === 'ending' && ending?.text && (
         <div className="mirror-report-act">
           <p className="mirror-ob-eyebrow">18:30 · 퇴근 무렵</p>

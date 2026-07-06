@@ -5,6 +5,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toggleFx, useFxEnabled } from './FrameGlow';
 import { exitMirrorMode } from '../lib/mirrorMode';
 import { useSessionStore } from '../stores/sessionStore';
 
@@ -13,6 +14,7 @@ const HOLD_MS = 3000;
 export default function OperatorPanel() {
   const navigate = useNavigate();
   const clearSession = useSessionStore((s) => s.clear);
+  const fxEnabled = useFxEnabled();
   const [open, setOpen] = useState(false);
   const [holding, setHolding] = useState(false);
   const timerRef = useRef<number | null>(null);
@@ -54,6 +56,9 @@ export default function OperatorPanel() {
               }}
             >
               세션 초기화 (다음 체험자)
+            </button>
+            <button className="ghost-btn" onClick={toggleFx}>
+              연출 효과 {fxEnabled ? '끄기 (저사양 모드)' : '켜기'}
             </button>
             <button
               className="ghost-btn"

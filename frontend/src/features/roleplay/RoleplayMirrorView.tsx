@@ -8,9 +8,10 @@
  * - 4-Fit 라이브 오라: 숫자·게이지 없이 빛의 밝기로만 실시간 상태를 전한다 —
  *   대화를 끊지 않고, 거울 앞의 자의식을 자극하지 않는 실시간 피드백.
  */
-import type { RefObject } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { Character, EpisodeBriefing, RoleplaySession, Turn, TurnSignals } from '../../api/types';
 import Avatar from '../../components/Avatar';
+import FrameGlow, { type GlowState } from '../../components/FrameGlow';
 import Icon from '../../components/Icon';
 import MirrorStage from '../../components/MirrorStage';
 import type { CoachingTip, LiveState } from './useNonverbal';
@@ -82,8 +83,32 @@ export default function RoleplayMirrorView(props: MirrorRoleplayProps) {
   const showReaction = phase === 'reaction' && !!currentTurn.reaction_text;
   const speaker = showReaction && reactionCharacter ? reactionCharacter : character;
 
+  // 장면 전환 "페이드 투 미러" — 에피소드가 바뀌면 화면이 잠깐 거울로 돌아갔다가
+  // 다음 장면의 시각·제목이 떠오른다. 시간이 흘렀다는 감각이 하루를 만든다 (§원칙 5)
+  const [sceneCut, setSceneCut] = useState<{ time: string; title: string } | null>(null);
+  const prevEpisodeRef = useRef(currentTurn.episode_id);
+  useEffect(() => {
+    if (currentTurn.episode_id === prevEpisodeRef.current) return;
+    prevEpisodeRef.current = currentTurn.episode_id;
+    setSceneCut({ time: currentTurn.virtual_time, title: currentTurn.episode_title });
+    const t = window.setTimeout(() => setSceneCut(null), 2300);
+    return () => window.clearTimeout(t);
+  }, [currentTurn.episode_id, currentTurn.virtual_time, currentTurn.episode_title]);
+
+  // 프레임 글로우 상태 — 빛 하나가 시스템의 표정을 담당한다
+  const glow: GlowState = briefingOpen
+    ? 'idle'
+    : recording
+      ? 'mine'
+      : pressure
+        ? 'pressure'
+        : aiSpeaking
+          ? 'ai'
+          : 'idle';
+
   return (
     <div className={`mirror-roleplay ${pressure ? 'pressure' : ''}`}>
+      <FrameGlow state={glow} />
       {/* 앰비언트 타이머 — 하루가 빛의 선으로 줄어든다 */}
       <div className={`mirror-timeline ${urgent ? 'urgent' : ''}`} aria-hidden>
         <div
@@ -177,6 +202,14 @@ export default function RoleplayMirrorView(props: MirrorRoleplayProps) {
           </div>
         }
       />
+
+      {/* 장면 전환 — 잠깐 거울만 남았다가 다음 시각이 떠오른다 */}
+      {sceneCut && (
+        <div className="mirror-scene-cut" aria-hidden>
+          {sceneCut.time && <span className="mirror-clock large">{sceneCut.time}</span>}
+          <p className="mirror-scene-title">{sceneCut.title}</p>
+        </div>
+      )}
 
       {/* 브리핑 — 장면 자막 + 눈맞춤 캘리브레이션 의식 (기획서 §4.2) */}
       {briefingOpen && briefing && (

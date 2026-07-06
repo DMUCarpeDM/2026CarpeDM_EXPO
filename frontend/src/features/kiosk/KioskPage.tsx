@@ -6,6 +6,7 @@
  */
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import FrameGlow from '../../components/FrameGlow';
 import Icon from '../../components/Icon';
 import { enterMirrorMode } from '../../lib/mirrorMode';
 import { speak, stopSpeaking } from '../../lib/tts';
@@ -44,6 +45,7 @@ export default function KioskPage() {
 
   return (
     <div className={`mirror-idle ${awake ? 'awake' : ''}`} onClick={start}>
+      <FrameGlow state={awake ? 'mine' : 'off'} />
       <button className="kiosk-fullscreen" onClick={enterFullscreen} title="전체화면">
         <Icon name="expand" size={18} />
       </button>
