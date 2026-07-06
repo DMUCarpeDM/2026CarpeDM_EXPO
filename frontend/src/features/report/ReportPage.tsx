@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   createSession,
@@ -9,7 +9,7 @@ import {
   retryAnalysis,
   type HistoryItem,
 } from '../../api/client';
-import type { Report } from '../../api/types';
+import type { FitScore, Report } from '../../api/types';
 import Icon, { type IconName } from '../../components/Icon';
 import { useMirrorMode } from '../../lib/mirrorMode';
 import { useSessionStore } from '../../stores/sessionStore';
@@ -62,6 +62,35 @@ function useCountUp(target: number, ready: boolean): number {
 }
 
 const KIOSK_IDLE_MS = 90_000;
+
+/** 시선 존 히트맵 — 3×3 분포 지도 (위/중/아래 × 좌/중/우). 중앙 = 상대의 눈높이 */
+function GazeMap({ map }: { map: NonNullable<FitScore['gaze_map']> }) {
+  const ROW_LABEL = ['위', '중앙', '아래'];
+  return (
+    <div className="gaze-map">
+      <span className="gaze-map-title">
+        시선 분포 지도 <em>가운데 칸 = 상대</em>
+      </span>
+      <div className="gaze-map-body">
+        <div className="gaze-map-rows" aria-hidden>
+          {ROW_LABEL.map((l) => <span key={l}>{l}</span>)}
+        </div>
+        <div className="gaze-map-grid" role="img" aria-label="3×3 시선 분포 히트맵">
+          {map.zones.map((z, i) => (
+            <div
+              key={i}
+              className={`gaze-cell ${i === 4 ? 'center' : ''}`}
+              style={{ '--heat': Math.min(1, z * 1.5) } as CSSProperties}
+            >
+              {z >= 0.05 ? `${Math.round(z * 100)}%` : ''}
+            </div>
+          ))}
+        </div>
+      </div>
+      <p className="gaze-map-comment">{map.comment}</p>
+    </div>
+  );
+}
 
 function gradeLabel(score: number): string {
   if (score >= 85) return '훌륭해요';
@@ -498,6 +527,7 @@ export default function ReportPage() {
                   ))}
                 </dl>
               )}
+              {data.gaze_map && <GazeMap map={data.gaze_map} />}
               <p className="fit-summary">{data.summary}</p>
               {fitDelta !== null && (
                 <span className={`fit-delta ${fitDelta >= 0 ? 'up' : 'down'}`}>

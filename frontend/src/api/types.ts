@@ -113,6 +113,8 @@ export interface FitScore {
   label: string;
   summary: string;
   metrics?: { label: string; value: string }[]; // 세부 실측값 행
+  // 시선 존 히트맵 (Eye 카드 전용): 3×3 비율 지도 (위/중/아래 × 좌/중/우), 표본 10초+
+  gaze_map?: { zones: number[]; frames: number; comment: string };
 }
 
 export interface EvidenceSegment {

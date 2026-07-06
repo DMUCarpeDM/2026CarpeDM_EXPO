@@ -504,6 +504,45 @@ STRENGTH_BY_BAND = {
 }
 
 
+GAZE_MAP_MIN_FRAMES = 50  # 200ms 샘플 × 50 = 10초 — 이보다 적으면 지도 생략
+
+
+def _gaze_map(session: RoleplaySession) -> dict | None:
+    """시선 존 히트맵 — 턴별 3×3 분포(위/중/아래 × 좌/중/우)를 세션 합산한 비율 지도.
+
+    관찰 지표(감점 없음). 표본 10초 미만이면 지도 자체를 생략한다(판정 보류 원칙).
+    코멘트는 부호가 안정적인 축(상하)과 중앙 집중도만 단정하고, 좌우는 실기기
+    부호 검증 전이므로 '옆'으로 중화한다 — DIR_LABEL과 같은 관례.
+    """
+    zones = [0] * 9
+    for t in session.turns:
+        zs = (t.nonverbal_metrics or {}).get("gaze_zones") or []
+        if len(zs) == 9:
+            zones = [a + b for a, b in zip(zones, zs)]
+    total = sum(zones)
+    if total < GAZE_MAP_MIN_FRAMES:
+        return None
+    ratios = [round(z / total, 3) for z in zones]
+    center = ratios[4]
+    down = sum(ratios[6:9])
+    up = sum(ratios[0:3])
+    side = ratios[0] + ratios[3] + ratios[6] + ratios[2] + ratios[5] + ratios[8]
+    if center >= 0.7:
+        comment = "시선이 대부분 상대(중앙)에 머물렀어요 — 시선 분포로는 더 바랄 게 없어요."
+    elif down >= 0.25:
+        comment = ("시선이 아래쪽에 자주 머물렀어요. 생각을 정리할 때 눈이 내려가는 습관이에요 — "
+                   "듣는 사람에게는 자신 없음이나 대본 읽기로 보일 수 있어요.")
+    elif up >= 0.2:
+        comment = ("답을 떠올릴 때 시선이 위로 향하는 습관이 보여요. 기억을 더듬는 자연스러운 "
+                   "행동이지만, 길어지면 말문이 막힌 것처럼 보여요.")
+    elif side >= 0.3:
+        comment = ("시선이 옆으로 자주 흘렀어요. 화면 밖에 참고물이 있는 듯한 인상을 "
+                   "줄 수 있어요 — 시선을 옮기더라도 문장이 끝난 뒤에 옮겨보세요.")
+    else:
+        comment = "시선이 중앙을 기준으로 자연스럽게 분포했어요."
+    return {"zones": ratios, "frames": total, "comment": comment}
+
+
 def _habit_segments(session: RoleplaySession) -> list[dict]:
     """무의식 습관 카드 — 지각 확장 지표(손-얼굴·팔짱·긴장 표정·미소 타이밍·진정성 미소).
 
@@ -662,6 +701,11 @@ def build_report(
         else:
             sugg = segment["suggestion"] if segment else ""
             improvements.append(f"{FIT_LABELS[fit]} — {sugg}")
+
+    # 시선 존 히트맵 — Eye 카드에 3×3 분포 지도 (표본 충분 + Eye 측정됨일 때만)
+    if fit_scores.get(FitType.eye.value, {}).get("score") is not None \
+            and (gaze_map := _gaze_map(session)) is not None:
+        fit_scores[FitType.eye.value]["gaze_map"] = gaze_map
 
     # 오늘의 한 문장: 가장 낮은 측정 항목의 처방을 헤드라인으로
     headline: dict = {}
