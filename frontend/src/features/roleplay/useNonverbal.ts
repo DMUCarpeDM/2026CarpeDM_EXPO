@@ -23,6 +23,20 @@ const HEAD_DROP_THRESHOLD = 0.1; // 고개 숙임: 코-어깨 거리(어깨너�
 const YAW_ABS_THRESHOLD = 0.3;
 const HEAD_DOWN_ABS_THRESHOLD = 0.3;
 
+// ---- 홍채 기반 시선 (Face Landmarker 478 랜드마크 중 468~477) ----
+// 시선 = 머리 자세 + 눈-머리(eye-in-head). 고개를 돌려도 눈이 카메라를 보면
+// 정면이다 — 머리 비대칭만 보던 v1의 구조적 오판을 홍채 추적으로 보상한다.
+const IRIS_R = 468; // 홍채 중심 (영상 좌표 기준 각 눈의 5점 중 중심)
+const IRIS_L = 473;
+const EYE_R = { inner: 133, outer: 33 }; // 오른눈 안/바깥 꼬리
+const EYE_L = { inner: 362, outer: 263 };
+// 눈-머리 편향을 머리 비대칭 스케일로 환산하는 계수 (홍채 가동폭 ~±0.35)
+const EYE_COMP_GAIN = 0.8;
+const EYE_COMP_CLAMP = 0.18; // 보상 상한 — 보상이 판정을 뒤집는 폭주 방지
+const EYE_ONLY_THRESHOLD = 0.25; // 머리는 정면인데 눈만 옆을 보는 이탈 감지
+// 자연스러운 응시 리듬: 답변 개시 직후의 짧은 시선 회피(생각 정리)는 정상 행동
+const ONSET_GRACE_MS = 2500;
+
 // 얼굴 윤곽 표시용 랜드마크 (Face Mesh 인덱스 서브셋)
 const FACE_POINTS = [10, 152, 234, 454, 1, 33, 263, 61, 291, 199];
 // 상체 포즈 연결선 (BlazePose 인덱스)
@@ -54,6 +68,17 @@ interface Accumulator {
   asymSamples: number[]; // 시선 미세 안정성용 좌우 비대칭 시계열 (보정값)
   offStreaks: number[]; // 완료된 이탈 스트릭 길이들 — 회복 시간 분석
   shoulderWidths: number[]; // 어깨 픽셀 폭 시계열 — 앞/뒤 리닝 추세
+  // ---- Eye-Fit 심화 ----
+  irisFrames: number; // 홍채 추적이 실제로 쓰인 프레임 (능력 플래그)
+  contactBouts: number[]; // 완료된 연속 응시 구간 길이들 (응시 리듬)
+  curContactStreak: number;
+  listenFrames: number; // 상대가 말하는 동안(듣기)의 프레임/정면
+  listenFront: number;
+  answerFrames: number; // 내가 답하는 동안(말하기)의 프레임/정면
+  answerFront: number;
+  answerStartedAt: number; // 답변 페이즈 시작 시각 — 개시 회피 관용 측정
+  onsetOffFrames: number; // 답변 개시 직후 유예 구간의 이탈 프레임
+  gazeZones: number[]; // 3×3 시선 존 (행: 위/중/아래 × 열: 좌/중/우)
   tips: string[]; // 이 턴에서 발생한 실시간 코칭 (리포트 연동, S-JKEYHS)
 }
 
@@ -80,6 +105,16 @@ const emptyAcc = (): Accumulator => ({
   asymSamples: [],
   offStreaks: [],
   shoulderWidths: [],
+  irisFrames: 0,
+  contactBouts: [],
+  curContactStreak: 0,
+  listenFrames: 0,
+  listenFront: 0,
+  answerFrames: 0,
+  answerFront: 0,
+  answerStartedAt: 0,
+  onsetOffFrames: 0,
+  gazeZones: [0, 0, 0, 0, 0, 0, 0, 0, 0],
   tips: [],
 });
 
@@ -89,9 +124,12 @@ interface Baseline {
   tilt: number; // 평상시 어깨 기울기 (카메라 기울기·체형 보정)
   headGap: number | null; // 코-어깨 수직 거리 / 어깨너비
   roll: number; // 평상시 눈선 각도
+  eyeX: number | null; // 정면 응시 때의 홍채 수평 편향 (개인별 눈 정렬 보정)
 }
 
-const emptyBaseline = (): Baseline => ({ set: false, asym: 0, tilt: 0, headGap: null, roll: 0 });
+const emptyBaseline = (): Baseline => ({
+  set: false, asym: 0, tilt: 0, headGap: null, roll: 0, eyeX: null,
+});
 
 export interface CoachingTip {
   id: number;
@@ -140,9 +178,12 @@ export function useNonverbal(
   const runningRef = useRef(false);
   const baselineRef = useRef<Baseline>(emptyBaseline());
   const calibratingRef = useRef(false);
-  const calibSamplesRef = useRef<{ asym: number[]; tilt: number[]; headGap: number[]; roll: number[] }>({
-    asym: [], tilt: [], headGap: [], roll: [],
-  });
+  const calibSamplesRef = useRef<{
+    asym: number[]; tilt: number[]; headGap: number[]; roll: number[]; eyeX: number[];
+  }>({ asym: [], tilt: [], headGap: [], roll: [], eyeX: [] });
+  // 대화 페이즈 — 듣기(상대 TTS) vs 말하기(답변). 듣기 시선과 말하기 시선은
+  // 커뮤니케이션에서 다른 역량이므로 분리 측정한다.
+  const gazePhaseRef = useRef<'listening' | 'answering' | null>(null);
 
   // 실시간 코칭 오버레이 (F-KYJJQW) — 세션당 3회, 20초 쿨다운
   const maybeCoach = useCallback((text: string) => {
@@ -256,6 +297,7 @@ export function useNonverbal(
             // ---- 얼굴 기하: 좌우 비대칭(요), 눈선 각도(갸웃) ----
             let signedAsym: number | null = null;
             let rollDeg: number | null = null;
+            let eyeInHeadX: number | null = null; // 홍채 수평 편향 (0=정중앙)
             if (lm) {
               const nose = lm[1];
               const left = lm[234];
@@ -266,6 +308,21 @@ export function useNonverbal(
               const le = lm[33];
               const re = lm[263];
               rollDeg = (Math.atan2(re.y - le.y, Math.abs(re.x - le.x) + 1e-6) * 180) / Math.PI;
+
+              // ---- 홍채: 눈-머리(eye-in-head) 수평 시선 ----
+              // 각 눈에서 홍채 중심이 안쪽↔바깥쪽 꼬리 사이 어디에 있는지(0~1)를
+              // 양안 대칭 결합해 부호 있는 편향으로 만든다. 두 비율의 차는 머리
+              // 회전에 둔감하고 안구 회전에 민감하다.
+              if (lm.length > 477) {
+                const ratio = (
+                  iris: { x: number }, inner: { x: number }, outer: { x: number },
+                ) => (iris.x - inner.x) / ((outer.x - inner.x) || 1e-6);
+                const rX = ratio(lm[IRIS_R], lm[EYE_R.inner], lm[EYE_R.outer]);
+                const lX = ratio(lm[IRIS_L], lm[EYE_L.inner], lm[EYE_L.outer]);
+                if (rX > -0.5 && rX < 1.5 && lX > -0.5 && lX < 1.5) {
+                  eyeInHeadX = (rX - lX) / 2;
+                }
+              }
             }
 
             // ---- 포즈 기하: 어깨 기울기, 코-어깨 거리(고개 숙임) ----
@@ -311,20 +368,47 @@ export function useNonverbal(
               if (tiltRaw !== null) cal.tilt.push(tiltRaw);
               if (headGap !== null) cal.headGap.push(headGap);
               if (rollDeg !== null) cal.roll.push(rollDeg);
+              if (eyeInHeadX !== null) cal.eyeX.push(eyeInHeadX);
             }
 
-            // ---- 기준 대비 판정 ----
+            // ---- 기준 대비 판정: 시선 = 머리 자세 + 홍채 보상 ----
             let front = true;
             let offDir: 'down' | 'up' | 'left' | 'right' | null = null;
+            let gazeX: number | null = null; // 존 분포용 최종 수평 시선 추정
+            let irisUsed = false;
             if (signedAsym !== null) {
               const asymDelta = base.set ? signedAsym - base.asym : signedAsym;
               const yawThreshold = base.set ? YAW_DELTA_THRESHOLD : YAW_ABS_THRESHOLD;
-              if (Math.abs(asymDelta) >= yawThreshold) {
-                offDir = asymDelta > 0 ? 'right' : 'left';
-              } else if (eyeDown > 0.55) {
-                offDir = 'down'; // 머리는 정면, 눈동자만 아래 (대본 읽기 패턴)
-              } else if (eyeUp > 0.55) {
-                offDir = 'up';
+              gazeX = asymDelta;
+
+              // 홍채 보상 — "구제 전용" 보수 설계: 보상은 이탈 판정을 완화하는
+              // 방향으로만 적용한다. 부호 추정이 틀려도 v1보다 나빠질 수 없다
+              // (고개를 돌린 채 눈으로 카메라를 보는 경우의 오판만 구제).
+              if (eyeInHeadX !== null && base.eyeX !== null) {
+                const eyeDelta = eyeInHeadX - base.eyeX;
+                const comp = Math.max(-EYE_COMP_CLAMP,
+                  Math.min(EYE_COMP_CLAMP, eyeDelta * EYE_COMP_GAIN));
+                const compensated = asymDelta - comp;
+                if (Math.abs(compensated) < Math.abs(asymDelta)) {
+                  gazeX = compensated;
+                  irisUsed = true;
+                }
+                // 머리는 정면인데 눈만 옆을 보는 이탈 (v1이 놓치던 축)
+                if (Math.abs(asymDelta) < yawThreshold
+                    && Math.abs(eyeDelta) >= EYE_ONLY_THRESHOLD) {
+                  offDir = eyeDelta > 0 ? 'left' : 'right';
+                  irisUsed = true;
+                }
+              }
+
+              if (offDir === null) {
+                if (Math.abs(gazeX) >= yawThreshold) {
+                  offDir = gazeX > 0 ? 'right' : 'left';
+                } else if (eyeDown > 0.55) {
+                  offDir = 'down'; // 머리는 정면, 눈동자만 아래 (대본 읽기 패턴)
+                } else if (eyeUp > 0.55) {
+                  offDir = 'up';
+                }
               }
               front = offDir === null;
             }
@@ -353,16 +437,42 @@ export function useNonverbal(
             if (runningRef.current && (lm || plm)) {
               acc.frames += 1;
               acc.frontFlags.push(front);
+              if (irisUsed) acc.irisFrames += 1;
               if (front) {
                 acc.frontFrames += 1;
                 if (acc.curOffStreak > 0) acc.offStreaks.push(acc.curOffStreak); // 회복 완료
                 acc.curOffStreak = 0;
+                acc.curContactStreak += 1;
               } else {
                 if (acc.lastFront) acc.gazeOffCount += 1;
                 if (offDir) acc.offDirs[offDir] += 1;
                 acc.curOffStreak += 1;
                 acc.maxOffStreak = Math.max(acc.maxOffStreak, acc.curOffStreak);
+                if (acc.curContactStreak > 0) acc.contactBouts.push(acc.curContactStreak);
+                acc.curContactStreak = 0;
               }
+
+              // 듣기/말하기 분리 집계 + 답변 개시 직후의 시선 회피(생각 정리 — 정상 행동)
+              const phase = gazePhaseRef.current;
+              if (phase === 'listening') {
+                acc.listenFrames += 1;
+                if (front) acc.listenFront += 1;
+              } else if (phase === 'answering') {
+                acc.answerFrames += 1;
+                if (front) acc.answerFront += 1;
+                if (!front && acc.answerStartedAt
+                    && Date.now() - acc.answerStartedAt < ONSET_GRACE_MS) {
+                  acc.onsetOffFrames += 1;
+                }
+              }
+
+              // 3×3 시선 존 (행: 위/중/아래 × 열: 좌/중/우) — 시선 분포 지도
+              {
+                const col = gazeX === null ? 1 : gazeX < -0.15 ? 0 : gazeX > 0.15 ? 2 : 1;
+                const row = eyeUp > 0.45 ? 0 : eyeDown > 0.45 || headDown ? 2 : 1;
+                acc.gazeZones[row * 3 + col] += 1;
+              }
+
               if (signedAsym !== null) {
                 acc.asymSamples.push(base.set ? signedAsym - base.asym : signedAsym);
               }
@@ -412,7 +522,7 @@ export function useNonverbal(
 
   /** 브리핑 표시 중 호출 — 정면 기준값 수집 시작 */
   const startCalibration = useCallback(() => {
-    calibSamplesRef.current = { asym: [], tilt: [], headGap: [], roll: [] };
+    calibSamplesRef.current = { asym: [], tilt: [], headGap: [], roll: [], eyeX: [] };
     calibratingRef.current = true;
   }, []);
 
@@ -427,6 +537,8 @@ export function useNonverbal(
         tilt: cal.tilt.length >= 4 ? median(cal.tilt) : 0,
         headGap: cal.headGap.length >= 4 ? median(cal.headGap) : null,
         roll: cal.roll.length >= 4 ? median(cal.roll) : 0,
+        // 홍채 기준은 표본 분산까지 확인 — 흔들리는 표본으로 보상하면 오판을 만든다
+        eyeX: cal.eyeX.length >= 4 && stdDev(cal.eyeX) < 0.08 ? median(cal.eyeX) : null,
       };
     }
   }, []);
@@ -434,6 +546,15 @@ export function useNonverbal(
   const startTurn = useCallback(() => {
     accRef.current = emptyAcc();
     runningRef.current = true;
+    gazePhaseRef.current = null;
+  }, []);
+
+  /** 대화 페이즈 전환 — 듣기(상대 TTS)/말하기(답변) 시선을 분리 측정한다 */
+  const setGazePhase = useCallback((phase: 'listening' | 'answering' | null) => {
+    if (phase === 'answering' && gazePhaseRef.current !== 'answering') {
+      accRef.current.answerStartedAt = Date.now(); // 개시 회피 유예 구간의 기점
+    }
+    gazePhaseRef.current = phase;
   }, []);
 
   const endTurn = useCallback((): NonverbalMetrics | null => {
@@ -489,6 +610,28 @@ export function useNonverbal(
       hand_face_sec: Math.round((acc.handFaceFrames * SAMPLE_MS) / 100) / 10,
       arm_cross_ratio: Math.round((acc.armCrossFrames / acc.frames) * 100) / 100,
       gaze_dirs: { ...acc.offDirs },
+      // ---- Eye-Fit 심화 ----
+      // 홍채 추적 가동률 — 리포트가 "머리 추적"인지 "시선 추적"인지 밝힐 근거
+      iris_ratio: Math.round((acc.irisFrames / acc.frames) * 100) / 100,
+      // 듣기/말하기 응시 분리 (표본 2초 미만이면 판정 보류 = null)
+      listening_front_ratio: acc.listenFrames >= 10
+        ? Math.round((acc.listenFront / acc.listenFrames) * 100) / 100
+        : null,
+      answering_front_ratio: acc.answerFrames >= 10
+        ? Math.round((acc.answerFront / acc.answerFrames) * 100) / 100
+        : null,
+      // 응시 리듬: 연속 응시 구간(바우트)의 평균 길이 — 3~7초가 자연스러운 대화 리듬
+      contact_bout_mean_sec: (() => {
+        const bouts = [...acc.contactBouts];
+        if (acc.curContactStreak > 0) bouts.push(acc.curContactStreak);
+        return bouts.length
+          ? Math.round((mean(bouts) * SAMPLE_MS) / 100) / 10
+          : 0;
+      })(),
+      // 답변 개시 직후(2.5초 유예)의 시선 회피 — 생각 정리 행동, 감점에서 제외할 근거
+      onset_aversion_sec: Math.round((acc.onsetOffFrames * SAMPLE_MS) / 100) / 10,
+      // 3×3 시선 존 분포 (위/중/아래 × 좌/중/우) — 시선 지도
+      gaze_zones: [...acc.gazeZones],
       // 시선 미세 안정성: 정면 판정 내에서의 흔들림 (표준편차) — 스캐닝 습관 감지
       gaze_stability: acc.asymSamples.length > 5
         ? Math.round(stdDev(acc.asymSamples) * 1000) / 1000
@@ -516,6 +659,7 @@ export function useNonverbal(
     live,
     startTurn,
     endTurn,
+    setGazePhase,
     startCalibration,
     finishCalibration,
   };

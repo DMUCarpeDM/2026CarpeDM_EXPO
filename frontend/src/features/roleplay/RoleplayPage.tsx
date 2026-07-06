@@ -31,6 +31,7 @@ export default function RoleplayPage() {
     live,
     startTurn,
     endTurn,
+    setGazePhase,
     startCalibration,
     finishCalibration,
   } = useNonverbal(videoRef, overlayRef);
@@ -102,7 +103,11 @@ export default function RoleplayPage() {
       if (recordingRef.current) return; // 이미 답하기 시작했으면 질문 TTS 생략
       speak(currentTurn.question_text, {
         ...character.tts,
-        onStart: () => !cancelled && setAiSpeaking(true),
+        onStart: () => {
+          if (cancelled) return;
+          setAiSpeaking(true);
+          setGazePhase('listening'); // 듣기 시선 측정 구간
+        },
         onEnd: () => !cancelled && setAiSpeaking(false),
       });
     };
@@ -111,7 +116,11 @@ export default function RoleplayPage() {
       setPhase('reaction');
       speak(currentTurn.reaction_text, {
         ...reactionCharacter.tts,
-        onStart: () => !cancelled && setAiSpeaking(true),
+        onStart: () => {
+          if (cancelled) return;
+          setAiSpeaking(true);
+          setGazePhase('listening');
+        },
         onEnd: () => {
           if (cancelled) return;
           setAiSpeaking(false);
@@ -161,6 +170,7 @@ export default function RoleplayPage() {
   function setRecordingState(on: boolean) {
     recordingRef.current = on;
     setRecording(on);
+    setGazePhase(on ? 'answering' : null); // 말하기 시선 측정 구간 전환
   }
 
   function toggleMic() {

@@ -364,17 +364,26 @@ def _fit_detail_metrics(fit: FitType, results: list[AnalysisResult]) -> list[dic
         f0cv = _mean_metric(results, "f0_cv")
         add("억양 변동(F0)", f"{round(f0cv * 100)}%" if f0cv is not None else None)
     elif fit == FitType.eye:
-        ratio = _mean_metric(results, "front_gaze_ratio")
-        add("정면 응시", f"{round(ratio * 100)}%" if ratio is not None else None)
+        speak_ratio = _mean_metric(results, "answering_front_ratio")
+        listen_ratio = _mean_metric(results, "listening_front_ratio")
+        if speak_ratio is not None or listen_ratio is not None:
+            # v2 — 듣기/말하기 분리 응시 (전문 코칭의 실제 관찰 단위)
+            if speak_ratio is not None:
+                add("말할 때 응시", f"{round(speak_ratio * 100)}%")
+            if listen_ratio is not None:
+                add("들을 때 응시", f"{round(listen_ratio * 100)}%")
+        else:
+            ratio = _mean_metric(results, "front_gaze_ratio")
+            add("정면 응시", f"{round(ratio * 100)}%" if ratio is not None else None)
+        bout = _mean_metric(results, "contact_bout_mean_sec")
+        if bout:
+            add("응시 리듬", f"평균 {bout:.1f}초 유지")
         longest = max((r.raw_metrics.get("longest_off_sec", 0) for r in results), default=0)
         if longest:
             add("최장 이탈", f"{longest}초")
         blink = _mean_metric(results, "blink_per_min")
         if blink:
             add("깜빡임", f"분당 {round(blink)}회")
-        smile = _mean_metric(results, "smile_ratio")
-        if smile is not None and smile > 0.02:
-            add("미소 표현", f"{round(smile * 100)}%")
     elif fit == FitType.posture:
         tilt = _mean_metric(results, "avg_shoulder_tilt_deg")
         add("어깨 기울기", f"{tilt:.1f}°" if tilt is not None else None)

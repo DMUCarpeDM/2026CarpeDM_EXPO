@@ -73,6 +73,12 @@ export interface NonverbalMetrics {
   hand_face_sec: number; // 손-얼굴 터치 누적 초 (무의식 습관)
   arm_cross_ratio: number; // 팔짱 자세 프레임 비율 (무의식 습관)
   gaze_dirs: Record<'down' | 'up' | 'left' | 'right', number>; // 시선 이탈 방향 분포
+  iris_ratio: number; // 홍채(눈-머리 보상) 추적 가동 프레임 비율
+  listening_front_ratio: number | null; // 듣기(상대 TTS) 중 정면 응시율
+  answering_front_ratio: number | null; // 말하기(답변) 중 정면 응시율
+  contact_bout_mean_sec: number; // 연속 응시 구간 평균 길이 (응시 리듬)
+  onset_aversion_sec: number; // 답변 개시 2.5초 유예 구간의 시선 회피 (감점 제외 근거)
+  gaze_zones: number[]; // 3×3 시선 존 분포 (위/중/아래 × 좌/중/우)
   gaze_stability: number; // 정면 내 시선 흔들림 표준편차 (스캐닝 습관)
   gaze_recover_sec: number; // 이탈 후 정면 복귀 평균 시간 (회복 탄력)
   lean_drift_pct: number; // 후반 어깨폭 변화 % (+는 다가옴, -는 물러남)
