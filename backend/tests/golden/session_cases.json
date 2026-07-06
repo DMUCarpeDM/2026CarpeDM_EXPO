@@ -1,0 +1,15 @@
+{
+  "_readme": [
+    "수행도(rapport) → 하루의 결말 시나리오 골든 셋.",
+    "cases: 턴별 리액션 케이스 시퀀스. ending: 기대 결말 레벨(high/mid/low).",
+    "분기의 '서사적 정당성'을 고정한다 — 예: 초반 실수를 만회하면 인정 결말이 가능해야 한다."
+  ],
+  "scenarios": [
+    {"id": "steady_excellent", "note": "일관된 고품질 → 인정", "cases": ["excellent", "excellent", "covered"], "ending": "high"},
+    {"id": "all_covered_stays_mid", "note": "무난하기만 한 하루는 high가 아니다 — 분기 체감 보장", "cases": ["covered", "covered", "covered"], "ending": "mid"},
+    {"id": "comeback_arc", "note": "역전 서사: 초반 위험 발언을 이후 3연속 excellent로 만회하면 인정에 도달한다", "cases": ["risky", "excellent", "excellent", "excellent"], "ending": "high"},
+    {"id": "collapse_arc", "note": "붕괴 서사: 좋은 시작 후 연속 위험 발언", "cases": ["excellent", "risky", "risky"], "ending": "low"},
+    {"id": "chronic_short", "note": "성의 없는 단답의 하루", "cases": ["short", "short", "short"], "ending": "low"},
+    {"id": "mixed_average", "note": "들쭉날쭉 — 평범한 하루", "cases": ["excellent", "missing", "covered"], "ending": "mid"}
+  ]
+}
