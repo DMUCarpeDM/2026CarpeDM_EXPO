@@ -11,10 +11,17 @@
 해당 렌즈 자체를 생략한다(어설픈 단정 금지 — 오판 억제 원칙).
 """
 from app.models import FitType, RoleplaySession
+from app.services.moments import build_moments
 
 
 def _mean(vals: list[float]) -> float | None:
     return sum(vals) / len(vals) if vals else None
+
+
+def _confidence(n: int, solid: int, fair: int) -> dict:
+    """표본 크기 기반 신뢰 라벨 — 전문가는 모르는 것을 모른다고 말한다."""
+    level = "확실" if n >= solid else "참고" if n >= fair else "보류"
+    return {"level": level, "n": n}
 
 
 # ---------------------------------------------------------------------------
@@ -44,10 +51,18 @@ def build_delivery(discourse_list: list[dict]) -> dict | None:
     if alignment is not None:
         rows.append({"label": "질문 정합성", "value": f"{round(alignment * 100)}%"})
 
+    negatives = sum(d.get("negative_no_alternative", 0) for d in ds)
+    if negatives:
+        rows.append({"label": "대안 없는 불가 통보", "value": f"{negatives}회"})
+
     # 코치 코멘트 — 가장 큰 개선 지점 하나만 (과잉 지적 금지).
     # 정합성은 보수적 임계값(0.15) — 자기소개처럼 질문 명사 재사용이 원래 낮은
     # 턴이 섞이므로, 진짜 동문서답 수준일 때만 지적한다.
-    if alignment is not None and alignment < 0.15:
+    if negatives >= 2:
+        comment = ("'안 됩니다'가 대안 없이 반복됐어요. 불가 통보 자체는 문제가 아니에요 — "
+                   "\"지금은 어렵지만, 내일 오전까지는 가능합니다\"처럼 문장 뒤에 다음 문을 "
+                   "하나 열어두면 같은 거절도 협력으로 들려요.")
+    elif alignment is not None and alignment < 0.15:
         comment = ("질문의 핵심 단어가 답변에 거의 이어지지 않았어요. 답을 시작하기 전에 "
                    "질문 속 단어 하나를 그대로 받아 말하면(\"로그인 장애는요—\") 동문서답 인상이 사라져요.")
     elif conclusion_ratio < 0.34:
@@ -66,7 +81,10 @@ def build_delivery(discourse_list: list[dict]) -> dict | None:
         comment = ("결론 선행, 기한 약속, 책임 표현이 고르게 갖춰진 보고 구조예요. "
                    "이제 내용이 아니라 전달의 완급(쉼과 강세)을 다듬을 단계입니다.")
 
-    return {"title": "말의 구조", "rows": rows, "comment": comment}
+    return {
+        "title": "말의 구조", "rows": rows, "comment": comment,
+        "confidence": _confidence(len(ds), solid=3, fair=2),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -128,7 +146,10 @@ def build_composure(
             "재해석하는 연습이 이 프로파일에 가장 효과적입니다."
         )
 
-    return {"title": "압박 내성", "level": level, "rows": rows[:4], "comment": comment}
+    return {
+        "title": "압박 내성", "level": level, "rows": rows[:4], "comment": comment,
+        "confidence": _confidence(min(len(pressure_pairs), len(normal_pairs)), solid=2, fair=1),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -164,6 +185,7 @@ def build_adaptation(turn_scores: list[tuple[int, float]]) -> dict | None:
         "trend": trend,
         "points": [{"turn_order": o, "score": round(s, 1)} for o, s in sorted(turn_scores)],
         "comment": comment,
+        "confidence": _confidence(len(turn_scores), solid=5, fair=3),
     }
 
 
@@ -208,6 +230,21 @@ def build_deep_analysis(session: RoleplaySession, turn_results: list) -> dict:
         if turn is not None and scores:
             turn_scores.append((turn.order, sum(scores) / len(scores)))
 
+    # moments — 시간 정렬 이벤트 스트림: 비언어 타임라인 × 음성 스팬 × 턴 맥락
+    turns_data = []
+    for turn_id, entry in by_turn.items():
+        turn = turns.get(turn_id)
+        if turn is None:
+            continue
+        nv = turn.nonverbal_metrics or {}
+        voice = entry[FitType.voice].raw_metrics if FitType.voice in entry else {}
+        turns_data.append({
+            "turn_order": turn.order,
+            "question_type": turn.question_type,
+            "timeline": nv.get("timeline") or [],
+            "alignment": voice.get("alignment"),
+        })
+
     deep: dict = {}
     if (delivery := build_delivery(discourse_list)) is not None:
         deep["delivery"] = delivery
@@ -215,4 +252,6 @@ def build_deep_analysis(session: RoleplaySession, turn_results: list) -> dict:
         deep["composure"] = composure
     if (adaptation := build_adaptation(turn_scores)) is not None:
         deep["adaptation"] = adaptation
+    if (moments := build_moments(turns_data)):
+        deep["moments"] = moments
     return deep

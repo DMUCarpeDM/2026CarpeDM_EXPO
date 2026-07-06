@@ -7,7 +7,7 @@ import time
 import traceback
 from pathlib import Path
 
-from app.ai import nonverbal, response_fit, voice_fit
+from app.ai import nonverbal, response_fit, voice_align, voice_fit
 from app.ai.discourse import analyze_discourse
 from app.ai.scoring import weighted_mean
 from app.ai.stt import get_stt_provider
@@ -67,6 +67,17 @@ def run_analysis(session_id: int) -> None:
         for t in turns:
             if t.audio_path:
                 metrics = voice_fit.analyze_audio(t.audio_path, t.response_text)
+                # 텍스트-음성 정렬: 어느 문장에서 무너졌는지 (Vosk 단어 타임스탬프)
+                provider = get_stt_provider()
+                if metrics and provider and hasattr(provider, "transcribe_words"):
+                    try:
+                        alignment = voice_align.analyze_alignment(
+                            t.audio_path, provider.transcribe_words(t.audio_path),
+                        )
+                        if alignment:
+                            metrics["alignment"] = alignment
+                    except Exception:
+                        pass  # 정렬은 부가 분석 — 실패해도 턴 분석은 유지
             elif t.stt_source == "webspeech":
                 metrics = voice_fit.estimate_from_text(t.response_text, t.response_duration_ms)
             else:

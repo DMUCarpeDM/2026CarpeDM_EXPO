@@ -45,6 +45,17 @@ _TIME_COMMIT_RE = re.compile(
 # 책임 문형: 1인칭 주어("제가/저는") 문장에 의지 선어말어미(-겠-) 또는 수행 동사
 _OWNERSHIP_RE = re.compile(r"(제가|저는|저부터)[^.?!]{0,40}(겠|하겠|드리겠|보겠|올리겠)")
 
+# 청자 배려(You-attitude): "안 됩니다"로 끝나는 불가 통보 vs 대안이 따라오는 불가.
+# 대안은 같은 문장 또는 바로 다음 문장까지 인정한다 ("어렵습니다. 대신 내일—").
+NEGATIVE_PATTERNS = [
+    "안 됩니다", "안 돼요", "안 될 것", "못 합니다", "못 해요", "불가능",
+    "어렵습니다", "어려울 것", "힘듭니다", "힘들 것",
+]
+ALTERNATIVE_MARKERS = [
+    "대신", "다만", "가능한", "방법", "내일", "다음에", "이후에", "일찍",
+    "까지는 가능", "라면 가능", "먼저 해", "시간을 조정",
+]
+
 
 @lru_cache(maxsize=256)
 def _content_nouns(text: str) -> frozenset[str]:
@@ -103,6 +114,14 @@ def analyze_discourse(text: str, question_text: str = "") -> dict:
         a_nouns = _content_nouns(text)
         alignment = round(len(q_nouns & a_nouns) / len(q_nouns), 3)
 
+    # 청자 배려: 대안 없는 불가 통보 — 다음 문장까지의 대안 제시는 인정
+    negative_no_alternative = 0
+    for i, sent in enumerate(sents):
+        if any(p in sent for p in NEGATIVE_PATTERNS):
+            window = sent + " " + (sents[i + 1] if i + 1 < len(sents) else "")
+            if not any(m in window for m in ALTERNATIVE_MARKERS):
+                negative_no_alternative += 1
+
     # 문장 부담 — 만연체 감지 (평균 문장 음절, 문장당 최대 연결어미 수)
     sent_syllables = [count_hangul_syllables(s) for s in sents] or [syllables]
     max_clauses = 0
@@ -118,6 +137,7 @@ def analyze_discourse(text: str, question_text: str = "") -> dict:
         "ownership_count": ownership_count,
         "hedge_count": hedge_count,
         "hedge_per_100syl": hedge_per_100,
+        "negative_no_alternative": negative_no_alternative,
         "question_alignment": alignment,
         "avg_sentence_syllables": round(sum(sent_syllables) / len(sent_syllables), 1),
         "max_clauses_per_sentence": max_clauses,

@@ -114,8 +114,14 @@ def _response_evidence(turn_results: list[AnalysisResult]) -> dict | None:
         interp = "길어질수록 듣는 사람은 '그래서 결론이 뭐지?'를 기다리게 돼요."
         sugg = "첫 문장을 이렇게 시작해보세요: \"결론부터 말씀드리면 ~입니다.\""
     else:
-        observed = f"핵심 요소를 모두 담았어요 (커버리지 {int(coverage * 100)}%)"
-        interp = "필요한 정보가 순서대로 들어간, 되묻지 않아도 되는 응답이었어요."
+        best_quote = (m.get("quotes") or {}).get("best")
+        if best_quote:
+            observed = (f"핵심 요소를 모두 담았어요. 가장 좋았던 문장: "
+                        f"“{best_quote['text']}”")
+            interp = "이 문장 하나에 필요한 구조가 다 들어 있어요 — 이 감각을 기억하세요."
+        else:
+            observed = f"핵심 요소를 모두 담았어요 (커버리지 {int(coverage * 100)}%)"
+            interp = "필요한 정보가 순서대로 들어간, 되묻지 않아도 되는 응답이었어요."
         sugg = ("다음 단계 도전: 숫자를 하나 넣어보세요. "
                 "\"문의 5건, 고객사 3곳\"처럼 수치가 들어가면 보고의 급이 달라져요.")
     return _segment(worst, "response", observed, interp, sugg)
@@ -137,8 +143,24 @@ def _voice_evidence(turn_results: list[AnalysisResult]) -> dict | None:
     long_pauses = m.get("long_pause_count", 0)
     f0_cv = m.get("f0_cv")
     drift = m.get("energy_drift_pct", 0)
+    alignment = m.get("alignment") or {}
+    spans = alignment.get("spans", [])
 
-    if lead_in is not None and lead_in > 3:
+    # 문장 인용 코칭 — 정렬 분석이 있으면 '어느 문장에서' 무너졌는지 직접 짚는다
+    if "quietest" in alignment and spans:
+        q = spans[alignment["quietest"]]
+        observed = (f"이 대목에서 성량이 평균보다 {abs(q['rms_rel_pct'])}% 낮았어요: "
+                    f"“{q['text']}”")
+        interp = "중요한 내용일수록 목소리가 작아지면, 듣는 사람은 확신이 없다고 느껴요."
+        sugg = ("작아진 그 문장을 첫 문장과 같은 크기로 다시 말해보세요. "
+                "특히 사과·요청일수록 또렷해야 진심으로 들립니다.")
+    elif "fastest" in alignment and spans:
+        f = spans[alignment["fastest"]]
+        observed = (f"이 대목에서 말이 {f['rate_sps']}음절/초로 급해졌어요: "
+                    f"“{f['text']}”")
+        interp = "특정 대목에서만 빨라지는 건 그 내용을 빨리 지나가고 싶다는 신호로 들려요."
+        sugg = "급해진 그 문장 앞에서 일부러 반 박자 쉬고, 또박또박 다시 말해보세요."
+    elif lead_in is not None and lead_in > 3:
         observed = f"응답 개시까지 {lead_in}초 — 질문 후 침묵이 길었어요 (권장 2.5초 이내)"
         interp = "첫 마디가 늦어질수록 듣는 사람의 긴장이 올라가고, 답변 준비가 안 된 인상을 줘요."
         sugg = ("침묵 대신 소리 내어 시작해보세요: \"네, 그 부분은—\" "
@@ -343,6 +365,9 @@ def _fit_detail_metrics(fit: FitType, results: list[AnalysisResult]) -> list[dic
     if fit == FitType.response:
         cov = _mean_metric(results, "coverage")
         add("핵심 요소 커버리지", f"{round(cov * 100)}%" if cov is not None else None)
+        semantic = sum(len(r.raw_metrics.get("semantic_hits", [])) for r in results)
+        if semantic:
+            add("의미 인식 보완", f"{semantic}건 (키워드 없이 뜻으로 인정)")
         banned = sum(len(r.raw_metrics.get("banned_hits", [])) for r in results)
         add("위험 표현", f"{banned}회")
         formals = [
@@ -361,20 +386,43 @@ def _fit_detail_metrics(fit: FitType, results: list[AnalysisResult]) -> list[dic
         jitter = _mean_metric(results, "f0_jitter_pct")
         if jitter is not None and jitter > 8:
             add("피치 흔들림", f"{jitter:.0f}%")
+        fillers = [
+            r.raw_metrics["alignment"]["fillers"]
+            for r in results if r.raw_metrics.get("alignment")
+        ]
+        if fillers:
+            per_min = sum(f["per_min"] for f in fillers) / len(fillers)
+            if per_min >= 2:
+                add("간투어(음·어)", f"분당 {per_min:.0f}회")
+            designed = [
+                r.raw_metrics["alignment"].get("emphasis", {}).get("designed")
+                for r in results if r.raw_metrics.get("alignment")
+            ]
+            if any(d is True for d in designed):
+                add("강조 설계", "문장 간 대비 있음")
         f0cv = _mean_metric(results, "f0_cv")
         add("억양 변동(F0)", f"{round(f0cv * 100)}%" if f0cv is not None else None)
     elif fit == FitType.eye:
-        ratio = _mean_metric(results, "front_gaze_ratio")
-        add("정면 응시", f"{round(ratio * 100)}%" if ratio is not None else None)
+        speak_ratio = _mean_metric(results, "answering_front_ratio")
+        listen_ratio = _mean_metric(results, "listening_front_ratio")
+        if speak_ratio is not None or listen_ratio is not None:
+            # v2 — 듣기/말하기 분리 응시 (전문 코칭의 실제 관찰 단위)
+            if speak_ratio is not None:
+                add("말할 때 응시", f"{round(speak_ratio * 100)}%")
+            if listen_ratio is not None:
+                add("들을 때 응시", f"{round(listen_ratio * 100)}%")
+        else:
+            ratio = _mean_metric(results, "front_gaze_ratio")
+            add("정면 응시", f"{round(ratio * 100)}%" if ratio is not None else None)
+        bout = _mean_metric(results, "contact_bout_mean_sec")
+        if bout:
+            add("응시 리듬", f"평균 {bout:.1f}초 유지")
         longest = max((r.raw_metrics.get("longest_off_sec", 0) for r in results), default=0)
         if longest:
             add("최장 이탈", f"{longest}초")
         blink = _mean_metric(results, "blink_per_min")
         if blink:
             add("깜빡임", f"분당 {round(blink)}회")
-        smile = _mean_metric(results, "smile_ratio")
-        if smile is not None and smile > 0.02:
-            add("미소 표현", f"{round(smile * 100)}%")
     elif fit == FitType.posture:
         tilt = _mean_metric(results, "avg_shoulder_tilt_deg")
         add("어깨 기울기", f"{tilt:.1f}°" if tilt is not None else None)

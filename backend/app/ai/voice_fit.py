@@ -17,6 +17,10 @@ from app.ai.text_match import count_hangul_syllables
 
 FRAME = 2048
 HOP = 512
+# 떨림 전용 짧은 창 — 표준 프레임(128ms)은 생리적 떨림 대역(4~12Hz)을 평균으로
+# 지워버린다(골든 시나리오 test_scenario_confident_vs_shaky_apology가 잡은 결함).
+TREMOR_FRAME = 1024  # 64ms — 떨림 주기를 뭉개지 않으면서 75Hz F0도 추정 가능
+TREMOR_HOP = 256     # 16ms — 진폭 떨림 궤적 해상도
 
 # -- 밴드 근거 --
 # 말속도(음절/초): 한국어 뉴스 낭독 약 5.5~6.5, 일상 대화체 약 4~5.
@@ -31,6 +35,17 @@ LEAD_IN_BANDS = (0.0, 2.5, 0.0, 8.0)
 # F0 변동계수: 자연 발화 0.08~0.35. 0.05 미만은 단조로운 톤,
 # 0.5 초과는 피치가 불안정하게 흔들리는 상태로 본다.
 F0_CV_BANDS = (0.08, 0.35, 0.0, 0.60)
+# 생리적 떨림 페널티: 억양(느린 F0 변화)은 보상하되, 떨림(빠른 미세 변동)은
+# 감점해야 한다 — 골든 시나리오가 잡아낸 결함: 떨리는 발화의 변동이 '자연스러운
+# 억양·강세' 대역에 들어가 오히려 보상받았다. 오판 억제를 위해 jitter(주파수)와
+# shimmer(진폭)가 '동시에' 뚜렷할 때만, 상한을 두고 감점한다.
+TREMOR_JITTER_FLOOR = 6.0   # % — 이하는 정상 변동 (합성 보정: 안정 발화 모형 ~0-2%)
+TREMOR_SHIMMER_FLOOR = 8.0  # %
+TREMOR_PENALTY_CAP = 18.0
+# 긴 침묵 페널티: long_pause_count(1.2s+)가 집계만 되고 채점에 반영되지 않던
+# 결함(골든 시나리오 발견) — 청자가 인지하는 끊김이므로 회당 감점, 상한 존재.
+LONG_PAUSE_PENALTY = 5.0
+LONG_PAUSE_PENALTY_CAP = 15.0
 
 # 한국어 성인 발화 F0 탐색 범위 (Hz)
 F0_MIN, F0_MAX = 75, 400
@@ -44,6 +59,37 @@ def _frame_rms(samples: np.ndarray) -> np.ndarray:
         float(np.sqrt(np.mean(samples[i * HOP: i * HOP + FRAME] ** 2)))
         for i in range(n)
     ])
+
+
+def _spectral_flatness(samples: np.ndarray) -> np.ndarray:
+    """프레임별 스펙트럼 평탄도 — 0에 가까우면 음조(음성), 1에 가까우면 광대역 소음.
+
+    전시장 웅성거림 대응의 핵심: 에너지 임계만으로는 배경 소음이 발화로
+    오인된다. 음성은 스펙트럼이 뾰족하고(조화 구조) 소음은 평탄하다.
+    """
+    n = max(1, (len(samples) - FRAME) // HOP + 1)
+    win = np.hanning(FRAME)
+    flat = np.empty(n)
+    for i in range(n):
+        seg = samples[i * HOP: i * HOP + FRAME]
+        if len(seg) < FRAME:
+            flat[i] = 1.0
+            continue
+        power = np.abs(np.fft.rfft(seg * win)) ** 2 + 1e-12
+        flat[i] = float(np.exp(np.mean(np.log(power))) / np.mean(power))
+    return flat
+
+
+# 소음 강건 VAD: 에너지 임계(발화량 대비)는 v1 그대로 두고, 소음 판별은
+# 스펙트럼 평탄도가 전담한다. 에너지 기반 소음 바닥 추정은 "작게 말한 구간"과
+# "배경 소음"을 원리적으로 구분할 수 없어 폐기했다 (드리프트 회귀로 검증됨).
+FLATNESS_MAX = 0.5  # 이보다 평탄하면 소음으로 판정 (순음/음성 ~0.0x, 백색소음 ~1)
+
+
+def _voiced_mask(samples: np.ndarray, rms: np.ndarray) -> np.ndarray:
+    """에너지 임계 + 스펙트럼 평탄도 게이트 — 소음 강건 발화 검출."""
+    threshold = max(0.008, float(np.median(rms)) * 0.25)
+    return (rms > threshold) & (_spectral_flatness(samples) < FLATNESS_MAX)
 
 
 def _segments(mask: np.ndarray) -> list[tuple[int, int, bool]]:
@@ -76,6 +122,48 @@ def _estimate_f0(frame: np.ndarray, sr: int) -> float | None:
     return sr / peak
 
 
+def _tremor_metrics(samples: np.ndarray, sr: int) -> tuple[float | None, float | None]:
+    """짧은 창 기반 jitter(%)/shimmer(%) — 4~12Hz 생리적 떨림에 민감한 전용 경로.
+
+    침묵 경계의 점프가 떨림으로 오인되지 않도록, 활성 구간 내부의 인접 변화만 본다.
+    주의: 절대 임계값(TREMOR_*_FLOOR)은 합성 신호로 보정된 값 — 실제 육성으로
+    현장 재보정이 필요하다 (demo-checklist 참조).
+    """
+    # 진폭 궤적 (16ms 홉, 64ms 창) → shimmer
+    n = (len(samples) - TREMOR_FRAME) // TREMOR_HOP
+    if n < 12:
+        return None, None
+    env = np.empty(n, dtype=np.float64)
+    for i in range(n):
+        seg = samples[i * TREMOR_HOP: i * TREMOR_HOP + TREMOR_FRAME]
+        env[i] = np.sqrt(np.mean(seg * seg))
+    thr = max(0.008, float(np.median(env)) * 0.25)
+    active_idx = np.flatnonzero(env > thr)
+
+    shimmer = None
+    if len(active_idx) >= 12:
+        adjacent = active_idx[1:][np.diff(active_idx) == 1]
+        rel = np.abs(env[adjacent] - env[adjacent - 1]) / np.maximum(env[adjacent - 1], 1e-9)
+        if len(rel) >= 10:
+            shimmer = float(np.median(rel) * 100)
+
+    # F0 궤적 (32ms 홉, 64ms 창) → jitter
+    f0_track: list[float | None] = []
+    for i in range(0, len(samples) - TREMOR_FRAME, TREMOR_HOP * 2):
+        seg = samples[i: i + TREMOR_FRAME]
+        if float(np.sqrt(np.mean(seg * seg))) <= thr:
+            f0_track.append(None)
+        else:
+            f0_track.append(_estimate_f0(seg, sr))
+    rels = [
+        abs(b - a) / a
+        for a, b in zip(f0_track, f0_track[1:])
+        if a is not None and b is not None
+    ]
+    jitter = float(np.median(rels) * 100) if len(rels) >= 8 else None
+    return jitter, shimmer
+
+
 def analyze_audio(path: str, response_text: str) -> dict:
     """wav 파일 → Voice-Fit 원시 지표. 실패 시 빈 dict."""
     import soundfile as sf
@@ -92,8 +180,7 @@ def analyze_audio(path: str, response_text: str) -> dict:
     rms = _frame_rms(samples)
     duration = len(samples) / sr
     sec_per_frame = HOP / sr
-    threshold = max(0.008, float(np.median(rms)) * 0.25)
-    voiced = rms > threshold
+    voiced = _voiced_mask(samples, rms)
     if not voiced.any():
         return {}
 
@@ -145,20 +232,9 @@ def analyze_audio(path: str, response_text: str) -> dict:
         float(np.std(f0_values) / np.mean(f0_values))
         if f0_mean is not None else None
     )
-    # 피치 흔들림(jitter 근사): 인접 F0 표본 간 상대 변화율의 중앙값.
-    # 억양(느린 변화)보다 미세 떨림(빠른 변화)에 민감 — 긴장 관찰 지표, 감점 없음.
-    f0_jitter_pct = None
-    if len(f0_values) >= 8:
-        arr = np.asarray(f0_values)
-        rel = np.abs(np.diff(arr)) / arr[:-1]
-        f0_jitter_pct = float(np.median(rel) * 100)
-
-    # 성량 흔들림(shimmer 근사): 인접 유성 프레임 RMS의 상대 변화율 중앙값.
-    # jitter(주파수)와 짝을 이루는 진폭 축의 미세 불안정 — 음성 품질 관찰 지표.
-    shimmer_pct = None
-    if len(voiced_rms) >= 8:
-        rel_amp = np.abs(np.diff(voiced_rms)) / np.maximum(voiced_rms[:-1], 1e-9)
-        shimmer_pct = float(np.median(rel_amp) * 100)
+    # 피치·성량 떨림(jitter/shimmer): 짧은 창 전용 경로 — 표준 프레임은
+    # 생리적 떨림(4~12Hz)을 평균으로 지우므로 별도 측정한다.
+    f0_jitter_pct, shimmer_pct = _tremor_metrics(samples, sr)
 
     # 주기성 강도(HNR 근사): 유성 프레임 정규화 자기상관 피크의 평균.
     # 낮으면 숨이 많이 섞인 소리(속삭임·긴장으로 조여진 발성) — 관찰 지표.
@@ -259,4 +335,19 @@ def score_voice(metrics: dict) -> float | None:
         parts.append((band_score(metrics["f0_cv"], *F0_CV_BANDS), 0.20))
     if not parts:
         return None
-    return clamp(weighted_mean(parts))
+    score = weighted_mean(parts)
+
+    # 생리적 떨림 페널티 — jitter와 shimmer가 동시에 뚜렷할 때만 (단독 상승은 무시)
+    jitter = metrics.get("f0_jitter_pct")
+    shimmer = metrics.get("shimmer_pct")
+    if jitter is not None and shimmer is not None \
+            and jitter > TREMOR_JITTER_FLOOR and shimmer > TREMOR_SHIMMER_FLOOR:
+        score -= min(
+            TREMOR_PENALTY_CAP,
+            3.0 * (jitter - TREMOR_JITTER_FLOOR) + 1.5 * (shimmer - TREMOR_SHIMMER_FLOOR),
+        )
+
+    # 긴 침묵 페널티 — 발화 중 1.2초+ 끊김은 청자가 인지한다
+    score -= min(LONG_PAUSE_PENALTY_CAP,
+                 LONG_PAUSE_PENALTY * metrics.get("long_pause_count", 0))
+    return clamp(score)

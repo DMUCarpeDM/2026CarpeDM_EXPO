@@ -80,6 +80,55 @@ def get_report(session_id: int, db: Session = Depends(get_db)):
         beaten = sum(1 for s in other_scores if s < report.total_score)
         percentile_top = max(1, 100 - round(beaten / len(other_scores) * 100))
 
+    # 심층 분석은 저장본에 조회 시점 정보를 더해 내려준다 (저장본은 불변):
+    deep = dict(report.deep_analysis or {})
+
+    # 1) 코호트 백분위 — Fit별로 현장 축적 데이터 대비 위치 (표본 20+에서만, 신뢰 우선)
+    cohort_rows = []
+    for fit, data in (report.fit_scores or {}).items():
+        if data.get("score") is None:
+            continue
+        others = [
+            row[0]
+            for row in db.query(AnalysisResult.score)
+            .filter(
+                AnalysisResult.fit_type == fit,
+                AnalysisResult.turn_id.is_(None),
+                AnalysisResult.session_id != session.id,
+            )
+            .all()
+        ]
+        if len(others) >= 20:
+            beaten = sum(1 for s in others if s < data["score"])
+            cohort_rows.append({
+                "fit": fit,
+                "label": data.get("label", fit),
+                "top_pct": max(1, 100 - round(beaten / len(others) * 100)),
+                "n": len(others),
+            })
+    if cohort_rows:
+        deep["cohort"] = {"title": "현장 체험자 대비", "rows": cohort_rows}
+
+    # 2) 재방문 성장 델타 — "지난번 동요형 → 이번 회복형" 서사
+    if prev_session and prev_session.report:
+        prev_deep = prev_session.report.deep_analysis or {}
+        prev_level = (prev_deep.get("composure") or {}).get("level")
+        cur_level = (deep.get("composure") or {}).get("level")
+        rank = {"동요형": 0, "회복형": 1, "침착형": 2}
+        if prev_level and cur_level and prev_level != cur_level:
+            improved = rank.get(cur_level, 0) > rank.get(prev_level, 0)
+            deep["growth"] = {
+                "from": prev_level,
+                "to": cur_level,
+                "improved": improved,
+                "comment": (
+                    f"지난 도전에서는 압박에 '{prev_level}'이었는데, 이번엔 '{cur_level}'이에요 — "
+                    + ("압박 앞에서 몸이 배우고 있어요. 이 변화가 진짜 성장입니다."
+                       if improved else
+                       "오늘은 컨디션 영향이 있었을 수 있어요. 다음 도전에서 다시 확인해봐요."),
+                ),
+            }
+
     return ReportOut(
         session_id=session.id,
         total_score=report.total_score,
@@ -91,7 +140,7 @@ def get_report(session_id: int, db: Session = Depends(get_db)):
         rebuild=report.rebuild,
         speech_stats=report.speech_stats,
         day_ending=report.day_ending or {},
-        deep_analysis=report.deep_analysis or {},
+        deep_analysis=deep,
         percentile_top=percentile_top,
         turn_breakdown=_turn_breakdown(db, session),
         analysis_ms=report.analysis_ms,

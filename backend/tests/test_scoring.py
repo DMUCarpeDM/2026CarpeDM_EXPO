@@ -86,3 +86,37 @@ def test_posture_fit_scores():
     })
     assert good is not None and poor is not None
     assert good > poor
+
+
+# ---- Eye-Fit v2: 듣기/말하기 분리·응시 리듬·개시 회피 관용 ----
+
+def test_eye_v2_backward_compatible_with_v1_payload():
+    # v1 페이로드는 v1 채점과 동일해야 한다 (분리 지표 없음)
+    v1 = {"front_gaze_ratio": 0.8, "gaze_off_count": 1, "frames": 40}
+    assert score_eye(v1, 30) == score_eye(dict(v1), 30)  # 결정적
+    assert score_eye(v1, 30) > 70
+
+
+def test_eye_v2_listening_gaze_matters():
+    base = {"front_gaze_ratio": 0.8, "gaze_off_count": 1, "frames": 40,
+            "answering_front_ratio": 0.8}
+    attentive = score_eye({**base, "listening_front_ratio": 0.95}, 30)
+    distracted = score_eye({**base, "listening_front_ratio": 0.3}, 30)
+    assert attentive > distracted  # 들을 때 딴 데 보면 감점
+
+
+def test_eye_v2_onset_aversion_forgiven():
+    # 답변 개시 직후 2초의 생각 정리 회피는 최장 이탈에서 면제된다
+    base = {"front_gaze_ratio": 0.75, "gaze_off_count": 2, "frames": 40,
+            "longest_off_sec": 3.5}
+    strict = score_eye(dict(base), 30)
+    forgiven = score_eye({**base, "onset_aversion_sec": 2.0}, 30)
+    assert forgiven > strict
+
+
+def test_eye_v2_natural_bout_rhythm_rewarded():
+    base = {"front_gaze_ratio": 0.8, "gaze_off_count": 2, "frames": 40,
+            "answering_front_ratio": 0.8, "listening_front_ratio": 0.85}
+    natural = score_eye({**base, "contact_bout_mean_sec": 5.0}, 30)   # 3~8초 리듬
+    darting = score_eye({**base, "contact_bout_mean_sec": 0.6}, 30)   # 눈맞춤 미성립
+    assert natural > darting

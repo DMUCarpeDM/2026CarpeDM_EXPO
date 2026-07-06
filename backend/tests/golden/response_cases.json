@@ -1,0 +1,251 @@
+{
+  "_readme": [
+    "골든 응답 셋 — 모든 판정 변경의 합격선. 케이스마다 '이렇게 판정해야 한다'를 정의한다.",
+    "stage=current: 지금 통과해야 하는 케이스. stage=semantic: 키워드 매칭의 알려진 한계 —",
+    "의미 매칭(마스터리 ②) 도입 전에는 커버리지가 낮게 나오는 것이 '정상'이며,",
+    "②가 랜딩되면 해당 게이트 테스트가 깨져 승격 시점을 알려준다.",
+    "expect 필드: case(리액션 케이스) / coverage_min·max / banned_min·max / formal_min·max /",
+    "conclusion_first / time_min·time_max(기한 약속) / ownership_min / hedge_min·max /",
+    "reason_min(근거 마커) / clauses_min(만연체) / banmal_min / score_min·max(응답 점수 대역)"
+  ],
+  "cases": [
+    {
+      "id": "ep1_excellent_full", "episode": 1, "stage": "current",
+      "note": "4요소 완비 자기소개 — 기준 양성 케이스",
+      "text": "안녕하십니까, 오늘 합류한 신입 개발자 김지연입니다. 플랫폼팀에서 백엔드 운영 지원을 맡았고, 오늘은 온보딩 문서 파악과 로컬 셋업 완료가 목표입니다. 모르는 건 바로 여쭤보면서 배우겠습니다. 잘 부탁드립니다.",
+      "expect": {"case": "excellent", "coverage_min": 0.95, "banned_max": 0, "formal_min": 0.9, "score_min": 70}
+    },
+    {
+      "id": "ep1_covered_partial", "episode": 1, "stage": "current",
+      "note": "이름+협업 의지만 — 역할·목표 누락 (후속 질문 유도 대상)",
+      "text": "처음 뵙겠습니다, 김지연입니다. 많이 부탁드립니다. 열심히 하겠습니다.",
+      "expect": {"case": "covered", "coverage_min": 0.4, "coverage_max": 0.6, "banned_max": 0}
+    },
+    {
+      "id": "ep1_missing_offtopic", "episode": 1, "stage": "current",
+      "note": "동문서답 — 자기소개 요구에 사무실 감상",
+      "text": "날씨가 좋네요. 사무실이 넓고 분위기가 좋습니다. 커피 머신도 있네요.",
+      "expect": {"case": "missing", "coverage_max": 0.2, "banned_max": 0}
+    },
+    {
+      "id": "ep1_formal_but_empty", "episode": 1, "stage": "current",
+      "note": "격식은 완벽하나 내용 없는 미사여구 — 격식만으로 통과가 안 되는지 (missing이 옳은 판정)",
+      "text": "열심히 하겠습니다. 최선을 다하겠습니다. 잘 부탁드리겠습니다.",
+      "expect": {"case": "missing", "coverage_max": 0.35, "formal_min": 0.9, "score_max": 60}
+    },
+    {
+      "id": "ep1_short", "episode": 1, "stage": "current",
+      "note": "단답 — 내용 이전에 발화량 부족",
+      "text": "네, 잘 부탁드립니다.",
+      "expect": {"case": "short"}
+    },
+    {
+      "id": "ep1_risky_dismissive", "episode": 1, "stage": "current",
+      "note": "무성의 표현 2개 — 첫인상 자해",
+      "text": "그냥 뽑혀서 왔어요. 뭐 어떻게든 되겠죠.",
+      "expect": {"case": "risky", "banned_min": 2}
+    },
+    {
+      "id": "ep1_banmal", "episode": 1, "stage": "current",
+      "note": "반말 자기소개 — 격식 축 검증",
+      "text": "김지연이야. 앞으로 열심히 할게.",
+      "expect": {"banmal_min": 1, "formal_max": 0.4}
+    },
+    {
+      "id": "ep1_hedge_heavy", "episode": 1, "stage": "current",
+      "note": "완충어 과다 — 내용이 있어도 확신 없는 인상",
+      "text": "아마 뭔가 좀 어색하긴 한데요, 김지연이라고 합니다. 일단 오늘은 그럭저럭 적응해보는 게 목표인 것 같습니다.",
+      "expect": {"hedge_min": 5.0, "banned_max": 0}
+    },
+    {
+      "id": "ep1_semantic_paraphrase", "episode": 1, "stage": "semantic",
+      "note": "의미상 역할·목표·협업 완비 — 키워드('맡','목표','여쭤')만 회피. ② 의미 매칭의 승격 대상",
+      "text": "저는 김지연이라는 사람입니다. 서버 쪽 일을 하러 왔고, 퇴근 전까지 개발 환경을 전부 갖춰 놓는 게 오늘 할 일입니다. 궁금한 건 그때그때 물어보겠습니다.",
+      "expect": {"future_coverage_min": 0.7}
+    },
+
+    {
+      "id": "ep2_excellent_crisis", "episode": 2, "stage": "current",
+      "note": "위기 4단계 완비 + 기한 약속 + 책임 문형 — 기준 양성",
+      "text": "네, 문의 접수 확인했습니다. 불편을 드려 죄송합니다. 현재 정확한 원인은 파악 중이고, 제가 바로 선임님께 보고해서 10분 안에 확인된 내용을 회신드리겠습니다.",
+      "expect": {"case": "excellent", "coverage_min": 0.9, "time_min": 1, "ownership_min": 1, "formal_min": 0.9, "score_min": 70}
+    },
+    {
+      "id": "ep2_excellent_variant", "episode": 2, "stage": "current",
+      "note": "같은 구조 다른 표현 — 판정 안정성(표현 변화에 강건한가)",
+      "text": "알겠습니다, 심각한 상황이네요. 아직 정확한 원인은 확인 중입니다. 지금 바로 팀장님께 전달하고, 오늘 오후 안에 안내 문구까지 공유드리겠습니다.",
+      "expect": {"case": "excellent", "coverage_min": 0.75, "time_min": 1, "banned_max": 0}
+    },
+    {
+      "id": "ep2_covered_no_escalation", "episode": 2, "stage": "current",
+      "note": "인정+사실만 — 에스컬레이션·기한 누락 (신입의 흔한 실수)",
+      "text": "네, 알겠습니다. 지금 상황은 정확한 원인을 알아보는 중입니다.",
+      "expect": {"case": "covered", "coverage_min": 0.35, "coverage_max": 0.6, "time_max": 0}
+    },
+    {
+      "id": "ep2_missing_deflect", "episode": 2, "stage": "current",
+      "note": "책임 떠넘기기(위험 표현은 아니나 커버 0) — 부드러운 회피",
+      "text": "저희 팀 담당이 아닌 듯해서요. 다른 부서에 문의하시는 편이 빠르실 겁니다.",
+      "expect": {"case": "missing", "coverage_max": 0.25}
+    },
+    {
+      "id": "ep2_short", "episode": 2, "stage": "current",
+      "note": "긴급 상황 단답 — 고객 대기 중",
+      "text": "네 확인해볼게요.",
+      "expect": {"case": "short"}
+    },
+    {
+      "id": "ep2_risky_blame", "episode": 2, "stage": "current",
+      "note": "책임 회피 3연타 — high 위험 표현 포함",
+      "text": "저는 못 들었는데요, 제가 한 게 아니라서 잘 모르겠어요.",
+      "expect": {"case": "risky", "banned_min": 2}
+    },
+    {
+      "id": "ep2_vague_deadline", "episode": 2, "stage": "current",
+      "note": "핵심 경계 케이스 — 키워드('알려드')는 잡히지만 담화 분석이 '기한 없음'을 잡는다",
+      "text": "확인해서 나중에 다시 알려드릴게요. 걱정하지 마세요.",
+      "expect": {"time_max": 0, "banned_max": 0, "coverage_max": 0.55}
+    },
+    {
+      "id": "ep2_banmal_casual", "episode": 2, "stage": "current",
+      "note": "고객 응대 중 캐주얼 혼입 — '오케이' + 반말",
+      "text": "오케이, 알겠어. 내가 팀에 말해볼게.",
+      "expect": {"banned_min": 1, "formal_max": 0.4}
+    },
+    {
+      "id": "ep2_semantic_paraphrase", "episode": 2, "stage": "semantic",
+      "note": "공감·확인·에스컬레이션·기한이 전부 패러프레이즈 — 키워드 전멸. ② 승격 대상",
+      "text": "많이 당황스러우시겠어요. 지금 무슨 일인지 들여다보는 중이라, 위에 계신 분께 이 건을 올리고 잠시 뒤에 결과를 드리겠습니다.",
+      "expect": {"future_coverage_min": 0.6}
+    },
+
+    {
+      "id": "ep3_excellent_prep", "episode": 3, "stage": "current",
+      "note": "PREP 완비: 결론 선행 + 원인 + 조치 + 재발 방지 + 기한",
+      "text": "결론부터 말씀드리면 서비스는 정상화됐습니다. 원인은 인증 서버 배포 문제였기 때문에 선임님이 롤백으로 복구하셨습니다. 재발 방지를 위해 제가 모니터링 체크리스트를 오늘 안에 정리하겠습니다.",
+      "expect": {"case": "excellent", "coverage_min": 0.9, "conclusion_first": true, "reason_min": 1, "time_min": 1, "ownership_min": 1, "score_min": 75}
+    },
+    {
+      "id": "ep3_buried_conclusion_runon", "episode": 3, "stage": "current",
+      "note": "알려진 한계 문서화: 한 문장 만연체에 결론이 묻히면 conclusion_first가 이를 못 잡는다 — 대신 만연체(clauses)가 잡는다",
+      "text": "아침에 출근해서 로그를 확인하다가 이상한 걸 발견했는데 그게 배포 때문이어서 선임님께 말씀드렸고 같이 롤백을 진행했더니 지금은 서비스가 정상화된 상태입니다.",
+      "expect": {"clauses_min": 4, "coverage_min": 0.6, "banned_max": 0}
+    },
+    {
+      "id": "ep3_covered_no_prevention", "episode": 3, "stage": "current",
+      "note": "결론+원인만 — 재발 방지(최대 가중치) 누락",
+      "text": "결론부터 말씀드리면 정상화됐습니다. 원인은 배포 문제였습니다.",
+      "expect": {"case": "covered", "conclusion_first": true, "coverage_min": 0.4, "coverage_max": 0.65}
+    },
+    {
+      "id": "ep3_missing_sentiment", "episode": 3, "stage": "current",
+      "note": "보고 요청에 감상문 — 내용 전무",
+      "text": "정말 정신없는 하루였습니다. 다들 고생하셨고 저도 많은 걸 느꼈습니다.",
+      "expect": {"case": "missing", "coverage_max": 0.2}
+    },
+    {
+      "id": "ep3_short", "episode": 3, "stage": "current",
+      "note": "결론 키워드는 있으나 단답 — short가 excellent에 우선",
+      "text": "네, 다 해결됐습니다.",
+      "expect": {"case": "short"}
+    },
+    {
+      "id": "ep3_risky_defensive", "episode": 3, "stage": "current",
+      "note": "방어적 보고 — 수습 보고 자리에서 책임 부인",
+      "text": "제 잘못이 아니라 배포 문제 때문입니다. 어쩔 수 없는 일이었습니다.",
+      "expect": {"case": "risky", "banned_min": 2}
+    },
+    {
+      "id": "ep3_hedge_uncertain", "episode": 3, "stage": "current",
+      "note": "확인 없이 추측 보고 — 헤지 밀도 검증",
+      "text": "아마 배포 문제인 것 같고요, 일단 지금은 뭔가 괜찮아진 듯합니다.",
+      "expect": {"hedge_min": 8.0, "coverage_max": 0.35}
+    },
+    {
+      "id": "ep3_banmal_report", "episode": 3, "stage": "current",
+      "note": "팀장 보고에 반말 혼입",
+      "text": "다 정리됐어. 배포 문제였고 롤백으로 해결했어.",
+      "expect": {"banmal_min": 1, "formal_max": 0.4}
+    },
+    {
+      "id": "ep3_semantic_paraphrase", "episode": 3, "stage": "semantic",
+      "note": "결론·원인·조치·재발방지 전부 일상어 패러프레이즈 — ② 승격 대상",
+      "text": "한숨 돌리셔도 됩니다. 아까 새로 올린 버전이 말썽이어서 이전 버전으로 되돌렸고, 앞으로는 올리기 전에 한 번 더 살펴보겠습니다.",
+      "expect": {"future_coverage_min": 0.7}
+    },
+
+    {
+      "id": "ep4_excellent_desc", "episode": 4, "stage": "current",
+      "note": "건강한 거절 3단(쿠션→명확한 불가→대안) — 기준 양성",
+      "text": "먼저 여쭤봐 주셔서 감사합니다. 죄송하지만 오늘은 선약이 있어서 남기 어렵습니다. 대신 내일 아침 일찍 나와서 배포 결과를 먼저 확인하겠습니다.",
+      "expect": {"case": "excellent", "coverage_min": 0.9, "banned_max": 0, "formal_min": 0.9, "score_min": 70}
+    },
+    {
+      "id": "ep4_overcommit", "episode": 4, "stage": "current",
+      "note": "알려진 특성 문서화: 과잉 수락(자기 착취형)은 체크리스트 구조상 낮게 처리된다 — 거절 화법 훈련이라는 시나리오 의도",
+      "text": "무조건 남겠습니다! 밤새도록 하겠습니다! 시켜만 주십시오!",
+      "expect": {"coverage_max": 0.3, "banned_max": 0}
+    },
+    {
+      "id": "ep4_blunt_refusal", "episode": 4, "stage": "current",
+      "note": "단칼 거절 — 쿠션·대안 없음 + 발화량 부족",
+      "text": "안 됩니다. 선약 있어서요.",
+      "expect": {"case": "short"}
+    },
+    {
+      "id": "ep4_risky_annoyed", "episode": 4, "stage": "current",
+      "note": "감정 노출 거절 — 태도 문제로 기록될 수준",
+      "text": "귀찮은데요... 야근은 좀 그렇습니다.",
+      "expect": {"case": "risky", "banned_min": 1}
+    },
+    {
+      "id": "ep4_hedge_indecisive", "episode": 4, "stage": "current",
+      "note": "결정 회피 — 인원 확정이 필요한 상대를 붕 뜨게 함",
+      "text": "글쎄요, 아마 될 것 같기도 하고 안 될 것 같기도 해서 좀 애매합니다.",
+      "expect": {"hedge_min": 5.0, "banned_min": 1}
+    },
+    {
+      "id": "ep4_banmal_casual", "episode": 4, "stage": "current",
+      "note": "선임에게 반말 — 대안은 있으나 격식 붕괴",
+      "text": "미안, 오늘은 안 돼. 대신 내일 일찍 올게.",
+      "expect": {"banmal_min": 1, "formal_max": 0.4}
+    },
+
+    {
+      "id": "ep5_excellent_join", "episode": 5, "stage": "current",
+      "note": "참석 + 호의 반응 완비",
+      "text": "불러주셔서 감사합니다! 첫날인데 당연히 참석해야죠. 오늘 다들 챙겨주셔서 든든했습니다.",
+      "expect": {"case": "excellent", "coverage_min": 0.9, "banned_max": 0}
+    },
+    {
+      "id": "ep5_covered_decline", "episode": 5, "stage": "current",
+      "note": "정중한 불참 — 의사는 명확, 호의 반응 절반",
+      "text": "죄송하지만 오늘은 먼저 들어가 보겠습니다. 다음에 꼭 함께할게요.",
+      "expect": {"case": "excellent", "coverage_min": 0.75, "banned_max": 0}
+    },
+    {
+      "id": "ep5_relation_only", "episode": 5, "stage": "current",
+      "note": "경계 케이스: 호의 반응만 하고 참석 여부 미답 — 후속 질문('가는 거예요 마는 거예요') 유도 대상",
+      "text": "다들 정말 감사했어요. 덕분에 첫날 잘 보냈습니다.",
+      "expect": {"case": "covered", "coverage_min": 0.35, "coverage_max": 0.6}
+    },
+    {
+      "id": "ep5_short", "episode": 5, "stage": "current",
+      "note": "단답 참석",
+      "text": "네, 갈게요.",
+      "expect": {"case": "short"}
+    },
+    {
+      "id": "ep5_risky_irritated", "episode": 5, "stage": "current",
+      "note": "감정 노출 — 사회적 상황 자해",
+      "text": "회식이요? 첫날부터 짜증 나게 왜 그러세요.",
+      "expect": {"case": "risky", "banned_min": 1}
+    },
+    {
+      "id": "ep5_semantic_paraphrase", "episode": 5, "stage": "semantic",
+      "note": "참석·호의가 전부 패러프레이즈('끼어야죠','여러분 아니었으면') — ② 승격 대상",
+      "text": "저야 영광이죠, 당연히 끼어야죠! 오늘 여러분 아니었으면 큰일 날 뻔했어요.",
+      "expect": {"future_coverage_min": 0.8}
+    }
+  ]
+}

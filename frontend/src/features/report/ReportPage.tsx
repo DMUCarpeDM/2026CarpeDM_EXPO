@@ -354,16 +354,47 @@ export default function ReportPage() {
       {/* 심층 교차 분석 — 단일 지표를 넘어 지표 사이의 관계 (담화 구조·압박 내성·적응 곡선) */}
       {(report.deep_analysis?.delivery ||
         report.deep_analysis?.composure ||
-        report.deep_analysis?.adaptation) && (
+        report.deep_analysis?.adaptation ||
+        report.deep_analysis?.moments) && (
         <section className="card deep-analysis">
           <h2>
             <Icon name="spark" size={15} /> 심층 분석
             <span className="legend">지표 사이의 관계를 읽습니다</span>
           </h2>
+          {report.deep_analysis.growth && (
+            <p className={`deep-growth ${report.deep_analysis.growth.improved ? 'up' : ''}`}>
+              {report.deep_analysis.growth.from} → <strong>{report.deep_analysis.growth.to}</strong>
+              {' — '}{report.deep_analysis.growth.comment}
+            </p>
+          )}
+          {report.deep_analysis.moments && report.deep_analysis.moments.length > 0 && (
+            <div className="deep-moments">
+              <strong className="deep-moments-title">결정적 순간</strong>
+              <ul>
+                {report.deep_analysis.moments.map((mo) => (
+                  <li key={`${mo.turn_order}-${mo.at_sec}`}>
+                    <span className="deep-moment-when">
+                      {mo.turn_order}번째 답변 · {mo.at_sec}초
+                      {mo.composite && <em className="deep-moment-badge">복합</em>}
+                    </span>
+                    <p>{mo.description}</p>
+                    {mo.quote && <blockquote>그때 하던 말: “{mo.quote}”</blockquote>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className="deep-grid">
             {report.deep_analysis.delivery && (
               <div className="deep-card">
-                <strong>{report.deep_analysis.delivery.title}</strong>
+                <strong>
+                  {report.deep_analysis.delivery.title}
+                  {report.deep_analysis.delivery.confidence && (
+                    <span className="deep-confidence">
+                      {report.deep_analysis.delivery.confidence.level}
+                    </span>
+                  )}
+                </strong>
                 <ul>
                   {report.deep_analysis.delivery.rows.map((r) => (
                     <li key={r.label}>
@@ -380,6 +411,11 @@ export default function ReportPage() {
                 <strong>
                   {report.deep_analysis.composure.title}
                   <span className="deep-level">{report.deep_analysis.composure.level}</span>
+                  {report.deep_analysis.composure.confidence && (
+                    <span className="deep-confidence">
+                      {report.deep_analysis.composure.confidence.level}
+                    </span>
+                  )}
                 </strong>
                 <ul>
                   {report.deep_analysis.composure.rows.map((r) => (
@@ -413,6 +449,20 @@ export default function ReportPage() {
                   ))}
                 </div>
                 <p>{report.deep_analysis.adaptation.comment}</p>
+              </div>
+            )}
+            {report.deep_analysis.cohort && (
+              <div className="deep-card">
+                <strong>{report.deep_analysis.cohort.title}</strong>
+                <ul>
+                  {report.deep_analysis.cohort.rows.map((r) => (
+                    <li key={r.fit}>
+                      <span>{r.label.split(' ')[0]}</span>
+                      <em>상위 {r.top_pct}% (표본 {r.n})</em>
+                    </li>
+                  ))}
+                </ul>
+                <p>지금까지 이 거울 앞에 선 체험자들과의 비교예요 — 표본이 쌓일수록 정확해져요.</p>
               </div>
             )}
           </div>

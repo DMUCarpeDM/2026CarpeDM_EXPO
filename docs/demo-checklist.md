@@ -10,13 +10,22 @@
 ## 2. 소프트웨어 (5분)
 - [ ] 백엔드 기동: `cd backend && ./.venv/bin/uvicorn app.main:app --port 8000`
 - [ ] 프론트 기동: `cd frontend && npm run dev -- --host` (또는 빌드 서빙)
-- [ ] (선택) Ollama 기동 확인: `ollama list`에 exaone3.5:2.4b —
-      안 떠 있어도 템플릿 폴백으로 동작함
+- [ ] (선택) Ollama 기동 확인: `ollama list`에 exaone3.5:2.4b(리액션 개인화)와
+      nomic-embed-text(의미 매칭) — 없어도 템플릿·키워드 폴백으로 동작함
+- [ ] (선택) 의미 매칭 임계값 보정: `python scripts/calibrate_semantic.py`
 - [ ] 오프라인 자산 확인: `npm run setup-offline` 완료 여부
       (전시장 인터넷 불안정 대비 — MediaPipe wasm/모델 로컬 서빙)
 - [ ] `VITE_PUBLIC_ORIGIN`을 미러 PC의 LAN 주소로 설정했는지
       (QR이 localhost면 폰에서 안 열린다) — 폰으로 QR 실제 스캔 1회
 - [ ] Chrome 전체화면(F11) + `/kiosk` 진입 → 미러 모드 자동 활성
+
+## 2.5 측정 보정 (최초 설치 시 1회)
+- [ ] **떨림 임계값 육성 보정**: 안정된 목소리로 1턴 진행 → 리포트에 "피치 흔들림"
+      행이 뜨지 않아야 정상. 뜨면 `voice_fit.py`의 TREMOR_*_FLOOR 상향
+      (현재 값은 합성 신호 보정치 — 실제 육성 검증 필요)
+- [ ] **홍채 보상 방향 확인**: 고개를 30° 돌린 채 눈으로 카메라 응시 → 라이브
+      오라 '시선'이 정면 유지로 표시되면 보상 정상 작동
+- [ ] **습관 감지 확인**: 팔짱 5초·턱 괴기 5초 → 리포트 무의식 습관 카드 등장 확인
 
 ## 3. 리허설 주행 (5분)
 - [ ] 대기 화면에서 다가가기 → 거울이 깨어나는지 (안 되면 터치 폴백 확인)

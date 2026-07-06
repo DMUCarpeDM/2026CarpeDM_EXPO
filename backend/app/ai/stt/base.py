@@ -24,6 +24,10 @@ class SttProvider(Protocol):
 
     def transcribe(self, audio_path: str) -> str: ...
 
+    # 선택 능력: 단어 타임스탬프 — 텍스트-음성 정렬 분석(voice_align)의 재료.
+    # 지원 여부는 hasattr로 확인한다.
+    #   transcribe_words(audio_path) -> [{"word", "start", "end", "conf"}]
+
 
 class WhisperProvider:
     name = "whisper"
@@ -36,6 +40,17 @@ class WhisperProvider:
     def transcribe(self, audio_path: str) -> str:
         segments, _info = self._model.transcribe(audio_path, language="ko")
         return " ".join(seg.text.strip() for seg in segments)
+
+    def transcribe_words(self, audio_path: str) -> list[dict]:
+        segments, _info = self._model.transcribe(
+            audio_path, language="ko", word_timestamps=True,
+        )
+        return [
+            {"word": w.word.strip(), "start": w.start, "end": w.end,
+             "conf": getattr(w, "probability", 1.0)}
+            for seg in segments for w in (seg.words or [])
+            if w.word.strip()
+        ]
 
 
 class VoskProvider:
@@ -51,9 +66,8 @@ class VoskProvider:
         self._vosk = vosk
         self._model = vosk.Model(str(model_dir))
 
-    def transcribe(self, audio_path: str) -> str:
-        import json as _json
-
+    @staticmethod
+    def _load_pcm16(audio_path: str) -> bytes:
         import soundfile as sf
 
         samples, sr = sf.read(audio_path, dtype="float32", always_2d=False)
@@ -67,16 +81,42 @@ class VoskProvider:
                 np.arange(len(samples)),
                 samples,
             )
-        pcm16 = (np.clip(samples, -1, 1) * 32767).astype(np.int16).tobytes()
+        return (np.clip(samples, -1, 1) * 32767).astype(np.int16).tobytes()
 
+    def _run(self, audio_path: str, with_words: bool) -> tuple[str, list[dict]]:
+        import json as _json
+
+        pcm16 = self._load_pcm16(audio_path)
         rec = self._vosk.KaldiRecognizer(self._model, VOSK_SAMPLE_RATE)
+        if with_words:
+            rec.SetWords(True)
         chunk = VOSK_SAMPLE_RATE * 2  # 1초 단위
-        texts = []
+        texts: list[str] = []
+        words: list[dict] = []
+
+        def _collect(payload: dict) -> None:
+            if payload.get("text"):
+                texts.append(payload["text"])
+            for w in payload.get("result", []):
+                words.append({
+                    "word": w.get("word", ""), "start": w.get("start", 0.0),
+                    "end": w.get("end", 0.0), "conf": w.get("conf", 1.0),
+                })
+
         for i in range(0, len(pcm16), chunk):
             if rec.AcceptWaveform(pcm16[i:i + chunk]):
-                texts.append(_json.loads(rec.Result()).get("text", ""))
-        texts.append(_json.loads(rec.FinalResult()).get("text", ""))
-        return " ".join(t for t in texts if t).strip()
+                _collect(_json.loads(rec.Result()))
+        _collect(_json.loads(rec.FinalResult()))
+        return " ".join(texts).strip(), words
+
+    def transcribe(self, audio_path: str) -> str:
+        text, _ = self._run(audio_path, with_words=False)
+        return text
+
+    def transcribe_words(self, audio_path: str) -> list[dict]:
+        """단어 타임스탬프 — 텍스트-음성 정렬 분석(voice_align)의 재료."""
+        _, words = self._run(audio_path, with_words=True)
+        return words
 
 
 @lru_cache(maxsize=1)
