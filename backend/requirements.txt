@@ -1,15 +1,19 @@
-# Python 3.14 기준. librosa는 3.14 미지원(llvmlite)이라 voice_fit은 numpy+soundfile로 구현됨.
-# Python 3.12 이하 환경에서는 librosa 추가 설치 후 app/ai/voice_fit.py의 고급 지표로 교체 가능.
+# 기준 환경: Python 3.12 (scripts/setup_ai.sh가 uv로 구성).
+# Python 3.14에서도 동작하지만 faster-whisper(ctranslate2)가 설치되지 않아
+# 서버 STT는 Vosk 폴백만 사용된다. AI 스택 전체 준비: bash scripts/setup_ai.sh
 fastapi
 uvicorn[standard]
 sqlalchemy
 pydantic-settings
+email-validator   # 스키마 EmailStr 검증 — 누락 시 서버 기동 실패
 python-multipart
 pyjwt
 bcrypt
 numpy
 soundfile
 kiwipiepy
-vosk            # 서버 STT (오프라인 폴백) — 모델은 scripts/setup_offline_stt.py로 준비
+vosk              # 서버 STT (오프라인 폴백) — 모델은 scripts/setup_offline_stt.py로 준비
+faster-whisper; python_version < "3.13"   # 서버 STT 1순위 — 한국어 CER 4.8%(small 실측). 3.13+는 ctranslate2 휠 부재로 제외
+
 pytest
 httpx

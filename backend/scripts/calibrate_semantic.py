@@ -1,7 +1,7 @@
 """의미 매칭 임계값 보정 — 골든 셋 기반 (전시 PC에서 Ollama 가동 후 실행).
 
 사용:
-    ollama pull nomic-embed-text
+    ollama pull bge-m3   # 또는 설정된 MIRROTING_OLLAMA_EMBED_MODEL
     ./.venv/bin/python scripts/calibrate_semantic.py
 
 무엇을 하나:
@@ -29,25 +29,36 @@ def max_similarities(case: dict) -> list[float]:
     """케이스 문장들 × 체크리스트 앵커의 항목별 최대 코사인 목록."""
     from app.ai.discourse import _sentences
 
+    import re
+
     ep = BY_ORDER[case["episode"]]
-    sents = _sentences(case["text"])
+    # 운영 경로(semantic_checklist_ids)와 동일하게 문장 + 절 단위를 본다
+    units: list[str] = []
+    for s in _sentences(case["text"]):
+        units.append(s)
+        clauses = [c.strip() for c in re.split(r",\s*", s) if len(c.strip()) >= 6]
+        if len(clauses) >= 2:
+            units += clauses
     sims = []
     for item in ep["checklist"]:
-        anchor = semantic_match._embed(semantic_match._anchor(item))
-        if anchor is None:
+        anchors = [v for a in semantic_match._anchors(item)
+                   if (v := semantic_match._embed(a)) is not None]
+        if not anchors:
             continue
         best = 0.0
-        for s in sents:
-            v = semantic_match._embed(s)
+        for u in units:
+            v = semantic_match._embed(u)
             if v is not None:
-                best = max(best, semantic_match._cosine(anchor, v))
+                best = max(best, max(semantic_match._cosine(a, v) for a in anchors))
         sims.append(best)
     return sims
 
 
 def main() -> None:
     if not semantic_match._probe():
-        print("Ollama 임베딩 모델이 없습니다: ollama pull nomic-embed-text")
+        from app.core.config import settings
+
+        print(f"Ollama 임베딩 모델이 없습니다: ollama pull {settings.ollama_embed_model}")
         sys.exit(1)
 
     positives = [c for c in GOLDEN["cases"] if c.get("stage") == "semantic"]

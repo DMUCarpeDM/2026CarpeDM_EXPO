@@ -7,10 +7,11 @@
 폴백 우선: Ollama가 없거나 느리면 None을 반환하고 키워드 매칭만 동작한다.
 가용성 프로브는 프로세스당 1회 — 꺼진 Ollama에 턴마다 타임아웃을 내지 않는다.
 
-임계값 주의: SEMANTIC_THRESHOLD는 보수적 초기값이다. 임계값이 낮으면 무관한
-문장이 커버로 오인된다(오판 억제 위반). scripts/calibrate_semantic.py로
-골든 셋 기반 재보정 후 조정하라.
+임계값 주의: SEMANTIC_THRESHOLD는 임베딩 모델에 종속된다. 모델을 바꾸면 반드시
+scripts/calibrate_semantic.py로 골든 셋 재보정 후 조정하라. 임계값이 낮으면
+무관한 문장이 커버로 오인된다(오판 억제 위반).
 """
+import re
 from functools import lru_cache
 
 import httpx
@@ -18,7 +19,14 @@ import numpy as np
 
 from app.core.config import settings
 
-SEMANTIC_THRESHOLD = 0.66  # 코사인 유사도 — 골든 셋으로 재보정 필요 (보수적 초기값)
+# 2026-07-07 bge-m3 + 다중 앵커(예시문) + 절 단위 골든 셋 보정:
+#   패러프레이즈(잡아야 함) 0.833~0.982 / 동문서답(잡으면 안 됨) 0.551~0.670
+#   → 0.68~0.80 전 구간에서 4/4 인식·오탐 0. 0.69 = 오탐 경계(0.67) 바로 위 +
+#   커버리지(항목 단위) 라이브 테스트 통과를 함께 만족하는 값.
+# 비교 실험 기록: 단일 라벨+키워드 앵커는 양/음성이 겹쳐 분리 불가(여유 -0.016),
+# nomic-embed-text는 유사도가 0.77~0.89로 뭉개져 분리 불가 → bge-m3 채택.
+# 주의: 골든 셋이 작다(양성 4·음성 3) — 케이스 확충 후 calibrate_semantic.py 재보정.
+SEMANTIC_THRESHOLD = 0.69
 PROBE_TIMEOUT_SEC = 1.0
 EMBED_TIMEOUT_SEC = 2.0
 
@@ -28,7 +36,10 @@ def _probe() -> bool:
     try:
         resp = httpx.post(
             f"{settings.ollama_base_url}/api/embeddings",
-            json={"model": settings.ollama_embed_model, "prompt": "ping"},
+            json={
+                "model": settings.ollama_embed_model, "prompt": "ping",
+                "keep_alive": settings.ollama_keep_alive,
+            },
             timeout=PROBE_TIMEOUT_SEC,
         )
         resp.raise_for_status()
@@ -48,7 +59,10 @@ def _embed(text: str) -> tuple[float, ...] | None:
     try:
         resp = httpx.post(
             f"{settings.ollama_base_url}/api/embeddings",
-            json={"model": settings.ollama_embed_model, "prompt": text},
+            json={
+                "model": settings.ollama_embed_model, "prompt": text,
+                "keep_alive": settings.ollama_keep_alive,
+            },
             timeout=EMBED_TIMEOUT_SEC,
         )
         resp.raise_for_status()
@@ -64,10 +78,15 @@ def _cosine(a: tuple[float, ...], b: tuple[float, ...]) -> float:
     return float(va @ vb / denom) if denom > 1e-9 else 0.0
 
 
-def _anchor(item: dict) -> str:
-    """체크리스트 항목의 의미 앵커 — 라벨과 대표 키워드로 항목의 '뜻'을 요약."""
+def _anchors(item: dict) -> list[str]:
+    """체크리스트 항목의 의미 앵커들 — 라벨+키워드 요약 1개 + 예시문(paraphrases).
+
+    예시문은 사용자 발화와 같은 '문장' 형태라 문장-문장 비교가 성립한다.
+    라벨+키워드 자루 단일 앵커는 표면형이 먼 패러프레이즈("한숨 돌리셔도
+    됩니다"=안심시키기)를 놓친다 — 2026-07-07 골든 셋 실측으로 확인된 한계.
+    """
     keywords = " ".join(item.get("keywords", [])[:6])
-    return f"{item.get('label', '')} ({keywords})"
+    return [f"{item.get('label', '')} ({keywords})", *item.get("paraphrases", [])]
 
 
 def semantic_checklist_ids(
@@ -87,19 +106,28 @@ def semantic_checklist_ids(
     if not sentences:
         return None
 
-    sent_vecs = [(_embed(s), i) for i, s in enumerate(sentences)]
-    sent_vecs = [(v, i) for v, i in sent_vecs if v is not None]
+    # 문장 + 절 단위 임베딩 — 여러 의도가 한 문장에 섞이면(예: 원인+조치+재발
+    # 방지) 문장 임베딩이 희석돼 항목별 유사도가 전부 어중간해진다. 절은 부모
+    # 문장 인덱스를 유지해 인용 근거 선택(hits)과 호환된다.
+    sent_vecs: list[tuple[tuple[float, ...], int]] = []
+    for i, s in enumerate(sentences):
+        units = [s]
+        clauses = [c.strip() for c in re.split(r",\s*", s) if len(c.strip()) >= 6]
+        if len(clauses) >= 2:
+            units += clauses
+        sent_vecs += [(v, i) for u in units if (v := _embed(u)) is not None]
     if not sent_vecs:
         return None
 
     covered: set[str] = set()
     hits: dict[str, list[int]] = {}
     for item in checklist:
-        anchor_vec = _embed(_anchor(item))
-        if anchor_vec is None:
+        anchor_vecs = [v for a in _anchors(item) if (v := _embed(a)) is not None]
+        if not anchor_vecs:
             continue
         matched = [
-            i for v, i in sent_vecs if _cosine(anchor_vec, v) >= SEMANTIC_THRESHOLD
+            i for v, i in sent_vecs
+            if max(_cosine(av, v) for av in anchor_vecs) >= SEMANTIC_THRESHOLD
         ]
         if matched:
             covered.add(item["id"])
