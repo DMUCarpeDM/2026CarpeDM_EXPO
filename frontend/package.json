@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "test": "node --test src/features/roleplay/*.test.ts",
     "preview": "vite preview",
     "setup-offline": "node scripts/setup-offline.mjs"
   },
