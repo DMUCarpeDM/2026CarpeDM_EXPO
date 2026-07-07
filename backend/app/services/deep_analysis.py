@@ -102,6 +102,9 @@ _COMPOSURE_PROBES = [
     # 제스처 위축(마스터리 ③): 압박에서 손목 평균 속도(m/s)가 0.1 이상 급감 =
     # 몸이 얼어붙는 반응. 관찰 전용 지표의 교차 소비 — 점수에는 미반영.
     ("제스처 위축", -0.1, lambda nv, vm: nv.get("gesture_energy")),
+    # 듣기 자세(경청 리닝): 압박 턴에서 듣는 동안 상체가 8%p 이상 물러나면
+    # '지적 앞에서 몸이 물러나는' 반응. 기준 어깨폭 없는 페이로드는 자동 제외.
+    ("듣기 자세(리닝)", -8.0, lambda nv, vm: nv.get("listen_lean_pct")),
     ("목소리 떨림", +4.0, lambda nv, vm: vm.get("f0_jitter_pct")),
     ("침묵 비율", +0.15, lambda nv, vm: vm.get("pause_ratio")),
 ]

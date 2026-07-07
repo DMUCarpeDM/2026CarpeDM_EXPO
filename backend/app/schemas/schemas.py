@@ -123,6 +123,10 @@ class NonverbalIn(BaseModel):
     hip_sway: float | None = None  # 골반 좌우 흔들림(어깨너비 정규화 std) — 체중 이동
     lower_visible_ratio: float = 0.0  # 무릎 가시 비율 — 스탠딩/데스크 구분
     guard_dropped_frames: int = 0  # 다인 가드 제외 프레임 (측정 투명성)
+    # ---- 경청 자세 (듣기 페이즈 — 관찰 지표) ----
+    nod_count: int = 0  # 듣는 동안 끄덕임 근사 (진폭 게이트, 긍정 신호 전용)
+    listen_sec: float = 0.0  # 듣기 페이즈 누적 초 (경청 판정 표본 게이트)
+    listen_lean_pct: float | None = None  # 기준 어깨폭 대비 듣기 리닝 % (+전진/-후퇴)
     calibrated: bool = False  # 정면 기준 캘리브레이션 적용 여부
     tips: list[str] = []  # 턴 중 발생한 실시간 코칭 (S-JKEYHS 리포트 연동)
 

@@ -36,6 +36,10 @@ const EYE_COMP_CLAMP = 0.18; // 보상 상한 — 보상이 판정을 뒤집는 
 const EYE_ONLY_THRESHOLD = 0.25; // 머리는 정면인데 눈만 옆을 보는 이탈 감지
 // 자연스러운 응시 리듬: 답변 개시 직후의 짧은 시선 회피(생각 정리)는 정상 행동
 const ONSET_GRACE_MS = 2500;
+// 끄덕임 근사(경청 자세): 듣기 중 headGap 방향 반전을 세되, 한 방향 이동 진폭이
+// 어깨너비의 4% 이상일 때만 — 추적 지터를 끄덕임으로 오인하지 않는 보수 게이트
+const NOD_MIN_SWING = 0.04;
+const NOD_JITTER_EPS = 0.005; // 이보다 작은 표본 간 변화는 무시
 
 // 얼굴 윤곽 표시용 랜드마크 (Face Mesh 인덱스 서브셋)
 const FACE_POINTS = [10, 152, 234, 454, 1, 33, 263, 61, 291, 199];
@@ -92,6 +96,12 @@ interface Accumulator {
   hipXs: number[]; // 골반 중심 x(어깨너비 정규화) 시계열 — 체중 이동 습관
   lowerVisFrames: number; // 무릎이 보인 프레임 (서 있는 미러 vs 책상 웹 구분)
   guardFrames: number; // 다인 가드로 자세 집계를 건너뛴 프레임
+  // ---- 경청 자세 (듣기 페이즈 — 긍정 관찰 전용) ----
+  nodReversals: number; // 듣기 중 고개 상하 방향 반전(진폭 게이트 통과) — 끄덕임 근사
+  nodPrevGap: number | null; // 직전 headGap 표본
+  nodDir: number; // 현재 이동 방향 (+1 아래 / -1 위 / 0 초기)
+  nodSwing: number; // 현재 방향으로의 누적 진폭
+  listenWidths: number[]; // 듣기 중 어깨폭 — 기준(캘리브레이션) 대비 전진/후퇴 리닝
   // 교차 분석용 2초 빈 타임라인 — 영상이 아니라 빈당 집계 숫자 3개만 (프라이버시 유지)
   turnStartedAt: number;
   bins: { frames: number; front: number; press: number; tiltSum: number }[];
@@ -142,6 +152,11 @@ const emptyAcc = (): Accumulator => ({
   hipXs: [],
   lowerVisFrames: 0,
   guardFrames: 0,
+  nodReversals: 0,
+  nodPrevGap: null,
+  nodDir: 0,
+  nodSwing: 0,
+  listenWidths: [],
   turnStartedAt: 0,
   bins: [],
   tips: [],
@@ -158,10 +173,12 @@ interface Baseline {
   roll: number; // 평상시 눈선 각도
   eyeX: number | null; // 정면 응시 때의 홍채 수평 편향 (개인별 눈 정렬 보정)
   blinkPerMin: number | null; // 안정 상태(브리핑) 깜빡임 기저선 — 급증 판정의 개인 기준
+  width: number | null; // 평상시 어깨폭 — 듣기 리닝(전진/후퇴)의 기준 거리
 }
 
 const emptyBaseline = (): Baseline => ({
   set: false, asym: 0, tilt: 0, headGap: null, roll: 0, eyeX: null, blinkPerMin: null,
+  width: null,
 });
 
 export interface CoachingTip {
@@ -213,8 +230,11 @@ export function useNonverbal(
   const calibratingRef = useRef(false);
   const calibSamplesRef = useRef<{
     asym: number[]; tilt: number[]; headGap: number[]; roll: number[]; eyeX: number[];
-    blinks: number; blinkFrames: number; blinkOn: boolean;
-  }>({ asym: [], tilt: [], headGap: [], roll: [], eyeX: [], blinks: 0, blinkFrames: 0, blinkOn: false });
+    width: number[]; blinks: number; blinkFrames: number; blinkOn: boolean;
+  }>({
+    asym: [], tilt: [], headGap: [], roll: [], eyeX: [], width: [],
+    blinks: 0, blinkFrames: 0, blinkOn: false,
+  });
   // 대화 페이즈 — 듣기(상대 TTS) vs 말하기(답변). 듣기 시선과 말하기 시선은
   // 커뮤니케이션에서 다른 역량이므로 분리 측정한다.
   const gazePhaseRef = useRef<'listening' | 'answering' | null>(null);
@@ -474,6 +494,7 @@ export function useNonverbal(
               if (headGap !== null) cal.headGap.push(headGap);
               if (rollDeg !== null) cal.roll.push(rollDeg);
               if (eyeInHeadX !== null) cal.eyeX.push(eyeInHeadX);
+              if (shoulderWidth !== null) cal.width.push(shoulderWidth);
               // 깜빡임 기저선(동역학): 얼굴이 추적된 프레임에서만 세어 비율 왜곡 방지
               if (lm) {
                 cal.blinkFrames += 1;
@@ -568,6 +589,28 @@ export function useNonverbal(
               if (phase === 'listening') {
                 acc.listenFrames += 1;
                 if (front) acc.listenFront += 1;
+                // 듣기 리닝: 상대가 말하는 동안의 어깨폭 — 기준 대비 전진(관심)/후퇴(거리두기)
+                if (shoulderWidth !== null) acc.listenWidths.push(shoulderWidth);
+                // 끄덕임 근사: headGap(코-어깨 거리)의 상하 방향 반전 계수.
+                // 몸 전체가 출렁이면 코·어깨가 함께 움직여 headGap이 안 변하므로
+                // 상쇄되고, 고개만 끄덕일 때만 반전이 잡힌다. 긍정 신호 전용.
+                if (headGap !== null) {
+                  if (acc.nodPrevGap !== null) {
+                    const delta = headGap - acc.nodPrevGap;
+                    if (Math.abs(delta) > NOD_JITTER_EPS) {
+                      const dir = delta > 0 ? 1 : -1;
+                      if (dir !== acc.nodDir) {
+                        if (acc.nodDir !== 0 && acc.nodSwing >= NOD_MIN_SWING) {
+                          acc.nodReversals += 1;
+                        }
+                        acc.nodDir = dir;
+                        acc.nodSwing = 0;
+                      }
+                      acc.nodSwing += Math.abs(delta);
+                    }
+                  }
+                  acc.nodPrevGap = headGap;
+                }
               } else if (phase === 'answering') {
                 acc.answerFrames += 1;
                 if (front) acc.answerFront += 1;
@@ -666,7 +709,7 @@ export function useNonverbal(
   /** 브리핑 표시 중 호출 — 정면 기준값 수집 시작 */
   const startCalibration = useCallback(() => {
     calibSamplesRef.current = {
-      asym: [], tilt: [], headGap: [], roll: [], eyeX: [],
+      asym: [], tilt: [], headGap: [], roll: [], eyeX: [], width: [],
       blinks: 0, blinkFrames: 0, blinkOn: false,
     };
     calibratingRef.current = true;
@@ -689,6 +732,9 @@ export function useNonverbal(
         blinkPerMin: cal.blinkFrames >= 50
           ? Math.round(cal.blinks / ((cal.blinkFrames * SAMPLE_MS) / 60000))
           : null,
+        // 평상시 어깨폭 — 듣기 리닝(전진/후퇴)의 기준. 미러 앞 위치가 고정된 전시
+        // 환경 전제이며, 걸어서 이동하면 리닝으로 오인될 수 있다(실기기 검증 항목)
+        width: cal.width.length >= 4 ? median(cal.width) : null,
       };
     }
   }, []);
@@ -840,6 +886,16 @@ export function useNonverbal(
       lower_visible_ratio: Math.round((acc.lowerVisFrames / acc.frames) * 100) / 100,
       // 다인 가드가 자세 집계에서 제외한 프레임 수 (측정 투명성)
       guard_dropped_frames: acc.guardFrames,
+      // ---- 경청 자세 (듣기 페이즈 — 관찰 지표) ----
+      // 끄덕임 근사: 진폭 게이트를 통과한 상하 반전 쌍의 수 (내림+올림 = 1회)
+      nod_count: Math.floor(acc.nodReversals / 2),
+      listen_sec: Math.round((acc.listenFrames * SAMPLE_MS) / 100) / 10,
+      // 듣기 리닝: 기준 어깨폭 대비 듣는 동안 전진(+)/후퇴(-) % — 표본 2초·기준 필요
+      listen_lean_pct: (() => {
+        const bw = baselineRef.current.width;
+        if (bw === null || acc.listenWidths.length < 10) return null;
+        return Math.round((mean(acc.listenWidths) / bw - 1) * 100);
+      })(),
       calibrated: baselineRef.current.set,
       tips: acc.tips,
     };

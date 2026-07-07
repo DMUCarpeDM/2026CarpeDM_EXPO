@@ -39,6 +39,9 @@ HEAD_DOWN_BANDS = (0.0, 0.2, 0.0, 0.7)
 # 상체 흔들림(어깨 중심 x 표준편차/어깨너비): 5% 이내는 정지 자세로 인지,
 # 22% 이상은 몸을 흔드는 습관으로 보인다.
 SWAY_BANDS = (0.0, 0.05, 0.0, 0.22)
+# 자세 유지력(후반-전반 어깨 기울기 증가): 3° 이내는 자연스러운 이완,
+# 10° 이상 무너지면 관찰자가 인지하는 명확한 붕괴. 음수(개선)는 감점하지 않는다.
+TILT_DRIFT_BANDS = (0.0, 3.0, 0.0, 10.0)
 
 MIN_FRAMES = 5  # 이보다 적으면 신뢰 불가로 미측정 처리
 
@@ -87,6 +90,12 @@ def score_eye(metrics: dict, duration_sec: float) -> float | None:
 
 
 def score_posture(metrics: dict) -> float | None:
+    """Posture v2 — 자세 유지력(후반 붕괴 추세) 통합.
+
+    tilt_drift_deg가 없는 v1 페이로드에는 v1과 동일하게 동작한다(하위 호환).
+    이번에 신설된 관찰 지표(제스처·골반 스웨이·경청 자세)는 원칙대로 점수 밖 —
+    실기기 보정 전에는 습관 카드·교차 분석만 소비한다.
+    """
     if not metrics or metrics.get("frames", 0) < MIN_FRAMES:
         return None
     parts = [
@@ -94,4 +103,7 @@ def score_posture(metrics: dict) -> float | None:
         (band_score(metrics.get("head_down_ratio", 0.0), *HEAD_DOWN_BANDS), 0.35),
         (band_score(metrics.get("posture_sway", 0.0), *SWAY_BANDS), 0.25),
     ]
+    if "tilt_drift_deg" in metrics:
+        # 유지력: 좋게 시작해 무너지는 자세는 평균 기울기만으로는 안 보인다
+        parts.append((band_score(max(0.0, metrics["tilt_drift_deg"]), *TILT_DRIFT_BANDS), 0.15))
     return clamp(weighted_mean(parts))

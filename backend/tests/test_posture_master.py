@@ -93,3 +93,54 @@ def test_composure_skips_gesture_on_old_payload():
     old = ({"front_gaze_ratio": 0.9}, {})
     c = build_composure([old], [old])
     assert all("제스처" not in r["label"] for r in c["rows"])
+
+
+# ---- 경청 자세 (듣기 페이즈 — 정밀화 패스) ----
+
+def test_listening_nods_praised():
+    segs = _habit_segments(_session(
+        _turn(order=1, nod_count=2, listen_sec=15),
+        _turn(order=2, nod_count=2, listen_sec=15),
+    ))
+    assert any("끄덕이며" in g["observed"] for g in segs)
+
+
+def test_nods_withheld_below_gates():
+    # 끄덕임 3회 미만 또는 듣기 표본 20초 미만이면 침묵 (보수 게이트)
+    assert _habit_segments(_session(_turn(nod_count=2, listen_sec=30))) == []
+    assert _habit_segments(_session(_turn(nod_count=5, listen_sec=10))) == []
+
+
+def test_listen_lean_back_observed():
+    segs = _habit_segments(_session(_turn(listen_lean_pct=-12)))
+    assert any("물러나" in g["observed"] for g in segs)
+
+
+def test_listen_lean_forward_praised():
+    segs = _habit_segments(_session(_turn(listen_lean_pct=12)))
+    assert any("앞으로 기울" in g["observed"] for g in segs)
+
+
+def test_listen_lean_moderate_silent():
+    # 중간 지대(±8% 미만)와 기준 없음(null)은 지적도 칭찬도 하지 않는다
+    assert _habit_segments(_session(_turn(listen_lean_pct=3))) == []
+
+
+def test_composure_detects_listen_lean_retreat():
+    def pair(lean):
+        return ({"front_gaze_ratio": 0.9, "listen_lean_pct": lean}, {})
+    c = build_composure([pair(-10)], [pair(0), pair(1)])
+    assert c["level"] == "회복형"
+    assert "듣기 자세(리닝)" in " ".join(r["label"] for r in c["rows"])
+
+
+# ---- score_posture v2: 자세 유지력 (v1 하위 호환) ----
+
+def test_posture_v2_penalizes_collapse_not_improvement():
+    from app.ai.nonverbal import score_posture
+    base = {"avg_shoulder_tilt_deg": 2, "head_down_ratio": 0.05, "posture_sway": 0.02, "frames": 40}
+    v1 = score_posture(dict(base))  # tilt_drift_deg 없음 = v1 페이로드
+    collapsed = score_posture({**base, "tilt_drift_deg": 8.0})
+    improved = score_posture({**base, "tilt_drift_deg": -5.0})
+    assert collapsed < v1  # 좋게 시작해 무너지는 자세는 평균만으로는 안 보인다
+    assert improved >= v1  # 후반에 좋아진 자세(음수 드리프트)는 감점하지 않는다

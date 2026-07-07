@@ -635,6 +635,22 @@ def _habit_segments(session: RoleplaySession) -> list[dict]:
             "양발을 어깨너비로 두고 체중을 고르게 실어보세요. 하체가 고정되면 목소리도 안정돼요.",
         ))
 
+    # ---- 경청 자세 (듣기 페이즈) ----
+    # 듣기 리닝: 후퇴(-8% 이하)는 거리두기로 읽힐 수 있는 행동 교정 관찰,
+    # 전진(+8% 이상)은 경청 신호 칭찬. 기준 어깨폭이 없으면(null) 판정 보류.
+    leans = [
+        v for t in turns
+        if (v := t.nonverbal_metrics.get("listen_lean_pct")) is not None
+    ]
+    if leans:
+        lean = sum(leans) / len(leans)
+        if lean <= -8:
+            segs.append(seg(
+                "상대가 말하는 동안 상체가 평소보다 뒤로 물러나 있었어요.",
+                "듣는 동안의 거리는 태도로 읽혀요 — 물러난 상체는 방어적이거나 무관심해 보일 수 있어요.",
+                "지적을 듣는 순간일수록 상체를 제자리에 두세요. 그것만으로 '수용하고 있다'는 신호가 됩니다.",
+            ))
+
     press = [t.nonverbal_metrics.get("mouth_press_ratio", 0) for t in turns]
     if press and sum(press) / len(press) >= 0.2:
         segs.append(seg(
@@ -684,6 +700,22 @@ def _habit_segments(session: RoleplaySession) -> list[dict]:
                 "눈이 함께 움직이는 미소는 듣는 사람에게 진심으로 전달돼요 — 훈련으로 만들기 어려운 강점이에요.",
                 "이 표정은 그대로 두세요. 첫인사와 마무리 감사에서 특히 힘을 발휘합니다.",
             ))
+
+    # 경청 긍정 신호 (칭찬 전용 — 끄덕임이 없다고 지적하지는 않는다: 문화·개인차)
+    nods = sum(t.nonverbal_metrics.get("nod_count", 0) for t in turns)
+    listen_total = sum(t.nonverbal_metrics.get("listen_sec", 0) for t in turns)
+    if listen_total >= 20 and nods >= 3:
+        segs.append(seg(
+            f"상대가 말하는 동안 고개를 끄덕이며 들은 순간이 {nods}번 관찰됐어요.",
+            "경청의 신호는 답변만큼 강한 인상을 남겨요 — 상대는 '내 말이 전달되고 있다'고 느낍니다.",
+            "이 습관은 그대로 유지하세요. 끄덕임 뒤에 상대의 단어를 하나 받아 말하면 경청이 완성돼요.",
+        ))
+    elif leans and sum(leans) / len(leans) >= 8:
+        segs.append(seg(
+            "상대가 말하는 동안 상체가 살짝 앞으로 기울어 있었어요.",
+            "앞으로 기운 상체는 강력한 경청 신호예요 — 의식하지 않으면 나오기 어려운 태도입니다.",
+            "이 자세를 유지하면서 가끔 고개를 끄덕이면, 듣는 태도만으로 신뢰가 쌓여요.",
+        ))
 
     return segs[:2]  # 과잉 지적 방지 — 가장 중요한 것만
 
