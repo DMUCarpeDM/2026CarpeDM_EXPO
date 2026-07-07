@@ -1,7 +1,7 @@
 """결정적 순간 감지 — 턴 평균이 아니라 '순간'을 잡는다 (마스터리 ⑥ 핵심).
 
 세 시간축을 하나로 정렬한다:
-  · 비언어 타임라인 (2초 빈: 정면율·긴장율·기울기 — 프론트 집계 전송)
+  · 비언어 타임라인 (2초 빈: 정면율·긴장율(입술 압축∥찡그림)·기울기 — 프론트 집계 전송)
   · 음성 스팬 (Vosk 정렬: 구간별 성량·속도 + 그때 한 말)
   · 턴 이벤트 (질문 유형 — 압박 맥락)
 
@@ -26,6 +26,7 @@ KIND_LABEL = {
     "posture": "자세 흔들림",
     "quiet": "성량 저하",
     "fast": "말 급해짐",
+    "hesitation": "긴 머뭇거림",
 }
 
 
@@ -81,6 +82,9 @@ def detect_turn_events(timeline: list[dict], alignment: dict | None) -> list[dic
         events.append({"kind": "quiet", "at": spans[align["quietest"]]["start"]})
     if "fastest" in align and spans:
         events.append({"kind": "fast", "at": spans[align["fastest"]]["start"]})
+    # 머뭇거림(문장 중간 끊김) — 쉼 위치 분류가 있을 때만, 상위 2개
+    for h in (align.get("hesitations") or [])[:2]:
+        events.append({"kind": "hesitation", "at": h["at"]})
     return sorted(events, key=lambda e: e["at"])
 
 

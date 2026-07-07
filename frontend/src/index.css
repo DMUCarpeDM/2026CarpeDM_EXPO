@@ -1114,6 +1114,73 @@ h2 .icon {
   font-variant-numeric: tabular-nums;
 }
 
+/* 시선 존 히트맵 (Eye 카드) — 3×3 분포 지도, --heat(0~1)로 칸 발열 */
+.gaze-map {
+  border-top: 1px solid var(--border);
+  padding-top: var(--s-2);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gaze-map-title {
+  font-size: 0.72rem;
+  color: var(--text-3);
+  display: flex;
+  justify-content: space-between;
+}
+
+.gaze-map-title em {
+  font-style: normal;
+  color: var(--text-2);
+}
+
+.gaze-map-body {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.gaze-map-rows {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  font-size: 0.62rem;
+  color: var(--text-3);
+}
+
+.gaze-map-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+}
+
+.gaze-cell {
+  aspect-ratio: 5 / 2;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) calc(var(--heat, 0) * 100%), var(--border));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.64rem;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.gaze-cell.center {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.gaze-map-comment {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
 .fit-summary {
   color: var(--text-2);
   font-size: 0.8rem;

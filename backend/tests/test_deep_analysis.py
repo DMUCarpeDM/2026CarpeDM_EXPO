@@ -44,9 +44,10 @@ def test_delivery_none_without_data():
 
 # ---- composure (압박 내성) ----
 
-def _pair(front=0.9, blink=15.0, press=0.05, jitter=3.0, pause=0.15):
+def _pair(front=0.9, blink=15.0, press=0.05, jitter=3.0, pause=0.15, recover=0.3):
     return (
-        {"front_gaze_ratio": front, "blink_per_min": blink, "mouth_press_ratio": press},
+        {"front_gaze_ratio": front, "blink_per_min": blink, "mouth_press_ratio": press,
+         "expr_recover_sec": recover},
         {"f0_jitter_pct": jitter, "pause_ratio": pause},
     )
 
@@ -69,6 +70,24 @@ def test_composure_shaken_profile():
 def test_composure_needs_both_groups():
     assert build_composure([], [_pair()]) is None
     assert build_composure([_pair()], []) is None
+
+
+def test_composure_detects_slow_expression_recovery():
+    # 표정 복구(마스터리 ⑤): 압박에서 긴장 표정만 오래 굳는 단독 반응 → 회복형
+    normal = [_pair(recover=0.4), _pair(recover=0.6)]
+    pressure = [_pair(recover=1.8)]
+    c = build_composure(pressure, normal)
+    assert c["level"] == "회복형"
+    assert "표정 복구 시간" in c["comment"]
+    # 악화 지표는 표시 상한(4행)에서 밀리지 않고 맨 앞에 온다
+    assert c["rows"][0]["label"] == "표정 복구 시간"
+
+
+def test_composure_skips_expression_probe_on_old_payload():
+    # 구 페이로드(expr_recover_sec 없음)에서는 프로브가 조용히 제외된다 (하위 호환)
+    old = ({"front_gaze_ratio": 0.9}, {})
+    c = build_composure([old], [old])
+    assert all("표정 복구" not in r["label"] for r in c["rows"])
 
 
 # ---- adaptation (적응 곡선) ----

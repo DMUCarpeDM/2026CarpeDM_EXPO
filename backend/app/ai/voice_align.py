@@ -10,7 +10,7 @@ DSP 프로파일(성량·피치·속도)을 턴 전체 대비 상대값으로 �
 import numpy as np
 
 from app.ai.text_match import count_hangul_syllables
-from app.ai.voice_fit import FRAME, HOP, _estimate_f0
+from app.ai.voice_fit import FRAME, HOP, LONG_PAUSE_SEC, _estimate_f0
 
 # 스팬 분할: 단어 사이 무성 간격이 이 이상이면 새 호흡 단위
 SPAN_GAP_SEC = 0.55
@@ -24,6 +24,58 @@ FILLER_MAX_SEC = 0.6  # 이보다 길면 실제 발화로 간주
 # 강조 대비: 구간 간 성량/피치 차이가 이 이상이면 "강조 설계가 있다"
 EMPHASIS_RMS_SPREAD = 0.25  # 최대/최소 구간 RMS 차 25%+
 EMPHASIS_F0_SPREAD_HZ = 25.0
+
+# ---- 쉼 위치 품질 (전문가 관용 규칙) ----
+# 같은 1.2초 침묵도 위치가 다르면 정반대로 들린다: 문장 사이(종결어미 뒤)의 쉼은
+# 의도적 완급·호흡이고, 문장 중간의 끊김은 머뭇거림이다. 종결 판정은 한국어
+# 존댓말·평서 종결의 마지막 음절(요/다/죠/까)로 근사한다 — 오분류의 방향이
+# '머뭇거림을 완급으로 봐주는' 쪽(과소 감점)이 되도록 보수적으로 설계.
+SENTENCE_FINAL_CHARS = ("요", "다", "죠", "까")
+DEAD_AIR_SEC = 2.5  # 이보다 길면 문장 사이라도 데드에어 — 청자가 끊김으로 인지
+
+
+def classify_long_pauses(words: list[dict]) -> dict:
+    """단어 간격에서 긴 침묵(1.2s+)을 골라 위치로 분류.
+
+    returns {deliberate: [{at, dur}], hesitations: [{at, dur, after, context}]}
+    """
+    deliberate: list[dict] = []
+    hesitations: list[dict] = []
+    for i in range(1, len(words)):
+        prev, nxt = words[i - 1], words[i]
+        gap = nxt["start"] - prev["end"]
+        if gap < LONG_PAUSE_SEC:
+            continue
+        entry = {"at": round(prev["end"], 2), "dur": round(gap, 2)}
+        if prev["word"].endswith(SENTENCE_FINAL_CHARS) and gap < DEAD_AIR_SEC:
+            deliberate.append(entry)
+        else:
+            entry["after"] = prev["word"]
+            # 인용 문맥: 끊기기 직전에 하던 말 (최대 4단어)
+            entry["context"] = " ".join(w["word"] for w in words[max(0, i - 4):i])
+            hesitations.append(entry)
+    return {"deliberate": deliberate, "hesitations": hesitations}
+
+
+def detect_restarts(words: list[dict]) -> dict:
+    """단어 반복 재시작("그 그", "저는 저는") — 전사 기반 근사, 관찰 지표.
+
+    간투어(FILLER_WORDS)는 별도 집계되므로 제외. 3연속 이상 반복도 1회로 센다.
+    """
+    count = 0
+    examples: list[str] = []
+    i = 1
+    while i < len(words):
+        word = words[i]["word"]
+        if word == words[i - 1]["word"] and word not in FILLER_WORDS:
+            count += 1
+            if len(examples) < 3:
+                examples.append(f"{word} {word}")
+            while i < len(words) and words[i]["word"] == word:
+                i += 1
+        else:
+            i += 1
+    return {"count": count, "examples": examples}
 
 
 def _spans_from_words(words: list[dict]) -> list[dict]:
@@ -142,6 +194,22 @@ def analyze_alignment(audio_path: str, words: list[dict]) -> dict | None:
             "examples": [w["word"] for w in fillers[:5]],
         },
     }
+
+    # 쉼 위치 품질 — score_voice의 위치 인지 페널티와 리포트 인용의 재료
+    pauses = classify_long_pauses(words)
+    result["pause_quality"] = {
+        "deliberate_count": len(pauses["deliberate"]),
+        "hesitation_count": len(pauses["hesitations"]),
+    }
+    if pauses["hesitations"]:
+        result["worst_hesitation"] = max(pauses["hesitations"], key=lambda h: h["dur"])
+        # moments(결정적 순간)용 시각 목록 — 상위 5개
+        result["hesitations"] = [
+            {"at": h["at"], "dur": h["dur"]} for h in pauses["hesitations"][:5]
+        ]
+    restarts = detect_restarts(words)
+    if restarts["count"]:
+        result["restarts"] = restarts
 
     # 하이라이트 — 2스팬 이상일 때만 (한 덩어리 발화에 대비 개념은 무의미)
     if len(measured) >= 2:

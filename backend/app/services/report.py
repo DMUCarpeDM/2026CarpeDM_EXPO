@@ -154,12 +154,29 @@ def _voice_evidence(turn_results: list[AnalysisResult]) -> dict | None:
         interp = "중요한 내용일수록 목소리가 작아지면, 듣는 사람은 확신이 없다고 느껴요."
         sugg = ("작아진 그 문장을 첫 문장과 같은 크기로 다시 말해보세요. "
                 "특히 사과·요청일수록 또렷해야 진심으로 들립니다.")
+    elif (hes := alignment.get("worst_hesitation")) is not None and (
+        (alignment.get("pause_quality") or {}).get("hesitation_count", 0) >= 2
+        or hes["dur"] >= 2.0
+    ):
+        # 쉼 위치 품질 — 문장 중간의 끊김만 짚는다 (문장 사이 쉼은 관용·칭찬 대상)
+        where = hes.get("context") or hes.get("after", "")
+        observed = (f"“{where}” 뒤에서 {hes['dur']}초 멈칫 — 문장 중간 끊김이 "
+                    f"{(alignment.get('pause_quality') or {}).get('hesitation_count', 1)}회 있었어요")
+        interp = "같은 침묵도 위치가 달라요. 문장 사이의 쉼은 여유로, 문장 중간의 끊김은 막힘으로 들려요."
+        sugg = ("막힐 것 같으면 문장을 짧게 끝내버리세요: \"확인하겠습니다. (쉼) 방법은 "
+                "두 가지입니다.\" — 쉼의 위치만 옮겨도 같은 침묵이 완급이 됩니다.")
     elif "fastest" in alignment and spans:
         f = spans[alignment["fastest"]]
         observed = (f"이 대목에서 말이 {f['rate_sps']}음절/초로 급해졌어요: "
                     f"“{f['text']}”")
         interp = "특정 대목에서만 빨라지는 건 그 내용을 빨리 지나가고 싶다는 신호로 들려요."
         sugg = "급해진 그 문장 앞에서 일부러 반 박자 쉬고, 또박또박 다시 말해보세요."
+    elif (rst := alignment.get("restarts")) is not None and rst["count"] >= 2:
+        ex = f" (\"{rst['examples'][0]}\")" if rst.get("examples") else ""
+        observed = f"같은 단어를 반복하며 다시 시작한 대목이 {rst['count']}번 있었어요{ex}"
+        interp = "문장을 되감는 습관은 생각보다 말이 먼저 나갈 때 생겨요 — 듣는 사람은 준비 부족으로 느낄 수 있어요."
+        sugg = ("첫 단어를 뱉기 전에 문장의 끝을 먼저 정하세요. "
+                "\"결론은 ~입니다\"처럼 틀을 정해두면 되감기가 사라집니다.")
     elif lead_in is not None and lead_in > 3:
         observed = f"응답 개시까지 {lead_in}초 — 질문 후 침묵이 길었어요 (권장 2.5초 이내)"
         interp = "첫 마디가 늦어질수록 듣는 사람의 긴장이 올라가고, 답변 준비가 안 된 인상을 줘요."
@@ -227,6 +244,16 @@ def _eye_evidence(turn_results: list[AnalysisResult]) -> dict | None:
     dir_label = DIR_LABEL.get(m.get("gaze_off_dir") or "")
     dir_note = f" (주로 {dir_label} 방향)" if dir_label else ""
 
+    # 깜빡임 동역학(마스터리 ④): 안정 깜빡임 빈도는 사람마다 달라(분당 10~30회)
+    # 절대 임계는 오판을 만든다. 기저선(브리핑)이 있으면 '본인 대비 급증'으로만
+    # 판정하고(기저선 높은 사람 구제), 없으면 기존 절대 임계 32로 폴백한다.
+    blink_base = m.get("blink_base_per_min")
+    if blink_base is not None and blink_base >= 5:
+        blink_flag = blink >= 20 and blink >= blink_base * 1.6
+    else:
+        blink_base = None  # 기저선 5 미만은 표본 잡음 — 절대 폴백으로
+        blink_flag = blink > 32
+
     if ratio < 0.4:
         observed = f"정면 응시 {int(ratio * 100)}%{dir_note} — 발화의 절반 이상 시선이 밖에 있었어요 (권장 65% 이상)"
         interp = (
@@ -249,8 +276,12 @@ def _eye_evidence(turn_results: list[AnalysisResult]) -> dict | None:
         interp = "짧게 자주 흔들리는 시선은 '불안한 눈빛'으로 기억돼요."
         sugg = ("시선을 옮길 땐 문장이 끝난 뒤에 천천히. "
                 "'한 문장, 한 시선'을 의식해보세요.")
-    elif blink > 32:
-        observed = f"정면 응시는 {int(ratio * 100)}%로 좋지만, 깜빡임이 분당 {int(blink)}회였어요 (평상시 15~20회)"
+    elif blink_flag:
+        observed = (
+            f"브리핑 때 분당 {int(blink_base)}회였던 깜빡임이 답변 중 {int(blink)}회로 늘었어요"
+            if blink_base is not None else
+            f"정면 응시는 {int(ratio * 100)}%로 좋지만, 깜빡임이 분당 {int(blink)}회였어요 (평상시 15~20회)"
+        )
         interp = "잦은 깜빡임은 본인도 모르는 긴장 신호로 전달될 수 있어요."
         sugg = "답변 시작 전에 한 번 길게 숨을 내쉬어 보세요. 호흡이 내려가면 깜빡임도 함께 줄어요."
     else:
@@ -504,8 +535,48 @@ STRENGTH_BY_BAND = {
 }
 
 
+GAZE_MAP_MIN_FRAMES = 50  # 200ms 샘플 × 50 = 10초 — 이보다 적으면 지도 생략
+
+
+def _gaze_map(session: RoleplaySession) -> dict | None:
+    """시선 존 히트맵 — 턴별 3×3 분포(위/중/아래 × 좌/중/우)를 세션 합산한 비율 지도.
+
+    관찰 지표(감점 없음). 표본 10초 미만이면 지도 자체를 생략한다(판정 보류 원칙).
+    코멘트는 부호가 안정적인 축(상하)과 중앙 집중도만 단정하고, 좌우는 실기기
+    부호 검증 전이므로 '옆'으로 중화한다 — DIR_LABEL과 같은 관례.
+    """
+    zones = [0] * 9
+    for t in session.turns:
+        zs = (t.nonverbal_metrics or {}).get("gaze_zones") or []
+        if len(zs) == 9:
+            zones = [a + b for a, b in zip(zones, zs)]
+    total = sum(zones)
+    if total < GAZE_MAP_MIN_FRAMES:
+        return None
+    ratios = [round(z / total, 3) for z in zones]
+    center = ratios[4]
+    down = sum(ratios[6:9])
+    up = sum(ratios[0:3])
+    side = ratios[0] + ratios[3] + ratios[6] + ratios[2] + ratios[5] + ratios[8]
+    if center >= 0.7:
+        comment = "시선이 대부분 상대(중앙)에 머물렀어요 — 시선 분포로는 더 바랄 게 없어요."
+    elif down >= 0.25:
+        comment = ("시선이 아래쪽에 자주 머물렀어요. 생각을 정리할 때 눈이 내려가는 습관이에요 — "
+                   "듣는 사람에게는 자신 없음이나 대본 읽기로 보일 수 있어요.")
+    elif up >= 0.2:
+        comment = ("답을 떠올릴 때 시선이 위로 향하는 습관이 보여요. 기억을 더듬는 자연스러운 "
+                   "행동이지만, 길어지면 말문이 막힌 것처럼 보여요.")
+    elif side >= 0.3:
+        comment = ("시선이 옆으로 자주 흘렀어요. 화면 밖에 참고물이 있는 듯한 인상을 "
+                   "줄 수 있어요 — 시선을 옮기더라도 문장이 끝난 뒤에 옮겨보세요.")
+    else:
+        comment = "시선이 중앙을 기준으로 자연스럽게 분포했어요."
+    return {"zones": ratios, "frames": total, "comment": comment}
+
+
 def _habit_segments(session: RoleplaySession) -> list[dict]:
-    """무의식 습관 카드 — 지각 확장 지표(손-얼굴·팔짱·긴장 표정·미소 타이밍).
+    """무의식 습관 카드 — 지각 확장 지표(손-얼굴·팔짱·제스처 경직/과다·체중 이동·
+    긴장 표정·미소 타이밍·진정성 미소).
 
     체험자가 가장 놀라는 종류의 피드백. 보수적 임계값으로 확실할 때만 말하고,
     감점이 아니라 관찰로 전달한다. 데이터 없으면 카드도 없다.
@@ -539,6 +610,64 @@ def _habit_segments(session: RoleplaySession) -> list[dict]:
             "손을 풀어 가볍게 모으면 개방적인 인상으로 바뀌어요.",
         ))
 
+    # ---- Posture 마스터 ③: 제스처·전신 관찰 (표본 부족 턴은 프론트가 null 보류) ----
+    # 경직: 손이 화면에 있는데(가시 게이트) 거의 움직이지 않음 — 아무도 안 잡는 축.
+    # 임계값은 실기기 보정 전 보수치 (demo-checklist §2.5)
+    gest_active = [
+        v for t in turns
+        if (v := t.nonverbal_metrics.get("gesture_active_ratio")) is not None
+    ]
+    hands_vis = [t.nonverbal_metrics.get("hands_visible_ratio", 0) for t in turns]
+    total_frames = sum(t.nonverbal_metrics.get("frames", 0) for t in turns)
+    if gest_active and total_frames >= 150 and sum(hands_vis) / len(hands_vis) >= 0.5:
+        active = sum(gest_active) / len(gest_active)
+        energies = [
+            v for t in turns
+            if (v := t.nonverbal_metrics.get("gesture_energy")) is not None
+        ]
+        energy = sum(energies) / len(energies) if energies else 0.0
+        if active <= 0.05:
+            segs.append(seg(
+                "답변 내내 손이 화면에 있었지만 거의 움직이지 않았어요.",
+                "긴장하면 말보다 몸이 먼저 얼어요 — 지나친 부동자세는 경직된 인상을 줄 수 있어요.",
+                "핵심 문장 하나에서만 손바닥을 펴 보이는 제스처를 써보세요. 하나면 충분합니다.",
+            ))
+        elif energy >= 0.5 and active >= 0.7:
+            segs.append(seg(
+                "말하는 동안 손동작이 거의 쉬지 않고 이어졌어요.",
+                "제스처는 강조를 돕지만, 계속되면 듣는 사람의 시선이 손으로 분산돼요.",
+                "숫자나 순서를 말할 때만 손을 쓰고, 나머지 구간에는 손을 내려두세요.",
+            ))
+
+    # 체중 이동: 서 있는 동안 골반 중심이 좌우로 오감 (하체가 보일 때만 판정)
+    sways = [
+        v for t in turns
+        if (v := t.nonverbal_metrics.get("hip_sway")) is not None
+        and t.nonverbal_metrics.get("lower_visible_ratio", 0) >= 0.5
+    ]
+    if sways and sum(sways) / len(sways) >= 0.1:
+        segs.append(seg(
+            "서 있는 동안 무게중심이 좌우로 자주 이동했어요.",
+            "본인은 느끼지 못해도, 흔들리는 하체는 듣는 사람에게 불안한 인상으로 이어질 수 있어요.",
+            "양발을 어깨너비로 두고 체중을 고르게 실어보세요. 하체가 고정되면 목소리도 안정돼요.",
+        ))
+
+    # ---- 경청 자세 (듣기 페이즈) ----
+    # 듣기 리닝: 후퇴(-8% 이하)는 거리두기로 읽힐 수 있는 행동 교정 관찰,
+    # 전진(+8% 이상)은 경청 신호 칭찬. 기준 어깨폭이 없으면(null) 판정 보류.
+    leans = [
+        v for t in turns
+        if (v := t.nonverbal_metrics.get("listen_lean_pct")) is not None
+    ]
+    if leans:
+        lean = sum(leans) / len(leans)
+        if lean <= -8:
+            segs.append(seg(
+                "상대가 말하는 동안 상체가 평소보다 뒤로 물러나 있었어요.",
+                "듣는 동안의 거리는 태도로 읽혀요 — 물러난 상체는 방어적이거나 무관심해 보일 수 있어요.",
+                "지적을 듣는 순간일수록 상체를 제자리에 두세요. 그것만으로 '수용하고 있다'는 신호가 됩니다.",
+            ))
+
     press = [t.nonverbal_metrics.get("mouth_press_ratio", 0) for t in turns]
     if press and sum(press) / len(press) >= 0.2:
         segs.append(seg(
@@ -565,6 +694,45 @@ def _habit_segments(session: RoleplaySession) -> list[dict]:
                 "지적 앞에서 표정이 유지되는 건 신뢰를 주는 강점이에요.",
                 "이 안정감을 유지하면서, 답변 첫 문장에 인정 표현을 얹으면 완성이에요.",
             ))
+
+    # 진정성 미소 근사(Duchenne proxy, 마스터리 ⑤): 미소 중 눈둘레근 동시 활성 비율.
+    # 미소 표본이 부족한 턴은 프론트가 null로 보류하므로 값이 있는 턴만 평균한다.
+    # 표정 자체가 아니라 '어떻게 전달되는지'만 말한다 — 외모 지적으로 읽히지 않게.
+    duchenne_vals = [
+        v for t in turns
+        if (v := t.nonverbal_metrics.get("smile_duchenne_ratio")) is not None
+    ]
+    if duchenne_vals:
+        duchenne = sum(duchenne_vals) / len(duchenne_vals)
+        smile_avg = sum(t.nonverbal_metrics.get("smile_ratio", 0) for t in turns) / len(turns)
+        if smile_avg >= 0.15 and duchenne <= 0.15:
+            segs.append(seg(
+                "미소를 자주 지었는데, 눈 주변 근육은 거의 함께 움직이지 않았어요.",
+                "입꼬리만 올라가는 미소는 상대에게 의례적인 표정으로 읽히기 쉬워요 — 표정이 아니라 전달의 문제예요.",
+                "웃음을 억지로 늘릴 필요는 없어요. 진짜 반가운 지점(인사·감사)에서만 웃으면 눈은 저절로 따라옵니다.",
+            ))
+        elif duchenne >= 0.6:
+            segs.append(seg(
+                "미소를 지을 때 눈까지 함께 웃는 표정이 관찰됐어요.",
+                "눈이 함께 움직이는 미소는 듣는 사람에게 진심으로 전달돼요 — 훈련으로 만들기 어려운 강점이에요.",
+                "이 표정은 그대로 두세요. 첫인사와 마무리 감사에서 특히 힘을 발휘합니다.",
+            ))
+
+    # 경청 긍정 신호 (칭찬 전용 — 끄덕임이 없다고 지적하지는 않는다: 문화·개인차)
+    nods = sum(t.nonverbal_metrics.get("nod_count", 0) for t in turns)
+    listen_total = sum(t.nonverbal_metrics.get("listen_sec", 0) for t in turns)
+    if listen_total >= 20 and nods >= 3:
+        segs.append(seg(
+            f"상대가 말하는 동안 고개를 끄덕이며 들은 순간이 {nods}번 관찰됐어요.",
+            "경청의 신호는 답변만큼 강한 인상을 남겨요 — 상대는 '내 말이 전달되고 있다'고 느낍니다.",
+            "이 습관은 그대로 유지하세요. 끄덕임 뒤에 상대의 단어를 하나 받아 말하면 경청이 완성돼요.",
+        ))
+    elif leans and sum(leans) / len(leans) >= 8:
+        segs.append(seg(
+            "상대가 말하는 동안 상체가 살짝 앞으로 기울어 있었어요.",
+            "앞으로 기운 상체는 강력한 경청 신호예요 — 의식하지 않으면 나오기 어려운 태도입니다.",
+            "이 자세를 유지하면서 가끔 고개를 끄덕이면, 듣는 태도만으로 신뢰가 쌓여요.",
+        ))
 
     return segs[:2]  # 과잉 지적 방지 — 가장 중요한 것만
 
@@ -639,6 +807,11 @@ def build_report(
         else:
             sugg = segment["suggestion"] if segment else ""
             improvements.append(f"{FIT_LABELS[fit]} — {sugg}")
+
+    # 시선 존 히트맵 — Eye 카드에 3×3 분포 지도 (표본 충분 + Eye 측정됨일 때만)
+    if fit_scores.get(FitType.eye.value, {}).get("score") is not None \
+            and (gaze_map := _gaze_map(session)) is not None:
+        fit_scores[FitType.eye.value]["gaze_map"] = gaze_map
 
     # 오늘의 한 문장: 가장 낮은 측정 항목의 처방을 헤드라인으로
     headline: dict = {}

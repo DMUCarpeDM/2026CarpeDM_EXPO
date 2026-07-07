@@ -34,8 +34,20 @@ const EYE_L = { inner: 362, outer: 263 };
 const EYE_COMP_GAIN = 0.8;
 const EYE_COMP_CLAMP = 0.18; // 보상 상한 — 보상이 판정을 뒤집는 폭주 방지
 const EYE_ONLY_THRESHOLD = 0.25; // 머리는 정면인데 눈만 옆을 보는 이탈 감지
+// ---- 수직 홍채: 눈꺼풀 사이 홍채 상하 위치 (0=위 눈꺼풀, 1=아래 눈꺼풀) ----
+// 수평과 달리 이미지 y축은 아래가 +라 부호가 기하적으로 명확하다. 깜빡임·실눈
+// 중에는 분모(눈 열림)가 무너지므로 열림 게이트를 통과한 프레임만 표본으로 쓴다.
+const EYE_LIDS_R = { upper: 159, lower: 145 };
+const EYE_LIDS_L = { upper: 386, lower: 374 };
+const EYE_OPEN_MIN = 0.15; // 눈 열림/눈 너비 최소 비 — 깜빡임·실눈 배제
+const EYE_Y_DELTA = 0.25; // 기준 대비 상/하 편향 임계 (보수 — 실기기 보정 항목)
+const EYE_Y_RESCUE = 0.05; // 홍채가 이 안(중앙)이면 blendshape가 높아도 정면 유지
 // 자연스러운 응시 리듬: 답변 개시 직후의 짧은 시선 회피(생각 정리)는 정상 행동
 const ONSET_GRACE_MS = 2500;
+// 끄덕임 근사(경청 자세): 듣기 중 headGap 방향 반전을 세되, 한 방향 이동 진폭이
+// 어깨너비의 4% 이상일 때만 — 추적 지터를 끄덕임으로 오인하지 않는 보수 게이트
+const NOD_MIN_SWING = 0.04;
+const NOD_JITTER_EPS = 0.005; // 이보다 작은 표본 간 변화는 무시
 
 // 얼굴 윤곽 표시용 랜드마크 (Face Mesh 인덱스 서브셋)
 const FACE_POINTS = [10, 152, 234, 454, 1, 33, 263, 61, 291, 199];
@@ -59,6 +71,10 @@ interface Accumulator {
   blinkCount: number;
   blinkActive: boolean;
   smileFrames: number; // 미소 표현 프레임
+  // ---- 표정 관찰 레이어 (마스터리 ⑤ — 전부 감점 없는 관찰 지표) ----
+  duchenneFrames: number; // 미소 중 눈둘레근(eyeSquint) 동시 활성 — 진정성 미소 근사
+  tensionStreaks: number[]; // 완료된 긴장 표정 에피소드 길이들 — 표정 복구 시간
+  curTensionStreak: number;
   rollSamples: number[]; // 고개 갸웃 각도 (보정값)
   // 지각 확장 — 이미 로드된 모델의 미사용 출력 (새 모델 없음)
   mouthPressFrames: number; // 입술 압축 = 긴장 신호 (blendshape)
@@ -70,6 +86,7 @@ interface Accumulator {
   shoulderWidths: number[]; // 어깨 픽셀 폭 시계열 — 앞/뒤 리닝 추세
   // ---- Eye-Fit 심화 ----
   irisFrames: number; // 홍채 추적이 실제로 쓰인 프레임 (능력 플래그)
+  irisVFrames: number; // 수직 홍채가 상하 판정에 쓰인 프레임 (능력 플래그)
   contactBouts: number[]; // 완료된 연속 응시 구간 길이들 (응시 리듬)
   curContactStreak: number;
   listenFrames: number; // 상대가 말하는 동안(듣기)의 프레임/정면
@@ -79,6 +96,21 @@ interface Accumulator {
   answerStartedAt: number; // 답변 페이즈 시작 시각 — 개시 회피 관용 측정
   onsetOffFrames: number; // 답변 개시 직후 유예 구간의 이탈 프레임
   gazeZones: number[]; // 3×3 시선 존 (행: 위/중/아래 × 열: 좌/중/우)
+  // ---- Posture 마스터 (③): 3D 월드·제스처·전신 — 전부 감점 없는 관찰 지표 ----
+  worldFrames: number; // 3D 월드 랜드마크로 기울기를 계산한 프레임 (능력 플래그)
+  gestureDistSum: number; // 손목 이동 거리 합 (m, 월드 좌표 = 골반 원점)
+  gestureSamples: number; // 손목 변위 표본 수 (양손 각각)
+  gestureActive: number; // 이동 속도 0.1m/s 초과 표본 (제스처 활동)
+  handSeenFrames: number; // 손목이 하나라도 보인 프레임
+  hipXs: number[]; // 골반 중심 x(어깨너비 정규화) 시계열 — 체중 이동 습관
+  lowerVisFrames: number; // 무릎이 보인 프레임 (서 있는 미러 vs 책상 웹 구분)
+  guardFrames: number; // 다인 가드로 자세 집계를 건너뛴 프레임
+  // ---- 경청 자세 (듣기 페이즈 — 긍정 관찰 전용) ----
+  nodReversals: number; // 듣기 중 고개 상하 방향 반전(진폭 게이트 통과) — 끄덕임 근사
+  nodPrevGap: number | null; // 직전 headGap 표본
+  nodDir: number; // 현재 이동 방향 (+1 아래 / -1 위 / 0 초기)
+  nodSwing: number; // 현재 방향으로의 누적 진폭
+  listenWidths: number[]; // 듣기 중 어깨폭 — 기준(캘리브레이션) 대비 전진/후퇴 리닝
   // 교차 분석용 2초 빈 타임라인 — 영상이 아니라 빈당 집계 숫자 3개만 (프라이버시 유지)
   turnStartedAt: number;
   bins: { frames: number; front: number; press: number; tiltSum: number }[];
@@ -100,6 +132,9 @@ const emptyAcc = (): Accumulator => ({
   blinkCount: 0,
   blinkActive: false,
   smileFrames: 0,
+  duchenneFrames: 0,
+  tensionStreaks: [],
+  curTensionStreak: 0,
   rollSamples: [],
   mouthPressFrames: 0,
   browDownFrames: 0,
@@ -109,6 +144,7 @@ const emptyAcc = (): Accumulator => ({
   offStreaks: [],
   shoulderWidths: [],
   irisFrames: 0,
+  irisVFrames: 0,
   contactBouts: [],
   curContactStreak: 0,
   listenFrames: 0,
@@ -118,6 +154,19 @@ const emptyAcc = (): Accumulator => ({
   answerStartedAt: 0,
   onsetOffFrames: 0,
   gazeZones: [0, 0, 0, 0, 0, 0, 0, 0, 0],
+  worldFrames: 0,
+  gestureDistSum: 0,
+  gestureSamples: 0,
+  gestureActive: 0,
+  handSeenFrames: 0,
+  hipXs: [],
+  lowerVisFrames: 0,
+  guardFrames: 0,
+  nodReversals: 0,
+  nodPrevGap: null,
+  nodDir: 0,
+  nodSwing: 0,
+  listenWidths: [],
   turnStartedAt: 0,
   bins: [],
   tips: [],
@@ -133,10 +182,14 @@ interface Baseline {
   headGap: number | null; // 코-어깨 수직 거리 / 어깨너비
   roll: number; // 평상시 눈선 각도
   eyeX: number | null; // 정면 응시 때의 홍채 수평 편향 (개인별 눈 정렬 보정)
+  eyeY: number | null; // 정면 응시 때의 홍채 수직 위치 (개인별 눈꺼풀 형태 보정)
+  blinkPerMin: number | null; // 안정 상태(브리핑) 깜빡임 기저선 — 급증 판정의 개인 기준
+  width: number | null; // 평상시 어깨폭 — 듣기 리닝(전진/후퇴)의 기준 거리
 }
 
 const emptyBaseline = (): Baseline => ({
-  set: false, asym: 0, tilt: 0, headGap: null, roll: 0, eyeX: null,
+  set: false, asym: 0, tilt: 0, headGap: null, roll: 0, eyeX: null, eyeY: null,
+  blinkPerMin: null, width: null,
 });
 
 export interface CoachingTip {
@@ -188,7 +241,11 @@ export function useNonverbal(
   const calibratingRef = useRef(false);
   const calibSamplesRef = useRef<{
     asym: number[]; tilt: number[]; headGap: number[]; roll: number[]; eyeX: number[];
-  }>({ asym: [], tilt: [], headGap: [], roll: [], eyeX: [] });
+    eyeY: number[]; width: number[]; blinks: number; blinkFrames: number; blinkOn: boolean;
+  }>({
+    asym: [], tilt: [], headGap: [], roll: [], eyeX: [], eyeY: [], width: [],
+    blinks: 0, blinkFrames: 0, blinkOn: false,
+  });
   // 대화 페이즈 — 듣기(상대 TTS) vs 말하기(답변). 듣기 시선과 말하기 시선은
   // 커뮤니케이션에서 다른 역량이므로 분리 측정한다.
   const gazePhaseRef = useRef<'listening' | 'answering' | null>(null);
@@ -264,6 +321,11 @@ export function useNonverbal(
         if (cancelled) return;
         setVisionStatus('ready');
 
+        // 프레임 간 연속 추적 상태 (턴과 무관): 제스처 변위·다인 가드용
+        const prevWrists: Record<'l' | 'r', [number, number, number] | null> = { l: null, r: null };
+        let prevPerson: { x: number; w: number } | null = null;
+        let prevFace: { x: number; w: number } | null = null;
+
         timer = setInterval(() => {
           const video = videoRef.current;
           if (!video || video.readyState < 2) return;
@@ -301,11 +363,19 @@ export function useNonverbal(
             // 긴장 신호 (관찰 지표 — 감점 아님): 입술 압축·찡그림. 보수적 임계값
             const mouthPress = ((shapes.mouthPressLeft ?? 0) + (shapes.mouthPressRight ?? 0)) / 2 > 0.45;
             const browDown = ((shapes.browDownLeft ?? 0) + (shapes.browDownRight ?? 0)) / 2 > 0.5;
+            const tension = mouthPress || browDown; // 긴장 표정 에피소드 판정용
+            // 진정성 미소 근사(Duchenne proxy): 입꼬리(mouthSmile)와 눈둘레근(eyeSquint)이
+            // 동시에 움직여야 눈까지 웃는 미소다. 깜빡임 중에는 eyeSquint가 함께 올라가
+            // 오판을 만들므로 제외한다 — 임계값은 실기기 검증 항목(demo-checklist §2.5).
+            const eyeSquint = ((shapes.eyeSquintLeft ?? 0) + (shapes.eyeSquintRight ?? 0)) / 2;
+            const duchenne = smile && !blink && eyeSquint > 0.35;
 
             // ---- 얼굴 기하: 좌우 비대칭(요), 눈선 각도(갸웃) ----
             let signedAsym: number | null = null;
             let rollDeg: number | null = null;
             let eyeInHeadX: number | null = null; // 홍채 수평 편향 (0=정중앙)
+            let eyeInHeadY: number | null = null; // 홍채 수직 위치 (0=위 눈꺼풀, 1=아래)
+            let faceUnstable = false;
             if (lm) {
               const nose = lm[1];
               const left = lm[234];
@@ -313,6 +383,15 @@ export function useNonverbal(
               const dl = Math.abs(nose.x - left.x);
               const dr = Math.abs(right.x - nose.x);
               signedAsym = (dl - dr) / Math.max(dl + dr, 1e-6);
+
+              // 얼굴 다인 가드: 얼굴 중심·크기가 한 샘플(200ms)에 급변하면 추적
+              // 얼굴이 바뀐 것(관람객 끼어듦) → 이 프레임의 시선·표정 집계 폐기
+              const faceW = Math.abs(right.x - left.x);
+              if (prevFace && (Math.abs(nose.x - prevFace.x) > 0.15
+                  || faceW > prevFace.w * 1.6 || faceW < prevFace.w / 1.6)) {
+                faceUnstable = true;
+              }
+              prevFace = { x: nose.x, w: faceW };
               const le = lm[33];
               const re = lm[263];
               rollDeg = (Math.atan2(re.y - le.y, Math.abs(re.x - le.x) + 1e-6) * 180) / Math.PI;
@@ -330,6 +409,24 @@ export function useNonverbal(
                 if (rX > -0.5 && rX < 1.5 && lX > -0.5 && lX < 1.5) {
                   eyeInHeadX = (rX - lX) / 2;
                 }
+
+                // ---- 수직 홍채: 눈꺼풀 사이 상하 위치 (열림 게이트 통과 시만) ----
+                const vRatio = (
+                  iris: { y: number }, upper: { y: number }, lower: { y: number },
+                  inner: { x: number }, outer: { x: number },
+                ): number | null => {
+                  const open = lower.y - upper.y;
+                  const w = Math.abs(outer.x - inner.x) || 1e-6;
+                  if (open / w < EYE_OPEN_MIN) return null; // 깜빡임·실눈 — 표본 배제
+                  return (iris.y - upper.y) / (open || 1e-6);
+                };
+                const rY = vRatio(lm[IRIS_R], lm[EYE_LIDS_R.upper], lm[EYE_LIDS_R.lower],
+                  lm[EYE_R.inner], lm[EYE_R.outer]);
+                const lY = vRatio(lm[IRIS_L], lm[EYE_LIDS_L.upper], lm[EYE_LIDS_L.lower],
+                  lm[EYE_L.inner], lm[EYE_L.outer]);
+                if (rY !== null && lY !== null && rY > -0.5 && rY < 1.5 && lY > -0.5 && lY < 1.5) {
+                  eyeInHeadY = (rY + lY) / 2;
+                }
               }
             }
 
@@ -340,14 +437,45 @@ export function useNonverbal(
             let shoulderWidth: number | null = null;
             let handFace = false;
             let armCross = false;
+            let worldUsed = false; // 3D 월드 기울기 사용 여부 (능력 플래그)
+            let handSeen = false;
+            let lowerVisible = false;
+            let hipX: number | null = null;
+            let personUnstable = false;
+            const wlm = poseResult.worldLandmarks?.[0];
+            // 가시성 신뢰 게이트: 미러 환경에서 하반신·가려진 관절의 추정 잡음 차단
+            const vis = (p?: { visibility?: number }) => !!p && (p.visibility ?? 1) > 0.5;
             if (plm) {
               const ls = plm[11];
               const rs = plm[12];
               const noseP = plm[0];
               const width = Math.abs(ls.x - rs.x);
-              if (width > 0.05) {
+
+              // 다인 가드: 어깨 중심·폭이 한 샘플(200ms) 만에 급변하면 추적 대상이
+              // 바뀐 것(관람객 난입·스침)일 수 있다 → 이 프레임의 자세 집계를 폐기
+              const centerRaw = (ls.x + rs.x) / 2;
+              if (prevPerson && (Math.abs(centerRaw - prevPerson.x) > 0.18
+                  || width > prevPerson.w * 1.6 || width < prevPerson.w / 1.6)) {
+                personUnstable = true;
+                prevWrists.l = null;
+                prevWrists.r = null;
+                if (runningRef.current) acc.guardFrames += 1;
+              }
+              prevPerson = { x: centerRaw, w: width };
+
+              if (width > 0.05 && !personUnstable) {
                 shoulderWidth = width; // 앞/뒤 리닝 추세용 (커지면 몸이 카메라 쪽으로)
-                tiltRaw = (Math.atan2(Math.abs(ls.y - rs.y), width) * 180) / Math.PI;
+                // 3D 월드 랜드마크(미터·골반 원점): 거리 불변 + 몸이 비스듬히 서도(yaw)
+                // 어깨선 기울기가 왜곡되지 않게 수평 성분에 z를 포함. 없으면 2D 폴백
+                const wls = wlm?.[11];
+                const wrs = wlm?.[12];
+                if (wls && wrs && vis(wls) && vis(wrs)) {
+                  tiltRaw = (Math.atan2(Math.abs(wls.y - wrs.y),
+                    Math.hypot(wls.x - wrs.x, wls.z - wrs.z) + 1e-6) * 180) / Math.PI;
+                  worldUsed = true;
+                } else {
+                  tiltRaw = (Math.atan2(Math.abs(ls.y - rs.y), width) * 180) / Math.PI;
+                }
                 headGap = ((ls.y + rs.y) / 2 - noseP.y) / width;
                 shoulderX = ((ls.x + rs.x) / 2) / width;
 
@@ -366,6 +494,36 @@ export function useNonverbal(
                     && lw.y > shoulderY && rw.y > shoulderY
                     && Math.abs(lw.y - rw.y) < width * 0.4;
                 }
+
+                // ---- 제스처 에너지 (월드 좌표 손목, m/s): 경직↔과다의 양끝 관찰 ----
+                // 월드 좌표는 골반 원점이라 몸 전체의 이동·카메라 흔들림과 무관하게
+                // '몸에 대한 손의 움직임'만 잰다. 월드가 없으면 보류(null 페이로드)
+                for (const [side, wi] of [['l', 15], ['r', 16]] as const) {
+                  const w = wlm?.[wi];
+                  if (w && vis(w)) {
+                    handSeen = true;
+                    const prevW = prevWrists[side];
+                    if (prevW && runningRef.current) {
+                      const d = Math.hypot(w.x - prevW[0], w.y - prevW[1], w.z - prevW[2]);
+                      if (d < 0.5) { // 0.5m/샘플(2.5m/s) 초과 변위는 추적 글리치 → 폐기
+                        acc.gestureDistSum += d;
+                        acc.gestureSamples += 1;
+                        if (d > 0.02) acc.gestureActive += 1; // 0.1 m/s 초과 = 활동
+                      }
+                    }
+                    prevWrists[side] = [w.x, w.y, w.z];
+                  } else {
+                    prevWrists[side] = null; // 가림 후 재등장 시 점프 변위 방지
+                  }
+                }
+
+                // ---- 전신: 골반 스웨이(체중 이동 습관)·하체 가시성 ----
+                const lh = plm[23];
+                const rh = plm[24];
+                if (vis(lh) && vis(rh)) {
+                  hipX = ((lh.x + rh.x) / 2) / width;
+                }
+                lowerVisible = vis(plm[25]) && vis(plm[26]); // 무릎 — 서 있는 미러 감지
               }
             }
 
@@ -377,12 +535,21 @@ export function useNonverbal(
               if (headGap !== null) cal.headGap.push(headGap);
               if (rollDeg !== null) cal.roll.push(rollDeg);
               if (eyeInHeadX !== null) cal.eyeX.push(eyeInHeadX);
+              if (eyeInHeadY !== null) cal.eyeY.push(eyeInHeadY);
+              if (shoulderWidth !== null) cal.width.push(shoulderWidth);
+              // 깜빡임 기저선(동역학): 얼굴이 추적된 프레임에서만 세어 비율 왜곡 방지
+              if (lm) {
+                cal.blinkFrames += 1;
+                if (blink && !cal.blinkOn) cal.blinks += 1;
+                cal.blinkOn = blink;
+              }
             }
 
             // ---- 기준 대비 판정: 시선 = 머리 자세 + 홍채 보상 ----
             let front = true;
             let offDir: 'down' | 'up' | 'left' | 'right' | null = null;
             let gazeX: number | null = null; // 존 분포용 최종 수평 시선 추정
+            let eyeYDelta: number | null = null; // 기준 보정된 수직 홍채 편향 (존 행에도 사용)
             let irisUsed = false;
             if (signedAsym !== null) {
               const asymDelta = base.set ? signedAsym - base.asym : signedAsym;
@@ -409,9 +576,26 @@ export function useNonverbal(
                 }
               }
 
+              // 수직 홍채(기준 보정)가 있으면 상하 판정의 주 신호로 승격:
+              // ① 미세한 아래 훔쳐보기를 blendshape보다 정밀하게 잡고
+              // ② 홍채가 중앙(±EYE_Y_RESCUE)인데 blendshape만 높은 실눈
+              //    오작동은 정면으로 구제한다. 없으면 기존 blendshape 폴백.
+              if (eyeInHeadY !== null && base.eyeY !== null) {
+                eyeYDelta = eyeInHeadY - base.eyeY;
+              }
               if (offDir === null) {
                 if (Math.abs(gazeX) >= yawThreshold) {
                   offDir = gazeX > 0 ? 'right' : 'left';
+                } else if (eyeYDelta !== null) {
+                  if (eyeYDelta >= EYE_Y_DELTA
+                      || (eyeDown > 0.55 && eyeYDelta > EYE_Y_RESCUE)) {
+                    offDir = 'down';
+                    acc.irisVFrames += runningRef.current ? 1 : 0;
+                  } else if (-eyeYDelta >= EYE_Y_DELTA
+                      || (eyeUp > 0.55 && eyeYDelta < -EYE_Y_RESCUE)) {
+                    offDir = 'up';
+                    acc.irisVFrames += runningRef.current ? 1 : 0;
+                  }
                 } else if (eyeDown > 0.55) {
                   offDir = 'down'; // 머리는 정면, 눈동자만 아래 (대본 읽기 패턴)
                 } else if (eyeUp > 0.55) {
@@ -441,8 +625,10 @@ export function useNonverbal(
               calibrated: base.set,
             });
 
-            // 턴 진행 중일 때만 집계
-            if (runningRef.current && (lm || plm)) {
+            // 턴 진행 중일 때만 집계. 얼굴 가드가 발동한 프레임은 시선·표정이
+            // 다른 사람의 것일 수 있으므로 통째로 폐기한다 (드문 이벤트 — 보수적)
+            if (runningRef.current && faceUnstable) acc.guardFrames += 1;
+            if (runningRef.current && (lm || plm) && !faceUnstable) {
               acc.frames += 1;
               acc.frontFlags.push(front);
               if (irisUsed) acc.irisFrames += 1;
@@ -465,6 +651,28 @@ export function useNonverbal(
               if (phase === 'listening') {
                 acc.listenFrames += 1;
                 if (front) acc.listenFront += 1;
+                // 듣기 리닝: 상대가 말하는 동안의 어깨폭 — 기준 대비 전진(관심)/후퇴(거리두기)
+                if (shoulderWidth !== null) acc.listenWidths.push(shoulderWidth);
+                // 끄덕임 근사: headGap(코-어깨 거리)의 상하 방향 반전 계수.
+                // 몸 전체가 출렁이면 코·어깨가 함께 움직여 headGap이 안 변하므로
+                // 상쇄되고, 고개만 끄덕일 때만 반전이 잡힌다. 긍정 신호 전용.
+                if (headGap !== null) {
+                  if (acc.nodPrevGap !== null) {
+                    const delta = headGap - acc.nodPrevGap;
+                    if (Math.abs(delta) > NOD_JITTER_EPS) {
+                      const dir = delta > 0 ? 1 : -1;
+                      if (dir !== acc.nodDir) {
+                        if (acc.nodDir !== 0 && acc.nodSwing >= NOD_MIN_SWING) {
+                          acc.nodReversals += 1;
+                        }
+                        acc.nodDir = dir;
+                        acc.nodSwing = 0;
+                      }
+                      acc.nodSwing += Math.abs(delta);
+                    }
+                  }
+                  acc.nodPrevGap = headGap;
+                }
               } else if (phase === 'answering') {
                 acc.answerFrames += 1;
                 if (front) acc.answerFront += 1;
@@ -474,10 +682,13 @@ export function useNonverbal(
                 }
               }
 
-              // 3×3 시선 존 (행: 위/중/아래 × 열: 좌/중/우) — 시선 분포 지도
+              // 3×3 시선 존 (행: 위/중/아래 × 열: 좌/중/우) — 시선 분포 지도.
+              // 상하 행은 수직 홍채(기준 보정)가 있으면 홍채 기반으로 정밀화
               {
                 const col = gazeX === null ? 1 : gazeX < -0.15 ? 0 : gazeX > 0.15 ? 2 : 1;
-                const row = eyeUp > 0.45 ? 0 : eyeDown > 0.45 || headDown ? 2 : 1;
+                const row = eyeYDelta !== null
+                  ? (eyeYDelta <= -0.18 ? 0 : eyeYDelta >= 0.18 || headDown ? 2 : 1)
+                  : (eyeUp > 0.45 ? 0 : eyeDown > 0.45 || headDown ? 2 : 1);
                 acc.gazeZones[row * 3 + col] += 1;
               }
 
@@ -493,7 +704,8 @@ export function useNonverbal(
                 const bin = acc.bins[binIdx];
                 bin.frames += 1;
                 if (front) bin.front += 1;
-                if (mouthPress) bin.press += 1;
+                // 긴장 = 입술 압축 ∥ 찡그림 — moments의 '긴장 표정' 순간 감지 재료
+                if (tension) bin.press += 1;
                 if (tiltAdj !== null) bin.tiltSum += tiltAdj;
               }
 
@@ -501,12 +713,27 @@ export function useNonverbal(
                 acc.asymSamples.push(base.set ? signedAsym - base.asym : signedAsym);
               }
               if (shoulderWidth !== null) acc.shoulderWidths.push(shoulderWidth);
+              if (worldUsed) acc.worldFrames += 1;
+              if (handSeen) acc.handSeenFrames += 1;
+              if (lowerVisible) acc.lowerVisFrames += 1;
+              if (hipX !== null) acc.hipXs.push(hipX);
               acc.lastFront = front;
               if (blink && !acc.blinkActive) acc.blinkCount += 1;
               acc.blinkActive = blink;
-              if (smile) acc.smileFrames += 1;
+              if (smile) {
+                acc.smileFrames += 1;
+                if (duchenne) acc.duchenneFrames += 1;
+              }
               if (mouthPress) acc.mouthPressFrames += 1;
               if (browDown) acc.browDownFrames += 1;
+              // 긴장 표정 에피소드: 시작~풀림까지의 연속 구간 (표정 복구 시간 재료).
+              // 2프레임(0.4s) 미만의 단발 깜빡임 잡음은 에피소드로 세지 않는다.
+              if (tension) {
+                acc.curTensionStreak += 1;
+              } else {
+                if (acc.curTensionStreak >= 2) acc.tensionStreaks.push(acc.curTensionStreak);
+                acc.curTensionStreak = 0;
+              }
               if (handFace) acc.handFaceFrames += 1;
               if (armCross) acc.armCrossFrames += 1;
               if (rollAdj !== null) acc.rollSamples.push(rollAdj);
@@ -546,7 +773,10 @@ export function useNonverbal(
 
   /** 브리핑 표시 중 호출 — 정면 기준값 수집 시작 */
   const startCalibration = useCallback(() => {
-    calibSamplesRef.current = { asym: [], tilt: [], headGap: [], roll: [], eyeX: [] };
+    calibSamplesRef.current = {
+      asym: [], tilt: [], headGap: [], roll: [], eyeX: [], eyeY: [], width: [],
+      blinks: 0, blinkFrames: 0, blinkOn: false,
+    };
     calibratingRef.current = true;
   }, []);
 
@@ -563,6 +793,14 @@ export function useNonverbal(
         roll: cal.roll.length >= 4 ? median(cal.roll) : 0,
         // 홍채 기준은 표본 분산까지 확인 — 흔들리는 표본으로 보상하면 오판을 만든다
         eyeX: cal.eyeX.length >= 4 && stdDev(cal.eyeX) < 0.08 ? median(cal.eyeX) : null,
+        eyeY: cal.eyeY.length >= 4 && stdDev(cal.eyeY) < 0.08 ? median(cal.eyeY) : null,
+        // 깜빡임 기저선은 표본 10초(50프레임) 이상일 때만 — 짧은 창의 비율 추정은 오차가 크다
+        blinkPerMin: cal.blinkFrames >= 50
+          ? Math.round(cal.blinks / ((cal.blinkFrames * SAMPLE_MS) / 60000))
+          : null,
+        // 평상시 어깨폭 — 듣기 리닝(전진/후퇴)의 기준. 미러 앞 위치가 고정된 전시
+        // 환경 전제이며, 걸어서 이동하면 리닝으로 오인될 수 있다(실기기 검증 항목)
+        width: cal.width.length >= 4 ? median(cal.width) : null,
       };
     }
   }, []);
@@ -623,10 +861,24 @@ export function useNonverbal(
       frames: acc.frames,
       longest_off_sec: Math.round((acc.maxOffStreak * SAMPLE_MS) / 100) / 10,
       blink_per_min: minutes > 0.05 ? Math.round(acc.blinkCount / minutes) : 0,
+      // 깜빡임 동역학: 안정 상태(브리핑) 기저선 — 서버가 '기저선 대비 급증'으로 판정
+      blink_base_per_min: baselineRef.current.blinkPerMin,
       gaze_off_dir: domCount >= 3 ? domDir : null,
       tilt_drift_deg: Math.round(tiltDrift * 10) / 10,
       front_drift_pct: frontDrift,
       smile_ratio: Math.round((acc.smileFrames / acc.frames) * 100) / 100,
+      // 진정성 미소 근사: 미소 프레임 중 눈둘레근 동시 활성 비율 —
+      // 입만 웃는 서비스 미소와 눈까지 웃는 미소의 구분. 미소 표본 2초 미만은 판정 보류(null)
+      smile_duchenne_ratio: acc.smileFrames >= 10
+        ? Math.round((acc.duchenneFrames / acc.smileFrames) * 100) / 100
+        : null,
+      // 표정 복구 시간: 긴장 표정(입술 압축·찡그림) 에피소드가 풀리기까지 평균 초 —
+      // 압박 턴 vs 평상 턴 비교(교차 분석 composure)의 재료. 에피소드 없으면 0
+      expr_recover_sec: (() => {
+        const eps = [...acc.tensionStreaks];
+        if (acc.curTensionStreak >= 2) eps.push(acc.curTensionStreak);
+        return eps.length ? Math.round((mean(eps) * SAMPLE_MS) / 100) / 10 : 0;
+      })(),
       head_roll_deg: acc.rollSamples.length
         ? Math.round(mean(acc.rollSamples.map(Math.abs)) * 10) / 10
         : 0,
@@ -638,6 +890,8 @@ export function useNonverbal(
       // ---- Eye-Fit 심화 ----
       // 홍채 추적 가동률 — 리포트가 "머리 추적"인지 "시선 추적"인지 밝힐 근거
       iris_ratio: Math.round((acc.irisFrames / acc.frames) * 100) / 100,
+      // 수직 홍채가 상하 판정에 실제로 쓰인 프레임 비율 (능력 플래그)
+      iris_v_ratio: Math.round((acc.irisVFrames / acc.frames) * 100) / 100,
       // 듣기/말하기 응시 분리 (표본 2초 미만이면 판정 보류 = null)
       listening_front_ratio: acc.listenFrames >= 10
         ? Math.round((acc.listenFront / acc.listenFrames) * 100) / 100
@@ -680,6 +934,35 @@ export function useNonverbal(
         if (w.length < 10) return 0;
         const h = Math.floor(w.length / 2);
         return Math.round((mean(w.slice(h)) / mean(w.slice(0, h)) - 1) * 100);
+      })(),
+      // ---- Posture 마스터 (③): 3D 월드·제스처·전신 — 관찰 지표 (감점 없음) ----
+      // 3D 월드 기울기 가동률 — 리포트가 '거리 불변 측정'인지 밝힐 근거 (iris_ratio와 동형)
+      world_ratio: Math.round((acc.worldFrames / acc.frames) * 100) / 100,
+      // 제스처 에너지: 손목 평균 속도(m/s, 골반 원점 월드 좌표). 표본 5초 미만 보류
+      gesture_energy: acc.gestureSamples >= 25
+        ? Math.round((acc.gestureDistSum / (acc.gestureSamples * (SAMPLE_MS / 1000))) * 1000) / 1000
+        : null,
+      // 제스처 활동 비율: 실제로 움직인(>0.1m/s) 표본 비율 — 경직(얼어 있음) 감지 근거
+      gesture_active_ratio: acc.gestureSamples >= 25
+        ? Math.round((acc.gestureActive / acc.gestureSamples) * 100) / 100
+        : null,
+      hands_visible_ratio: Math.round((acc.handSeenFrames / acc.frames) * 100) / 100,
+      // 골반 중심 좌우 흔들림(어깨너비 정규화 표준편차) — 서서 체중을 옮기는 습관
+      hip_sway: acc.hipXs.length >= 25
+        ? Math.round(stdDev(acc.hipXs) * 1000) / 1000
+        : null,
+      lower_visible_ratio: Math.round((acc.lowerVisFrames / acc.frames) * 100) / 100,
+      // 다인 가드가 자세 집계에서 제외한 프레임 수 (측정 투명성)
+      guard_dropped_frames: acc.guardFrames,
+      // ---- 경청 자세 (듣기 페이즈 — 관찰 지표) ----
+      // 끄덕임 근사: 진폭 게이트를 통과한 상하 반전 쌍의 수 (내림+올림 = 1회)
+      nod_count: Math.floor(acc.nodReversals / 2),
+      listen_sec: Math.round((acc.listenFrames * SAMPLE_MS) / 100) / 10,
+      // 듣기 리닝: 기준 어깨폭 대비 듣는 동안 전진(+)/후퇴(-) % — 표본 2초·기준 필요
+      listen_lean_pct: (() => {
+        const bw = baselineRef.current.width;
+        if (bw === null || acc.listenWidths.length < 10) return null;
+        return Math.round((mean(acc.listenWidths) / bw - 1) * 100);
       })(),
       calibrated: baselineRef.current.set,
       tips: acc.tips,
