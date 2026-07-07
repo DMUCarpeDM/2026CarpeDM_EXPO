@@ -116,7 +116,8 @@ docs/: mirror-ux-plan(UX 헌법), ai-mastery-plan(전체 완료),
 1. 실기기 검증 항목(사람+Fable): demo-checklist §2.5 — 떨림 임계값 육성 보정,
    홍채 보상 방향, 습관 감지 임계값. 전시 PC에서 pytest 라이브 4건(의미 매칭
    품질) + calibrate_semantic.py 실행
-5. 기획 리부트(사용자가 원할 때): docs/planning-council.md ⓪진단관부터 순차
+5. 기획 리부트 완료: docs/plan/00~07 — 마스터 기획서(07)의 결정 대장 D1~D6은
+   7/10 팀 회의 안건 (기본안 있음). 기획서가 요구하는 구현 격차는 07 §8 표 참조
 6. 하드웨어: docs/hardware-plan.md 팀 피드백 → 7/11 발주 마지노선 (사람 몫)
 7. 피치: docs/pitch/ 키트 존재 — 구현 진화 반영 갱신 + 7/28 백업 영상 촬영(사람)
 
