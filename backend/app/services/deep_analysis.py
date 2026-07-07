@@ -107,6 +107,10 @@ _COMPOSURE_PROBES = [
     ("듣기 자세(리닝)", -8.0, lambda nv, vm: nv.get("listen_lean_pct")),
     ("목소리 떨림", +4.0, lambda nv, vm: vm.get("f0_jitter_pct")),
     ("침묵 비율", +0.15, lambda nv, vm: vm.get("pause_ratio")),
+    # 압박 음성 반응(Voice 전문가 패스): 스트레스의 고전적 지표 — 피치 상승과
+    # 말속도 가속. 본인의 평상 턴 대비 상대 판정이라 개인차에 강건하다.
+    ("목소리 높이", +20.0, lambda nv, vm: vm.get("f0_mean_hz")),
+    ("말속도", +0.8, lambda nv, vm: vm.get("speech_rate_sps")),
 ]
 
 

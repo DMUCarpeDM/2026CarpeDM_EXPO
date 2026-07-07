@@ -26,6 +26,7 @@ KIND_LABEL = {
     "posture": "자세 흔들림",
     "quiet": "성량 저하",
     "fast": "말 급해짐",
+    "hesitation": "긴 머뭇거림",
 }
 
 
@@ -81,6 +82,9 @@ def detect_turn_events(timeline: list[dict], alignment: dict | None) -> list[dic
         events.append({"kind": "quiet", "at": spans[align["quietest"]]["start"]})
     if "fastest" in align and spans:
         events.append({"kind": "fast", "at": spans[align["fastest"]]["start"]})
+    # 머뭇거림(문장 중간 끊김) — 쉼 위치 분류가 있을 때만, 상위 2개
+    for h in (align.get("hesitations") or [])[:2]:
+        events.append({"kind": "hesitation", "at": h["at"]})
     return sorted(events, key=lambda e: e["at"])
 
 

@@ -154,12 +154,29 @@ def _voice_evidence(turn_results: list[AnalysisResult]) -> dict | None:
         interp = "중요한 내용일수록 목소리가 작아지면, 듣는 사람은 확신이 없다고 느껴요."
         sugg = ("작아진 그 문장을 첫 문장과 같은 크기로 다시 말해보세요. "
                 "특히 사과·요청일수록 또렷해야 진심으로 들립니다.")
+    elif (hes := alignment.get("worst_hesitation")) is not None and (
+        (alignment.get("pause_quality") or {}).get("hesitation_count", 0) >= 2
+        or hes["dur"] >= 2.0
+    ):
+        # 쉼 위치 품질 — 문장 중간의 끊김만 짚는다 (문장 사이 쉼은 관용·칭찬 대상)
+        where = hes.get("context") or hes.get("after", "")
+        observed = (f"“{where}” 뒤에서 {hes['dur']}초 멈칫 — 문장 중간 끊김이 "
+                    f"{(alignment.get('pause_quality') or {}).get('hesitation_count', 1)}회 있었어요")
+        interp = "같은 침묵도 위치가 달라요. 문장 사이의 쉼은 여유로, 문장 중간의 끊김은 막힘으로 들려요."
+        sugg = ("막힐 것 같으면 문장을 짧게 끝내버리세요: \"확인하겠습니다. (쉼) 방법은 "
+                "두 가지입니다.\" — 쉼의 위치만 옮겨도 같은 침묵이 완급이 됩니다.")
     elif "fastest" in alignment and spans:
         f = spans[alignment["fastest"]]
         observed = (f"이 대목에서 말이 {f['rate_sps']}음절/초로 급해졌어요: "
                     f"“{f['text']}”")
         interp = "특정 대목에서만 빨라지는 건 그 내용을 빨리 지나가고 싶다는 신호로 들려요."
         sugg = "급해진 그 문장 앞에서 일부러 반 박자 쉬고, 또박또박 다시 말해보세요."
+    elif (rst := alignment.get("restarts")) is not None and rst["count"] >= 2:
+        ex = f" (\"{rst['examples'][0]}\")" if rst.get("examples") else ""
+        observed = f"같은 단어를 반복하며 다시 시작한 대목이 {rst['count']}번 있었어요{ex}"
+        interp = "문장을 되감는 습관은 생각보다 말이 먼저 나갈 때 생겨요 — 듣는 사람은 준비 부족으로 느낄 수 있어요."
+        sugg = ("첫 단어를 뱉기 전에 문장의 끝을 먼저 정하세요. "
+                "\"결론은 ~입니다\"처럼 틀을 정해두면 되감기가 사라집니다.")
     elif lead_in is not None and lead_in > 3:
         observed = f"응답 개시까지 {lead_in}초 — 질문 후 침묵이 길었어요 (권장 2.5초 이내)"
         interp = "첫 마디가 늦어질수록 듣는 사람의 긴장이 올라가고, 답변 준비가 안 된 인상을 줘요."

@@ -347,7 +347,15 @@ def score_voice(metrics: dict) -> float | None:
             3.0 * (jitter - TREMOR_JITTER_FLOOR) + 1.5 * (shimmer - TREMOR_SHIMMER_FLOOR),
         )
 
-    # 긴 침묵 페널티 — 발화 중 1.2초+ 끊김은 청자가 인지한다
-    score -= min(LONG_PAUSE_PENALTY_CAP,
-                 LONG_PAUSE_PENALTY * metrics.get("long_pause_count", 0))
+    # 긴 침묵 페널티 — 위치 인지(전문가 관용 규칙): 문장 사이(종결어미 뒤)의
+    # 1.2~2.5초 쉼은 의도적 완급으로 관용하고, 문장 중간의 끊김과 2.5초+
+    # 데드에어만 감점한다. 정렬(단어 타임스탬프)이 없으면 기존 위치 무차별
+    # 페널티로 폴백 — 하위 호환.
+    pause_quality = (metrics.get("alignment") or {}).get("pause_quality")
+    if pause_quality is not None:
+        score -= min(LONG_PAUSE_PENALTY_CAP,
+                     LONG_PAUSE_PENALTY * pause_quality.get("hesitation_count", 0))
+    else:
+        score -= min(LONG_PAUSE_PENALTY_CAP,
+                     LONG_PAUSE_PENALTY * metrics.get("long_pause_count", 0))
     return clamp(score)
