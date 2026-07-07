@@ -99,6 +99,7 @@ _COMPOSURE_PROBES = [
     ("목소리 떨림", +4.0, lambda nv, vm: vm.get("f0_jitter_pct")),
     ("침묵 비율", +0.15, lambda nv, vm: vm.get("pause_ratio")),
     ("체중 이동", +2.0, lambda nv, vm: nv.get("weight_shift_cm") or None),
+    ("표정 회복 시간", +2.5, lambda nv, vm: nv.get("expr_recover_sec") or None),
 ]
 
 

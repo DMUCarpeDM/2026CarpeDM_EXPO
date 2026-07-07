@@ -63,6 +63,10 @@ interface Accumulator {
   // 지각 확장 — 이미 로드된 모델의 미사용 출력 (새 모델 없음)
   mouthPressFrames: number; // 입술 압축 = 긴장 신호 (blendshape)
   browDownFrames: number; // 찡그림 (blendshape)
+  // ---- 표정 레이어 (관찰 지표) ----
+  duchenneFrames: number; // 미소 + 눈 조임 동시 = 진정성 미소(Duchenne 근사)
+  curTensionStreak: number; // 진행 중인 긴장 표정 연속 프레임
+  tensionStreaks: number[]; // 완료된 긴장 에피소드 길이들 — 표정 복구 시간
   handFaceFrames: number; // 손-얼굴 터치 (무의식 습관, pose 손목)
   armCrossFrames: number; // 팔짱 근사 (pose 손목 교차)
   asymSamples: number[]; // 시선 미세 안정성용 좌우 비대칭 시계열 (보정값)
@@ -114,6 +118,9 @@ const emptyAcc = (): Accumulator => ({
   rollSamples: [],
   mouthPressFrames: 0,
   browDownFrames: 0,
+  duchenneFrames: 0,
+  curTensionStreak: 0,
+  tensionStreaks: [],
   handFaceFrames: 0,
   armCrossFrames: 0,
   asymSamples: [],
@@ -336,6 +343,9 @@ export function useNonverbal(
             // 긴장 신호 (관찰 지표 — 감점 아님): 입술 압축·찡그림. 보수적 임계값
             const mouthPress = ((shapes.mouthPressLeft ?? 0) + (shapes.mouthPressRight ?? 0)) / 2 > 0.45;
             const browDown = ((shapes.browDownLeft ?? 0) + (shapes.browDownRight ?? 0)) / 2 > 0.5;
+            // 진정성 미소(Duchenne 근사): 입꼬리와 눈 조임(eyeSquint)이 동시에 —
+            // 입만 웃는 표정과 눈까지 웃는 표정을 구분한다 (관찰 지표)
+            const eyeSquint = ((shapes.eyeSquintLeft ?? 0) + (shapes.eyeSquintRight ?? 0)) / 2 > 0.3;
 
             // ---- 얼굴 기하: 좌우 비대칭(요), 눈선 각도(갸웃) ----
             let signedAsym: number | null = null;
@@ -637,8 +647,16 @@ export function useNonverbal(
               if (blink && !acc.blinkActive) acc.blinkCount += 1;
               acc.blinkActive = blink;
               if (smile) acc.smileFrames += 1;
+              if (smile && eyeSquint) acc.duchenneFrames += 1;
               if (mouthPress) acc.mouthPressFrames += 1;
               if (browDown) acc.browDownFrames += 1;
+              // 긴장 에피소드 추적 — 표정이 굳었다가 풀리기까지의 시간
+              if (mouthPress || browDown) {
+                acc.curTensionStreak += 1;
+              } else {
+                if (acc.curTensionStreak >= 2) acc.tensionStreaks.push(acc.curTensionStreak);
+                acc.curTensionStreak = 0;
+              }
               if (handFace) acc.handFaceFrames += 1;
               if (armCross) acc.armCrossFrames += 1;
               if (rollAdj !== null) acc.rollSamples.push(rollAdj);
@@ -769,6 +787,19 @@ export function useNonverbal(
         : 0,
       mouth_press_ratio: Math.round((acc.mouthPressFrames / acc.frames) * 100) / 100,
       brow_down_ratio: Math.round((acc.browDownFrames / acc.frames) * 100) / 100,
+      // 진정성 미소 비율: 미소 프레임 중 눈까지 웃은 비율 (표본 8프레임 미만 = 보류)
+      smile_genuine_ratio: acc.smileFrames >= 8
+        ? Math.round((acc.duchenneFrames / acc.smileFrames) * 100) / 100
+        : null,
+      // 표정 복구: 긴장 에피소드(입술 압축/찡그림 연속)의 평균 지속 시간 (초)
+      expr_recover_sec: (() => {
+        const streaks = [...acc.tensionStreaks];
+        if (acc.curTensionStreak >= 2) streaks.push(acc.curTensionStreak);
+        return streaks.length
+          ? Math.round((mean(streaks) * SAMPLE_MS) / 100) / 10
+          : 0;
+      })(),
+      tension_episodes: acc.tensionStreaks.length + (acc.curTensionStreak >= 2 ? 1 : 0),
       hand_face_sec: Math.round((acc.handFaceFrames * SAMPLE_MS) / 100) / 10,
       arm_cross_ratio: Math.round((acc.armCrossFrames / acc.frames) * 100) / 100,
       gaze_dirs: { ...acc.offDirs },

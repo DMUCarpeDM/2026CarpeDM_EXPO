@@ -575,11 +575,22 @@ def _habit_segments(session: RoleplaySession) -> list[dict]:
             "발을 어깨너비로 두고 무게를 양발에 고정해보세요. 하체가 고요하면 상체는 자유로워집니다.",
         ))
 
-    # 미소 타이밍: 압박 질문 중의 미소는 당황·비웃음으로 오해될 수 있다
+    # 미소 타이밍 × 진정성: 압박 중의 미소는 진정성 여부에 따라 다르게 읽힌다
     pressure_turns = [t for t in turns if t.question_type == "pressure"]
     if pressure_turns:
         smile = sum(t.nonverbal_metrics.get("smile_ratio", 0) for t in pressure_turns) / len(pressure_turns)
-        if smile >= 0.35:
+        genuine_vals = [
+            g for t in pressure_turns
+            if (g := t.nonverbal_metrics.get("smile_genuine_ratio")) is not None
+        ]
+        genuine = sum(genuine_vals) / len(genuine_vals) if genuine_vals else None
+        if smile >= 0.35 and genuine is not None and genuine < 0.3:
+            segs.append(seg(
+                "압박 질문 동안 입가에만 머무는 미소가 길게 유지됐어요.",
+                "긴장을 가리려는 자연스러운 방어지만, 상대에게는 상황을 가볍게 넘기려는 신호로 오해될 수 있어요.",
+                "지적을 들을 때는 표정을 잠시 중립으로 두세요 — 미소는 답변을 시작하는 순간에 꺼내면 훨씬 진심으로 전달돼요.",
+            ))
+        elif smile >= 0.35:
             segs.append(seg(
                 "압박 질문을 받는 동안 미소 표정이 길게 유지됐어요.",
                 "긴장을 풀려는 자연스러운 반응이지만, 심각한 상황에서는 가볍게 넘긴다는 오해를 살 수 있어요.",
@@ -593,6 +604,18 @@ def _habit_segments(session: RoleplaySession) -> list[dict]:
                 "지적 앞에서 표정이 유지되는 건 신뢰를 주는 강점이에요.",
                 "이 안정감을 유지하면서, 답변 첫 문장에 인정 표현을 얹으면 완성이에요.",
             ))
+
+    # 표정 복구: 긴장이 표정에 오래 머무는가 (평균 에피소드 4초+ & 반복)
+    recover = [
+        t.nonverbal_metrics.get("expr_recover_sec", 0)
+        for t in turns if t.nonverbal_metrics.get("tension_episodes", 0) >= 1
+    ]
+    if len(recover) >= 2 and sum(recover) / len(recover) >= 4.0:
+        segs.append(seg(
+            f"긴장한 표정이 한 번 나타나면 평균 {sum(recover) / len(recover):.0f}초간 유지됐어요.",
+            "긴장 자체보다 '풀리지 않는 긴장'이 상대에게 부담을 줘요 — 표정이 굳은 채 말이 이어지는 패턴이에요.",
+            "답변 사이에 숨을 한 번 내쉬며 입술 힘을 풀어보세요. 표정이 풀리는 순간 목소리도 함께 풀립니다.",
+        ))
 
     return segs[:2]  # 과잉 지적 방지 — 가장 중요한 것만
 

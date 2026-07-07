@@ -70,6 +70,9 @@ export interface NonverbalMetrics {
   head_roll_deg: number; // 고개 갸웃(눈선 각도) 평균 편차
   mouth_press_ratio: number; // 입술 압축(긴장) 프레임 비율 — 관찰 지표
   brow_down_ratio: number; // 찡그림 프레임 비율 — 관찰 지표
+  smile_genuine_ratio: number | null; // 진정성 미소(Duchenne 근사) 비율
+  expr_recover_sec: number; // 긴장 표정 에피소드 평균 지속 (표정 복구 시간)
+  tension_episodes: number; // 긴장 에피소드 횟수
   hand_face_sec: number; // 손-얼굴 터치 누적 초 (무의식 습관)
   arm_cross_ratio: number; // 팔짱 자세 프레임 비율 (무의식 습관)
   gaze_dirs: Record<'down' | 'up' | 'left' | 'right', number>; // 시선 이탈 방향 분포
