@@ -115,6 +115,14 @@ class NonverbalIn(BaseModel):
     gaze_stability: float = 0.0  # 정면 내 시선 흔들림 표준편차 (스캐닝 습관)
     gaze_recover_sec: float = 0.0  # 이탈 후 정면 복귀 평균 시간 (회복 탄력)
     lean_drift_pct: float = 0.0  # 후반 어깨폭 변화 % (+ 다가옴 / - 물러남)
+    # ---- Posture 마스터 ③: 3D 월드·제스처·전신 (관찰 지표 — 감점 없음) ----
+    world_ratio: float = 0.0  # 3D 월드(거리 불변) 기울기 가동 비율
+    gesture_energy: float | None = None  # 손목 평균 속도 m/s (표본 5초 미만 보류)
+    gesture_active_ratio: float | None = None  # 움직인(>0.1m/s) 표본 비율 — 경직 감지
+    hands_visible_ratio: float = 0.0  # 손목 가시 프레임 비율 (경직 판정 게이트)
+    hip_sway: float | None = None  # 골반 좌우 흔들림(어깨너비 정규화 std) — 체중 이동
+    lower_visible_ratio: float = 0.0  # 무릎 가시 비율 — 스탠딩/데스크 구분
+    guard_dropped_frames: int = 0  # 다인 가드 제외 프레임 (측정 투명성)
     calibrated: bool = False  # 정면 기준 캘리브레이션 적용 여부
     tips: list[str] = []  # 턴 중 발생한 실시간 코칭 (S-JKEYHS 리포트 연동)
 

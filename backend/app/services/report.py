@@ -558,7 +558,8 @@ def _gaze_map(session: RoleplaySession) -> dict | None:
 
 
 def _habit_segments(session: RoleplaySession) -> list[dict]:
-    """무의식 습관 카드 — 지각 확장 지표(손-얼굴·팔짱·긴장 표정·미소 타이밍·진정성 미소).
+    """무의식 습관 카드 — 지각 확장 지표(손-얼굴·팔짱·제스처 경직/과다·체중 이동·
+    긴장 표정·미소 타이밍·진정성 미소).
 
     체험자가 가장 놀라는 종류의 피드백. 보수적 임계값으로 확실할 때만 말하고,
     감점이 아니라 관찰로 전달한다. 데이터 없으면 카드도 없다.
@@ -590,6 +591,48 @@ def _habit_segments(session: RoleplaySession) -> list[dict]:
             f"발화 시간의 약 {round(sum(arm) / len(arm) * 100)}%에서 팔짱 자세가 관찰됐어요.",
             "팔짱은 본인은 편해도 상대에게는 방어적·평가적 태도로 보일 수 있어요.",
             "손을 풀어 가볍게 모으면 개방적인 인상으로 바뀌어요.",
+        ))
+
+    # ---- Posture 마스터 ③: 제스처·전신 관찰 (표본 부족 턴은 프론트가 null 보류) ----
+    # 경직: 손이 화면에 있는데(가시 게이트) 거의 움직이지 않음 — 아무도 안 잡는 축.
+    # 임계값은 실기기 보정 전 보수치 (demo-checklist §2.5)
+    gest_active = [
+        v for t in turns
+        if (v := t.nonverbal_metrics.get("gesture_active_ratio")) is not None
+    ]
+    hands_vis = [t.nonverbal_metrics.get("hands_visible_ratio", 0) for t in turns]
+    total_frames = sum(t.nonverbal_metrics.get("frames", 0) for t in turns)
+    if gest_active and total_frames >= 150 and sum(hands_vis) / len(hands_vis) >= 0.5:
+        active = sum(gest_active) / len(gest_active)
+        energies = [
+            v for t in turns
+            if (v := t.nonverbal_metrics.get("gesture_energy")) is not None
+        ]
+        energy = sum(energies) / len(energies) if energies else 0.0
+        if active <= 0.05:
+            segs.append(seg(
+                "답변 내내 손이 화면에 있었지만 거의 움직이지 않았어요.",
+                "긴장하면 말보다 몸이 먼저 얼어요 — 지나친 부동자세는 경직된 인상을 줄 수 있어요.",
+                "핵심 문장 하나에서만 손바닥을 펴 보이는 제스처를 써보세요. 하나면 충분합니다.",
+            ))
+        elif energy >= 0.5 and active >= 0.7:
+            segs.append(seg(
+                "말하는 동안 손동작이 거의 쉬지 않고 이어졌어요.",
+                "제스처는 강조를 돕지만, 계속되면 듣는 사람의 시선이 손으로 분산돼요.",
+                "숫자나 순서를 말할 때만 손을 쓰고, 나머지 구간에는 손을 내려두세요.",
+            ))
+
+    # 체중 이동: 서 있는 동안 골반 중심이 좌우로 오감 (하체가 보일 때만 판정)
+    sways = [
+        v for t in turns
+        if (v := t.nonverbal_metrics.get("hip_sway")) is not None
+        and t.nonverbal_metrics.get("lower_visible_ratio", 0) >= 0.5
+    ]
+    if sways and sum(sways) / len(sways) >= 0.1:
+        segs.append(seg(
+            "서 있는 동안 무게중심이 좌우로 자주 이동했어요.",
+            "본인은 느끼지 못해도, 흔들리는 하체는 듣는 사람에게 불안한 인상으로 이어질 수 있어요.",
+            "양발을 어깨너비로 두고 체중을 고르게 실어보세요. 하체가 고정되면 목소리도 안정돼요.",
         ))
 
     press = [t.nonverbal_metrics.get("mouth_press_ratio", 0) for t in turns]

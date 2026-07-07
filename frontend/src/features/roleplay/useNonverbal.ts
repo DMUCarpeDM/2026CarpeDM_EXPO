@@ -83,6 +83,15 @@ interface Accumulator {
   answerStartedAt: number; // 답변 페이즈 시작 시각 — 개시 회피 관용 측정
   onsetOffFrames: number; // 답변 개시 직후 유예 구간의 이탈 프레임
   gazeZones: number[]; // 3×3 시선 존 (행: 위/중/아래 × 열: 좌/중/우)
+  // ---- Posture 마스터 (③): 3D 월드·제스처·전신 — 전부 감점 없는 관찰 지표 ----
+  worldFrames: number; // 3D 월드 랜드마크로 기울기를 계산한 프레임 (능력 플래그)
+  gestureDistSum: number; // 손목 이동 거리 합 (m, 월드 좌표 = 골반 원점)
+  gestureSamples: number; // 손목 변위 표본 수 (양손 각각)
+  gestureActive: number; // 이동 속도 0.1m/s 초과 표본 (제스처 활동)
+  handSeenFrames: number; // 손목이 하나라도 보인 프레임
+  hipXs: number[]; // 골반 중심 x(어깨너비 정규화) 시계열 — 체중 이동 습관
+  lowerVisFrames: number; // 무릎이 보인 프레임 (서 있는 미러 vs 책상 웹 구분)
+  guardFrames: number; // 다인 가드로 자세 집계를 건너뛴 프레임
   // 교차 분석용 2초 빈 타임라인 — 영상이 아니라 빈당 집계 숫자 3개만 (프라이버시 유지)
   turnStartedAt: number;
   bins: { frames: number; front: number; press: number; tiltSum: number }[];
@@ -125,6 +134,14 @@ const emptyAcc = (): Accumulator => ({
   answerStartedAt: 0,
   onsetOffFrames: 0,
   gazeZones: [0, 0, 0, 0, 0, 0, 0, 0, 0],
+  worldFrames: 0,
+  gestureDistSum: 0,
+  gestureSamples: 0,
+  gestureActive: 0,
+  handSeenFrames: 0,
+  hipXs: [],
+  lowerVisFrames: 0,
+  guardFrames: 0,
   turnStartedAt: 0,
   bins: [],
   tips: [],
@@ -273,6 +290,10 @@ export function useNonverbal(
         if (cancelled) return;
         setVisionStatus('ready');
 
+        // 프레임 간 연속 추적 상태 (턴과 무관): 제스처 변위·다인 가드용
+        const prevWrists: Record<'l' | 'r', [number, number, number] | null> = { l: null, r: null };
+        let prevPerson: { x: number; w: number } | null = null;
+
         timer = setInterval(() => {
           const video = videoRef.current;
           if (!video || video.readyState < 2) return;
@@ -355,14 +376,45 @@ export function useNonverbal(
             let shoulderWidth: number | null = null;
             let handFace = false;
             let armCross = false;
+            let worldUsed = false; // 3D 월드 기울기 사용 여부 (능력 플래그)
+            let handSeen = false;
+            let lowerVisible = false;
+            let hipX: number | null = null;
+            let personUnstable = false;
+            const wlm = poseResult.worldLandmarks?.[0];
+            // 가시성 신뢰 게이트: 미러 환경에서 하반신·가려진 관절의 추정 잡음 차단
+            const vis = (p?: { visibility?: number }) => !!p && (p.visibility ?? 1) > 0.5;
             if (plm) {
               const ls = plm[11];
               const rs = plm[12];
               const noseP = plm[0];
               const width = Math.abs(ls.x - rs.x);
-              if (width > 0.05) {
+
+              // 다인 가드: 어깨 중심·폭이 한 샘플(200ms) 만에 급변하면 추적 대상이
+              // 바뀐 것(관람객 난입·스침)일 수 있다 → 이 프레임의 자세 집계를 폐기
+              const centerRaw = (ls.x + rs.x) / 2;
+              if (prevPerson && (Math.abs(centerRaw - prevPerson.x) > 0.18
+                  || width > prevPerson.w * 1.6 || width < prevPerson.w / 1.6)) {
+                personUnstable = true;
+                prevWrists.l = null;
+                prevWrists.r = null;
+                if (runningRef.current) acc.guardFrames += 1;
+              }
+              prevPerson = { x: centerRaw, w: width };
+
+              if (width > 0.05 && !personUnstable) {
                 shoulderWidth = width; // 앞/뒤 리닝 추세용 (커지면 몸이 카메라 쪽으로)
-                tiltRaw = (Math.atan2(Math.abs(ls.y - rs.y), width) * 180) / Math.PI;
+                // 3D 월드 랜드마크(미터·골반 원점): 거리 불변 + 몸이 비스듬히 서도(yaw)
+                // 어깨선 기울기가 왜곡되지 않게 수평 성분에 z를 포함. 없으면 2D 폴백
+                const wls = wlm?.[11];
+                const wrs = wlm?.[12];
+                if (wls && wrs && vis(wls) && vis(wrs)) {
+                  tiltRaw = (Math.atan2(Math.abs(wls.y - wrs.y),
+                    Math.hypot(wls.x - wrs.x, wls.z - wrs.z) + 1e-6) * 180) / Math.PI;
+                  worldUsed = true;
+                } else {
+                  tiltRaw = (Math.atan2(Math.abs(ls.y - rs.y), width) * 180) / Math.PI;
+                }
                 headGap = ((ls.y + rs.y) / 2 - noseP.y) / width;
                 shoulderX = ((ls.x + rs.x) / 2) / width;
 
@@ -381,6 +433,36 @@ export function useNonverbal(
                     && lw.y > shoulderY && rw.y > shoulderY
                     && Math.abs(lw.y - rw.y) < width * 0.4;
                 }
+
+                // ---- 제스처 에너지 (월드 좌표 손목, m/s): 경직↔과다의 양끝 관찰 ----
+                // 월드 좌표는 골반 원점이라 몸 전체의 이동·카메라 흔들림과 무관하게
+                // '몸에 대한 손의 움직임'만 잰다. 월드가 없으면 보류(null 페이로드)
+                for (const [side, wi] of [['l', 15], ['r', 16]] as const) {
+                  const w = wlm?.[wi];
+                  if (w && vis(w)) {
+                    handSeen = true;
+                    const prevW = prevWrists[side];
+                    if (prevW && runningRef.current) {
+                      const d = Math.hypot(w.x - prevW[0], w.y - prevW[1], w.z - prevW[2]);
+                      if (d < 0.5) { // 0.5m/샘플(2.5m/s) 초과 변위는 추적 글리치 → 폐기
+                        acc.gestureDistSum += d;
+                        acc.gestureSamples += 1;
+                        if (d > 0.02) acc.gestureActive += 1; // 0.1 m/s 초과 = 활동
+                      }
+                    }
+                    prevWrists[side] = [w.x, w.y, w.z];
+                  } else {
+                    prevWrists[side] = null; // 가림 후 재등장 시 점프 변위 방지
+                  }
+                }
+
+                // ---- 전신: 골반 스웨이(체중 이동 습관)·하체 가시성 ----
+                const lh = plm[23];
+                const rh = plm[24];
+                if (vis(lh) && vis(rh)) {
+                  hipX = ((lh.x + rh.x) / 2) / width;
+                }
+                lowerVisible = vis(plm[25]) && vis(plm[26]); // 무릎 — 서 있는 미러 감지
               }
             }
 
@@ -523,6 +605,10 @@ export function useNonverbal(
                 acc.asymSamples.push(base.set ? signedAsym - base.asym : signedAsym);
               }
               if (shoulderWidth !== null) acc.shoulderWidths.push(shoulderWidth);
+              if (worldUsed) acc.worldFrames += 1;
+              if (handSeen) acc.handSeenFrames += 1;
+              if (lowerVisible) acc.lowerVisFrames += 1;
+              if (hipX !== null) acc.hipXs.push(hipX);
               acc.lastFront = front;
               if (blink && !acc.blinkActive) acc.blinkCount += 1;
               acc.blinkActive = blink;
@@ -735,6 +821,25 @@ export function useNonverbal(
         const h = Math.floor(w.length / 2);
         return Math.round((mean(w.slice(h)) / mean(w.slice(0, h)) - 1) * 100);
       })(),
+      // ---- Posture 마스터 (③): 3D 월드·제스처·전신 — 관찰 지표 (감점 없음) ----
+      // 3D 월드 기울기 가동률 — 리포트가 '거리 불변 측정'인지 밝힐 근거 (iris_ratio와 동형)
+      world_ratio: Math.round((acc.worldFrames / acc.frames) * 100) / 100,
+      // 제스처 에너지: 손목 평균 속도(m/s, 골반 원점 월드 좌표). 표본 5초 미만 보류
+      gesture_energy: acc.gestureSamples >= 25
+        ? Math.round((acc.gestureDistSum / (acc.gestureSamples * (SAMPLE_MS / 1000))) * 1000) / 1000
+        : null,
+      // 제스처 활동 비율: 실제로 움직인(>0.1m/s) 표본 비율 — 경직(얼어 있음) 감지 근거
+      gesture_active_ratio: acc.gestureSamples >= 25
+        ? Math.round((acc.gestureActive / acc.gestureSamples) * 100) / 100
+        : null,
+      hands_visible_ratio: Math.round((acc.handSeenFrames / acc.frames) * 100) / 100,
+      // 골반 중심 좌우 흔들림(어깨너비 정규화 표준편차) — 서서 체중을 옮기는 습관
+      hip_sway: acc.hipXs.length >= 25
+        ? Math.round(stdDev(acc.hipXs) * 1000) / 1000
+        : null,
+      lower_visible_ratio: Math.round((acc.lowerVisFrames / acc.frames) * 100) / 100,
+      // 다인 가드가 자세 집계에서 제외한 프레임 수 (측정 투명성)
+      guard_dropped_frames: acc.guardFrames,
       calibrated: baselineRef.current.set,
       tips: acc.tips,
     };

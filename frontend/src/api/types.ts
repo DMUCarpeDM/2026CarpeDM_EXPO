@@ -87,6 +87,14 @@ export interface NonverbalMetrics {
   gaze_stability: number; // 정면 내 시선 흔들림 표준편차 (스캐닝 습관)
   gaze_recover_sec: number; // 이탈 후 정면 복귀 평균 시간 (회복 탄력)
   lean_drift_pct: number; // 후반 어깨폭 변화 % (+는 다가옴, -는 물러남)
+  // ---- Posture 마스터 ③: 3D 월드·제스처·전신 (관찰 지표) ----
+  world_ratio: number; // 3D 월드 랜드마크(거리 불변) 기울기 가동 프레임 비율
+  gesture_energy: number | null; // 손목 평균 속도 m/s (골반 원점 월드) — 표본 5초 미만 null
+  gesture_active_ratio: number | null; // 움직인(>0.1m/s) 표본 비율 — 경직 감지 근거
+  hands_visible_ratio: number; // 손목이 보인 프레임 비율 (경직 판정의 게이트)
+  hip_sway: number | null; // 골반 중심 좌우 흔들림(어깨너비 정규화 std) — 체중 이동 습관
+  lower_visible_ratio: number; // 무릎 가시 비율 — 서 있는 미러 vs 책상 웹 구분
+  guard_dropped_frames: number; // 다인 가드로 자세 집계에서 제외된 프레임
   calibrated: boolean; // 정면 기준 캘리브레이션 적용 여부
   tips: string[]; // 턴 중 발생한 실시간 코칭 문구
 }

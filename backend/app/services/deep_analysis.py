@@ -99,6 +99,9 @@ _COMPOSURE_PROBES = [
     # 표정 복구(마스터리 ⑤): 긴장 표정이 풀리기까지의 평균 초 — 압박에서 0.8초 이상
     # 길어지면 '표정이 오래 굳는' 반응. 구 페이로드에는 키가 없어 자동 제외된다.
     ("표정 복구 시간", +0.8, lambda nv, vm: nv.get("expr_recover_sec")),
+    # 제스처 위축(마스터리 ③): 압박에서 손목 평균 속도(m/s)가 0.1 이상 급감 =
+    # 몸이 얼어붙는 반응. 관찰 전용 지표의 교차 소비 — 점수에는 미반영.
+    ("제스처 위축", -0.1, lambda nv, vm: nv.get("gesture_energy")),
     ("목소리 떨림", +4.0, lambda nv, vm: vm.get("f0_jitter_pct")),
     ("침묵 비율", +0.15, lambda nv, vm: vm.get("pause_ratio")),
 ]
