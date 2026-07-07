@@ -2869,3 +2869,29 @@ h2 .icon {
   padding: 1px 8px;
   border-radius: var(--r-full);
 }
+
+/* ---- 시선 지도: 3×3 히트맵 ---- */
+.gaze-map {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  aspect-ratio: 4 / 3;
+  max-width: 220px;
+}
+
+.gaze-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 0.68rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.gaze-cell.center {
+  outline: 1px solid var(--accent-strong);
+  outline-offset: 1px;
+}

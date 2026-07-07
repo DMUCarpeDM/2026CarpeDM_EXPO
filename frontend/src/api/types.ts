@@ -83,7 +83,13 @@ export interface NonverbalMetrics {
   onset_aversion_sec: number; // 답변 개시 2.5초 유예 구간의 시선 회피 (감점 제외 근거)
   gaze_zones: number[]; // 3×3 시선 존 분포 (위/중/아래 × 좌/중/우)
   // 교차 분석용 2초 빈 타임라인 — 빈당 집계 숫자만 (영상·좌표 미전송)
-  timeline: { t: number; front: number | null; press: number | null; tilt: number | null }[];
+  timeline: {
+    t: number;
+    front: number | null;
+    press: number | null;
+    tilt: number | null;
+    blink: number | null;
+  }[];
   gaze_stability: number; // 정면 내 시선 흔들림 표준편차 (스캐닝 습관)
   gaze_recover_sec: number; // 이탈 후 정면 복귀 평균 시간 (회복 탄력)
   lean_drift_pct: number; // 후반 어깨폭 변화 % (+는 다가옴, -는 물러남)
@@ -207,6 +213,8 @@ export interface Report {
       title: string;
       rows: { fit: string; label: string; top_pct: number; n: number }[];
     };
+    // 시선 지도: 3×3 존 비율 (행 우선: 위/중/아래 × 좌/중/우)
+    gaze_map?: { cells: number[]; frames: number; center_pct: number };
     // 재방문 성장 델타
     growth?: { from: string; to: string; improved: boolean; comment: string };
   };

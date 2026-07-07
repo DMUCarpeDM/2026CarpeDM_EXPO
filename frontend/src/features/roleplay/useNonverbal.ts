@@ -28,8 +28,12 @@ const HEAD_DOWN_ABS_THRESHOLD = 0.3;
 // 정면이다 — 머리 비대칭만 보던 v1의 구조적 오판을 홍채 추적으로 보상한다.
 const IRIS_R = 468; // 홍채 중심 (영상 좌표 기준 각 눈의 5점 중 중심)
 const IRIS_L = 473;
-const EYE_R = { inner: 133, outer: 33 }; // 오른눈 안/바깥 꼬리
-const EYE_L = { inner: 362, outer: 263 };
+const EYE_R = { inner: 133, outer: 33, top: 159, bottom: 145 }; // 눈꼬리 + 눈꺼풀
+const EYE_L = { inner: 362, outer: 263, top: 386, bottom: 374 };
+// 수직 홍채: 블렌드셰이프와의 합의/구제 임계 (깜빡임 중에는 눈꺼풀 랜드마크가
+// 무너지므로 사용하지 않는다)
+const EYE_Y_CENTER = 0.06; // |편차| 이하 = 확실한 중앙 → 블렌드셰이프 오판 구제
+const EYE_Y_CONFIRM = 0.18; // 편차 이상 + 블렌드셰이프 경향 동의 = 상하 이탈 보강
 // 눈-머리 편향을 머리 비대칭 스케일로 환산하는 계수 (홍채 가동폭 ~±0.35)
 const EYE_COMP_GAIN = 0.8;
 const EYE_COMP_CLAMP = 0.18; // 보상 상한 — 보상이 판정을 뒤집는 폭주 방지
@@ -83,9 +87,9 @@ interface Accumulator {
   answerStartedAt: number; // 답변 페이즈 시작 시각 — 개시 회피 관용 측정
   onsetOffFrames: number; // 답변 개시 직후 유예 구간의 이탈 프레임
   gazeZones: number[]; // 3×3 시선 존 (행: 위/중/아래 × 열: 좌/중/우)
-  // 교차 분석용 2초 빈 타임라인 — 영상이 아니라 빈당 집계 숫자 3개만 (프라이버시 유지)
+  // 교차 분석용 2초 빈 타임라인 — 영상이 아니라 빈당 집계 숫자만 (프라이버시 유지)
   turnStartedAt: number;
-  bins: { frames: number; front: number; press: number; tiltSum: number }[];
+  bins: { frames: number; front: number; press: number; tiltSum: number; blink: number }[];
   // ---- Posture 마스터: 3D 월드 랜드마크 기반 (미터 단위, 거리 불변) ----
   torsoLeanSamples: number[]; // 몸통 수직 정렬 편차 (deg, 기준 보정)
   hipXs: number[]; // 골반 중심 x (m) — 좌우 체중 이동
@@ -166,12 +170,13 @@ interface Baseline {
   headGap: number | null; // 코-어깨 수직 거리 / 어깨너비
   roll: number; // 평상시 눈선 각도
   eyeX: number | null; // 정면 응시 때의 홍채 수평 편향 (개인별 눈 정렬 보정)
+  eyeY: number | null; // 정면 응시 때의 홍채 수직 편향 (눈꺼풀 사이 위치 보정)
   torsoLean: number | null; // 평상시 몸통 수직 정렬 각 (3D, 개인 중립 자세 보정)
   shoulderWidthM: number | null; // 어깨 폭(m) — 사람 고유값, 난입 가드 기준
 }
 
 const emptyBaseline = (): Baseline => ({
-  set: false, asym: 0, tilt: 0, headGap: null, roll: 0, eyeX: null,
+  set: false, asym: 0, tilt: 0, headGap: null, roll: 0, eyeX: null, eyeY: null,
   torsoLean: null, shoulderWidthM: null,
 });
 
@@ -224,8 +229,11 @@ export function useNonverbal(
   const calibratingRef = useRef(false);
   const calibSamplesRef = useRef<{
     asym: number[]; tilt: number[]; headGap: number[]; roll: number[]; eyeX: number[];
-    torsoLean: number[]; shoulderWidthM: number[];
-  }>({ asym: [], tilt: [], headGap: [], roll: [], eyeX: [], torsoLean: [], shoulderWidthM: [] });
+    eyeY: number[]; torsoLean: number[]; shoulderWidthM: number[];
+  }>({
+    asym: [], tilt: [], headGap: [], roll: [], eyeX: [], eyeY: [],
+    torsoLean: [], shoulderWidthM: [],
+  });
   // 제스처 에너지: 직전 프레임 손목 월드 좌표 (속도 계산용)
   const prevWristsRef = useRef<{ l: [number, number, number] | null; r: [number, number, number] | null }>({
     l: null, r: null,
@@ -351,6 +359,7 @@ export function useNonverbal(
             let signedAsym: number | null = null;
             let rollDeg: number | null = null;
             let eyeInHeadX: number | null = null; // 홍채 수평 편향 (0=정중앙)
+            let eyeInHeadY: number | null = null; // 홍채 수직 편향 (+=아래)
             if (lm) {
               const nose = lm[1];
               const left = lm[234];
@@ -362,7 +371,7 @@ export function useNonverbal(
               const re = lm[263];
               rollDeg = (Math.atan2(re.y - le.y, Math.abs(re.x - le.x) + 1e-6) * 180) / Math.PI;
 
-              // ---- 홍채: 눈-머리(eye-in-head) 수평 시선 ----
+              // ---- 홍채: 눈-머리(eye-in-head) 수평·수직 시선 ----
               // 각 눈에서 홍채 중심이 안쪽↔바깥쪽 꼬리 사이 어디에 있는지(0~1)를
               // 양안 대칭 결합해 부호 있는 편향으로 만든다. 두 비율의 차는 머리
               // 회전에 둔감하고 안구 회전에 민감하다.
@@ -374,6 +383,18 @@ export function useNonverbal(
                 const lX = ratio(lm[IRIS_L], lm[EYE_L.inner], lm[EYE_L.outer]);
                 if (rX > -0.5 && rX < 1.5 && lX > -0.5 && lX < 1.5) {
                   eyeInHeadX = (rX - lX) / 2;
+                }
+                // 수직: 홍채가 위/아래 눈꺼풀 사이 어디에 있는지 (+ = 아래).
+                // 깜빡임 중에는 눈꺼풀 랜드마크가 무너지므로 사용하지 않는다.
+                if (!blink) {
+                  const vratio = (
+                    iris: { y: number }, top: { y: number }, bottom: { y: number },
+                  ) => (iris.y - top.y) / ((bottom.y - top.y) || 1e-6);
+                  const rY = vratio(lm[IRIS_R], lm[EYE_R.top], lm[EYE_R.bottom]);
+                  const lY = vratio(lm[IRIS_L], lm[EYE_L.top], lm[EYE_L.bottom]);
+                  if (rY > -0.5 && rY < 1.5 && lY > -0.5 && lY < 1.5) {
+                    eyeInHeadY = (rY + lY) / 2 - 0.5;
+                  }
                 }
               }
             }
@@ -502,6 +523,7 @@ export function useNonverbal(
               if (headGap !== null) cal.headGap.push(headGap);
               if (rollDeg !== null) cal.roll.push(rollDeg);
               if (eyeInHeadX !== null) cal.eyeX.push(eyeInHeadX);
+              if (eyeInHeadY !== null) cal.eyeY.push(eyeInHeadY);
               if (torsoLeanRaw !== null) cal.torsoLean.push(torsoLeanRaw);
               if (shoulderWidthM !== null && !personGuardSkip) {
                 cal.shoulderWidthM.push(shoulderWidthM);
@@ -538,12 +560,28 @@ export function useNonverbal(
                 }
               }
 
+              // 상하 판정: 블렌드셰이프 + 수직 홍채의 합의/구제 (깜빡임 게이트는
+              // eyeInHeadY 계산 단계에서 이미 적용됨)
+              let downJudge = eyeDown > 0.55;
+              let upJudge = eyeUp > 0.55;
+              if (eyeInHeadY !== null && base.eyeY !== null) {
+                const eyeYDelta = eyeInHeadY - base.eyeY;
+                // 구제: 홍채가 확실히 중앙이면 블렌드셰이프 오판을 취소
+                if (Math.abs(eyeYDelta) < EYE_Y_CENTER) {
+                  downJudge = false;
+                  upJudge = false;
+                }
+                // 보강: 두 신호가 같은 방향으로 동의할 때만 임계를 낮춘다 (합의 요건)
+                if (eyeDown > 0.35 && eyeYDelta > EYE_Y_CONFIRM) downJudge = true;
+                if (eyeUp > 0.35 && eyeYDelta < -EYE_Y_CONFIRM) upJudge = true;
+              }
+
               if (offDir === null) {
                 if (Math.abs(gazeX) >= yawThreshold) {
                   offDir = gazeX > 0 ? 'right' : 'left';
-                } else if (eyeDown > 0.55) {
+                } else if (downJudge) {
                   offDir = 'down'; // 머리는 정면, 눈동자만 아래 (대본 읽기 패턴)
-                } else if (eyeUp > 0.55) {
+                } else if (upJudge) {
                   offDir = 'up';
                 }
               }
@@ -603,27 +641,30 @@ export function useNonverbal(
                 }
               }
 
-              // 3×3 시선 존 (행: 위/중/아래 × 열: 좌/중/우) — 시선 분포 지도
+              // 3×3 시선 존 (행: 위/중/아래 × 열: 좌/중/우) — 시선 분포 지도.
+              // 상하 행은 합의/구제를 거친 판정(offDir)을 그대로 쓴다 — 존과 이탈
+              // 판정이 서로 다른 말을 하지 않게 (일관성)
               {
                 const col = gazeX === null ? 1 : gazeX < -0.15 ? 0 : gazeX > 0.15 ? 2 : 1;
-                const row = eyeUp > 0.45 ? 0 : eyeDown > 0.45 || headDown ? 2 : 1;
+                const row = offDir === 'up' ? 0 : offDir === 'down' || headDown ? 2 : 1;
                 acc.gazeZones[row * 3 + col] += 1;
               }
 
-              // 교차 분석 타임라인 — 2초 빈당 집계 3개 (영상·좌표는 전송하지 않는다)
+              // 교차 분석 타임라인 — 2초 빈당 집계 (영상·좌표는 전송하지 않는다)
               if (acc.turnStartedAt) {
                 const binIdx = Math.min(
                   TIMELINE_MAX_BINS - 1,
                   Math.floor((Date.now() - acc.turnStartedAt) / TIMELINE_BIN_MS),
                 );
                 while (acc.bins.length <= binIdx) {
-                  acc.bins.push({ frames: 0, front: 0, press: 0, tiltSum: 0 });
+                  acc.bins.push({ frames: 0, front: 0, press: 0, tiltSum: 0, blink: 0 });
                 }
                 const bin = acc.bins[binIdx];
                 bin.frames += 1;
                 if (front) bin.front += 1;
                 if (mouthPress) bin.press += 1;
                 if (tiltAdj !== null) bin.tiltSum += tiltAdj;
+                if (blink && !acc.blinkActive) bin.blink += 1; // 깜빡임 '시작'만 카운트
               }
 
               if (signedAsym !== null) {
@@ -697,7 +738,8 @@ export function useNonverbal(
   /** 브리핑 표시 중 호출 — 정면 기준값 수집 시작 */
   const startCalibration = useCallback(() => {
     calibSamplesRef.current = {
-      asym: [], tilt: [], headGap: [], roll: [], eyeX: [], torsoLean: [], shoulderWidthM: [],
+      asym: [], tilt: [], headGap: [], roll: [], eyeX: [], eyeY: [],
+      torsoLean: [], shoulderWidthM: [],
     };
     calibratingRef.current = true;
   }, []);
@@ -715,6 +757,7 @@ export function useNonverbal(
         roll: cal.roll.length >= 4 ? median(cal.roll) : 0,
         // 홍채 기준은 표본 분산까지 확인 — 흔들리는 표본으로 보상하면 오판을 만든다
         eyeX: cal.eyeX.length >= 4 && stdDev(cal.eyeX) < 0.08 ? median(cal.eyeX) : null,
+        eyeY: cal.eyeY.length >= 4 && stdDev(cal.eyeY) < 0.08 ? median(cal.eyeY) : null,
         // 3D 몸통 기준: 개인 중립 자세 + 어깨 폭(난입 가드 기준값)
         torsoLean: cal.torsoLean.length >= 4 ? median(cal.torsoLean) : null,
         shoulderWidthM: cal.shoulderWidthM.length >= 4 ? median(cal.shoulderWidthM) : null,
@@ -825,13 +868,15 @@ export function useNonverbal(
       onset_aversion_sec: Math.round((acc.onsetOffFrames * SAMPLE_MS) / 100) / 10,
       // 3×3 시선 존 분포 (위/중/아래 × 좌/중/우) — 시선 지도
       gaze_zones: [...acc.gazeZones],
-      // 교차 분석 타임라인: 2초 빈당 (t=초, front=정면율, press=긴장율, tilt=평균 기울기)
+      // 교차 분석 타임라인: 2초 빈당 (t=초, front=정면율, press=긴장율,
+      // tilt=평균 기울기, blink=깜빡임 시작 횟수)
       timeline: acc.bins
         .map((b, i) => ({
           t: i * (TIMELINE_BIN_MS / 1000),
           front: b.frames ? Math.round((b.front / b.frames) * 100) / 100 : null,
           press: b.frames ? Math.round((b.press / b.frames) * 100) / 100 : null,
           tilt: b.frames ? Math.round((b.tiltSum / b.frames) * 10) / 10 : null,
+          blink: b.frames ? b.blink : null,
         }))
         .filter((b) => b.front !== null),
       // 시선 미세 안정성: 정면 판정 내에서의 흔들림 (표준편차) — 스캐닝 습관 감지

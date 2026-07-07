@@ -87,3 +87,26 @@ def test_adaptation_down_trend():
 def test_adaptation_flat_and_minimum_turns():
     assert build_adaptation([(1, 70.0), (2, 72.0), (3, 69.0)])["trend"] == "flat"
     assert build_adaptation([(1, 70.0), (2, 90.0)]) is None  # 3턴 미만 판정 보류
+
+
+# ---- gaze map (시선 지도) ----
+
+def test_gaze_map_aggregates_and_normalizes():
+    from app.services.deep_analysis import build_gaze_map
+
+    # 두 턴: 중앙 위주 + 아래 훔쳐보기 약간
+    m = build_gaze_map([
+        [0, 0, 0, 0, 40, 0, 0, 10, 0],
+        [0, 0, 0, 0, 45, 0, 0, 5, 0],
+    ])
+    assert m is not None
+    assert m["frames"] == 100
+    assert m["center_pct"] == 85
+    assert abs(sum(m["cells"]) - 1.0) < 0.01
+
+
+def test_gaze_map_withheld_below_sample_floor():
+    from app.services.deep_analysis import build_gaze_map
+
+    assert build_gaze_map([[0, 0, 0, 0, 30, 0, 0, 10, 0]]) is None  # 40프레임 < 50
+    assert build_gaze_map([]) is None

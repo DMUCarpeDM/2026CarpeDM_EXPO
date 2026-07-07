@@ -451,6 +451,32 @@ export default function ReportPage() {
                 <p>{report.deep_analysis.adaptation.comment}</p>
               </div>
             )}
+            {report.deep_analysis.gaze_map && (
+              <div className="deep-card">
+                <strong>
+                  시선 지도
+                  <span className="deep-level">
+                    정면 {report.deep_analysis.gaze_map.center_pct}%
+                  </span>
+                </strong>
+                <div className="gaze-map" role="img" aria-label="시선 분포 3×3 히트맵">
+                  {report.deep_analysis.gaze_map.cells.map((v, i) => (
+                    <span
+                      key={i}
+                      className={`gaze-cell ${i === 4 ? 'center' : ''}`}
+                      style={{ opacity: 0.15 + Math.min(0.85, v * 2.2) }}
+                      title={`${['위', '중앙', '아래'][Math.floor(i / 3)]}·${['좌', '중', '우'][i % 3]}: ${Math.round(v * 100)}%`}
+                    >
+                      {v >= 0.05 ? `${Math.round(v * 100)}%` : ''}
+                    </span>
+                  ))}
+                </div>
+                <p>
+                  발화 중 시선이 머문 곳이에요. 중앙(상대의 눈)이 밝을수록 안정적인
+                  아이컨택이었다는 뜻이에요.
+                </p>
+              </div>
+            )}
             {report.deep_analysis.cohort && (
               <div className="deep-card">
                 <strong>{report.deep_analysis.cohort.title}</strong>

@@ -109,3 +109,36 @@ def test_moments_determinism():
         "alignment": None,
     }]
     assert build_moments(turns) == build_moments(turns)
+
+
+def test_blink_burst_detected_as_event():
+    # 2초 빈에 2회+ 깜빡임(분당 60+)이 2빈 연속 → 깜빡임 급증 이벤트
+    timeline = [
+        {"t": 0.0, "front": 0.9, "press": 0.05, "tilt": 2.0, "blink": 0},
+        {"t": 2.0, "front": 0.9, "press": 0.05, "tilt": 2.0, "blink": 3},
+        {"t": 4.0, "front": 0.9, "press": 0.05, "tilt": 2.0, "blink": 2},
+        {"t": 6.0, "front": 0.9, "press": 0.05, "tilt": 2.0, "blink": 0},
+    ]
+    events = detect_turn_events(timeline, None)
+    assert [e["kind"] for e in events] == ["blink"]
+
+
+def test_normal_blinking_not_flagged():
+    # 평상 깜빡임(빈당 0~1회 = 분당 30 이하)은 이벤트가 아니다
+    timeline = [
+        {"t": i * 2.0, "front": 0.9, "press": 0.05, "tilt": 2.0, "blink": i % 2}
+        for i in range(6)
+    ]
+    assert detect_turn_events(timeline, None) == []
+
+
+def test_blink_burst_composes_with_tension():
+    # 깜빡임 급증 + 긴장 표정이 같은 창 → 복합 순간 ("몸이 먼저 반응")
+    timeline = [
+        {"t": 0.0, "front": 0.9, "press": 0.5, "tilt": 2.0, "blink": 2},
+        {"t": 2.0, "front": 0.9, "press": 0.5, "tilt": 2.0, "blink": 2},
+        {"t": 4.0, "front": 0.9, "press": 0.05, "tilt": 2.0, "blink": 0},
+    ]
+    moments = build_turn_moments(1, "pressure", timeline, None)
+    assert moments[0]["composite"] is True
+    assert set(moments[0]["kinds"]) == {"blink", "tension"}

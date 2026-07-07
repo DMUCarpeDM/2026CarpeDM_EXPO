@@ -26,7 +26,11 @@ KIND_LABEL = {
     "posture": "자세 흔들림",
     "quiet": "성량 저하",
     "fast": "말 급해짐",
+    "blink": "깜빡임 급증",
 }
+
+# 깜빡임 급증: 2초 빈에 2회+ (= 분당 60회+, 평상 15~20회의 3배) 가 2빈 연속
+BLINK_BURST_PER_BIN = 2
 
 
 def _runs(timeline: list[dict], key: str, predicate) -> list[dict]:
@@ -74,6 +78,8 @@ def detect_turn_events(timeline: list[dict], alignment: dict | None) -> list[dic
         events.append({"kind": "tension", "at": run["start"]})
     for run in _runs(timeline, "tilt", lambda v: v >= POSTURE_TILT_DEG):
         events.append({"kind": "posture", "at": run["start"]})
+    for run in _runs(timeline, "blink", lambda v: v >= BLINK_BURST_PER_BIN):
+        events.append({"kind": "blink", "at": run["start"]})
 
     align = alignment or {}
     spans = align.get("spans", [])

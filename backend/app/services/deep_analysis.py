@@ -192,6 +192,30 @@ def build_adaptation(turn_scores: list[tuple[int, float]]) -> dict | None:
 
 
 # ---------------------------------------------------------------------------
+# gaze map — 세션 전체 시선 존 분포 (3×3 히트맵의 데이터)
+# ---------------------------------------------------------------------------
+
+def build_gaze_map(zone_lists: list[list[int]]) -> dict | None:
+    """턴별 3×3 시선 존(위/중/아래 × 좌/중/우)을 세션 합산 → 비율 지도.
+
+    표본 50프레임(10초) 미만이면 지도를 만들지 않는다 (신뢰 우선).
+    """
+    total = [0] * 9
+    for zones in zone_lists:
+        if isinstance(zones, list) and len(zones) == 9:
+            for i, v in enumerate(zones):
+                total[i] += v
+    frames = sum(total)
+    if frames < 50:
+        return None
+    return {
+        "cells": [round(v / frames, 3) for v in total],  # 행 우선: 위/중/아래 × 좌/중/우
+        "frames": frames,
+        "center_pct": round(total[4] / frames * 100),
+    }
+
+
+# ---------------------------------------------------------------------------
 # 오케스트레이션 — build_report에서 호출
 # ---------------------------------------------------------------------------
 
@@ -256,4 +280,8 @@ def build_deep_analysis(session: RoleplaySession, turn_results: list) -> dict:
         deep["adaptation"] = adaptation
     if (moments := build_moments(turns_data)):
         deep["moments"] = moments
+    if (gaze_map := build_gaze_map(
+        [(t.nonverbal_metrics or {}).get("gaze_zones") or [] for t in session.turns],
+    )) is not None:
+        deep["gaze_map"] = gaze_map
     return deep
