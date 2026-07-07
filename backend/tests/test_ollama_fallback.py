@@ -36,3 +36,31 @@ def test_first_question_always_uses_template(monkeypatch):
     session = RoleplaySession(id=1, scenario_id=1, mode=5, difficulty="basic")
     spec = provider.first_question(session, [make_episode()])
     assert spec.question_text == "질문"
+
+
+def test_submit_response_parallel_personalization_falls_back(monkeypatch):
+    """제출 핫패스(병렬 개인화 경로) — Ollama 불통이어도 템플릿으로 턴이 진행된다."""
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+    from app.seed.run import seed
+
+    monkeypatch.setattr(settings, "dialogue_provider", "ollama")
+    monkeypatch.setattr(settings, "ollama_base_url", "http://127.0.0.1:1")
+    monkeypatch.setattr(settings, "ollama_timeout_sec", 0.2)
+
+    seed()
+    client = TestClient(app)
+    created = client.post("/api/sessions", json={
+        "mode": 5, "difficulty": "basic",
+        "consent": {"agreed": True, "storage_policy": "none"},
+    }).json()
+    result = client.post(
+        f"/api/sessions/{created['id']}/turns/{created['current_turn']['id']}/response",
+        json={"text": "어… 잘 모르겠습니다.", "stt_source": "text", "duration_ms": 3000},
+    )
+    assert result.status_code == 200
+    body = result.json()
+    assert body["finished"] is False
+    assert body["next_turn"]["question_text"]  # 템플릿 질문 폴백
+    assert body["turn_signals"]["case"] in ("short", "missing")

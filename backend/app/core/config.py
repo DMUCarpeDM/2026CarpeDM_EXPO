@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60 * 24
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
     media_dir: Path = Path("./media")
+    # 운영 API(/api/admin: 전시 초기화·CSV 내보내기) 보호 토큰 — X-Admin-Token 헤더로 대조.
+    # 비우면 무인증(개발 편의). 전시장 네트워크에 열 때는 반드시 설정할 것.
+    admin_token: str = ""
     # 익명/계정 저장 동의 시 음성 파일 보관 일수 (S-CBYKOH). '미저장' 동의는 분석 직후 삭제.
     media_retention_days: int = 7
 

@@ -6,6 +6,15 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "frontend"],
       "port": 5173
+    },
+    {
+      "name": "backend",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "/Users/do_not_delay/Desktop/EXPO/backend/.venv/bin/uvicorn app.main:app --app-dir backend --port 8000"
+      ],
+      "port": 8000
     }
   ]
 }

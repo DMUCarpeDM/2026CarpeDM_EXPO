@@ -25,5 +25,23 @@ class DialogueProvider(Protocol):
     def next_question(
         self, session: RoleplaySession, episodes: list[Episode], turns: list[Turn]
     ) -> QuestionSpec | None:
-        """다음 질문. None이면 역할극 종료."""
+        """다음 질문(계획 + 개인화 일체형). None이면 역할극 종료."""
+        ...
+
+    def plan_next(
+        self, session: RoleplaySession, episodes: list[Episode], turns: list[Turn]
+    ) -> QuestionSpec | None:
+        """진행/종료 결정만 (LLM 없음) — 개인화는 personalize_question이 담당.
+
+        호출자가 개인화를 리액션 다듬기와 병렬로 돌릴 수 있게 두 단계를 나눈다.
+        """
+        ...
+
+    def personalize_question(
+        self, spec: QuestionSpec, situation: str, last_response: str
+    ) -> str | None:
+        """spec 질문을 직전 답변 맥락으로 다듬는다 (실패·비활성 시 None).
+
+        평문 인자만 받으므로 스레드에서 안전하다 (ORM 객체 전달 금지).
+        """
         ...

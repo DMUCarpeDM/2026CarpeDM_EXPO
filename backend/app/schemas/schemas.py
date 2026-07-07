@@ -81,6 +81,17 @@ class SessionOut(BaseModel):
     current_turn: TurnOut | None = None
 
 
+class HistoryTurnOut(TurnOut):
+    """복구용 턴 이력 — 이미 답한 턴의 응답 텍스트 포함."""
+    response_text: str = ""
+
+
+class SessionResumeOut(SessionOut):
+    """세션 복구 응답 (새로고침·크래시 후 재진입) — 진행 이력과 경과 시간 포함."""
+    history: list[HistoryTurnOut] = []
+    elapsed_sec: int = 0
+
+
 class NonverbalIn(BaseModel):
     front_gaze_ratio: float = 0.0
     gaze_off_count: int = 0
