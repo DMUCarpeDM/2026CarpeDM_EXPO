@@ -77,6 +77,7 @@ export interface NonverbalMetrics {
   arm_cross_ratio: number; // 팔짱 자세 프레임 비율 (무의식 습관)
   gaze_dirs: Record<'down' | 'up' | 'left' | 'right', number>; // 시선 이탈 방향 분포
   iris_ratio: number; // 홍채(눈-머리 보상) 추적 가동 프레임 비율
+  iris_v_ratio: number; // 수직 홍채가 상하 판정에 쓰인 프레임 비율 (능력 플래그)
   listening_front_ratio: number | null; // 듣기(상대 TTS) 중 정면 응시율
   answering_front_ratio: number | null; // 말하기(답변) 중 정면 응시율
   contact_bout_mean_sec: number; // 연속 응시 구간 평균 길이 (응시 리듬)

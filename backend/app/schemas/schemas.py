@@ -104,6 +104,7 @@ class NonverbalIn(BaseModel):
     arm_cross_ratio: float = 0.0  # 팔짱 자세 비율 (무의식 습관)
     gaze_dirs: dict = {}  # 시선 이탈 방향 분포 {down,up,left,right: frames}
     iris_ratio: float = 0.0  # 홍채(눈-머리 보상) 추적 가동 비율
+    iris_v_ratio: float = 0.0  # 수직 홍채 상하 판정 가동 비율 (능력 플래그)
     listening_front_ratio: float | None = None  # 듣기 중 정면 응시율
     answering_front_ratio: float | None = None  # 말하기 중 정면 응시율
     contact_bout_mean_sec: float = 0.0  # 연속 응시 평균 길이 (응시 리듬)
