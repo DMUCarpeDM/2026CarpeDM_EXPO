@@ -135,10 +135,38 @@ export async function login(email: string, password: string): Promise<void> {
   localStorage.setItem('mirroting-token', data.access_token);
 }
 
+/** 운영 토큰 — 서버에 MIRROTING_ADMIN_TOKEN이 설정된 경우 운영 API 호출에 필요 */
+export function adminToken(): string {
+  return localStorage.getItem('mirroting-admin-token') ?? '';
+}
+
+export function setAdminToken(token: string): void {
+  localStorage.setItem('mirroting-admin-token', token);
+}
+
+function adminHeaders(): Record<string, string> {
+  const token = adminToken();
+  return token ? { 'X-Admin-Token': token } : {};
+}
+
 export async function adminMetrics(): Promise<AdminMetrics> {
-  return (await api.get('/admin/metrics')).data;
+  return (await api.get('/admin/metrics', { headers: adminHeaders() })).data;
 }
 
 export async function adminReset(): Promise<{ ok: boolean; aborted_sessions: number }> {
-  return (await api.post('/admin/reset')).data;
+  return (await api.post('/admin/reset', null, { headers: adminHeaders() })).data;
+}
+
+/** CSV 내보내기 — 토큰 헤더가 필요해 <a href> 대신 blob 다운로드로 처리 */
+export async function adminExportCsv(): Promise<void> {
+  const { data } = await api.get('/admin/export.csv', {
+    headers: adminHeaders(),
+    responseType: 'blob',
+  });
+  const url = URL.createObjectURL(data as Blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'mirroting_sessions.csv';
+  a.click();
+  URL.revokeObjectURL(url);
 }

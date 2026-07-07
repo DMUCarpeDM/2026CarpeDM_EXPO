@@ -1,25 +1,66 @@
 /** 운영/기관 대시보드 골격 (R-NCULBP) — 핵심 지표 카드 + 전시 초기화. */
+import { isAxiosError } from 'axios';
 import { useCallback, useEffect, useState } from 'react';
-import { adminMetrics, adminReset } from '../../api/client';
+import {
+  adminExportCsv,
+  adminMetrics,
+  adminReset,
+  adminToken,
+  setAdminToken,
+} from '../../api/client';
 import type { AdminMetrics } from '../../api/types';
 import Icon from '../../components/Icon';
-
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api';
 
 export default function AdminPage() {
   const [metrics, setMetrics] = useState<AdminMetrics | null>(null);
   const [message, setMessage] = useState('');
   const [kiosk, setKiosk] = useState(localStorage.getItem('mirroting-kiosk') === '1');
+  // 서버에 MIRROTING_ADMIN_TOKEN이 설정된 경우에만 401이 떨어지고 입력창이 열린다
+  const [needToken, setNeedToken] = useState(false);
+  const [token, setToken] = useState(adminToken());
+
+  const handleError = useCallback((e: unknown, fallback: string) => {
+    if (isAxiosError(e) && e.response?.status === 401) {
+      setNeedToken(true);
+      setMessage('운영 토큰이 필요합니다. 서버의 MIRROTING_ADMIN_TOKEN 값을 입력해주세요.');
+    } else {
+      setMessage(fallback);
+    }
+  }, []);
 
   const load = useCallback(() => {
-    adminMetrics().then(setMetrics).catch(() => setMessage('지표를 불러오지 못했습니다.'));
-  }, []);
+    adminMetrics()
+      .then((m) => {
+        setMetrics(m);
+        setNeedToken(false);
+      })
+      .catch((e) => handleError(e, '지표를 불러오지 못했습니다.'));
+  }, [handleError]);
 
   useEffect(load, [load]);
 
   async function reset() {
-    const result = await adminReset();
-    setMessage(`초기화 완료 — 진행 중이던 세션 ${result.aborted_sessions}건 정리`);
+    try {
+      const result = await adminReset();
+      setMessage(`초기화 완료 — 진행 중이던 세션 ${result.aborted_sessions}건 정리`);
+      load();
+    } catch (e) {
+      handleError(e, '초기화에 실패했습니다.');
+    }
+  }
+
+  async function exportCsv() {
+    try {
+      await adminExportCsv();
+    } catch (e) {
+      handleError(e, 'CSV 내보내기에 실패했습니다.');
+    }
+  }
+
+  function saveToken(e: React.FormEvent) {
+    e.preventDefault();
+    setAdminToken(token.trim());
+    setMessage('');
     load();
   }
 
@@ -38,15 +79,29 @@ export default function AdminPage() {
           <button className="ghost-btn" onClick={toggleKiosk}>
             <Icon name="monitor" size={15} /> 전시 모드 {kiosk ? 'ON' : 'OFF'}
           </button>
-          <a className="ghost-btn" href={`${API_BASE}/admin/export.csv`} download>
+          <button className="ghost-btn" onClick={exportCsv}>
             <Icon name="download" size={15} /> CSV 내보내기
-          </a>
+          </button>
           <button className="primary-btn" onClick={reset}>
             <Icon name="refresh" size={15} /> 다음 체험자 준비
           </button>
         </div>
       </header>
       {message && <div className="notice">{message}</div>}
+
+      {needToken && (
+        <form className="admin-token-form" onSubmit={saveToken}>
+          <input
+            className="response-input"
+            type="password"
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            placeholder="운영 토큰 (X-Admin-Token)"
+            autoFocus
+          />
+          <button className="primary-btn" type="submit">확인</button>
+        </form>
+      )}
 
       {metrics && (
         <section className="metric-grid">

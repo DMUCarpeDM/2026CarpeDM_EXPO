@@ -1598,6 +1598,12 @@ h2 .icon {
   text-decoration: none;
 }
 
+.admin-token-form {
+  display: flex;
+  gap: var(--s-2);
+  max-width: 420px;
+}
+
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
