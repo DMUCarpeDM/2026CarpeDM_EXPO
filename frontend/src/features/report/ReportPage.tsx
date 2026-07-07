@@ -360,7 +360,7 @@ export default function ReportPage() {
                     <span className="evidence-turn">턴 {t.turn_order}</span>
                     {t.question_type !== 'initial' && (
                       <span className={`type-chip ${t.question_type}`}>
-                        {t.question_type === 'pressure' ? '압박' : '후속'}
+                        {{ pressure: '압박', deepening: '심화' }[t.question_type] ?? '후속'}
                       </span>
                     )}
                     <span className="turn-episode">{t.episode_title}</span>

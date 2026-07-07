@@ -8,7 +8,11 @@ from app.seed.seed_data import CHARACTERS, EPISODES, SCENARIO, WORLD_SETTING
 # SQLite 경량 마이그레이션 — 기존 DB에 신규 컬럼만 추가 (데이터 보존).
 # create_all은 새 테이블만 만들고 기존 테이블에는 컬럼을 더하지 않는다.
 _NEW_COLUMNS: dict[str, dict[str, str]] = {
-    "episodes": {"virtual_time": "VARCHAR(10) DEFAULT ''", "intro_variants": "JSON"},
+    "episodes": {
+        "virtual_time": "VARCHAR(10) DEFAULT ''",
+        "intro_variants": "JSON",
+        "deepening_questions": "JSON",
+    },
     "turns": {"reaction_text": "TEXT DEFAULT ''", "reaction_character_id": "VARCHAR(50) DEFAULT ''"},
     "roleplay_sessions": {"rapport": "JSON"},
     "reports": {"day_ending": "JSON", "deep_analysis": "JSON"},

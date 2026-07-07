@@ -85,8 +85,9 @@ def test_evasive_answer_triggers_specific_followup():
     assert spec.question_text in top_followups
 
 
-def test_model_answer_advances_without_followup():
-    """모범 답변(4단계 모두 커버) → 후속 없이 다음 에피소드로."""
+def test_model_answer_gets_deepening_then_advances():
+    """모범 답변(4단계 모두 커버) → 교정(후속)이 아니라 심화로 장면이 이어지고,
+    심화까지 답하면 다음 에피소드로 넘어간다 — '상황당 1답변 증발' 방지 계약."""
     eps = seed_episodes()
     session = RoleplaySession(id=1, scenario_id=1, mode=5, difficulty="basic")
     ep2 = next(e for e in eps if e.order == 2)
@@ -101,5 +102,21 @@ def test_model_answer_advances_without_followup():
     ]
     spec = provider.next_question(session, eps, turns)
     assert spec is not None
-    assert spec.episode_id == ep3.id
-    assert spec.question_type == "initial"
+    assert spec.question_type == "deepening"  # 잘한 답 → 교정 없이 장면 전개
+    assert spec.episode_id == ep2.id
+
+    turns.append(make_turn(3, ep2.id, 3, "네, 15분 기준으로 다시 안내드리겠습니다.", qtype="deepening"))
+    spec2 = provider.next_question(session, eps, turns)
+    assert spec2 is not None
+    assert spec2.episode_id == ep3.id and spec2.question_type == "initial"
+
+
+def test_every_episode_has_deepening_pool():
+    """모든 에피소드에 심화 질문 2개 이상 — 장면당 2턴 기본화의 콘텐츠 규격."""
+    for ep in EPISODES:
+        pool = ep.get("deepening_questions", [])
+        assert len(pool) >= 2, f"{ep['title']}: 심화 질문 부족"
+        for dq in pool:
+            assert dq["text"].strip().endswith(("요?", "요.", "봐요.", "죠?", "까요?", "래요?", "예요?", "어요?")) or "?" in dq["text"], \
+                f"{ep['title']}: 심화 질문이 질문형이 아님"
+            assert dq.get("intent", "").strip(), f"{ep['title']}: 심화 의도 없음"

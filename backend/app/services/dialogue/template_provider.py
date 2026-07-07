@@ -4,8 +4,12 @@
 - 에피소드는 order 순으로 진행하고, 모드(5/10분)에 해당하는 것만 사용한다.
 - 응답에서 체크리스트 누락 항목이 있으면 가중치가 가장 높은 누락 항목의 후속 질문을 던진다(개인화).
 - 압박 난이도에서는 누락이 없어도 에피소드당 1회 압박 질문을 던진다.
+- **누락이 없어도(=잘한 답에도) 심화 질문(deepening)으로 장면을 이어간다** —
+  후속이 누락 '교정'이라면 심화는 장면 '전개'. 상황당 1답변으로 장면이 증발하던
+  문제의 해법으로, 예산이 허락하면 에피소드당 2턴이 기본이 된다. 에피소드당 1회,
+  재도전 변주를 위해 세션 id로 풀에서 회전 선택.
 - 에피소드별 max_turns와 세션 전체 턴 예산을 지키며, 남은 에피소드가 최소 1턴씩
-  진행될 수 있도록 후속 질문을 아낀다.
+  진행될 수 있도록 후속·심화 질문을 아낀다.
 - 새 에피소드 도입은 수행도(rapport) 3단계에 따라 변주된다(intro_variants) —
   체험자의 대답이 하루의 전개를 실제로 바꾸는 분기 장치.
 """
@@ -88,6 +92,20 @@ class TemplateDialogueProvider:
                         intent="압박 상황 대응 확인",
                         virtual_time=current_ep.virtual_time or "",
                     )
+            # 심화 — 잘한 답에도 장면이 이어진다. 교정할 게 없을 때의 자연스러운
+            # 대화 전개이며, 에피소드당 1회. 재도전 시 다른 질문이 나오도록
+            # 세션 id로 풀에서 회전 선택한다 (세션 내에서는 결정적).
+            pool = current_ep.deepening_questions or []
+            if pool and not any(t.question_type == "deepening" for t in ep_turns):
+                dq = pool[(session.id or 0) % len(pool)]
+                return QuestionSpec(
+                    episode_id=current_ep.id,
+                    question_type="deepening",
+                    question_text=dq["text"],
+                    character_id=current_ep.character_id,
+                    intent=dq.get("intent", "장면 심화 전개"),
+                    virtual_time=current_ep.virtual_time or "",
+                )
 
         if remaining_eps:
             nxt = remaining_eps[0]

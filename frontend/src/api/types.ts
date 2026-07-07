@@ -35,7 +35,7 @@ export interface Scenario {
 export interface Turn {
   id: number;
   order: number;
-  question_type: 'initial' | 'followup' | 'pressure';
+  question_type: 'initial' | 'followup' | 'pressure' | 'deepening'; // deepening = 잘한 답에도 이어지는 장면 전개 질문
   question_text: string;
   character_id: string;
   episode_id: number;

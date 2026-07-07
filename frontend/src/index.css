@@ -425,6 +425,12 @@ h2 .icon {
   color: var(--bad);
 }
 
+/* 심화 질문 — 교정(후속)·압박과 달리 긍정적 전개라 액센트 톤 */
+.type-chip.deepening {
+  background: var(--accent-weak);
+  color: var(--accent);
+}
+
 .timer {
   font-variant-numeric: tabular-nums;
   font-weight: 700;
