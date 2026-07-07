@@ -8,17 +8,31 @@ from types import SimpleNamespace
 from app.services.report import _gaze_map
 
 
-def _session(*zone_lists):
-    turns = [
-        SimpleNamespace(nonverbal_metrics={"gaze_zones": z} if z is not None else None)
-        for z in zone_lists
-    ]
+def _session(*zone_lists, sample_ms=None):
+    turns = []
+    for z in zone_lists:
+        if z is None:
+            turns.append(SimpleNamespace(nonverbal_metrics=None))
+            continue
+        nv = {"gaze_zones": z}
+        if sample_ms is not None:
+            nv["sample_ms"] = sample_ms
+        turns.append(SimpleNamespace(nonverbal_metrics=nv))
     return SimpleNamespace(turns=turns)
 
 
 def test_gaze_map_withheld_below_sample_gate():
-    # 합계 50프레임(10초) 미만 → 지도 자체를 생략 (판정 보류 원칙)
+    # 합계 49프레임 × 200ms = 9.8초 < 10초 → 지도 생략 (판정 보류 원칙)
     assert _gaze_map(_session([0, 0, 0, 0, 49, 0, 0, 0, 0])) is None
+
+
+def test_gaze_map_gate_is_time_based_not_frame_based():
+    # 샘플링 100ms(10Hz)에서는 같은 60프레임이 6초 → 여전히 보류.
+    # 프레임 수가 아니라 시간(sample_ms 환산)으로 게이트한다는 계약.
+    withheld = _gaze_map(_session([0, 0, 0, 0, 60, 0, 0, 0, 0], sample_ms=100))  # 6초
+    assert withheld is None
+    passed = _gaze_map(_session([0, 0, 0, 0, 120, 0, 0, 0, 0], sample_ms=100))  # 12초
+    assert passed is not None
 
 
 def test_gaze_map_sums_turns_and_normalizes():

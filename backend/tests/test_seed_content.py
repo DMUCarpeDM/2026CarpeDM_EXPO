@@ -85,9 +85,24 @@ def test_evasive_answer_triggers_specific_followup():
     assert spec.question_text in top_followups
 
 
-def test_model_answer_gets_deepening_then_advances():
-    """모범 답변(4단계 모두 커버) → 교정(후속)이 아니라 심화로 장면이 이어지고,
-    심화까지 답하면 다음 에피소드로 넘어간다 — '상황당 1답변 증발' 방지 계약."""
+def test_model_answer_ep1_gets_deepening():
+    """모범 자기소개(EP1은 basic 압박 없음) → 교정이 아니라 심화로 장면이 이어진다."""
+    eps = seed_episodes()
+    session = RoleplaySession(id=1, scenario_id=1, mode=5, difficulty="basic")
+    turns = [
+        make_turn(1, eps[0].id, 1,
+                  "안녕하세요, 신입 김지연입니다. 플랫폼팀 백엔드 운영 지원을 맡았고, "
+                  "오늘은 온보딩 문서 파악을 마치는 게 목표입니다. 모르는 건 여쭤보며 배우겠습니다."),
+    ]
+    spec = provider.next_question(session, eps, turns)
+    assert spec is not None
+    assert spec.question_type == "deepening"  # 잘한 답 → 장면 전개
+    assert spec.episode_id == eps[0].id
+
+
+def test_model_answer_ep2_gets_basic_pressure_then_advances():
+    """모범 장애 대응(EP2는 basic 압박 보유) → 세션 첫 압박이 나가고(composure 재료),
+    압박까지 답하면 다음 에피소드로 넘어간다 — '상황당 1답변 증발' 방지 + 압박 내성 성립."""
     eps = seed_episodes()
     session = RoleplaySession(id=1, scenario_id=1, mode=5, difficulty="basic")
     ep2 = next(e for e in eps if e.order == 2)
@@ -102,10 +117,10 @@ def test_model_answer_gets_deepening_then_advances():
     ]
     spec = provider.next_question(session, eps, turns)
     assert spec is not None
-    assert spec.question_type == "deepening"  # 잘한 답 → 교정 없이 장면 전개
+    assert spec.question_type == "pressure"  # basic 난이도에도 세션당 1회 압박
     assert spec.episode_id == ep2.id
 
-    turns.append(make_turn(3, ep2.id, 3, "네, 15분 기준으로 다시 안내드리겠습니다.", qtype="deepening"))
+    turns.append(make_turn(3, ep2.id, 3, "10분 안에 1차 원인만이라도 정리해 보고드리겠습니다.", qtype="pressure"))
     spec2 = provider.next_question(session, eps, turns)
     assert spec2 is not None
     assert spec2.episode_id == ep3.id and spec2.question_type == "initial"

@@ -68,6 +68,13 @@ class TemplateDialogueProvider:
             and budget_left > len(remaining_eps)
         )
 
+        # 발전 턴(압박/심화)은 에피소드당 1개 — 교정(followup)이 끝난 뒤 장면을
+        # 한 번 더 전개하고 넘어간다. 이미 발전 턴이 있으면 다음 장면으로 진행
+        # (한 상황에 압박+심화가 겹쳐 3턴이 되는 것을 막는다).
+        ep_has_development = any(
+            t.question_type in ("pressure", "deepening") for t in ep_turns
+        )
+
         if can_extend:
             missing = self._missing_items(current_ep, ep_turns)
             if missing:
@@ -80,9 +87,10 @@ class TemplateDialogueProvider:
                     intent=f"누락 요소 확인: {item['label']}",
                     virtual_time=current_ep.virtual_time or "",
                 )
-            if session.difficulty == "pressure" and current_ep.pressure_questions:
-                pressure_used = any(t.question_type == "pressure" for t in ep_turns)
-                if not pressure_used:
+            # 발전 턴은 에피소드당 1개 (압박 또는 심화 택일). 이미 있으면 다음 장면으로.
+            if not ep_has_development:
+                # 우선순위: 압박(난이도) → 기본 난이도 세션당 1회 압박 → 심화 전개
+                if session.difficulty == "pressure" and current_ep.pressure_questions:
                     pq = current_ep.pressure_questions[0]
                     return QuestionSpec(
                         episode_id=current_ep.id,
@@ -92,20 +100,39 @@ class TemplateDialogueProvider:
                         intent="압박 상황 대응 확인",
                         virtual_time=current_ep.virtual_time or "",
                     )
-            # 심화 — 잘한 답에도 장면이 이어진다. 교정할 게 없을 때의 자연스러운
-            # 대화 전개이며, 에피소드당 1회. 재도전 시 다른 질문이 나오도록
-            # 세션 id로 풀에서 회전 선택한다 (세션 내에서는 결정적).
-            pool = current_ep.deepening_questions or []
-            if pool and not any(t.question_type == "deepening" for t in ep_turns):
-                dq = pool[(session.id or 0) % len(pool)]
-                return QuestionSpec(
-                    episode_id=current_ep.id,
-                    question_type="deepening",
-                    question_text=dq["text"],
-                    character_id=current_ep.character_id,
-                    intent=dq.get("intent", "장면 심화 전개"),
-                    virtual_time=current_ep.virtual_time or "",
-                )
+                # 기본 난이도 압박 1회 (세션당): 압박 내성 렌즈(composure)는 압박 턴이
+                # 있어야 성립하는데, 기본 난이도에는 압박이 없어 심층 분석의 간판
+                # 카드가 비어 있었다. 어떤 답 뒤에도 성립하는(basic 플래그) 압박
+                # 질문만 골라 세션에서 딱 한 번 던진다 — 잘한 답 뒤의 에스컬레이션.
+                if session.difficulty == "basic" \
+                        and not any(t.question_type == "pressure" for t in turns):
+                    basic_pq = next(
+                        (q for q in (current_ep.pressure_questions or []) if q.get("basic")),
+                        None,
+                    )
+                    if basic_pq is not None:
+                        return QuestionSpec(
+                            episode_id=current_ep.id,
+                            question_type="pressure",
+                            question_text=basic_pq["text"],
+                            character_id=current_ep.character_id,
+                            intent="압박 상황 대응 확인 (기본 난이도 세션당 1회)",
+                            virtual_time=current_ep.virtual_time or "",
+                        )
+                # 심화 — 잘한 답에도 장면이 이어진다. 교정할 게 없을 때의 자연스러운
+                # 대화 전개이며, 에피소드당 1회. 재도전 시 다른 질문이 나오도록
+                # 세션 id로 풀에서 회전 선택한다 (세션 내에서는 결정적).
+                pool = current_ep.deepening_questions or []
+                if pool:
+                    dq = pool[(session.id or 0) % len(pool)]
+                    return QuestionSpec(
+                        episode_id=current_ep.id,
+                        question_type="deepening",
+                        question_text=dq["text"],
+                        character_id=current_ep.character_id,
+                        intent=dq.get("intent", "장면 심화 전개"),
+                        virtual_time=current_ep.virtual_time or "",
+                    )
 
         if remaining_eps:
             nxt = remaining_eps[0]

@@ -100,6 +100,7 @@ export interface NonverbalMetrics {
   nod_count: number; // 듣는 동안 끄덕임 근사 횟수 (진폭 게이트, 긍정 신호 전용)
   listen_sec: number; // 듣기 페이즈 누적 초 — 경청 판정의 표본 게이트
   listen_lean_pct: number | null; // 기준 어깨폭 대비 듣기 중 전진(+)/후퇴(-) %
+  sample_ms: number; // 측정 샘플링 주기 ms — 기본 200, 운영자 튜닝 가능 (§2.5)
   calibrated: boolean; // 정면 기준 캘리브레이션 적용 여부
   tips: string[]; // 턴 중 발생한 실시간 코칭 문구
 }

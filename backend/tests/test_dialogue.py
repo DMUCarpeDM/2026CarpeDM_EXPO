@@ -82,6 +82,53 @@ def test_pressure_mode_asks_pressure_question_when_covered():
     assert spec.question_type == "pressure"
 
 
+def test_basic_difficulty_gets_one_pressure_for_composure():
+    # 압박 내성 렌즈(composure)는 압박 턴이 있어야 성립 — basic 난이도에도
+    # basic 플래그가 붙은 압박 질문이 세션당 1회 나가야 한다
+    eps = [
+        make_episode(1, 1, checklist=CHECKLIST, max_turns=3,
+                     pressure_questions=[{"text": "basic 압박!", "trigger": "any", "basic": True}]),
+        make_episode(2, 2),
+    ]
+    turns = [make_turn(1, 1, 1, "보고드리고 확인하겠습니다")]  # 전부 커버
+    spec = provider.next_question(session(difficulty="basic"), eps, turns)
+    assert spec is not None
+    assert spec.question_type == "pressure"
+
+
+def test_basic_pressure_only_once_per_session():
+    # 세션당 1회 — 이미 압박을 받았으면 다음 에피소드에서는 안 나간다
+    eps = [
+        make_episode(1, 1, checklist=CHECKLIST, max_turns=3,
+                     pressure_questions=[{"text": "P1", "trigger": "any", "basic": True}]),
+        make_episode(2, 2, checklist=CHECKLIST, max_turns=3,
+                     pressure_questions=[{"text": "P2", "trigger": "any", "basic": True}]),
+        make_episode(3, 3),
+    ]
+    turns = [
+        make_turn(1, 1, 1, "보고드리고 확인하겠습니다"),
+        make_turn(2, 1, 2, "네 압박 대응", qtype="pressure"),
+        make_turn(3, 2, 3, "보고드리고 확인하겠습니다"),
+    ]
+    spec = provider.next_question(session(difficulty="basic"), eps, turns)
+    assert spec is not None
+    assert spec.question_type != "pressure"  # 두 번째 에피소드에서는 압박 없음
+
+
+def test_basic_pressure_skips_non_basic_questions():
+    # basic 플래그가 없는 압박 질문은 basic 난이도에서 나가지 않는다 (심화로 대체)
+    eps = [
+        make_episode(1, 1, checklist=CHECKLIST, max_turns=3,
+                     pressure_questions=[{"text": "hard만", "trigger": "any"}],
+                     deepening_questions=[{"text": "심화?", "intent": "x"}]),
+        make_episode(2, 2),
+    ]
+    turns = [make_turn(1, 1, 1, "보고드리고 확인하겠습니다")]
+    spec = provider.next_question(session(difficulty="basic"), eps, turns)
+    assert spec is not None
+    assert spec.question_type == "deepening"
+
+
 def test_ends_after_last_episode():
     eps = [make_episode(1, 1, checklist=CHECKLIST, max_turns=2)]
     turns = [

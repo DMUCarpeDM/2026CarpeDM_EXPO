@@ -11,13 +11,31 @@ import { useSessionStore } from '../stores/sessionStore';
 
 const HOLD_MS = 3000;
 
+// 측정 샘플링 주기 후보 (§2.5 실기기 튜닝). 200ms=5Hz 기본, 100ms=10Hz는
+// 깜빡임·끄덕임 과소집계를 줄이지만 CPU 부하가 오른다 — 전시 PC에서 실측 후 선택.
+const SAMPLE_OPTIONS = [100, 150, 200] as const;
+const SAMPLE_KEY = 'mirroting-sample-ms';
+
+function currentSampleMs(): number {
+  const v = Number(localStorage.getItem(SAMPLE_KEY));
+  return Number.isFinite(v) && v >= 100 && v <= 500 ? v : 200;
+}
+
 export default function OperatorPanel() {
   const navigate = useNavigate();
   const clearSession = useSessionStore((s) => s.clear);
   const fxEnabled = useFxEnabled();
   const [open, setOpen] = useState(false);
   const [holding, setHolding] = useState(false);
+  const [sampleMs, setSampleMs] = useState(currentSampleMs);
   const timerRef = useRef<number | null>(null);
+
+  // 샘플링 주기는 훅 초기화 시점에 읽히므로, 변경 후 새로고침해야 적용된다
+  function applySample(ms: number) {
+    localStorage.setItem(SAMPLE_KEY, String(ms));
+    setSampleMs(ms);
+    window.location.reload();
+  }
 
   function startHold() {
     setHolding(true);
@@ -60,6 +78,23 @@ export default function OperatorPanel() {
             <button className="ghost-btn" onClick={toggleFx}>
               연출 효과 {fxEnabled ? '끄기 (저사양 모드)' : '켜기'}
             </button>
+            <div className="operator-sample">
+              <span className="operator-sample-label">측정 정밀도 (샘플링)</span>
+              <div className="operator-sample-btns">
+                {SAMPLE_OPTIONS.map((ms) => (
+                  <button
+                    key={ms}
+                    className={`ghost-btn ${sampleMs === ms ? 'active' : ''}`}
+                    onClick={() => applySample(ms)}
+                  >
+                    {Math.round(1000 / ms)}Hz
+                  </button>
+                ))}
+              </div>
+              <span className="operator-sample-hint">
+                높을수록 깜빡임·끄덕임 정밀 · CPU 부하 ↑ (변경 시 새로고침)
+              </span>
+            </div>
             <button
               className="ghost-btn"
               onClick={() => {

@@ -95,13 +95,16 @@ CSV 내보내기, 1클릭 초기화를 제공한다.
 리포트에서 4자리 익명 코드가 발급된다. 재방문 시 시작 화면에서 코드를 입력하면
 개인정보 없이 최근 10회 점수 추이가 이어진다.
 
-### 로컬 LLM (선택)
+### 로컬 LLM (전시 권장 필수 — 없어도 폴백 동작)
 
-[Ollama](https://ollama.com) 설치 후 아래처럼 실행하면 후속·압박 질문이 사용자
-답변을 반영해 개인화된다. 타임아웃·형식 오류 시 템플릿 질문으로 자동 폴백한다.
+[Ollama](https://ollama.com) 설치 후 아래처럼 실행하면 후속·심화·압박 질문이 사용자
+답변을 반영해 개인화되고, `nomic-embed-text`로 의미 매칭이 활성화된다. 타임아웃·형식
+오류 시 템플릿 질문·키워드 매칭으로 자동 폴백하지만, **임베딩이 없으면 패러프레이즈
+답변이 '누락' 판정될 수 있어** 전시 PC에는 두 모델을 모두 설치하기를 권장한다.
 
 ```bash
-ollama pull exaone3.5:2.4b
+ollama pull exaone3.5:2.4b      # 대화 개인화
+ollama pull nomic-embed-text     # 의미 매칭 (Response-Fit)
 MIRROTING_DIALOGUE_PROVIDER=ollama ./.venv/bin/uvicorn app.main:app --port 8000
 ```
 
