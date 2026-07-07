@@ -42,14 +42,17 @@
 
 ## 실행
 
-### 백엔드 (Python 3.12+, FastAPI)
+### 백엔드 (Python 3.12 권장, FastAPI)
 
 ```bash
 cd backend
-python3 -m venv .venv
-./.venv/bin/pip install -r requirements.txt
+bash scripts/setup_ai.sh    # 권장: Python 3.12 venv + AI 스택 전체(Whisper·Vosk·Ollama) 원커맨드
 ./.venv/bin/uvicorn app.main:app --reload --port 8000
 ```
+
+`setup_ai.sh` 없이 최소 실행만 하려면 `python3 -m venv .venv && ./.venv/bin/pip install
+-r requirements.txt`로도 동작한다(STT·LLM은 폴백 모드). AI 구성 상태는
+`GET /api/health`로 확인: `{"server_stt": "whisper", "dialogue_provider": "ollama"}`.
 
 첫 기동 시 SQLite 스키마 생성과 시나리오 시드가 자동 실행된다.
 API 문서: <http://localhost:8000/docs>
@@ -77,12 +80,15 @@ cd frontend && npx tsc -b && npm run build          # 타입 검사 + 프로덕�
 ### 오프라인 준비 (인터넷이 되는 곳에서 각 1회)
 
 ```bash
-cd frontend && npm run setup-offline                          # MediaPipe wasm/모델
-cd backend && ./.venv/bin/python scripts/setup_offline_stt.py # Vosk 한국어 STT 모델(82MB)
+cd frontend && npm run setup-offline   # MediaPipe wasm/모델
+cd backend && bash scripts/setup_ai.sh # Whisper(small)·Vosk 모델 + Ollama 모델 일괄 캐시
 ```
 
-이후 시선·자세 분석과 음성 인식이 인터넷 없이 동작한다.
+이후 시선·자세 분석, 서버 STT(faster-whisper → Vosk 폴백), 대화 개인화(LLM),
+의미 매칭(임베딩)이 전부 인터넷 없이 동작한다.
 서버 STT 감지 여부는 `GET /api/health`의 `server_stt` 필드로 확인한다.
+STT 실측(i7-8750H, 한국어 21s): whisper-small CER 4.8%/RTF 0.28 · whisper-base
+10.8%/0.24 · vosk-small-ko 47.6%/0.38 — 기본값은 whisper-small.
 
 ### 키오스크 모드
 
@@ -95,15 +101,16 @@ CSV 내보내기, 1클릭 초기화를 제공한다.
 리포트에서 4자리 익명 코드가 발급된다. 재방문 시 시작 화면에서 코드를 입력하면
 개인정보 없이 최근 10회 점수 추이가 이어진다.
 
-### 로컬 LLM (선택)
+### 로컬 LLM (setup_ai.sh가 자동 구성)
 
-[Ollama](https://ollama.com) 설치 후 아래처럼 실행하면 후속·압박 질문이 사용자
-답변을 반영해 개인화된다. 타임아웃·형식 오류 시 템플릿 질문으로 자동 폴백한다.
+Ollama(EXAONE 3.5 2.4b)가 준비되면 후속·압박 질문이 사용자 답변을 반영해
+개인화된다(`backend/.env`의 `MIRROTING_DIALOGUE_PROVIDER=ollama`). 타임아웃
+(기본 7s, i7-8750H 워밍 평균 4.1s 실측)·형식 오류 시 템플릿 질문으로 자동
+폴백하고, 서버 기동 시 모델을 예열해 첫 체험자 지연을 없앤다.
 
-```bash
-ollama pull exaone3.5:2.4b
-MIRROTING_DIALOGUE_PROVIDER=ollama ./.venv/bin/uvicorn app.main:app --port 8000
-```
+주의: EXAONE 3.5는 q8_0 KV 캐시와 비호환(head_dim=80) — setup_ai.sh가
+`OLLAMA_KV_CACHE_TYPE=f16`을 강제한 LaunchAgent(`com.mirroting.ollama`)로
+Ollama를 기동한다. `brew services start ollama`로 직접 띄우면 500 오류가 난다.
 
 ### 리허설용 데모 데이터
 
