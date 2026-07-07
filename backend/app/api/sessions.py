@@ -1,4 +1,5 @@
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
@@ -183,7 +184,8 @@ def submit_response(
     reactions.update_rapport(session, signals["case"])
     db.commit()
 
-    spec = get_dialogue_provider().next_question(session, session.scenario.episodes, list(session.turns))
+    provider = get_dialogue_provider()
+    spec = provider.plan_next(session, session.scenario.episodes, list(session.turns))
     signals_out = TurnSignalsOut(
         case=signals["case"], coverage=signals["coverage"], risk_hits=signals["risk_hits"],
     )
@@ -192,12 +194,34 @@ def submit_response(
 
     # 반응하는 인물 = 방금 답변을 들은 사람 (에피소드가 넘어가도 반응은 직전 화자의 몫)
     reaction = reactions.pick_reaction(session, turn.character_id, signals["case"])
-    if reaction:
-        character = next(
-            (c for c in session.scenario.characters if c["id"] == turn.character_id), {},
-        )
-        reaction = reactions.personalize_reaction(reaction, character, turn.response_text)
+    character = next(
+        (c for c in session.scenario.characters if c["id"] == turn.character_id), {},
+    ) if reaction else {}
     db.commit()  # pick_reaction이 갱신한 used_reactions 저장
+
+    # LLM 개인화 2건(질문 다듬기·리액션 다듬기)을 병렬 실행 — 순차 실행 시 최악
+    # 타임아웃×2가 체험자 대기가 된다. 스레드에는 평문 데이터만 넘긴다
+    # (ORM/DB Session은 스레드 안전하지 않다 — 재료 추출은 요청 스레드에서).
+    response_text = turn.response_text
+    personalize_q = spec.question_type != "initial"
+    situation = ""
+    if personalize_q:
+        ep = db.get(Episode, spec.episode_id)
+        situation = ep.situation if ep else ""
+    if settings.dialogue_provider == "ollama" and (personalize_q or reaction):
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            q_future = (
+                pool.submit(provider.personalize_question, spec, situation, response_text)
+                if personalize_q else None
+            )
+            r_future = (
+                pool.submit(reactions.personalize_reaction, reaction, character, response_text)
+                if reaction else None
+            )
+            if q_future is not None and (personalized := q_future.result()):
+                spec.question_text = personalized
+            if r_future is not None:
+                reaction = r_future.result()
 
     next_turn = _create_turn(
         db, session, spec, order=turn.order + 1,
