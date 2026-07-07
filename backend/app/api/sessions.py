@@ -10,11 +10,13 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.models import Consent, Episode, RoleplaySession, Scenario, SessionStatus, Turn, User
 from app.schemas import (
+    HistoryTurnOut,
     NextTurnOut,
     ProgressOut,
     ResponseIn,
     SessionCreateIn,
     SessionOut,
+    SessionResumeOut,
     TurnOut,
     TurnSignalsOut,
 )
@@ -104,6 +106,46 @@ def create_session(
         difficulty=session.difficulty,
         scenario=to_scenario_out(scenario),
         current_turn=_turn_out(db, turn),
+    )
+
+
+@router.get("/{session_id}", response_model=SessionResumeOut)
+def get_session(session_id: int, db: Session = Depends(get_db)):
+    """세션 복구 — 새로고침·크래시 후 재진입 시 진행 상태와 턴 이력을 돌려준다.
+
+    프론트는 in_progress + current_turn이면 역할극을 이어가고, current_turn이
+    없으면(대화 종료 후 finish 전에 끊김) 마무리 요청 후 리포트로 보낸다.
+    """
+    session = db.get(RoleplaySession, session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다")
+
+    turns = list(session.turns)
+    current = next((t for t in turns if t.answered_at is None), None)
+    history = []
+    for t in turns:
+        if t.answered_at is None:
+            continue
+        item = HistoryTurnOut.model_validate(t)
+        ep = db.get(Episode, t.episode_id)
+        item.episode_title = ep.title if ep else ""
+        item.virtual_time = (ep.virtual_time or "") if ep else ""
+        history.append(item)
+
+    started = session.started_at
+    if started.tzinfo is None:  # SQLite는 naive로 저장한다
+        started = started.replace(tzinfo=timezone.utc)
+    elapsed = max(0, int((datetime.now(timezone.utc) - started).total_seconds()))
+
+    return SessionResumeOut(
+        id=session.id,
+        status=session.status.value,
+        mode=session.mode,
+        difficulty=session.difficulty,
+        scenario=to_scenario_out(session.scenario),
+        current_turn=_turn_out(db, current) if current else None,
+        history=history,
+        elapsed_sec=elapsed,
     )
 
 

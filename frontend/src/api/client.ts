@@ -7,6 +7,7 @@ import type {
   Report,
   RoleplaySession,
   Scenario,
+  Turn,
 } from './types';
 
 export const api = axios.create({
@@ -45,6 +46,16 @@ export async function createSession(opts: {
     consent: { agreed: opts.agreed, storage_policy: 'none' },
   });
   return data;
+}
+
+export interface SessionResume extends RoleplaySession {
+  history: (Turn & { response_text: string })[];
+  elapsed_sec: number;
+}
+
+/** 세션 복구 — 새로고침·크래시 후 진행 상태와 턴 이력을 다시 가져온다 */
+export async function getSession(sessionId: number): Promise<SessionResume> {
+  return (await api.get(`/sessions/${sessionId}`)).data;
 }
 
 export async function submitResponse(

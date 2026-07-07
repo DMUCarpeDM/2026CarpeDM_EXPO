@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { finishSession, getHealth, submitResponse, uploadAudio } from '../../api/client';
+import { useNavigate, useParams } from 'react-router-dom';
+import { finishSession, getHealth, getSession, submitResponse, uploadAudio } from '../../api/client';
 import type { Character, Turn, TurnSignals } from '../../api/types';
 import Avatar from '../../components/Avatar';
 import Icon from '../../components/Icon';
@@ -20,8 +20,9 @@ const QUESTION_TYPE_LABEL: Record<Turn['question_type'], string> = {
 
 export default function RoleplayPage() {
   const navigate = useNavigate();
+  const { sessionId } = useParams();
   const mirror = useMirrorMode();
-  const { session, currentTurn, turnHistory, advance } = useSessionStore();
+  const { session, currentTurn, turnHistory, advance, restore } = useSessionStore();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const overlayRef = useRef<HTMLCanvasElement | null>(null);
   const {
@@ -70,10 +71,38 @@ export default function RoleplayPage() {
   const reactionCharacter: Character | null =
     session?.scenario.characters.find((c) => c.id === currentTurn?.reaction_character_id) ?? null;
 
-  // 세션 없이 직접 URL 진입한 경우 온보딩으로
+  // 세션 없이 진입(새로고침·크래시 후) → URL의 세션 id로 서버에서 진행 상태 복원
   useEffect(() => {
-    if (!session) navigate('/', { replace: true });
-  }, [session, navigate]);
+    if (session) return;
+    const id = Number(sessionId);
+    if (!id) {
+      navigate('/', { replace: true });
+      return;
+    }
+    let cancelled = false;
+    getSession(id)
+      .then(async (s) => {
+        if (cancelled) return;
+        if (s.status === 'in_progress' && s.current_turn) {
+          restore(s, s.history.map((h) => ({ turn: h, response: h.response_text })));
+          setSecondsLeft(Math.max(0, s.mode * 60 - s.elapsed_sec));
+        } else if (s.status === 'in_progress') {
+          // 대화는 끝났는데 finish 전에 끊긴 세션 — 마무리하고 리포트로
+          await finishSession(id).catch(() => undefined);
+          navigate(`/report/${id}`, { replace: true });
+        } else if (s.status === 'analyzing' || s.status === 'completed') {
+          navigate(`/report/${id}`, { replace: true });
+        } else {
+          navigate('/', { replace: true });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) navigate('/', { replace: true });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session, sessionId, navigate, restore]);
 
   // 브리핑을 표시할 수 없는 상황(에피소드 미매칭·2턴 이후)이면 자동 해제 — TTS가 막히지 않도록
   useEffect(() => {
