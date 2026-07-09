@@ -11,6 +11,7 @@ from app.schemas.schemas import (
     SessionCreateIn,
     SessionOut,
     SignupIn,
+    SurveyIn,
     TokenOut,
     TurnOut,
     UserOut,
@@ -19,5 +20,5 @@ from app.schemas.schemas import (
 __all__ = [
     "AdminMetricsOut", "ConsentIn", "LoginIn", "NextTurnOut", "NonverbalIn",
     "ProgressOut", "ReportOut", "ResponseIn", "ScenarioOut", "SessionCreateIn",
-    "SessionOut", "SignupIn", "TokenOut", "TurnOut", "UserOut",
+    "SessionOut", "SignupIn", "SurveyIn", "TokenOut", "TurnOut", "UserOut",
 ]

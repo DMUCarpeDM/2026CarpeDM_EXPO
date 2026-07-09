@@ -8,10 +8,10 @@ import traceback
 from pathlib import Path
 
 from app.ai import nonverbal, response_fit, voice_fit
-from app.ai.scoring import weighted_mean
+from app.ai.scoring import ENGINE_VERSION, weighted_mean
 from app.ai.stt import get_stt_provider
 from app.core.database import SessionLocal
-from app.models import AnalysisResult, Consent, FitType, RoleplaySession, SessionStatus, Turn
+from app.models import AnalysisResult, Consent, FitType, Report, RoleplaySession, SessionStatus, Turn
 from app.services import report as report_service
 from app.services.session_fsm import transition
 
@@ -30,6 +30,13 @@ def run_analysis(session_id: int) -> None:
         session = db.get(RoleplaySession, session_id)
         if session is None or session.status != SessionStatus.analyzing:
             return
+
+        # 재시도(S-TLJZWB) 멱등성: 이전 실행이 부분 커밋한 결과를 지우고 처음부터 다시 계산.
+        # 지우지 않으면 (session_id, turn_id, fit_type) 유니크 제약에 걸린다.
+        db.query(AnalysisResult).filter_by(session_id=session_id).delete()
+        db.query(Report).filter_by(session_id=session_id).delete()
+        db.commit()
+
         turns = [t for t in session.turns if t.response_text or t.audio_path]
 
         # 1) STT — Web Speech가 이미 텍스트를 보냈으면 스킵. whisper 설치 시 오디오만 있는 턴 변환
@@ -53,7 +60,7 @@ def run_analysis(session_id: int) -> None:
             score = response_fit.score_response(metrics)
             db.add(AnalysisResult(
                 session_id=session.id, turn_id=t.id,
-                fit_type=FitType.response, raw_metrics=metrics, score=score,
+                fit_type=FitType.response, raw_metrics=metrics, score=score, engine_version=ENGINE_VERSION,
             ))
             weight = sum(i.get("weight", 1.0) for i in t.episode.checklist) or 1.0
             response_scores.append((score, weight))
@@ -74,7 +81,7 @@ def run_analysis(session_id: int) -> None:
                 continue
             db.add(AnalysisResult(
                 session_id=session.id, turn_id=t.id,
-                fit_type=FitType.voice, raw_metrics=metrics, score=score,
+                fit_type=FitType.voice, raw_metrics=metrics, score=score, engine_version=ENGINE_VERSION,
             ))
             voice_scores.append((score, 1.0))
 
@@ -89,14 +96,14 @@ def run_analysis(session_id: int) -> None:
             if eye is not None:
                 db.add(AnalysisResult(
                     session_id=session.id, turn_id=t.id,
-                    fit_type=FitType.eye, raw_metrics=nv, score=eye,
+                    fit_type=FitType.eye, raw_metrics=nv, score=eye, engine_version=ENGINE_VERSION,
                 ))
                 eye_scores.append((eye, 1.0))
             posture = nonverbal.score_posture(nv)
             if posture is not None:
                 db.add(AnalysisResult(
                     session_id=session.id, turn_id=t.id,
-                    fit_type=FitType.posture, raw_metrics=nv, score=posture,
+                    fit_type=FitType.posture, raw_metrics=nv, score=posture, engine_version=ENGINE_VERSION,
                 ))
                 posture_scores.append((posture, 1.0))
         db.commit()
@@ -113,7 +120,7 @@ def run_analysis(session_id: int) -> None:
             if score is not None:
                 db.add(AnalysisResult(
                     session_id=session.id, turn_id=None, fit_type=fit,
-                    raw_metrics={}, score=score,
+                    raw_metrics={}, score=score, engine_version=ENGINE_VERSION,
                 ))
         db.commit()
 

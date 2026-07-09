@@ -113,6 +113,14 @@ class ProgressOut(BaseModel):
     pct: int = 0
 
 
+class SurveyIn(BaseModel):
+    """리포트 후 만족도 설문 (PRD KPI: 이해도·공감·개인화 체감, 각 1~5점)."""
+    q_clarity: int | None = Field(default=None, ge=1, le=5)
+    q_empathy: int | None = Field(default=None, ge=1, le=5)
+    q_personalization: int | None = Field(default=None, ge=1, le=5)
+    comment: str = ""
+
+
 # ---- report ----
 
 class ReportOut(BaseModel):
@@ -140,6 +148,9 @@ class AdminMetricsOut(BaseModel):
     sessions_completed: int
     completion_rate: float
     retry_rate: float
+    second_attempt_rate: float  # 2차 수행률 (KPI) — attempt_no 기반
     avg_total_score: float | None
     avg_analysis_ms: float | None
     avg_fit_scores: dict
+    avg_improvement: float | None = None  # 1차→2차 평균 점수 개선 (KPI)
+    survey_avg: dict = {}  # {clarity, empathy, personalization} 평균 (KPI 설문)

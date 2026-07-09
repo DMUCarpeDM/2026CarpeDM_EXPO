@@ -7,6 +7,7 @@ import secrets
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -48,7 +49,15 @@ def issue_code(body: CodeIn, db: Session = Depends(get_db)):
         return CodeOut(code=existing.code)
     anon = AnonymousId(code=_generate_code(db), client_key=body.client_key)
     db.add(anon)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # 동시 요청이 같은 client_key로 먼저 발급한 경우 — 그 코드를 돌려준다
+        db.rollback()
+        existing = db.query(AnonymousId).filter_by(client_key=body.client_key).first()
+        if existing is None:
+            raise
+        return CodeOut(code=existing.code)
     return CodeOut(code=anon.code)
 
 

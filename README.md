@@ -52,6 +52,11 @@ python3 -m venv .venv
 첫 기동 시 SQLite 스키마 생성과 시나리오 시드가 자동 실행된다.
 API 문서: <http://localhost:8000/docs>
 
+> **DB 스키마 변경 규칙:** 마이그레이션 도구 없이 `create_all`만 사용하므로,
+> 모델(`app/models/models.py`)을 수정하면 기존 테이블에는 반영되지 않는다.
+> 스키마가 바뀌면 `backend/mirroting.db`(및 `-wal`/`-shm` 파일)를 삭제하고
+> 서버를 재기동해 재생성·재시드한다. 실사용 데이터가 쌓이기 시작하면 Alembic 도입이 선행 조건.
+
 ### 프론트엔드 (Node 20+, React + Vite)
 
 ```bash
@@ -86,7 +91,12 @@ cd backend && ./.venv/bin/python scripts/setup_offline_stt.py # Vosk 한국어 S
 
 `/kiosk` 진입 시 대기 화면이 표시되고 전시 모드가 켜진다. 리포트 화면을 90초
 방치하면 대기 화면으로 자동 복귀한다. 운영 대시보드(`/admin`)에서 지표 확인,
-CSV 내보내기, 1클릭 초기화를 제공한다.
+CSV 내보내기, 1클릭 초기화를 제공한다. 초기화·내보내기는 `audit_events` 테이블에
+감사 기록이 남는다.
+
+관리자 API는 전시(로컬 단독) 기본값에서 무인증이다. 기관 납품 등 네트워크에 노출되는
+환경에서는 `MIRROTING_ADMIN_AUTH_REQUIRED=true`로 인증을 강제하고, 가입한 계정을
+`python -m app.seed.make_admin <email>`로 관리자 승격해 사용한다.
 
 ### 체험 코드
 
