@@ -108,6 +108,8 @@ class RoleplaySession(Base):
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     # 익명 연속성: 프론트 localStorage UUID (QR/익명 ID 연동의 기반)
     client_key: Mapped[str] = mapped_column(String(64), default="", index=True)
+    # 세션 접근 능력 토큰 — 생성 시 발급, 세션 데이터 조회에 요구 (순차 id 열거 IDOR 차단)
+    access_token: Mapped[str] = mapped_column(String(64), default="")
     mode: Mapped[int] = mapped_column(Integer, default=5)  # 5 | 10 (분)
     difficulty: Mapped[str] = mapped_column(String(20), default="basic")  # basic | pressure
     status: Mapped[SessionStatus] = mapped_column(Enum(SessionStatus), default=SessionStatus.ready)

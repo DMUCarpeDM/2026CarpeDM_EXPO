@@ -79,6 +79,8 @@ class SessionOut(BaseModel):
     difficulty: str
     scenario: ScenarioOut
     current_turn: TurnOut | None = None
+    # 세션 접근 능력 토큰 — 이후 세션 조회 시 X-Session-Token 헤더로 되돌려준다 (생성 응답에만 값)
+    access_token: str = ""
 
 
 class HistoryTurnOut(TurnOut):
@@ -146,7 +148,7 @@ class NonverbalIn(BaseModel):
 
 
 class ResponseIn(BaseModel):
-    text: str = ""
+    text: str = Field(default="", max_length=4000)  # 발화 1턴 상한 — 무한 저장·DoS 차단
     stt_source: str = "webspeech"  # webspeech | text
     duration_ms: int = 0
     nonverbal: NonverbalIn | None = None

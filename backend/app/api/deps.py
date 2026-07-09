@@ -1,20 +1,47 @@
 import secrets
 
-from fastapi import Depends, Header, HTTPException
+from fastapi import Depends, Header, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import decode_access_token
-from app.models import User
+from app.models import RoleplaySession, User
+
+# 루프백(같은 PC)으로 간주하는 호스트 — 토큰 미설정 시 운영 API를 여기서만 허용.
+# "testclient"는 Starlette TestClient의 기본 호스트(실서비스 트래픽엔 나타나지 않는다).
+_LOOPBACK = {"127.0.0.1", "::1", "localhost", "testclient"}
 
 
-def require_admin(x_admin_token: str = Header(default="")) -> None:
-    """운영 API 보호 — 토큰이 설정된 경우에만 헤더를 대조한다 (미설정 = 개발 모드)."""
-    if settings.admin_token and not secrets.compare_digest(
-        x_admin_token, settings.admin_token
-    ):
-        raise HTTPException(status_code=401, detail="운영 토큰이 올바르지 않습니다")
+def require_admin(request: Request, x_admin_token: str = Header(default="")) -> None:
+    """운영 API 보호. 토큰이 설정돼 있으면 헤더를 대조하고, 미설정(개발 편의)이면
+    부스 LAN 노출을 막기 위해 루프백 요청만 허용한다."""
+    if settings.admin_token:
+        if not secrets.compare_digest(x_admin_token, settings.admin_token):
+            raise HTTPException(status_code=401, detail="운영 토큰이 올바르지 않습니다")
+        return
+    host = request.client.host if request.client else ""
+    if host not in _LOOPBACK:
+        raise HTTPException(
+            status_code=403,
+            detail="운영 토큰이 설정되지 않아 로컬(같은 PC)에서만 접근할 수 있습니다",
+        )
+
+
+def require_session(
+    session_id: int,
+    x_session_token: str = Header(default=""),
+    db: Session = Depends(get_db),
+) -> RoleplaySession:
+    """세션 소유 검증 — 생성 시 발급한 능력 토큰이 있어야 세션 데이터에 접근한다.
+    순차 정수 id를 열거해 타인의 발화·리포트를 읽는 IDOR를 차단한다."""
+    session = db.get(RoleplaySession, session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다")
+    token = session.access_token or ""
+    if not token or not secrets.compare_digest(x_session_token, token):
+        raise HTTPException(status_code=403, detail="세션 접근 권한이 없습니다")
+    return session
 
 
 def get_current_user(
