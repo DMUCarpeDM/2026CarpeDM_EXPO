@@ -149,6 +149,16 @@ class TemplateDialogueProvider:
             )
         return None
 
+    def plan_next(
+        self, session: RoleplaySession, episodes: list[Episode], turns: list[Turn]
+    ) -> QuestionSpec | None:
+        return self.next_question(session, episodes, turns)
+
+    def personalize_question(
+        self, spec: QuestionSpec, situation: str, last_response: str
+    ) -> str | None:
+        return None  # 템플릿 엔진은 개인화 없음 — 대본 그대로
+
     @staticmethod
     def _missing_items(episode: Episode, ep_turns: list[Turn]) -> list[dict]:
         """에피소드 내 모든 응답을 합쳐 아직 커버되지 않은 체크리스트 항목(가중치 내림차순)."""

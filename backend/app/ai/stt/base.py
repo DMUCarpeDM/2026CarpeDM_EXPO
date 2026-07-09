@@ -32,10 +32,12 @@ class SttProvider(Protocol):
 class WhisperProvider:
     name = "whisper"
 
-    def __init__(self, model_size: str = "base"):
+    def __init__(self, model_size: str | None = None):
         from faster_whisper import WhisperModel  # 선택 의존성
 
-        self._model = WhisperModel(model_size, device="cpu", compute_type="int8")
+        self._model = WhisperModel(
+            model_size or settings.stt_whisper_model, device="cpu", compute_type="int8",
+        )
 
     def transcribe(self, audio_path: str) -> str:
         segments, _info = self._model.transcribe(audio_path, language="ko")

@@ -27,7 +27,8 @@ def _turn_breakdown(db: Session, session: RoleplaySession) -> list[dict]:
         breakdown.append({
             "turn_order": turn.order,
             "question_type": turn.question_type,
-            "episode_title": turn.episode.title,
+            # 과거 시드 방식이 남긴 깨진 에피소드 참조 방어
+            "episode_title": turn.episode.title if turn.episode else "",
             "question": turn.question_text[:60],
             "scores": scores_by_turn[turn.id],
         })

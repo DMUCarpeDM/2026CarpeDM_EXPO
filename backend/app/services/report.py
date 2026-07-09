@@ -353,7 +353,7 @@ def _build_rebuild(session: RoleplaySession, response_results: list[AnalysisResu
     if worst is None:
         return {}
     turn = next((t for t in session.turns if t.id == worst.turn_id), None)
-    if turn is None or not turn.episode.checklist:
+    if turn is None or turn.episode is None or not turn.episode.checklist:
         return {}
     # 같은 에피소드의 모든 응답을 합산 — 어느 턴에서든 한 번 담았으면 인정
     episode_turn_ids = {t.id for t in session.turns if t.episode_id == turn.episode_id}

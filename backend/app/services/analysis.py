@@ -12,7 +12,7 @@ from app.ai.discourse import analyze_discourse
 from app.ai.scoring import weighted_mean
 from app.ai.stt import get_stt_provider
 from app.core.database import SessionLocal
-from app.models import AnalysisResult, Consent, FitType, RoleplaySession, SessionStatus, Turn
+from app.models import AnalysisResult, Consent, FitType, Report, RoleplaySession, SessionStatus, Turn
 from app.services import report as report_service
 from app.services.session_fsm import transition
 
@@ -31,6 +31,11 @@ def run_analysis(session_id: int) -> None:
         session = db.get(RoleplaySession, session_id)
         if session is None or session.status != SessionStatus.analyzing:
             return
+        # 멱등성: 중단된 이전 실행(크래시·재시작)이 남긴 부분 결과를 지우고 처음부터.
+        # 재시도·기동 복구가 결과를 중복 적재하지 않기 위한 전제다.
+        db.query(AnalysisResult).filter_by(session_id=session_id).delete()
+        db.query(Report).filter_by(session_id=session_id).delete()
+        db.commit()
         turns = [t for t in session.turns if t.response_text or t.audio_path]
 
         # 1) STT — Web Speech가 이미 텍스트를 보냈으면 스킵. whisper 설치 시 오디오만 있는 턴 변환
@@ -50,14 +55,16 @@ def run_analysis(session_id: int) -> None:
         for t in turns:
             if not t.response_text:
                 continue
-            metrics = response_fit.analyze_response(t.response_text, t.episode.checklist)
+            # 과거 시드 방식이 남긴 깨진 에피소드 참조 방어 — 체크리스트 없이 분석 지속
+            checklist = t.episode.checklist if t.episode else []
+            metrics = response_fit.analyze_response(t.response_text, checklist)
             metrics["discourse"] = analyze_discourse(t.response_text, t.question_text)
             score = response_fit.score_response(metrics)
             db.add(AnalysisResult(
                 session_id=session.id, turn_id=t.id,
                 fit_type=FitType.response, raw_metrics=metrics, score=score,
             ))
-            weight = sum(i.get("weight", 1.0) for i in t.episode.checklist) or 1.0
+            weight = sum(i.get("weight", 1.0) for i in checklist) or 1.0
             response_scores.append((score, weight))
 
         # 3) Voice-Fit — 오디오가 있으면 실측, 음성 인식(webspeech) 턴만 발화 시간 근사.

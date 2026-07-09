@@ -7,9 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "test": "node --test src/features/roleplay/*.test.ts",
     "preview": "vite preview",
-    "setup-offline": "node scripts/setup-offline.mjs",
-    "test": "vitest run"
+    "setup-offline": "node scripts/setup-offline.mjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.35",
@@ -28,7 +28,6 @@
     "@vitejs/plugin-react": "^6.0.3",
     "oxlint": "^1.71.0",
     "typescript": "~6.0.2",
-    "vite": "^8.1.1",
-    "vitest": "^4.1.10"
+    "vite": "^8.1.1"
   }
 }

@@ -7,11 +7,12 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.api.deps import require_admin
 from app.core.database import get_db
 from app.models import AnalysisResult, FitType, Report, RoleplaySession, SessionStatus
 from app.schemas import AdminMetricsOut
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
 ACTIVE = (SessionStatus.ready, SessionStatus.in_progress, SessionStatus.analyzing)
 

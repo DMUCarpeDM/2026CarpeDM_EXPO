@@ -22,10 +22,95 @@ def _purge_expired_media() -> None:
         print(f"보관 기간 만료 음성 {removed}건 삭제")
 
 
+def _prewarm_models() -> None:
+    """모델 예열 — 첫 체험자가 로드 비용(수십 초)을 내지 않게 한다 (전시 운영).
+
+    백그라운드 스레드에서 실행: STT(whisper/vosk) 로드 + Ollama 대화/임베딩
+    모델을 RAM에 올린다(keep_alive 적용). 없는 구성 요소는 조용히 건너뛴다.
+    """
+    import httpx
+
+    from app.ai.stt import get_stt_provider
+
+    provider = get_stt_provider()
+    print(f"[prewarm] 서버 STT: {provider.name if provider else '없음 (Web Speech 전용)'}")
+
+    if settings.dialogue_provider == "ollama":
+        try:
+            httpx.post(
+                f"{settings.ollama_base_url}/api/chat",
+                json={
+                    "model": settings.ollama_model,
+                    "messages": [{"role": "user", "content": "준비"}],
+                    "stream": False,
+                    "keep_alive": settings.ollama_keep_alive,
+                    "options": {"num_predict": 1},
+                },
+                timeout=120,  # 콜드 로드 허용 — 예열이므로 요청 경로와 무관
+            )
+            print(f"[prewarm] 대화 모델 상주: {settings.ollama_model}")
+        except Exception:
+            print("[prewarm] Ollama 대화 모델 없음 → 템플릿 엔진으로 동작")
+    if settings.semantic_match_enabled:
+        try:
+            httpx.post(
+                f"{settings.ollama_base_url}/api/embeddings",
+                json={
+                    "model": settings.ollama_embed_model, "prompt": "준비",
+                    "keep_alive": settings.ollama_keep_alive,
+                },
+                timeout=120,
+            )
+            print(f"[prewarm] 임베딩 모델 상주: {settings.ollama_embed_model}")
+        except Exception:
+            print("[prewarm] Ollama 임베딩 없음 → 키워드 매칭만 사용")
+
+
+def _recover_interrupted_analyses() -> None:
+    """서버 재시작으로 중단된 분석 복구 — analyzing에 고착된 세션을 재큐잉.
+
+    분석은 프로세스 내 BackgroundTask라 재시작 시 유실된다. 그대로 두면 진행률
+    화면이 영원히 멈추고, 재시도 API는 stage=error 전용이라 거부한다.
+    run_analysis는 멱등(부분 결과 삭제 후 재실행)이므로 재큐잉이 안전하다.
+    SQLite 동시 쓰기 경합을 피해 한 스레드에서 순차 처리한다.
+    """
+    import threading
+
+    from app.core.database import SessionLocal
+    from app.models import RoleplaySession, SessionStatus
+    from app.services.analysis import run_analysis
+
+    db = SessionLocal()
+    try:
+        stuck = [
+            row[0]
+            for row in db.query(RoleplaySession.id)
+            .filter(RoleplaySession.status == SessionStatus.analyzing)
+            .all()
+        ]
+    finally:
+        db.close()
+    if not stuck:
+        return
+    print(f"[recover] 재시작으로 중단된 분석 {len(stuck)}건 재큐잉: {stuck}")
+
+    def _resume() -> None:
+        for session_id in stuck:
+            run_analysis(session_id)
+
+    threading.Thread(target=_resume, daemon=True).start()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     seed()  # 테이블 생성 + 시나리오 시드 (멱등)
     _purge_expired_media()
+    _recover_interrupted_analyses()
+    if not settings.admin_token:
+        print("[warn] MIRROTING_ADMIN_TOKEN 미설정 — 운영 API(/api/admin)가 무인증으로 열립니다")
+    import threading
+
+    threading.Thread(target=_prewarm_models, daemon=True).start()
     yield
 
 
