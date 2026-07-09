@@ -285,7 +285,7 @@ describe('verticalIrisRatio — 눈 열림 게이트', () => {
     const shutUpper = { x: 0.45, y: 0.495 };
     const shutLower = { x: 0.45, y: 0.505 };
     const r = verticalIrisRatio(
-      irisCenter, shutUpper, shutLower, eye.inner, eye.outer, 0.15,
+      { y: 0.5 }, shutUpper, shutLower, eye.inner, eye.outer, 0.15,
     );
     assert.equal(r, null);
   });
