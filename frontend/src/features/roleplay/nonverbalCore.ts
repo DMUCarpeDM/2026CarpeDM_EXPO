@@ -11,7 +11,18 @@
  */
 import type { NonverbalMetrics } from '../../api/types';
 
-export const SAMPLE_MS = 200;
+// 측정 샘플링 주기(ms). 기본 200ms(5Hz) — 깜빡임(100~300ms)·빠른 끄덕임은 샘플
+// 사이로 빠져 과소 집계될 수 있는 물리 한계가 있다. 전시 PC 성능이 허락하면
+// 운영자 패널에서 낮춰 실측한다: localStorage 'mirroting-sample-ms' = 100~500 (§2.5).
+// 아래 모든 표본 게이트는 framesFor(시간 기준)라 값만 바꾸면 일관되게 동작한다.
+export const SAMPLE_MS = (() => {
+  if (typeof localStorage === 'undefined') return 200; // 테스트(node) 환경
+  const v = Number(localStorage.getItem('mirroting-sample-ms'));
+  return Number.isFinite(v) && v >= 100 && v <= 500 ? v : 200;
+})();
+
+/** 시간 길이(ms) → 표본 게이트 프레임 수 — 샘플링 주기와 무관하게 같은 시간 기준 */
+export const framesFor = (ms: number): number => Math.max(1, Math.round(ms / SAMPLE_MS));
 // 기준 대비 허용 편차 (캘리브레이션 후 상대 판정)
 export const YAW_DELTA_THRESHOLD = 0.22; // 시선 좌우: 비대칭 변화량
 export const HEAD_DROP_THRESHOLD = 0.1; // 고개 숙임: 코-어깨 거리(어깨너비 정규화) 감소량
@@ -219,8 +230,8 @@ export function finalizeCalibration(cal: CalibrationSamples): Baseline {
     // 홍채 기준은 표본 분산까지 확인 — 흔들리는 표본으로 보상하면 오판을 만든다
     eyeX: cal.eyeX.length >= 4 && stdDev(cal.eyeX) < 0.08 ? median(cal.eyeX) : null,
     eyeY: cal.eyeY.length >= 4 && stdDev(cal.eyeY) < 0.08 ? median(cal.eyeY) : null,
-    // 깜빡임 기저선은 표본 10초(50프레임) 이상일 때만 — 짧은 창의 비율 추정은 오차가 크다
-    blinkPerMin: cal.blinkFrames >= 50
+    // 깜빡임 기저선은 표본 10초 이상일 때만 — 짧은 창의 비율 추정은 오차가 크다
+    blinkPerMin: cal.blinkFrames >= framesFor(10000)
       ? Math.round(cal.blinks / ((cal.blinkFrames * SAMPLE_MS) / 60000))
       : null,
     // 평상시 어깨폭 — 듣기 리닝(전진/후퇴)의 기준. 미러 앞 위치가 고정된 전시
@@ -347,6 +358,35 @@ export function updateNod(acc: Accumulator, headGap: number): void {
   acc.nodPrevGap = headGap;
 }
 
+// ---------------------------------------------------------------------------
+// 다인 가드·수직 홍채 — 프레임 기하 판정 (자세·얼굴 가드 공용)
+// ---------------------------------------------------------------------------
+
+/** 다인 가드: 중심 좌표나 크기가 한 샘플 만에 급변하면 추적 대상이 바뀐 것
+ * (관람객 난입·끼어듦)일 수 있다 → 해당 프레임의 집계를 폐기할 근거. */
+export function trackerJumped(
+  prev: { x: number; w: number } | null,
+  x: number, w: number,
+  maxDx: number, maxRatio: number,
+): boolean {
+  if (!prev) return false;
+  return Math.abs(x - prev.x) > maxDx || w > prev.w * maxRatio || w < prev.w / maxRatio;
+}
+
+/** 수직 홍채: 눈꺼풀 사이 상하 위치 (0=위 눈꺼풀, 1=아래). 깜빡임·실눈 중에는
+ * 분모(눈 열림)가 무너져 오판 제조기가 되므로, 열림/눈 너비 비가 openMin 미만이면
+ * 표본을 버린다(null). */
+export function verticalIrisRatio(
+  iris: { y: number }, upper: { y: number }, lower: { y: number },
+  inner: { x: number }, outer: { x: number },
+  openMin: number,
+): number | null {
+  const open = lower.y - upper.y;
+  const w = Math.abs(outer.x - inner.x) || 1e-6;
+  if (open / w < openMin) return null;
+  return (iris.y - upper.y) / (open || 1e-6);
+}
+
 /** 3×3 시선 존 인덱스 (행: 위/중/아래 × 열: 좌/중/우).
  * 상하 행은 수직 홍채(기준 보정)가 있으면 홍채 기반으로 정밀화한다. */
 export function gazeZoneIndex(
@@ -367,9 +407,9 @@ export function gazeZoneIndex(
 // 턴 종료 직렬화 — 서버 페이로드
 // ---------------------------------------------------------------------------
 
-/** 턴 누적치를 서버 페이로드로 직렬화. 표본 5프레임 미만이면 측정 보류(null). */
+/** 턴 누적치를 서버 페이로드로 직렬화. 표본 1초 미만이면 측정 보류(null). */
 export function finalizeTurnMetrics(acc: Accumulator, base: Baseline): NonverbalMetrics | null {
-  if (acc.frames < 5) return null;
+  if (acc.frames < framesFor(1000)) return null;
   const xs = acc.shoulderXs;
   let sway = 0;
   if (xs.length > 2) {
@@ -377,14 +417,15 @@ export function finalizeTurnMetrics(acc: Accumulator, base: Baseline): Nonverbal
     sway = Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / xs.length);
   }
 
-  // 전/후반 추세: 후반부 자세 붕괴·시선 저하 감지
+  // 전/후반 추세: 후반부 자세 붕괴·시선 저하 감지 (전·후반 각 1초 이상 표본)
+  const driftMin = framesFor(2000);
   let tiltDrift = 0;
-  if (acc.tiltSamples.length >= 10) {
+  if (acc.tiltSamples.length >= driftMin) {
     const h = Math.floor(acc.tiltSamples.length / 2);
     tiltDrift = mean(acc.tiltSamples.slice(h)) - mean(acc.tiltSamples.slice(0, h));
   }
   let frontDrift = 0;
-  if (acc.frontFlags.length >= 10) {
+  if (acc.frontFlags.length >= driftMin) {
     const h = Math.floor(acc.frontFlags.length / 2);
     const ratio = (flags: boolean[]) => flags.filter(Boolean).length / flags.length;
     frontDrift = Math.round(
@@ -414,14 +455,14 @@ export function finalizeTurnMetrics(acc: Accumulator, base: Baseline): Nonverbal
     smile_ratio: Math.round((acc.smileFrames / acc.frames) * 100) / 100,
     // 진정성 미소 근사: 미소 프레임 중 눈둘레근 동시 활성 비율 —
     // 입만 웃는 서비스 미소와 눈까지 웃는 미소의 구분. 미소 표본 2초 미만은 판정 보류(null)
-    smile_duchenne_ratio: acc.smileFrames >= 10
+    smile_duchenne_ratio: acc.smileFrames >= framesFor(2000)
       ? Math.round((acc.duchenneFrames / acc.smileFrames) * 100) / 100
       : null,
     // 표정 복구 시간: 긴장 표정(입술 압축·찡그림) 에피소드가 풀리기까지 평균 초 —
     // 압박 턴 vs 평상 턴 비교(교차 분석 composure)의 재료. 에피소드 없으면 0
     expr_recover_sec: (() => {
       const eps = [...acc.tensionStreaks];
-      if (acc.curTensionStreak >= 2) eps.push(acc.curTensionStreak);
+      if (acc.curTensionStreak >= framesFor(400)) eps.push(acc.curTensionStreak);
       return eps.length ? Math.round((mean(eps) * SAMPLE_MS) / 100) / 10 : 0;
     })(),
     head_roll_deg: acc.rollSamples.length
@@ -438,10 +479,10 @@ export function finalizeTurnMetrics(acc: Accumulator, base: Baseline): Nonverbal
     // 수직 홍채가 상하 판정에 실제로 쓰인 프레임 비율 (능력 플래그)
     iris_v_ratio: Math.round((acc.irisVFrames / acc.frames) * 100) / 100,
     // 듣기/말하기 응시 분리 (표본 2초 미만이면 판정 보류 = null)
-    listening_front_ratio: acc.listenFrames >= 10
+    listening_front_ratio: acc.listenFrames >= framesFor(2000)
       ? Math.round((acc.listenFront / acc.listenFrames) * 100) / 100
       : null,
-    answering_front_ratio: acc.answerFrames >= 10
+    answering_front_ratio: acc.answerFrames >= framesFor(2000)
       ? Math.round((acc.answerFront / acc.answerFrames) * 100) / 100
       : null,
     // 응시 리듬: 연속 응시 구간(바우트)의 평균 길이 — 3~7초가 자연스러운 대화 리듬
@@ -466,7 +507,7 @@ export function finalizeTurnMetrics(acc: Accumulator, base: Baseline): Nonverbal
       }))
       .filter((b) => b.front !== null),
     // 시선 미세 안정성: 정면 판정 내에서의 흔들림 (표준편차) — 스캐닝 습관 감지
-    gaze_stability: acc.asymSamples.length > 5
+    gaze_stability: acc.asymSamples.length > framesFor(1000)
       ? Math.round(stdDev(acc.asymSamples) * 1000) / 1000
       : 0,
     // 이탈 후 정면 복귀까지 평균 시간 — 회복 탄력
@@ -476,7 +517,7 @@ export function finalizeTurnMetrics(acc: Accumulator, base: Baseline): Nonverbal
     // 앞/뒤 리닝 추세: 후반 어깨폭 / 전반 대비 (%) — +는 카메라 쪽으로 다가옴
     lean_drift_pct: (() => {
       const w = acc.shoulderWidths;
-      if (w.length < 10) return 0;
+      if (w.length < driftMin) return 0;
       const h = Math.floor(w.length / 2);
       return Math.round((mean(w.slice(h)) / mean(w.slice(0, h)) - 1) * 100);
     })(),
@@ -484,16 +525,16 @@ export function finalizeTurnMetrics(acc: Accumulator, base: Baseline): Nonverbal
     // 3D 월드 기울기 가동률 — 리포트가 '거리 불변 측정'인지 밝힐 근거 (iris_ratio와 동형)
     world_ratio: Math.round((acc.worldFrames / acc.frames) * 100) / 100,
     // 제스처 에너지: 손목 평균 속도(m/s, 골반 원점 월드 좌표). 표본 5초 미만 보류
-    gesture_energy: acc.gestureSamples >= 25
+    gesture_energy: acc.gestureSamples >= framesFor(5000)
       ? Math.round((acc.gestureDistSum / (acc.gestureSamples * (SAMPLE_MS / 1000))) * 1000) / 1000
       : null,
     // 제스처 활동 비율: 실제로 움직인(>0.1m/s) 표본 비율 — 경직(얼어 있음) 감지 근거
-    gesture_active_ratio: acc.gestureSamples >= 25
+    gesture_active_ratio: acc.gestureSamples >= framesFor(5000)
       ? Math.round((acc.gestureActive / acc.gestureSamples) * 100) / 100
       : null,
     hands_visible_ratio: Math.round((acc.handSeenFrames / acc.frames) * 100) / 100,
     // 골반 중심 좌우 흔들림(어깨너비 정규화 표준편차) — 서서 체중을 옮기는 습관
-    hip_sway: acc.hipXs.length >= 25
+    hip_sway: acc.hipXs.length >= framesFor(5000)
       ? Math.round(stdDev(acc.hipXs) * 1000) / 1000
       : null,
     lower_visible_ratio: Math.round((acc.lowerVisFrames / acc.frames) * 100) / 100,
@@ -505,9 +546,16 @@ export function finalizeTurnMetrics(acc: Accumulator, base: Baseline): Nonverbal
     listen_sec: Math.round((acc.listenFrames * SAMPLE_MS) / 100) / 10,
     // 듣기 리닝: 기준 어깨폭 대비 듣는 동안 전진(+)/후퇴(-) % — 표본 2초·기준 필요
     listen_lean_pct: (() => {
-      if (base.width === null || acc.listenWidths.length < 10) return null;
+      if (base.width === null || acc.listenWidths.length < framesFor(2000)) return null;
       return Math.round((mean(acc.listenWidths) / base.width - 1) * 100);
     })(),
+    // 측정 샘플링 주기 — 서버가 프레임 수를 시간으로 해석할 때의 기준 (운영 튜닝 가능)
+    sample_ms: SAMPLE_MS,
+    // 시계축 정합: 턴 시작(질문 TTS)→답변 녹음 시작까지 초. moments가 비언어
+    // 타임라인(턴 시계)과 음성 스팬(답변 시계)을 같은 축으로 합성할 근거
+    answer_offset_sec: acc.answerStartedAt && acc.turnStartedAt
+      ? Math.round((acc.answerStartedAt - acc.turnStartedAt) / 100) / 10
+      : null,
     calibrated: base.set,
     tips: acc.tips,
   };

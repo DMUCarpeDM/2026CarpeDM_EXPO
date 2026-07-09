@@ -23,13 +23,16 @@ import {
   emptyCalibration,
   finalizeCalibration,
   finalizeTurnMetrics,
+  framesFor,
   gazeZoneIndex,
   resolveGaze,
   resolveHeadDown,
   SAMPLE_MS,
   TIMELINE_BIN_MS,
   TIMELINE_MAX_BINS,
+  trackerJumped,
   updateNod,
+  verticalIrisRatio,
 } from './nonverbalCore';
 
 // ---- 홍채 기반 시선 (Face Landmarker 478 랜드마크 중 468~477) ----
@@ -235,8 +238,7 @@ export function useNonverbal(
               // 얼굴 다인 가드: 얼굴 중심·크기가 한 샘플(200ms)에 급변하면 추적
               // 얼굴이 바뀐 것(관람객 끼어듦) → 이 프레임의 시선·표정 집계 폐기
               const faceW = Math.abs(right.x - left.x);
-              if (prevFace && (Math.abs(nose.x - prevFace.x) > 0.15
-                  || faceW > prevFace.w * 1.6 || faceW < prevFace.w / 1.6)) {
+              if (trackerJumped(prevFace, nose.x, faceW, 0.15, 1.6)) {
                 faceUnstable = true;
               }
               prevFace = { x: nose.x, w: faceW };
@@ -259,19 +261,10 @@ export function useNonverbal(
                 }
 
                 // ---- 수직 홍채: 눈꺼풀 사이 상하 위치 (열림 게이트 통과 시만) ----
-                const vRatio = (
-                  iris: { y: number }, upper: { y: number }, lower: { y: number },
-                  inner: { x: number }, outer: { x: number },
-                ): number | null => {
-                  const open = lower.y - upper.y;
-                  const w = Math.abs(outer.x - inner.x) || 1e-6;
-                  if (open / w < EYE_OPEN_MIN) return null; // 깜빡임·실눈 — 표본 배제
-                  return (iris.y - upper.y) / (open || 1e-6);
-                };
-                const rY = vRatio(lm[IRIS_R], lm[EYE_LIDS_R.upper], lm[EYE_LIDS_R.lower],
-                  lm[EYE_R.inner], lm[EYE_R.outer]);
-                const lY = vRatio(lm[IRIS_L], lm[EYE_LIDS_L.upper], lm[EYE_LIDS_L.lower],
-                  lm[EYE_L.inner], lm[EYE_L.outer]);
+                const rY = verticalIrisRatio(lm[IRIS_R], lm[EYE_LIDS_R.upper],
+                  lm[EYE_LIDS_R.lower], lm[EYE_R.inner], lm[EYE_R.outer], EYE_OPEN_MIN);
+                const lY = verticalIrisRatio(lm[IRIS_L], lm[EYE_LIDS_L.upper],
+                  lm[EYE_LIDS_L.lower], lm[EYE_L.inner], lm[EYE_L.outer], EYE_OPEN_MIN);
                 if (rY !== null && lY !== null && rY > -0.5 && rY < 1.5 && lY > -0.5 && lY < 1.5) {
                   eyeInHeadY = (rY + lY) / 2;
                 }
@@ -302,8 +295,7 @@ export function useNonverbal(
               // 다인 가드: 어깨 중심·폭이 한 샘플(200ms) 만에 급변하면 추적 대상이
               // 바뀐 것(관람객 난입·스침)일 수 있다 → 이 프레임의 자세 집계를 폐기
               const centerRaw = (ls.x + rs.x) / 2;
-              if (prevPerson && (Math.abs(centerRaw - prevPerson.x) > 0.18
-                  || width > prevPerson.w * 1.6 || width < prevPerson.w / 1.6)) {
+              if (trackerJumped(prevPerson, centerRaw, width, 0.18, 1.6)) {
                 personUnstable = true;
                 prevWrists.l = null;
                 prevWrists.r = null;
@@ -493,11 +485,13 @@ export function useNonverbal(
               if (mouthPress) acc.mouthPressFrames += 1;
               if (browDown) acc.browDownFrames += 1;
               // 긴장 표정 에피소드: 시작~풀림까지의 연속 구간 (표정 복구 시간 재료).
-              // 2프레임(0.4s) 미만의 단발 깜빡임 잡음은 에피소드로 세지 않는다.
+              // 0.4초 미만의 단발 깜빡임 잡음은 에피소드로 세지 않는다.
               if (tension) {
                 acc.curTensionStreak += 1;
               } else {
-                if (acc.curTensionStreak >= 2) acc.tensionStreaks.push(acc.curTensionStreak);
+                if (acc.curTensionStreak >= framesFor(400)) {
+                  acc.tensionStreaks.push(acc.curTensionStreak);
+                }
                 acc.curTensionStreak = 0;
               }
               if (handFace) acc.handFaceFrames += 1;
@@ -509,10 +503,13 @@ export function useNonverbal(
                 if (headDown) acc.headDownFrames += 1;
                 if (tiltAdj > 8) maybeCoach('어깨를 수평으로 펴보세요');
               }
+              // 실시간 코칭: 최근 3초 창에서 이탈이 70% 이상이면 안내 (시간 기준)
               const recent = recentOffRef.current;
               recent.push(!front);
-              if (recent.length > 15) recent.shift();
-              if (recent.length >= 10 && recent.filter(Boolean).length >= 7) {
+              const coachWindow = framesFor(3000);
+              if (recent.length > coachWindow) recent.shift();
+              if (recent.length >= framesFor(2000)
+                  && recent.filter(Boolean).length >= recent.length * 0.7) {
                 maybeCoach('화면 정면을 바라봐주세요');
                 recentOffRef.current = [];
               }

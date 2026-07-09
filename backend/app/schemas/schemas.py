@@ -139,6 +139,8 @@ class NonverbalIn(BaseModel):
     nod_count: int = 0  # 듣는 동안 끄덕임 근사 (진폭 게이트, 긍정 신호 전용)
     listen_sec: float = 0.0  # 듣기 페이즈 누적 초 (경청 판정 표본 게이트)
     listen_lean_pct: float | None = None  # 기준 어깨폭 대비 듣기 리닝 % (+전진/-후퇴)
+    sample_ms: int = 200  # 측정 샘플링 주기 — 프레임 수를 시간으로 해석할 때의 기준
+    answer_offset_sec: float | None = None  # 턴 시작→답변 녹음 시작 초 (moments 시계 정합)
     calibrated: bool = False  # 정면 기준 캘리브레이션 적용 여부
     tips: list[str] = []  # 턴 중 발생한 실시간 코칭 (S-JKEYHS 리포트 연동)
 
@@ -202,3 +204,5 @@ class AdminMetricsOut(BaseModel):
     avg_total_score: float | None
     avg_analysis_ms: float | None
     avg_fit_scores: dict
+    # 관측성: 폴백 발동률·측정 가동률 — 조용한 품질 강등의 현장 감시
+    observability: dict = {}

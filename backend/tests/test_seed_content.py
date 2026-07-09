@@ -85,8 +85,24 @@ def test_evasive_answer_triggers_specific_followup():
     assert spec.question_text in top_followups
 
 
-def test_model_answer_advances_without_followup():
-    """모범 답변(4단계 모두 커버) → 후속 없이 다음 에피소드로."""
+def test_model_answer_ep1_gets_deepening():
+    """모범 자기소개(EP1은 basic 압박 없음) → 교정이 아니라 심화로 장면이 이어진다."""
+    eps = seed_episodes()
+    session = RoleplaySession(id=1, scenario_id=1, mode=5, difficulty="basic")
+    turns = [
+        make_turn(1, eps[0].id, 1,
+                  "안녕하세요, 신입 김지연입니다. 플랫폼팀 백엔드 운영 지원을 맡았고, "
+                  "오늘은 온보딩 문서 파악을 마치는 게 목표입니다. 모르는 건 여쭤보며 배우겠습니다."),
+    ]
+    spec = provider.next_question(session, eps, turns)
+    assert spec is not None
+    assert spec.question_type == "deepening"  # 잘한 답 → 장면 전개
+    assert spec.episode_id == eps[0].id
+
+
+def test_model_answer_ep2_gets_basic_pressure_then_advances():
+    """모범 장애 대응(EP2는 basic 압박 보유) → 세션 첫 압박이 나가고(composure 재료),
+    압박까지 답하면 다음 에피소드로 넘어간다 — '상황당 1답변 증발' 방지 + 압박 내성 성립."""
     eps = seed_episodes()
     session = RoleplaySession(id=1, scenario_id=1, mode=5, difficulty="basic")
     ep2 = next(e for e in eps if e.order == 2)
@@ -101,5 +117,21 @@ def test_model_answer_advances_without_followup():
     ]
     spec = provider.next_question(session, eps, turns)
     assert spec is not None
-    assert spec.episode_id == ep3.id
-    assert spec.question_type == "initial"
+    assert spec.question_type == "pressure"  # basic 난이도에도 세션당 1회 압박
+    assert spec.episode_id == ep2.id
+
+    turns.append(make_turn(3, ep2.id, 3, "10분 안에 1차 원인만이라도 정리해 보고드리겠습니다.", qtype="pressure"))
+    spec2 = provider.next_question(session, eps, turns)
+    assert spec2 is not None
+    assert spec2.episode_id == ep3.id and spec2.question_type == "initial"
+
+
+def test_every_episode_has_deepening_pool():
+    """모든 에피소드에 심화 질문 2개 이상 — 장면당 2턴 기본화의 콘텐츠 규격."""
+    for ep in EPISODES:
+        pool = ep.get("deepening_questions", [])
+        assert len(pool) >= 2, f"{ep['title']}: 심화 질문 부족"
+        for dq in pool:
+            assert dq["text"].strip().endswith(("요?", "요.", "봐요.", "죠?", "까요?", "래요?", "예요?", "어요?")) or "?" in dq["text"], \
+                f"{ep['title']}: 심화 질문이 질문형이 아님"
+            assert dq.get("intent", "").strip(), f"{ep['title']}: 심화 의도 없음"

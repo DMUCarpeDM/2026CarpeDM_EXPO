@@ -128,6 +128,36 @@ for router in (auth.router, scenarios.router, sessions.router, reports.router, a
     app.include_router(router, prefix="/api")
 
 
+# Ollama 상태 캐시 — health는 자주 불리므로 프로브는 60초에 한 번만
+_OLLAMA_CACHE: dict = {"at": 0.0, "status": {"reachable": False, "dialogue": False, "embedding": False}}
+
+
+def _ollama_status() -> dict:
+    import time as _time
+
+    import httpx
+
+    now = _time.monotonic()
+    if now - _OLLAMA_CACHE["at"] < 60:
+        return _OLLAMA_CACHE["status"]
+    status = {"reachable": False, "dialogue": False, "embedding": False}
+    try:
+        resp = httpx.get(f"{settings.ollama_base_url}/api/tags", timeout=1.5)
+        resp.raise_for_status()
+        names = {m.get("name", "") for m in resp.json().get("models", [])}
+        stems = {n.split(":")[0] for n in names}
+        status["reachable"] = True
+        status["dialogue"] = settings.ollama_model in names \
+            or settings.ollama_model.split(":")[0] in stems
+        status["embedding"] = settings.ollama_embed_model in names \
+            or settings.ollama_embed_model.split(":")[0] in stems
+    except Exception:
+        pass  # 미기동 → 전부 False (폴백 강등 상태를 그대로 보여준다)
+    _OLLAMA_CACHE["at"] = now
+    _OLLAMA_CACHE["status"] = status
+    return status
+
+
 @app.get("/api/health")
 def health():
     from app.ai.stt import get_stt_provider
@@ -138,4 +168,6 @@ def health():
         "app": settings.app_name,
         "server_stt": provider.name if provider else None,
         "dialogue_provider": settings.dialogue_provider,
+        # 관측성: 지금 이 부스가 폴백으로 강등된 상태인지 즉시 확인 (60초 캐시)
+        "ollama": _ollama_status(),
     }

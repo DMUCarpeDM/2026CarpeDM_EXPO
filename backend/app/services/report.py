@@ -535,23 +535,27 @@ STRENGTH_BY_BAND = {
 }
 
 
-GAZE_MAP_MIN_FRAMES = 50  # 200ms 샘플 × 50 = 10초 — 이보다 적으면 지도 생략
+GAZE_MAP_MIN_SEC = 10.0  # 표본 10초 미만이면 지도 생략 (샘플링 주기와 무관하게 시간 기준)
 
 
 def _gaze_map(session: RoleplaySession) -> dict | None:
     """시선 존 히트맵 — 턴별 3×3 분포(위/중/아래 × 좌/중/우)를 세션 합산한 비율 지도.
 
     관찰 지표(감점 없음). 표본 10초 미만이면 지도 자체를 생략한다(판정 보류 원칙).
+    프레임 수는 샘플링 주기(sample_ms, 운영 튜닝 가능)로 시간 환산해 게이트한다.
     코멘트는 부호가 안정적인 축(상하)과 중앙 집중도만 단정하고, 좌우는 실기기
     부호 검증 전이므로 '옆'으로 중화한다 — DIR_LABEL과 같은 관례.
     """
     zones = [0] * 9
+    seconds = 0.0
     for t in session.turns:
-        zs = (t.nonverbal_metrics or {}).get("gaze_zones") or []
+        nv = t.nonverbal_metrics or {}
+        zs = nv.get("gaze_zones") or []
         if len(zs) == 9:
             zones = [a + b for a, b in zip(zones, zs)]
+            seconds += sum(zs) * (nv.get("sample_ms", 200) / 1000)
     total = sum(zones)
-    if total < GAZE_MAP_MIN_FRAMES:
+    if not total or seconds < GAZE_MAP_MIN_SEC:
         return None
     ratios = [round(z / total, 3) for z in zones]
     center = ratios[4]

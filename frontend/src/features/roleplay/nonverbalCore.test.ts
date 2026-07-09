@@ -13,12 +13,15 @@ import {
   emptyCalibration,
   finalizeCalibration,
   finalizeTurnMetrics,
+  framesFor,
   gazeZoneIndex,
   median,
   resolveGaze,
   resolveHeadDown,
   stdDev,
+  trackerJumped,
   updateNod,
+  verticalIrisRatio,
 } from './nonverbalCore.ts';
 
 const gazeInput = (over: Partial<Parameters<typeof resolveGaze>[0]> = {}) => ({
@@ -215,5 +218,75 @@ describe('finalizeTurnMetrics — 턴 직렬화', () => {
     const timeline = finalizeTurnMetrics(acc, emptyBaseline())!.timeline;
     assert.equal(timeline.length, 1);
     assert.deepEqual(timeline[0], { t: 0, front: 0.5, press: 0, tilt: 2 });
+  });
+
+  it('시계축 정합: 답변 시작 오프셋을 페이로드로 내보낸다', () => {
+    // moments가 비언어(턴 시계)와 음성 스팬(답변 시계)을 같은 축으로 합성할 근거
+    const acc = emptyAcc();
+    acc.frames = 20;
+    acc.turnStartedAt = 1_000_000;
+    acc.answerStartedAt = 1_012_300; // 12.3초 뒤 답변 시작
+    const m = finalizeTurnMetrics(acc, emptyBaseline())!;
+    assert.equal(m.answer_offset_sec, 12.3);
+    assert.equal(m.sample_ms, 200);
+
+    const noAnswer = emptyAcc();
+    noAnswer.frames = 20;
+    noAnswer.turnStartedAt = 1_000_000;
+    assert.equal(finalizeTurnMetrics(noAnswer, emptyBaseline())!.answer_offset_sec, null);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 감사 패스 이식분 — 시간 기반 게이트·다인 가드·수직 홍채 (구 nonverbalMath 하네스)
+// ---------------------------------------------------------------------------
+
+describe('framesFor — 시간 기반 표본 게이트', () => {
+  it('기본 200ms(5Hz)에서 시간→프레임 환산', () => {
+    assert.equal(framesFor(1000), 5);
+    assert.equal(framesFor(5000), 25);
+    assert.equal(framesFor(10000), 50);
+  });
+  it('최소 1프레임을 보장한다', () => {
+    assert.equal(framesFor(50), 1);
+  });
+});
+
+describe('trackerJumped — 다인 가드 (자세·얼굴 공용)', () => {
+  it('중심이 한 샘플에 크게 이동하면 발동', () => {
+    assert.equal(trackerJumped({ x: 0.5, w: 0.3 }, 0.75, 0.3, 0.18, 1.6), true);
+  });
+  it('크기 급변(1.6배)에 발동 — 더 가까운 사람이 끼어든 경우', () => {
+    assert.equal(trackerJumped({ x: 0.5, w: 0.3 }, 0.5, 0.52, 0.18, 1.6), true);
+    assert.equal(trackerJumped({ x: 0.5, w: 0.3 }, 0.5, 0.17, 0.18, 1.6), true);
+  });
+  it('자연스러운 움직임·첫 프레임(기준 없음)에는 발동하지 않는다', () => {
+    assert.equal(trackerJumped({ x: 0.5, w: 0.3 }, 0.55, 0.32, 0.18, 1.6), false);
+    assert.equal(trackerJumped(null, 0.5, 0.3, 0.18, 1.6), false);
+  });
+});
+
+describe('verticalIrisRatio — 눈 열림 게이트', () => {
+  const eye = {
+    inner: { x: 0.4, y: 0.5 }, outer: { x: 0.5, y: 0.5 },
+    upper: { x: 0.45, y: 0.48 }, lower: { x: 0.45, y: 0.52 },
+  };
+  it('정중앙 홍채 = 0.5, 아래를 보면 1에 접근', () => {
+    const center = verticalIrisRatio(
+      { y: 0.5 }, eye.upper, eye.lower, eye.inner, eye.outer, 0.15,
+    );
+    assert.ok(Math.abs((center ?? 0) - 0.5) < 1e-6);
+    const down = verticalIrisRatio(
+      { y: 0.515 }, eye.upper, eye.lower, eye.inner, eye.outer, 0.15,
+    );
+    assert.ok((down ?? 0) > 0.8);
+  });
+  it('깜빡임(열림 < 눈 너비 15%)이면 표본을 버린다 — 오판 원천 차단', () => {
+    const shutUpper = { x: 0.45, y: 0.495 };
+    const shutLower = { x: 0.45, y: 0.505 };
+    const r = verticalIrisRatio(
+      { y: 0.5 }, shutUpper, shutLower, eye.inner, eye.outer, 0.15,
+    );
+    assert.equal(r, null);
   });
 });

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
 from app.core.database import get_db
-from app.models import Report, RoleplaySession, SessionStatus
+from app.models import AnalysisResult, FitType, Report, RoleplaySession, SessionStatus
 from app.schemas import AdminMetricsOut
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
@@ -88,6 +88,40 @@ def metrics(db: Session = Depends(get_db)):
         fit: round(sum(scores) / len(scores), 1) for fit, scores in avg_fits.items()
     }
 
+    # 관측성 — 폴백 발동률·측정 가동률: 조용한 품질 강등(정렬 실패, 근사 폴백,
+    # 홍채/3D 미가동, 다인 가드)이 전시 중 누적되고 있는지 한눈에 본다.
+    turn_results = (
+        db.query(AnalysisResult).filter(AnalysisResult.turn_id.is_not(None)).all()
+    )
+    voice = [r for r in turn_results if r.fit_type == FitType.voice]
+    voice_audio = [r for r in voice if not r.raw_metrics.get("estimated")]
+    eye = [r for r in turn_results if r.fit_type == FitType.eye]
+    posture = [r for r in turn_results if r.fit_type == FitType.posture]
+    response = [r for r in turn_results if r.fit_type == FitType.response]
+
+    def _rate(vals: list[float]) -> float | None:
+        return round(sum(vals) / len(vals), 2) if vals else None
+
+    observability = {
+        "voice_turns": len(voice),
+        # 오디오 없이 발화 시간 근사로만 채점된 턴 — 마이크/녹음 문제의 신호
+        "voice_estimated_turns": len(voice) - len(voice_audio),
+        # Vosk 정렬(문장 인용·쉼 위치의 재료)이 실제로 붙은 비율
+        "voice_alignment_rate": _rate(
+            [1.0 if r.raw_metrics.get("alignment") else 0.0 for r in voice_audio]
+        ),
+        # 키워드가 놓친 것을 의미 매칭이 구제한 턴 비율 — 0이면 임베딩 미가동 의심
+        "semantic_rescue_rate": _rate(
+            [1.0 if r.raw_metrics.get("semantic_hits") else 0.0 for r in response]
+        ),
+        "iris_active_rate": _rate([r.raw_metrics.get("iris_ratio", 0.0) for r in eye]),
+        "world_3d_rate": _rate([r.raw_metrics.get("world_ratio", 0.0) for r in posture]),
+        # 다인 가드가 폐기한 프레임 총합 — 급증하면 부스 동선 문제
+        "guard_dropped_frames": sum(
+            r.raw_metrics.get("guard_dropped_frames", 0) for r in posture
+        ),
+    }
+
     return AdminMetricsOut(
         sessions_total=total,
         sessions_completed=completed,
@@ -96,4 +130,5 @@ def metrics(db: Session = Depends(get_db)):
         avg_total_score=round(avg_total, 1) if avg_total is not None else None,
         avg_analysis_ms=round(avg_ms, 0) if avg_ms is not None else None,
         avg_fit_scores=avg_fit_scores,
+        observability=observability,
     )

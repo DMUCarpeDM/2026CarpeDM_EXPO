@@ -122,6 +122,35 @@ def _estimate_f0(frame: np.ndarray, sr: int) -> float | None:
     return sr / peak
 
 
+def _fix_octave_outliers(track: list) -> list:
+    """트랙 단위 옥타브 이탈 수리 — 이웃 합의 기반, 스무더가 아니라 글리치 수리.
+
+    자기상관 추정은 프레임 단위로 F0가 배/반으로 튈 수 있다(옥타브 오류) —
+    jitter(인접 상대 변화)를 ±100%씩 오염시키는 최악의 잡음. 프레임 단위 연속성
+    보정은 완전 주기 신호의 서브하모닉 상관이 항상 높아 래칫처럼 오작동하므로
+    (자체 하네스로 확인), 트랙 전체에서 **이웃 중앙값의 정확히 2배/절반(±10%)인
+    표본만** 합의 옥타브로 되돌린다. 플래토(연속 구간)와 실제 억양 점프는 이웃
+    합의가 그쪽으로 서 있으므로 절대 건드리지 않는다. None(무성)은 보존.
+    """
+    voiced = [(i, v) for i, v in enumerate(track) if v is not None]
+    if len(voiced) < 5:
+        return track
+    fixed = list(track)
+    values = [v for _, v in voiced]
+    for k, (i, v) in enumerate(voiced):
+        neighbors = values[max(0, k - 3):k] + values[k + 1:k + 4]
+        if len(neighbors) < 3:
+            continue
+        med = float(np.median(neighbors))
+        if med <= 0:
+            continue
+        if abs(v / 2 - med) / med < 0.10:      # 합의의 2배로 튐 → 절반으로
+            fixed[i] = v / 2
+        elif abs(v * 2 - med) / med < 0.10:    # 합의의 절반으로 꺼짐 → 2배로
+            fixed[i] = v * 2
+    return fixed
+
+
 def _tremor_metrics(samples: np.ndarray, sr: int) -> tuple[float | None, float | None]:
     """짧은 창 기반 jitter(%)/shimmer(%) — 4~12Hz 생리적 떨림에 민감한 전용 경로.
 
@@ -147,7 +176,8 @@ def _tremor_metrics(samples: np.ndarray, sr: int) -> tuple[float | None, float |
         if len(rel) >= 10:
             shimmer = float(np.median(rel) * 100)
 
-    # F0 궤적 (32ms 홉, 64ms 창) → jitter
+    # F0 궤적 (32ms 홉, 64ms 창) → jitter. 옥타브 튐은 인접 상대 변화를 ±100%씩
+    # 오염시키므로 트랙 완성 후 이웃 합의로 수리한다 — jitter의 최대 수혜 지점.
     f0_track: list[float | None] = []
     for i in range(0, len(samples) - TREMOR_FRAME, TREMOR_HOP * 2):
         seg = samples[i: i + TREMOR_FRAME]
@@ -155,6 +185,7 @@ def _tremor_metrics(samples: np.ndarray, sr: int) -> tuple[float | None, float |
             f0_track.append(None)
         else:
             f0_track.append(_estimate_f0(seg, sr))
+    f0_track = _fix_octave_outliers(f0_track)
     rels = [
         abs(b - a) / a
         for a, b in zip(f0_track, f0_track[1:])
@@ -219,7 +250,8 @@ def analyze_audio(path: str, response_text: str) -> dict:
         if len(front) > 2 and len(back) > 2 else 0
     )
 
-    # F0 추적 (유성 프레임을 4개 간격으로 서브샘플 — 성능/정확도 균형)
+    # F0 추적 (유성 프레임을 4개 간격으로 서브샘플 — 성능/정확도 균형).
+    # 트랙 완성 후 고립 옥타브 이탈을 이웃 합의로 수리한다.
     f0_values = []
     for i in np.flatnonzero(voiced)[::4]:
         frame = samples[i * HOP: i * HOP + FRAME]
@@ -227,6 +259,7 @@ def analyze_audio(path: str, response_text: str) -> dict:
             f0 = _estimate_f0(frame, sr)
             if f0 is not None:
                 f0_values.append(f0)
+    f0_values = [v for v in _fix_octave_outliers(f0_values) if v is not None]
     f0_mean = float(np.median(f0_values)) if len(f0_values) >= 5 else None
     f0_cv = (
         float(np.std(f0_values) / np.mean(f0_values))
@@ -270,6 +303,9 @@ def analyze_audio(path: str, response_text: str) -> dict:
             f0 = _estimate_f0(frame, sr)
             if f0 is not None:
                 tail_f0.append((i * sec_per_frame, f0))
+        # 문말 기울기 회귀에 옥타브 이탈이 섞이면 기울기가 폭주한다 — 수리 후 사용
+        fixed = _fix_octave_outliers([f for _, f in tail_f0])
+        tail_f0 = [(t, f) for (t, _), f in zip(tail_f0, fixed) if f is not None]
         if len(tail_f0) >= 5:
             ts = np.array([t for t, _ in tail_f0])
             fs_arr = np.array([f for _, f in tail_f0])

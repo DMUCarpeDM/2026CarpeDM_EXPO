@@ -92,6 +92,9 @@ class Episode(Base):
     checklist: Mapped[list] = mapped_column(JSON, default=list)
     # 압박 난이도용 후속 질문 [{text, trigger: checklist_id | "any"}]
     pressure_questions: Mapped[list] = mapped_column(JSON, default=list)
+    # 심화 질문 [{text, intent}] — 잘한 답에도 장면을 이어가는 전개 질문.
+    # 후속(followup)이 누락 '교정'이라면 심화는 장면 '전개' — 상황당 1답변 증발 방지
+    deepening_questions: Mapped[list] = mapped_column(JSON, default=list)
     max_turns: Mapped[int] = mapped_column(Integer, default=2)
 
     scenario: Mapped["Scenario"] = relationship(back_populates="episodes")

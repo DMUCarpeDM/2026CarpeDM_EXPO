@@ -261,6 +261,9 @@ def build_deep_analysis(session: RoleplaySession, turn_results: list) -> dict:
             "question_type": turn.question_type,
             "timeline": nv.get("timeline") or [],
             "alignment": voice.get("alignment"),
+            # 시계축 정합: 턴 시작(질문 TTS)→답변 녹음 시작 초 — moments가
+            # 비언어(턴 시계)와 음성(답변 시계)을 같은 축으로 합성할 근거
+            "answer_offset": nv.get("answer_offset_sec"),
         })
 
     deep: dict = {}

@@ -16,6 +16,7 @@ const QUESTION_TYPE_LABEL: Record<Turn['question_type'], string> = {
   initial: '',
   followup: '후속 질문',
   pressure: '압박 질문',
+  deepening: '심화 질문',
 };
 
 export default function RoleplayPage() {

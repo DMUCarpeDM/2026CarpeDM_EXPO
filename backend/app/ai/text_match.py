@@ -2,7 +2,12 @@
 
 kiwipiepy가 있으면 형태소 기본형까지 함께 비교해 활용형 변화("배우겠습니다"→"배우다")에
 강해진다. 없어도 공백 제거 부분 문자열 매칭으로 동작한다(전시 안정성 우선).
+
+부정 인지: "보고드리지 않겠습니다"가 '보고' 커버로 오판되던 구멍을 막는다.
+보수 설계 — 오판의 방향이 '부정을 놓침'(기존과 동일)이지 '긍정을 부정으로
+오판'(새 위험)이 되지 않도록, 키워드에 직접 붙은 부정만 좁게 판정한다.
 """
+import re
 from functools import lru_cache
 
 try:
@@ -25,11 +30,64 @@ def _lemmas(text: str) -> tuple[str, ...]:
     return tuple(t.form for t in tokens)
 
 
+# 장형 부정: 키워드 직후 5자(공백 제거) 안의 "-지 않/-지 못"만 부정으로 본다.
+# 창을 좁게 잡고 절 경계(문장부호)에서 끊어, 다른 절의 부정("보고드리고,
+# 재발하지 않도록…")이 앞 절의 키워드를 죽이지 않게 한다.
+_NEG_WINDOW = 5
+_NEG_SUFFIXES = ("지않", "지는않", "진않", "지못", "지를못")
+# 목적·소망 부정은 부정이 아니라 다짐이다: "재발하지 않도록 하겠습니다"의
+# '재발'은 재발 방지 의지의 커버 — 부정 게이트에서 면제한다.
+_NEG_EXEMPT_AFTER = ("도록", "게", "게끔", "을까", "았으면", "었으면")
+
+
+def _negated_after(squashed: str, end: int) -> bool:
+    window = squashed[end: end + _NEG_WINDOW + 4]
+    for stop in ".,!?":
+        cut = window.find(stop)
+        if cut != -1:
+            window = window[:cut]
+    for suffix in _NEG_SUFFIXES:
+        pos = window.find(suffix)
+        if pos == -1 or pos >= _NEG_WINDOW:
+            continue
+        tail = window[pos + len(suffix):]
+        if not any(tail.startswith(x) for x in _NEG_EXEMPT_AFTER):
+            return True
+    return False
+
+
+def _short_negated(text: str, keyword: str) -> bool:
+    """단형 부정: '안/못' 단독 어절이 키워드 어절 바로 앞 ("안 보고했어요").
+
+    '방안 보고…'의 '안'처럼 단어 일부인 경우를 어절 경계로 배제한다.
+    """
+    return re.search(
+        rf"(?:^|[\s,.!?])[안못]\s+{re.escape(keyword)}", text,
+    ) is not None
+
+
 def contains_keyword(text: str, keyword: str) -> bool:
     if not text or not keyword:
         return False
-    if _squash(keyword) in _squash(text):
-        return True
+    sq_text, sq_kw = _squash(text), _squash(keyword)
+
+    idx = sq_text.find(sq_kw)
+    if idx != -1:
+        # 표면 일치가 있으면 출현별로 부정 여부를 본다 — 부정 아닌 출현이 하나라도
+        # 있으면 매칭. 전부 부정 맥락이면 매칭 아님 (lemma 우회도 막는다).
+        occurrences = 0
+        while idx != -1:
+            occurrences += 1
+            if not _negated_after(sq_text, idx + len(sq_kw)):
+                # 단형 부정은 어절 경계가 필요해 원문 기준 — 단일 출현일 때만 적용
+                # (다중 출현의 개별 대응은 과잉 — 놓치는 방향이 안전하다)
+                if occurrences == 1 and sq_text.count(sq_kw) == 1 \
+                        and _short_negated(text, keyword):
+                    pass
+                else:
+                    return True
+            idx = sq_text.find(sq_kw, idx + 1)
+        return False
     return keyword in _lemmas(text)
 
 
