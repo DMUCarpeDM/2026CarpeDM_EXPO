@@ -82,6 +82,53 @@ export default function AdminPage() {
           ))}
         </section>
       )}
+
+      {/* 측정 상태 — 조용한 품질 강등(폴백 발동) 감시. 정렬률·의미 구제율이
+          0에 붙어 있으면 Vosk/Ollama가 죽은 것 — 리포트는 나오지만 얇아진다 */}
+      {metrics?.observability && metrics.observability.voice_turns > 0 && (
+        <section className="metric-grid">
+          <div className="metric-card">
+            <span className="metric-value">
+              {metrics.observability.voice_alignment_rate !== null
+                ? `${Math.round((metrics.observability.voice_alignment_rate ?? 0) * 100)}%`
+                : '—'}
+            </span>
+            <span className="metric-label">음성 정렬률 (Vosk — 문장 인용 재료)</span>
+          </div>
+          <div className="metric-card">
+            <span className="metric-value">{metrics.observability.voice_estimated_turns}</span>
+            <span className="metric-label">근사 폴백 턴 (마이크 점검 신호)</span>
+          </div>
+          <div className="metric-card">
+            <span className="metric-value">
+              {metrics.observability.semantic_rescue_rate !== null
+                ? `${Math.round((metrics.observability.semantic_rescue_rate ?? 0) * 100)}%`
+                : '—'}
+            </span>
+            <span className="metric-label">의미 매칭 구제율 (0% 지속 시 Ollama 확인)</span>
+          </div>
+          <div className="metric-card">
+            <span className="metric-value">
+              {metrics.observability.iris_active_rate !== null
+                ? `${Math.round((metrics.observability.iris_active_rate ?? 0) * 100)}%`
+                : '—'}
+            </span>
+            <span className="metric-label">홍채 추적 가동률</span>
+          </div>
+          <div className="metric-card">
+            <span className="metric-value">
+              {metrics.observability.world_3d_rate !== null
+                ? `${Math.round((metrics.observability.world_3d_rate ?? 0) * 100)}%`
+                : '—'}
+            </span>
+            <span className="metric-label">3D 자세 가동률</span>
+          </div>
+          <div className="metric-card">
+            <span className="metric-value">{metrics.observability.guard_dropped_frames}</span>
+            <span className="metric-label">다인 가드 폐기 프레임 (급증 시 동선 점검)</span>
+          </div>
+        </section>
+      )}
       <p className="section-sub">
         * 기간/시나리오/기기 필터, 익명 ID 추이, CSV 내보내기는 다음 단계에서 확장 예정입니다.
       </p>

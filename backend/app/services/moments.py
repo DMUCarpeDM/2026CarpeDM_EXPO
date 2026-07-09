@@ -66,15 +66,28 @@ def _span_at(alignment: dict | None, at_sec: float) -> dict | None:
     return best
 
 
-def detect_turn_events(timeline: list[dict], alignment: dict | None) -> list[dict]:
-    """단일 모달 이벤트 수집 → [{kind, at, duration_bins?}] (턴 내 상대 초)."""
+def detect_turn_events(
+    timeline: list[dict], alignment: dict | None,
+    answer_offset: float | None = None,
+) -> list[dict]:
+    """단일 모달 이벤트 수집 → [{kind, at}] — **답변 시계**(녹음 시작 = 0초) 기준.
+
+    두 시간축의 정합: 비언어 타임라인은 턴 시작(질문 TTS)이 0초, 음성 스팬은
+    답변 녹음 시작이 0초다. answer_offset(턴 시작→답변 시작 초)이 오면 비언어
+    이벤트를 답변 시계로 옮기고, 답변 이전(듣기 구간)의 이벤트는 버린다 —
+    듣기 시선은 별도 지표(listening_front_ratio)가 담당한다. offset이 없는
+    구 페이로드는 기존 동작(무변환)을 유지한다.
+    """
+    shift = answer_offset if answer_offset is not None else 0.0
     events: list[dict] = []
     for run in _runs(timeline, "front", lambda v: v < GAZE_BREAK_FRONT):
-        events.append({"kind": "gaze", "at": run["start"]})
+        events.append({"kind": "gaze", "at": run["start"] - shift})
     for run in _runs(timeline, "press", lambda v: v >= TENSION_PRESS):
-        events.append({"kind": "tension", "at": run["start"]})
+        events.append({"kind": "tension", "at": run["start"] - shift})
     for run in _runs(timeline, "tilt", lambda v: v >= POSTURE_TILT_DEG):
-        events.append({"kind": "posture", "at": run["start"]})
+        events.append({"kind": "posture", "at": run["start"] - shift})
+    if answer_offset is not None:
+        events = [e for e in events if e["at"] >= 0]
 
     align = alignment or {}
     spans = align.get("spans", [])
@@ -115,9 +128,10 @@ def _compose(events: list[dict]) -> list[dict]:
 def build_turn_moments(
     turn_order: int, question_type: str,
     timeline: list[dict], alignment: dict | None,
+    answer_offset: float | None = None,
 ) -> list[dict]:
-    """한 턴의 결정적 순간들 — 설명문·발화 인용 포함."""
-    events = detect_turn_events(timeline, alignment)
+    """한 턴의 결정적 순간들 — 설명문·발화 인용 포함 (답변 시계 기준)."""
+    events = detect_turn_events(timeline, alignment, answer_offset)
     if not events:
         return []
     moments = []
@@ -149,7 +163,7 @@ def build_turn_moments(
 def build_moments(turns_data: list[dict]) -> list[dict]:
     """세션 전체의 결정적 순간 상위 MAX_MOMENTS개.
 
-    turns_data: [{turn_order, question_type, timeline, alignment}]
+    turns_data: [{turn_order, question_type, timeline, alignment, answer_offset}]
     우선순위: 복합(다중 모달) > 압박 맥락 > 이른 순간.
     """
     all_moments: list[dict] = []
@@ -157,6 +171,7 @@ def build_moments(turns_data: list[dict]) -> list[dict]:
         all_moments += build_turn_moments(
             td["turn_order"], td.get("question_type", "initial"),
             td.get("timeline") or [], td.get("alignment"),
+            td.get("answer_offset"),
         )
     all_moments.sort(
         key=lambda m: (not m["composite"], not m["pressure_context"], m["turn_order"], m["at_sec"]),

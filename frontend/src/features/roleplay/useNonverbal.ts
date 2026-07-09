@@ -14,6 +14,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { NonverbalMetrics } from '../../api/types';
 import { resolveModel, resolveWasmUrl } from '../../lib/visionAssets';
+import {
+  framesFor as framesForMs, median, stdDev, trackerJumped, updateNod,
+  verticalIrisRatio,
+} from './nonverbalMath';
 
 // 측정 샘플링 주기(ms). 기본 200ms(5Hz) — 깜빡임(100~300ms)·빠른 끄덕임은 샘플
 // 사이로 빠져 과소 집계될 수 있는 물리 한계가 있다. 전시 PC 성능이 허락하면
@@ -24,7 +28,7 @@ const SAMPLE_MS = (() => {
   return Number.isFinite(v) && v >= 100 && v <= 500 ? v : 200;
 })();
 // 시간 길이(ms) → 표본 게이트 프레임 수 (샘플링 주기와 무관하게 같은 시간 기준)
-const framesFor = (ms: number) => Math.max(1, Math.round(ms / SAMPLE_MS));
+const framesFor = (ms: number) => framesForMs(ms, SAMPLE_MS);
 // 기준 대비 허용 편차 (캘리브레이션 후 상대 판정)
 const YAW_DELTA_THRESHOLD = 0.22; // 시선 좌우: 비대칭 변화량
 const HEAD_DROP_THRESHOLD = 0.1; // 고개 숙임: 코-어깨 거리(어깨너비 정규화) 감소량
@@ -223,17 +227,6 @@ const idleLive: LiveState = {
   tracking: false, front: true, offDir: null, tiltDeg: 0, headDown: false, micLevel: 0, calibrated: false,
 };
 
-function stdDev(values: number[]): number {
-  const m = values.reduce((a, b) => a + b, 0) / values.length;
-  return Math.sqrt(values.reduce((a, b) => a + (b - m) ** 2, 0) / values.length);
-}
-
-function median(values: number[]): number {
-  const sorted = [...values].sort((a, b) => a - b);
-  return sorted[Math.floor(sorted.length / 2)];
-}
-
-
 export function useNonverbal(
   videoRef: React.RefObject<HTMLVideoElement | null>,
   overlayRef?: React.RefObject<HTMLCanvasElement | null>,
@@ -396,8 +389,7 @@ export function useNonverbal(
               // 얼굴 다인 가드: 얼굴 중심·크기가 한 샘플(200ms)에 급변하면 추적
               // 얼굴이 바뀐 것(관람객 끼어듦) → 이 프레임의 시선·표정 집계 폐기
               const faceW = Math.abs(right.x - left.x);
-              if (prevFace && (Math.abs(nose.x - prevFace.x) > 0.15
-                  || faceW > prevFace.w * 1.6 || faceW < prevFace.w / 1.6)) {
+              if (trackerJumped(prevFace, nose.x, faceW, 0.15, 1.6)) {
                 faceUnstable = true;
               }
               prevFace = { x: nose.x, w: faceW };
@@ -420,19 +412,10 @@ export function useNonverbal(
                 }
 
                 // ---- 수직 홍채: 눈꺼풀 사이 상하 위치 (열림 게이트 통과 시만) ----
-                const vRatio = (
-                  iris: { y: number }, upper: { y: number }, lower: { y: number },
-                  inner: { x: number }, outer: { x: number },
-                ): number | null => {
-                  const open = lower.y - upper.y;
-                  const w = Math.abs(outer.x - inner.x) || 1e-6;
-                  if (open / w < EYE_OPEN_MIN) return null; // 깜빡임·실눈 — 표본 배제
-                  return (iris.y - upper.y) / (open || 1e-6);
-                };
-                const rY = vRatio(lm[IRIS_R], lm[EYE_LIDS_R.upper], lm[EYE_LIDS_R.lower],
-                  lm[EYE_R.inner], lm[EYE_R.outer]);
-                const lY = vRatio(lm[IRIS_L], lm[EYE_LIDS_L.upper], lm[EYE_LIDS_L.lower],
-                  lm[EYE_L.inner], lm[EYE_L.outer]);
+                const rY = verticalIrisRatio(lm[IRIS_R], lm[EYE_LIDS_R.upper],
+                  lm[EYE_LIDS_R.lower], lm[EYE_R.inner], lm[EYE_R.outer], EYE_OPEN_MIN);
+                const lY = verticalIrisRatio(lm[IRIS_L], lm[EYE_LIDS_L.upper],
+                  lm[EYE_LIDS_L.lower], lm[EYE_L.inner], lm[EYE_L.outer], EYE_OPEN_MIN);
                 if (rY !== null && lY !== null && rY > -0.5 && rY < 1.5 && lY > -0.5 && lY < 1.5) {
                   eyeInHeadY = (rY + lY) / 2;
                 }
@@ -460,11 +443,10 @@ export function useNonverbal(
               const noseP = plm[0];
               const width = Math.abs(ls.x - rs.x);
 
-              // 다인 가드: 어깨 중심·폭이 한 샘플(200ms) 만에 급변하면 추적 대상이
+              // 다인 가드: 어깨 중심·폭이 한 샘플 만에 급변하면 추적 대상이
               // 바뀐 것(관람객 난입·스침)일 수 있다 → 이 프레임의 자세 집계를 폐기
               const centerRaw = (ls.x + rs.x) / 2;
-              if (prevPerson && (Math.abs(centerRaw - prevPerson.x) > 0.18
-                  || width > prevPerson.w * 1.6 || width < prevPerson.w / 1.6)) {
+              if (trackerJumped(prevPerson, centerRaw, width, 0.18, 1.6)) {
                 personUnstable = true;
                 prevWrists.l = null;
                 prevWrists.r = null;
@@ -666,21 +648,7 @@ export function useNonverbal(
                 // 몸 전체가 출렁이면 코·어깨가 함께 움직여 headGap이 안 변하므로
                 // 상쇄되고, 고개만 끄덕일 때만 반전이 잡힌다. 긍정 신호 전용.
                 if (headGap !== null) {
-                  if (acc.nodPrevGap !== null) {
-                    const delta = headGap - acc.nodPrevGap;
-                    if (Math.abs(delta) > NOD_JITTER_EPS) {
-                      const dir = delta > 0 ? 1 : -1;
-                      if (dir !== acc.nodDir) {
-                        if (acc.nodDir !== 0 && acc.nodSwing >= NOD_MIN_SWING) {
-                          acc.nodReversals += 1;
-                        }
-                        acc.nodDir = dir;
-                        acc.nodSwing = 0;
-                      }
-                      acc.nodSwing += Math.abs(delta);
-                    }
-                  }
-                  acc.nodPrevGap = headGap;
+                  updateNod(acc, headGap, NOD_MIN_SWING, NOD_JITTER_EPS);
                 }
               } else if (phase === 'answering') {
                 acc.answerFrames += 1;
@@ -980,6 +948,11 @@ export function useNonverbal(
       })(),
       // 측정 샘플링 주기 — 서버가 프레임 수를 시간으로 해석할 때의 기준 (운영 튜닝 가능)
       sample_ms: SAMPLE_MS,
+      // 시계축 정합: 턴 시작(질문 TTS)→답변 녹음 시작까지 초. moments가 비언어
+      // 타임라인(턴 시계)과 음성 스팬(답변 시계)을 같은 축으로 합성할 근거
+      answer_offset_sec: acc.answerStartedAt && acc.turnStartedAt
+        ? Math.round((acc.answerStartedAt - acc.turnStartedAt) / 100) / 10
+        : null,
       calibrated: baselineRef.current.set,
       tips: acc.tips,
     };

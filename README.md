@@ -68,7 +68,8 @@ npm run dev        # http://localhost:5173
 ### 테스트
 
 ```bash
-cd backend && ./.venv/bin/python -m pytest tests   # 대화 엔진·점수화·FSM·콘텐츠 규격
+cd backend && ./.venv/bin/python -m pytest tests   # 대화 엔진·점수화·FSM·콘텐츠 규격 (246개)
+cd frontend && npm run test                         # 비언어 판정 코어 행동 테스트 (vitest)
 cd frontend && npx tsc -b && npm run build          # 타입 검사 + 프로덕션 빌드
 ```
 

@@ -101,6 +101,7 @@ export interface NonverbalMetrics {
   listen_sec: number; // 듣기 페이즈 누적 초 — 경청 판정의 표본 게이트
   listen_lean_pct: number | null; // 기준 어깨폭 대비 듣기 중 전진(+)/후퇴(-) %
   sample_ms: number; // 측정 샘플링 주기 ms — 기본 200, 운영자 튜닝 가능 (§2.5)
+  answer_offset_sec: number | null; // 턴 시작→답변 녹음 시작 초 (교차 분석 시계 정합)
   calibrated: boolean; // 정면 기준 캘리브레이션 적용 여부
   tips: string[]; // 턴 중 발생한 실시간 코칭 문구
 }
@@ -243,4 +244,14 @@ export interface AdminMetrics {
   avg_total_score: number | null;
   avg_analysis_ms: number | null;
   avg_fit_scores: Record<string, number>;
+  // 관측성 — 폴백 발동률·측정 가동률 (조용한 품질 강등 감시)
+  observability?: {
+    voice_turns: number;
+    voice_estimated_turns: number;
+    voice_alignment_rate: number | null;
+    semantic_rescue_rate: number | null;
+    iris_active_rate: number | null;
+    world_3d_rate: number | null;
+    guard_dropped_frames: number;
+  };
 }

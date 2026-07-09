@@ -57,6 +57,28 @@ def test_f0_variation_detected(wav_path):
     assert m["f0_cv"] > 0.12
 
 
+def test_f0_octave_outlier_repair():
+    """옥타브 이탈 수리 계약 — 이웃 합의의 정확히 2배/절반인 '고립' 표본만
+    되돌리고, 플래토와 실제 억양 점프(120→200 등)는 절대 건드리지 않는다.
+    프레임 단위 연속성 보정은 래칫 오작동으로 기각했다(그 회귀 방지가 이 테스트)."""
+    from app.ai.voice_fit import _fix_octave_outliers
+
+    # 고립된 2배 튐 → 합의로 복귀
+    assert _fix_octave_outliers([150, 150, 150, 300, 150, 150]) \
+        == [150, 150, 150, 150.0, 150, 150]
+    # 고립된 절반 꺼짐 → 합의로 복귀
+    assert _fix_octave_outliers([200, 200, 100, 200, 200, 200]) \
+        == [200, 200, 200.0, 200, 200, 200]
+    # 실제 억양 점프(120→200, 2배 아님)는 무변형 — 과교정 금지
+    jump = [120.0, 120.0, 120.0, 200.0, 200.0, 200.0]
+    assert _fix_octave_outliers(list(jump)) == jump
+    # 무성(None) 보존 + 짧은 트랙(<5 표본)은 손대지 않음
+    with_none = [150.0, None, 150.0, 300.0, 150.0, 150.0]
+    assert _fix_octave_outliers(with_none)[3] == 150.0
+    assert _fix_octave_outliers(with_none)[1] is None
+    assert _fix_octave_outliers([150.0, 300.0]) == [150.0, 300.0]
+
+
 def test_energy_drift_measured(wav_path):
     # 후반 성량 절반 → 큰 폭의 음수 드리프트
     signal = np.concatenate([tone(150, 2, amp=0.4), tone(150, 2, amp=0.15)])

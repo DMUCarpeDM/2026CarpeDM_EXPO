@@ -33,6 +33,40 @@ def test_sustained_gaze_break_detected():
     assert events[0]["at"] == 2.0
 
 
+def test_clock_alignment_shifts_timeline_to_answer_clock():
+    """시계축 정합 계약: 비언어 타임라인(턴 시계)은 answer_offset만큼 당겨져
+    음성 스팬(답변 시계)과 같은 축에서 합성된다. 발견된 실버그의 회귀 방지."""
+    # 턴 시계 t=12s에 시선 이탈 시작 (2빈 지속). 답변은 턴 시작 10초 뒤 시작.
+    timeline = bins(STEADY, STEADY, STEADY, STEADY, STEADY, STEADY, GAZE_OFF, GAZE_OFF)
+    alignment = {
+        "spans": [
+            # 답변 시계 1.5~5.0초에 한 발화 — 시선 이탈(답변 시계 2.0s)과 겹친다
+            {"text": "원인은 인증 서버 배포였습니다", "start": 1.5, "end": 5.0, "rms_rel_pct": -25},
+        ],
+        "quietest": 0,
+    }
+    moments = build_turn_moments(1, "initial", timeline, alignment, answer_offset=10.0)
+    assert moments, "정합 후 복합 순간이 성립해야 한다"
+    m = moments[0]
+    assert m["composite"] is True  # 시선(답변 2s) × 성량 저하(답변 1.5s) 합성
+    assert m["at_sec"] <= 3  # '답변 N초'가 답변 시계 기준
+    assert m["quote"] == "원인은 인증 서버 배포였습니다"
+
+
+def test_clock_alignment_drops_listening_phase_events():
+    # 답변 시작(offset 10s) 이전, 듣기 구간의 시선 이탈은 순간에서 제외
+    timeline = bins(STEADY, GAZE_OFF, GAZE_OFF, STEADY)  # 턴 시계 2~6s = 듣기 중
+    events = detect_turn_events(timeline, None, answer_offset=10.0)
+    assert events == []
+
+
+def test_clock_alignment_backward_compatible_without_offset():
+    # 구 페이로드(offset 없음)는 기존 동작 유지 — 무변환
+    timeline = bins(STEADY, GAZE_OFF, GAZE_OFF, STEADY)
+    events = detect_turn_events(timeline, None)
+    assert [e["at"] for e in events] == [2.0]
+
+
 def test_composite_moment_merges_modalities():
     # 시선 이탈과 긴장 표정이 같은 구간 → 복합 순간 1개
     timeline = bins(STEADY, GAZE_TENSE, GAZE_TENSE, STEADY)
