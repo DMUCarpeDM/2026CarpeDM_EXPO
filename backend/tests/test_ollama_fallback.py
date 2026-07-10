@@ -58,6 +58,7 @@ def test_submit_response_parallel_personalization_falls_back(monkeypatch):
     result = client.post(
         f"/api/sessions/{created['id']}/turns/{created['current_turn']['id']}/response",
         json={"text": "어… 잘 모르겠습니다.", "stt_source": "text", "duration_ms": 3000},
+        headers={"X-Session-Token": created["access_token"]},
     )
     assert result.status_code == 200
     body = result.json()

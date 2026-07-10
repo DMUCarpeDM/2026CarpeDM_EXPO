@@ -151,6 +151,9 @@ def run_analysis(session_id: int) -> None:
                 if t.audio_path:
                     Path(t.audio_path).unlink(missing_ok=True)
                     t.audio_path = ""
+                # '미저장' 동의: 리포트 생성 후 대화 전문(발화 텍스트)도 파기.
+                # 인용 근거는 이미 report.evidence_segments에 복사됐고 집계 리포트만 남긴다.
+                t.response_text = ""
             db.commit()
 
         # 최종 승격 전 DB 진실 재확인 — 분석 도중 운영자 리셋(→aborted)이 들어왔는지.

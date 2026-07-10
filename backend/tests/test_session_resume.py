@@ -19,6 +19,7 @@ def test_resume_returns_current_turn_and_history():
     seed()
     created = _create_session()
     sid = created["id"]
+    auth = {"X-Session-Token": created["access_token"]}
     first_turn = created["current_turn"]
 
     answer = (
@@ -28,10 +29,11 @@ def test_resume_returns_current_turn_and_history():
     result = client.post(
         f"/api/sessions/{sid}/turns/{first_turn['id']}/response",
         json={"text": answer, "stt_source": "text", "duration_ms": 8000},
+        headers=auth,
     ).json()
     assert result["finished"] is False
 
-    resumed = client.get(f"/api/sessions/{sid}").json()
+    resumed = client.get(f"/api/sessions/{sid}", headers=auth).json()
     assert resumed["status"] == "in_progress"
     assert resumed["current_turn"]["id"] == result["next_turn"]["id"]
     assert len(resumed["history"]) == 1

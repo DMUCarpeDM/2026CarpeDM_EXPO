@@ -1,3 +1,4 @@
+import secrets
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -5,7 +6,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_optional_user
+from app.api.deps import get_optional_user, require_session
 from app.api.scenarios import to_scenario_out
 from app.core.config import settings
 from app.core.database import get_db
@@ -71,6 +72,10 @@ def create_session(
     db: Session = Depends(get_db),
     user: User | None = Depends(get_optional_user),
 ):
+    # 개인정보 처리 동의 게이트 (PIPA — 수집 전 동의). 정상 흐름은 항상 동의 후 호출된다.
+    if not body.consent.agreed:
+        raise HTTPException(status_code=400, detail="개인정보 처리에 대한 동의가 필요합니다")
+
     query = db.query(Scenario).filter_by(is_active=True)
     scenario = (
         query.filter_by(slug=body.scenario_slug).first()
@@ -83,6 +88,7 @@ def create_session(
         scenario_id=scenario.id,
         user_id=user.id if user else None,
         client_key=body.client_key or str(uuid.uuid4()),
+        access_token=secrets.token_urlsafe(24),
         mode=body.mode if body.mode in (5, 10) else 5,
         difficulty=body.difficulty,
     )
@@ -107,20 +113,20 @@ def create_session(
         difficulty=session.difficulty,
         scenario=to_scenario_out(scenario),
         current_turn=_turn_out(db, turn),
+        access_token=session.access_token,
     )
 
 
 @router.get("/{session_id}", response_model=SessionResumeOut)
-def get_session(session_id: int, db: Session = Depends(get_db)):
+def get_session(
+    session: RoleplaySession = Depends(require_session),
+    db: Session = Depends(get_db),
+):
     """세션 복구 — 새로고침·크래시 후 재진입 시 진행 상태와 턴 이력을 돌려준다.
 
     프론트는 in_progress + current_turn이면 역할극을 이어가고, current_turn이
     없으면(대화 종료 후 finish 전에 끊김) 마무리 요청 후 리포트로 보낸다.
     """
-    session = db.get(RoleplaySession, session_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다")
-
     turns = list(session.turns)
     current = next((t for t in turns if t.answered_at is None), None)
     history = []
@@ -155,10 +161,10 @@ def submit_response(
     session_id: int,
     turn_id: int,
     body: ResponseIn,
+    session: RoleplaySession = Depends(require_session),
     db: Session = Depends(get_db),
 ):
-    session = db.get(RoleplaySession, session_id)
-    if session is None or session.status != SessionStatus.in_progress:
+    if session.status != SessionStatus.in_progress:
         raise HTTPException(status_code=404, detail="진행 중인 세션이 아닙니다")
     turn = db.get(Turn, turn_id)
     if turn is None or turn.session_id != session_id:
@@ -235,6 +241,7 @@ async def upload_audio(
     session_id: int,
     turn_id: int,
     file: UploadFile,
+    session: RoleplaySession = Depends(require_session),
     db: Session = Depends(get_db),
 ):
     turn = db.get(Turn, turn_id)
@@ -266,11 +273,9 @@ async def upload_audio(
 def finish_session(
     session_id: int,
     background: BackgroundTasks,
+    session: RoleplaySession = Depends(require_session),
     db: Session = Depends(get_db),
 ):
-    session = db.get(RoleplaySession, session_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다")
     try:
         transition(session, SessionStatus.analyzing)
     except InvalidTransition as e:
@@ -286,12 +291,10 @@ def finish_session(
 def retry_analysis(
     session_id: int,
     background: BackgroundTasks,
+    session: RoleplaySession = Depends(require_session),
     db: Session = Depends(get_db),
 ):
     """분석 실패 시 재시도 (S-TLJZWB) — analyzing 상태에서 error로 멈춘 세션만 재큐잉."""
-    session = db.get(RoleplaySession, session_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다")
     progress = session.analysis_progress or {}
     if session.status != SessionStatus.analyzing or progress.get("stage") != "error":
         raise HTTPException(status_code=409, detail="재시도할 수 있는 상태가 아닙니다")
@@ -302,10 +305,7 @@ def retry_analysis(
 
 
 @router.get("/{session_id}/progress", response_model=ProgressOut)
-def get_progress(session_id: int, db: Session = Depends(get_db)):
-    session = db.get(RoleplaySession, session_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다")
+def get_progress(session: RoleplaySession = Depends(require_session)):
     progress = session.analysis_progress or {}
     return ProgressOut(
         status=session.status.value,

@@ -6,6 +6,7 @@
  */
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { resetVisitorIdentity } from '../../api/client';
 import FrameGlow from '../../components/FrameGlow';
 import Icon from '../../components/Icon';
 import { enterMirrorMode } from '../../lib/mirrorMode';
@@ -21,6 +22,8 @@ export default function KioskPage() {
 
   useEffect(() => {
     enterMirrorMode();
+    // 관람객 간 격리 — 대기 화면으로 돌아오면 이전 사람의 익명 키·세션 토큰을 지운다
+    resetVisitorIdentity();
   }, []);
 
   // 깨어날 때 한 번만 인사 — 사람이 떠났다 돌아오면 다시 인사한다

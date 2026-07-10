@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.deps import require_session
 from app.core.database import get_db
 from app.models import AnalysisResult, Report, RoleplaySession, SessionStatus
 from app.schemas import ReportOut
@@ -36,10 +37,10 @@ def _turn_breakdown(db: Session, session: RoleplaySession) -> list[dict]:
 
 
 @router.get("/{session_id}/report", response_model=ReportOut)
-def get_report(session_id: int, db: Session = Depends(get_db)):
-    session = db.get(RoleplaySession, session_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다")
+def get_report(
+    session: RoleplaySession = Depends(require_session),
+    db: Session = Depends(get_db),
+):
     report = session.report
     if report is None:
         raise HTTPException(status_code=404, detail="리포트가 아직 생성되지 않았습니다")
