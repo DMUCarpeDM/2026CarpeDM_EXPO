@@ -13,21 +13,6 @@ from app.models import RoleplaySession, User
 _LOOPBACK = {"127.0.0.1", "::1", "localhost", "testclient"}
 
 
-def require_admin(request: Request, x_admin_token: str = Header(default="")) -> None:
-    """운영 API 보호. 토큰이 설정돼 있으면 헤더를 대조하고, 미설정(개발 편의)이면
-    부스 LAN 노출을 막기 위해 루프백 요청만 허용한다."""
-    if settings.admin_token:
-        if not secrets.compare_digest(x_admin_token, settings.admin_token):
-            raise HTTPException(status_code=401, detail="운영 토큰이 올바르지 않습니다")
-        return
-    host = request.client.host if request.client else ""
-    if host not in _LOOPBACK:
-        raise HTTPException(
-            status_code=403,
-            detail="운영 토큰이 설정되지 않아 로컬(같은 PC)에서만 접근할 수 있습니다",
-        )
-
-
 def require_session(
     session_id: int,
     x_session_token: str = Header(default=""),
@@ -67,11 +52,30 @@ def get_optional_user(
     return db.get(User, int(subject)) if subject else None
 
 
-def require_admin(user: User | None = Depends(get_optional_user)) -> User | None:
-    """관리자 가드 — 전시 모드(admin_auth_required=False)에서는 통과시키되 감사 로그용
-    사용자만 전달하고, 기관 모드에서는 role='admin' 토큰을 강제한다."""
-    if not settings.admin_auth_required:
+def require_admin(
+    request: Request,
+    x_admin_token: str = Header(default=""),
+    user: User | None = Depends(get_optional_user),
+) -> User | None:
+    """관리자 가드 — 두 인증 모델의 합집합. 반환된 user는 audit_events 기록에 쓴다.
+
+    기관 모드(admin_auth_required=True): role='admin' JWT를 강제한다.
+    전시 모드: admin JWT가 있으면 통과. 없으면 운영 토큰(X-Admin-Token)을 대조하고,
+    토큰 미설정(개발 편의)이면 부스 LAN 노출을 막기 위해 루프백 요청만 허용한다."""
+    if settings.admin_auth_required:
+        if user is None or user.role != "admin":
+            raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다")
         return user
-    if user is None or user.role != "admin":
-        raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다")
+    if user is not None and user.role == "admin":
+        return user
+    if settings.admin_token:
+        if not secrets.compare_digest(x_admin_token, settings.admin_token):
+            raise HTTPException(status_code=401, detail="운영 토큰이 올바르지 않습니다")
+        return user
+    host = request.client.host if request.client else ""
+    if host not in _LOOPBACK:
+        raise HTTPException(
+            status_code=403,
+            detail="운영 토큰이 설정되지 않아 로컬(같은 PC)에서만 접근할 수 있습니다",
+        )
     return user

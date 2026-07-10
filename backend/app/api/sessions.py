@@ -41,6 +41,8 @@ from app.services.session_fsm import InvalidTransition, transition
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
+MAX_AUDIO_BYTES = 25 * 1024 * 1024  # 업로드 오디오 상한 — DoS 차단 (한 턴 wav 실측 대비 관대)
+
 
 def _episode_title(db: Session, episode_id: int) -> str:
     ep = db.get(Episode, episode_id)
@@ -268,8 +270,13 @@ async def upload_audio(
     turn = db.get(Turn, turn_id)
     if turn is None or turn.session_id != session_id:
         raise HTTPException(status_code=404, detail="턴을 찾을 수 없습니다")
+    # 텍스트 필드처럼 오디오도 상한을 건다 — 무제한 read()는 메모리·디스크 DoS 벡터.
+    # 10분 모드 한 턴의 16kHz 16bit mono wav도 수 MB 수준이라 25MB면 충분히 관대하다.
+    data = await file.read(MAX_AUDIO_BYTES + 1)
+    if len(data) > MAX_AUDIO_BYTES:
+        raise HTTPException(status_code=413, detail="오디오 파일이 허용 크기를 초과했습니다")
     dest = settings.media_dir / f"session{session_id}_turn{turn_id}.wav"
-    dest.write_bytes(await file.read())
+    dest.write_bytes(data)
     turn.audio_path = str(dest)
 
     # 브라우저 STT가 없는(오프라인) 턴은 서버가 즉시 변환 — 대화 엔진이 바로 사용

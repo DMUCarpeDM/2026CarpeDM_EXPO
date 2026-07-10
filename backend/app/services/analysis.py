@@ -3,6 +3,7 @@
 FastAPI BackgroundTask로 실행되며 단계별로 session.analysis_progress를 갱신한다:
   stt → response → voice → nonverbal → scoring → report → done
 """
+import copy
 import time
 import traceback
 from pathlib import Path
@@ -17,6 +18,30 @@ from app.services import report as report_service
 from app.services.session_fsm import transition
 
 STAGES = ["stt", "response", "voice", "nonverbal", "scoring", "report"]
+
+
+def strip_turn_verbatim(metrics: dict) -> dict:
+    """턴 레벨 raw_metrics에서 발화 원문 조각 제거 — 미저장 동의 파기의 일부.
+
+    리포트가 자기 사본(evidence_segments 등)으로 인용을 표시하므로, 내부 중간
+    산출물에 남은 verbatim(quotes.*.text, banmal_quotes, alignment.spans[].text)은
+    파기 대상이다. 남기면 '미저장' 동의가 부분 soft-delete로 전락한다.
+    """
+    m = copy.deepcopy(metrics or {})
+    quotes = m.get("quotes")
+    if isinstance(quotes, dict):
+        for q in quotes.values():
+            if isinstance(q, dict):
+                q.pop("text", None)
+    politeness = m.get("politeness")
+    if isinstance(politeness, dict):
+        politeness.pop("banmal_quotes", None)
+    alignment = m.get("alignment")
+    if isinstance(alignment, dict):
+        for span in alignment.get("spans") or []:
+            if isinstance(span, dict):
+                span.pop("text", None)
+    return m
 
 
 def _set_progress(db, session: RoleplaySession, stage: str, pct: int) -> None:
@@ -154,6 +179,14 @@ def run_analysis(session_id: int) -> None:
                 # '미저장' 동의: 리포트 생성 후 대화 전문(발화 텍스트)도 파기.
                 # 인용 근거는 이미 report.evidence_segments에 복사됐고 집계 리포트만 남긴다.
                 t.response_text = ""
+            # 턴 레벨 분석 중간 산출물의 verbatim도 함께 파기 — 리포트 사본만 남기고,
+            # 그 사본은 보관 기간 후 기동 정리(_purge_expired_quotes)가 지운다.
+            turn_results = db.query(AnalysisResult).filter(
+                AnalysisResult.session_id == session.id,
+                AnalysisResult.turn_id.isnot(None),
+            ).all()
+            for r in turn_results:
+                r.raw_metrics = strip_turn_verbatim(r.raw_metrics)
             db.commit()
 
         # 최종 승격 전 DB 진실 재확인 — 분석 도중 운영자 리셋(→aborted)이 들어왔는지.

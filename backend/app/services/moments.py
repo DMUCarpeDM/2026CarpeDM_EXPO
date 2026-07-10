@@ -35,8 +35,14 @@ def _runs(timeline: list[dict], key: str, predicate) -> list[dict]:
     runs: list[dict] = []
     current: dict | None = None
     for bin_ in timeline:
-        t = bin_.get("t")  # 클라이언트 전송 페이로드 — 불량/누락 빈이 분석 전체를 죽이지 않도록 가드
+        # 클라이언트 전송 페이로드 — 불량/누락/타입 오염 빈이 분석 전체를 죽이지 않도록 가드
+        # (키 존재만 믿으면 {"t": "2"} 같은 문자열이 산술·비교에서 TypeError로 영구 포이즌이 된다)
+        t = bin_.get("t")
         value = bin_.get(key)
+        if not isinstance(t, (int, float)) or isinstance(t, bool):
+            t = None
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            value = None
         if t is not None and value is not None and predicate(value):
             if current is None:
                 current = {"start": t, "bins": 1}
