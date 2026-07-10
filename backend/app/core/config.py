@@ -44,6 +44,14 @@ class Settings(BaseSettings):
     semantic_match_enabled: bool = True
     ollama_embed_model: str = "bge-m3"
 
+    # 떨림(jitter/shimmer) 감점 임계 — 합성 신호로 보정된 기본값. 감점 자체는
+    # 골든 검증된 결함 수정(떨리는 발화가 억양 보상을 받던 문제)이므로 유지하되,
+    # 전시 PC 마이크 보정(demo-checklist §2.5)에서 오탐이 보이면 코드 수정 없이
+    # backend/.env의 MIRROTING_TREMOR_*로 상향한다.
+    tremor_jitter_floor: float = 6.0   # % — 이하는 정상 변동
+    tremor_shimmer_floor: float = 8.0  # %
+    tremor_penalty_cap: float = 18.0
+
     model_config = {"env_prefix": "MIRROTING_", "env_file": ".env"}
 
 

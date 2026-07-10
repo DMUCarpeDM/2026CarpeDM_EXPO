@@ -38,11 +38,13 @@ def analyze_response(
     # Ollama 부재 시 None → 키워드 결과 그대로 (완전 폴백).
     semantic_hits: list[str] = []
     semantic_sentence_hits: dict[str, list[int]] = {}
+    semantic_active = False  # 의미 매칭이 실제로 돌았는지 — 폴백 '누락' 오판의 완곡화 근거
     if use_semantic is None:
         use_semantic = settings.semantic_match_enabled
     if use_semantic:
         sem = semantic_match.semantic_checklist_ids(text, checklist)
         if sem is not None:
+            semantic_active = True
             sem_ids, semantic_sentence_hits = sem
             semantic_hits = sorted(sem_ids - covered)
             covered |= sem_ids
@@ -65,6 +67,7 @@ def analyze_response(
         "coverage": round(covered_weight / total_weight, 3),
         "covered_ids": sorted(covered),
         "semantic_hits": semantic_hits,  # 키워드는 놓쳤지만 의미로 인식한 항목
+        "semantic_active": semantic_active,  # False면 키워드 단독 판정 — 누락 단정 금지
         "missing": [
             {"id": i["id"], "label": i["label"]}
             for i in checklist if i["id"] not in covered

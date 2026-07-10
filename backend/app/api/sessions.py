@@ -1,9 +1,11 @@
 import secrets
+import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -276,7 +278,7 @@ async def upload_audio(
     if len(data) > MAX_AUDIO_BYTES:
         raise HTTPException(status_code=413, detail="오디오 파일이 허용 크기를 초과했습니다")
     dest = settings.media_dir / f"session{session_id}_turn{turn_id}.wav"
-    dest.write_bytes(data)
+    await run_in_threadpool(dest.write_bytes, data)
     turn.audio_path = str(dest)
 
     # 브라우저 STT가 없는(오프라인) 턴은 서버가 즉시 변환 — 대화 엔진이 바로 사용
@@ -287,7 +289,9 @@ async def upload_audio(
         provider = get_stt_provider()
         if provider:
             try:
-                transcript = provider.transcribe(str(dest))
+                # CPU 바운드 전사를 스레드풀로 — 이벤트 루프에서 돌리면 전사가
+                # 끝날 때까지 다른 방문객의 진행률 폴링·헬스체크까지 함께 멈춘다
+                transcript = await run_in_threadpool(provider.transcribe, str(dest))
             except Exception:
                 transcript = ""
             if transcript:
@@ -309,7 +313,7 @@ def finish_session(
     except InvalidTransition as e:
         raise HTTPException(status_code=409, detail=str(e))
     session.ended_at = utcnow()
-    session.analysis_progress = {"stage": "queued", "pct": 0}
+    session.analysis_progress = {"stage": "queued", "pct": 0, "at": time.time()}
     db.commit()
     background.add_task(run_analysis, session_id)
     return ProgressOut(status=session.status.value, stage="queued", pct=0)
@@ -326,7 +330,7 @@ def retry_analysis(
     progress = session.analysis_progress or {}
     if session.status != SessionStatus.analyzing or progress.get("stage") != "error":
         raise HTTPException(status_code=409, detail="재시도할 수 있는 상태가 아닙니다")
-    session.analysis_progress = {"stage": "queued", "pct": 0}
+    session.analysis_progress = {"stage": "queued", "pct": 0, "at": time.time()}
     db.commit()
     background.add_task(run_analysis, session_id)
     return ProgressOut(status=session.status.value, stage="queued", pct=0)
@@ -350,9 +354,32 @@ def submit_survey(session_id: int, body: SurveyIn, db: Session = Depends(get_db)
     return {"ok": True}
 
 
+# 진행률 정체 임계 — 정상 분석은 수십 초 안에 끝난다. 이 시간 동안 갱신이 없으면
+# 분석 스레드가 죽은 것으로 보고 복구 가능한 오류로 전환한다 (재시도 허용).
+ANALYSIS_STALL_SEC = 180
+
+
 @router.get("/{session_id}/progress", response_model=ProgressOut)
-def get_progress(session: RoleplaySession = Depends(require_session)):
-    progress = session.analysis_progress or {}
+def get_progress(
+    session: RoleplaySession = Depends(require_session),
+    db: Session = Depends(get_db),
+):
+    progress = dict(session.analysis_progress or {})
+    stage = progress.get("stage", "")
+    if session.status == SessionStatus.analyzing and stage not in ("", "done", "error"):
+        now = time.time()
+        at = progress.get("at")
+        if at is None:
+            # 구버전 진행률(시각 없음) — 지금부터 정체 시계를 시작한다
+            progress["at"] = now
+            session.analysis_progress = progress
+            db.commit()
+        elif now - at > ANALYSIS_STALL_SEC:
+            # 스레드가 except에도 못 닿고 죽은 경우: 서버 재시작 없이 복구할 수
+            # 있도록 error로 전환한다 — 프론트가 재시도 UI를 띄운다
+            progress = {"stage": "error", "pct": 0, "at": now}
+            session.analysis_progress = progress
+            db.commit()
     return ProgressOut(
         status=session.status.value,
         stage=progress.get("stage", ""),

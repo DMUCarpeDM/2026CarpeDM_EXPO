@@ -5,13 +5,17 @@
 키워드 매칭에 OR로 보탠다.
 
 폴백 우선: Ollama가 없거나 느리면 None을 반환하고 키워드 매칭만 동작한다.
-가용성 프로브는 프로세스당 1회 — 꺼진 Ollama에 턴마다 타임아웃을 내지 않는다.
+가용성 프로브는 TTL 주기로 재확인 — 부팅 때 없던 Ollama가 나중에 떠도 자동
+승격되고, 전시 중 죽으면 서킷 브레이커가 즉시 폴백으로 강등한다. 리액션 분류가
+라이브 턴에서 이 모듈을 지나므로, 죽은 Ollama에 문장마다 타임아웃을 내면
+다음 질문이 그만큼 늦어진다(전시 생존성).
 
 임계값 주의: SEMANTIC_THRESHOLD는 임베딩 모델에 종속된다. 모델을 바꾸면 반드시
 scripts/calibrate_semantic.py로 골든 셋 재보정 후 조정하라. 임계값이 낮으면
 무관한 문장이 커버로 오인된다(오판 억제 위반).
 """
 import re
+import time
 from functools import lru_cache
 
 import httpx
@@ -29,6 +33,13 @@ from app.core.config import settings
 SEMANTIC_THRESHOLD = 0.69
 PROBE_TIMEOUT_SEC = 1.0
 EMBED_TIMEOUT_SEC = 2.0
+AVAILABILITY_TTL_SEC = 60.0  # 가용성 재프로브 주기 — 다운/복구를 이 주기 안에 반영
+BREAKER_FAILURES = 2         # 연속 임베딩 실패 임계 — 도달 시 쿨다운 동안 즉시 폴백
+BREAKER_COOLDOWN_SEC = 60.0
+
+_avail_state: tuple[float, bool] | None = None  # (프로브 시각 monotonic, 결과)
+_fail_streak = 0
+_blocked_until = 0.0  # 브레이커 개방 종료 시각 (monotonic)
 
 
 def _probe() -> bool:
@@ -48,28 +59,57 @@ def _probe() -> bool:
         return False
 
 
-@lru_cache(maxsize=1)
 def available() -> bool:
-    return settings.semantic_match_enabled and _probe()
+    """TTL 캐시된 가용성 — 브레이커 개방 중에는 프로브 없이 즉시 False."""
+    global _avail_state
+    if not settings.semantic_match_enabled:
+        return False
+    now = time.monotonic()
+    if now < _blocked_until:
+        return False
+    if _avail_state is None or now - _avail_state[0] >= AVAILABILITY_TTL_SEC:
+        _avail_state = (now, _probe())
+    return _avail_state[1]
 
 
 @lru_cache(maxsize=2048)
+def _embed_cached(text: str) -> tuple[float, ...]:
+    """단문 임베딩 (캐시) — 체크리스트 앵커는 세션 간 반복되므로 캐시 효율이 높다.
+
+    실패는 예외로 던져 캐시에 남기지 않는다 — 실패 결과가 캐시되면 Ollama 복구
+    후에도 앵커가 영구히 '임베딩 불가'로 남는다.
+    """
+    resp = httpx.post(
+        f"{settings.ollama_base_url}/api/embeddings",
+        json={
+            "model": settings.ollama_embed_model, "prompt": text,
+            "keep_alive": settings.ollama_keep_alive,
+        },
+        timeout=EMBED_TIMEOUT_SEC,
+    )
+    resp.raise_for_status()
+    vec = resp.json().get("embedding")
+    if not vec:
+        raise ValueError("빈 임베딩 응답")
+    return tuple(vec)
+
+
 def _embed(text: str) -> tuple[float, ...] | None:
-    """단문 임베딩 (캐시) — 체크리스트 앵커는 세션 간 반복되므로 캐시 효율이 높다."""
-    try:
-        resp = httpx.post(
-            f"{settings.ollama_base_url}/api/embeddings",
-            json={
-                "model": settings.ollama_embed_model, "prompt": text,
-                "keep_alive": settings.ollama_keep_alive,
-            },
-            timeout=EMBED_TIMEOUT_SEC,
-        )
-        resp.raise_for_status()
-        vec = resp.json().get("embedding")
-        return tuple(vec) if vec else None
-    except Exception:
+    """임베딩 + 서킷 브레이커 — 연속 실패 시 쿨다운 동안 시도 없이 폴백한다."""
+    global _fail_streak, _blocked_until
+    if time.monotonic() < _blocked_until:
         return None
+    try:
+        vec = _embed_cached(text)
+    except Exception:
+        _fail_streak += 1
+        if _fail_streak >= BREAKER_FAILURES:
+            _blocked_until = time.monotonic() + BREAKER_COOLDOWN_SEC
+            _fail_streak = 0
+            print(f"[semantic] 임베딩 연속 실패 — {BREAKER_COOLDOWN_SEC:.0f}s 동안 키워드 폴백")
+        return None
+    _fail_streak = 0
+    return vec
 
 
 def _cosine(a: tuple[float, ...], b: tuple[float, ...]) -> float:

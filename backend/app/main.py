@@ -211,14 +211,47 @@ def _ollama_status() -> dict:
 
 @app.get("/api/health")
 def health():
+    from app.ai import semantic_match
     from app.ai.stt import get_stt_provider
+    from app.ai.text_match import kiwi_available
+    from app.core.database import engine
 
     provider = get_stt_provider()
+    ollama = _ollama_status()
+    # 실제 판정 경로의 상태 — ollama.embedding(모델 존재)과 달리 브레이커
+    # 개방·TTL 캐시까지 반영된, "지금 이 순간 의미 매칭이 도는가"
+    semantic = semantic_match.available()
+    kiwi = kiwi_available()
+    db_ok = True
+    try:
+        with engine.connect() as conn:
+            conn.exec_driver_sql("SELECT 1")
+    except Exception:
+        db_ok = False
+
+    # 조용한 폴백 강등의 종합 — 당일 아침 점검에서 이 목록이 비어 있어야 완전체다
+    degraded_reasons = []
+    if provider is None:
+        degraded_reasons.append("서버 STT 없음 — 오프라인 음성 인식 폴백 불가")
+    if settings.dialogue_provider == "ollama" and not ollama["dialogue"]:
+        degraded_reasons.append("Ollama 대화 모델 미가동 — 템플릿 질문만 사용")
+    if settings.semantic_match_enabled and not semantic:
+        degraded_reasons.append("의미 매칭 미가동 — 키워드 판정만 사용 (패러프레이즈 누락 오판 주의)")
+    if not kiwi:
+        degraded_reasons.append("kiwipiepy 미가동 — 격식 판정이 문자열 근사로 강등")
+    if not db_ok:
+        degraded_reasons.append("DB 접근 불가 — 체험 진행 불가")
+
     return {
-        "ok": True,
+        "ok": db_ok,  # DB가 죽으면 체험 자체가 불가. 그 외 강등은 degraded로 표시
         "app": settings.app_name,
         "server_stt": provider.name if provider else None,
         "dialogue_provider": settings.dialogue_provider,
         # 관측성: 지금 이 부스가 폴백으로 강등된 상태인지 즉시 확인 (60초 캐시)
-        "ollama": _ollama_status(),
+        "ollama": ollama,
+        "semantic_match": semantic,
+        "kiwi": kiwi,
+        "db": db_ok,
+        "degraded": bool(degraded_reasons),
+        "degraded_reasons": degraded_reasons,
     }

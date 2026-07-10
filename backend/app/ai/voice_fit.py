@@ -14,6 +14,7 @@ import numpy as np
 
 from app.ai.scoring import band_score, clamp, weighted_mean
 from app.ai.text_match import count_hangul_syllables
+from app.core.config import settings
 
 FRAME = 2048
 HOP = 512
@@ -41,9 +42,11 @@ F0_CV_BANDS = (0.08, 0.35, 0.0, 0.60)
 # 감점해야 한다 — 골든 시나리오가 잡아낸 결함: 떨리는 발화의 변동이 '자연스러운
 # 억양·강세' 대역에 들어가 오히려 보상받았다. 오판 억제를 위해 jitter(주파수)와
 # shimmer(진폭)가 '동시에' 뚜렷할 때만, 상한을 두고 감점한다.
-TREMOR_JITTER_FLOOR = 6.0   # % — 이하는 정상 변동 (합성 보정: 안정 발화 모형 ~0-2%)
-TREMOR_SHIMMER_FLOOR = 8.0  # %
-TREMOR_PENALTY_CAP = 18.0
+# 임계값은 settings로 이동 — 전시 PC 보정(§2.5) 시 backend/.env의
+# MIRROTING_TREMOR_JITTER_FLOOR 등으로 코드 수정 없이 조정한다.
+TREMOR_JITTER_FLOOR = settings.tremor_jitter_floor   # % — 이하는 정상 변동 (합성 보정: 안정 발화 모형 ~0-2%)
+TREMOR_SHIMMER_FLOOR = settings.tremor_shimmer_floor  # %
+TREMOR_PENALTY_CAP = settings.tremor_penalty_cap
 # 긴 침묵 페널티: long_pause_count(1.2s+)가 집계만 되고 채점에 반영되지 않던
 # 결함(골든 시나리오 발견) — 청자가 인지하는 끊김이므로 회당 감점, 상한 존재.
 LONG_PAUSE_PENALTY = 5.0

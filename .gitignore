@@ -3,6 +3,9 @@ __pycache__/
 *.pyc
 .venv/
 *.db
+# SQLite WAL 모드 부속 파일
+*.db-wal
+*.db-shm
 backend/media/
 
 # Node
