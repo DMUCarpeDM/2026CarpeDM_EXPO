@@ -14,8 +14,13 @@ class Settings(BaseSettings):
     # 운영 API(/api/admin: 전시 초기화·CSV 내보내기) 보호 토큰 — X-Admin-Token 헤더로 대조.
     # 비우면 무인증(개발 편의). 전시장 네트워크에 열 때는 반드시 설정할 것.
     admin_token: str = ""
+    # 전시/운영 배포 안전장치 — True면 기본 JWT 시크릿·빈 admin 토큰으로 기동을 거부한다.
+    require_secure: bool = False
     # 익명/계정 저장 동의 시 음성 파일 보관 일수 (S-CBYKOH). '미저장' 동의는 분석 직후 삭제.
     media_retention_days: int = 7
+    # 관리자 API(/admin/*) 인증 강제 여부 — 전시 키오스크는 False(로컬 단독 운영),
+    # 기관 납품 시 True + role='admin' 계정 필수 (app.seed.make_admin으로 승격)
+    admin_auth_required: bool = False
 
     # 서버 STT(오프라인 폴백)용 Vosk 한국어 모델 경로 — scripts/setup_offline_stt.py로 다운로드
     stt_model_dir: Path = Path("./models/vosk-ko")

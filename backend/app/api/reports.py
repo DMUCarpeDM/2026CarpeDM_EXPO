@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.deps import require_session
 from app.core.database import get_db
 from app.models import AnalysisResult, Report, RoleplaySession, SessionStatus
 from app.schemas import ReportOut
@@ -36,10 +37,10 @@ def _turn_breakdown(db: Session, session: RoleplaySession) -> list[dict]:
 
 
 @router.get("/{session_id}/report", response_model=ReportOut)
-def get_report(session_id: int, db: Session = Depends(get_db)):
-    session = db.get(RoleplaySession, session_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다")
+def get_report(
+    session: RoleplaySession = Depends(require_session),
+    db: Session = Depends(get_db),
+):
     report = session.report
     if report is None:
         raise HTTPException(status_code=404, detail="리포트가 아직 생성되지 않았습니다")
@@ -68,13 +69,17 @@ def get_report(session_id: int, db: Session = Depends(get_db)):
             },
         }
 
-    # 현장 체험자 백분위 (표본 5건 이상일 때만) — 전시 경쟁 요소
+    # 현장 체험자 백분위 (표본 5건 이상일 때만) — 전시 경쟁 요소.
+    # 산식 버전이 다른 점수는 비교 표본에서 제외 (engine_version 스냅샷).
     percentile_top = None
     other_scores = [
         row[0]
         for row in db.query(Report.total_score)
         .join(RoleplaySession, Report.session_id == RoleplaySession.id)
-        .filter(Report.session_id != session.id)
+        .filter(
+            Report.session_id != session.id,
+            Report.engine_version == report.engine_version,
+        )
         .all()
     ]
     if len(other_scores) >= 5:

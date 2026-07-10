@@ -5,7 +5,15 @@ run_analysis는 시작 시 이전 실행의 부분 결과(AnalysisResult·Report
 리포트는 정확히 하나여야 한다.
 """
 from app.core.database import SessionLocal
-from app.models import AnalysisResult, Report, RoleplaySession, Scenario, SessionStatus, Turn
+from app.models import (
+    AnalysisResult,
+    Consent,
+    Report,
+    RoleplaySession,
+    Scenario,
+    SessionStatus,
+    Turn,
+)
 from app.seed.run import seed
 from app.services.analysis import run_analysis
 
@@ -25,6 +33,9 @@ def _make_analyzing_session(db) -> int:
             "오늘 목표는 온보딩 파악입니다. 잘 부탁드립니다."
         ),
     ))
+    # 저장 동의(anonymous) — 재분석 멱등성 검증 목적상 발화 전문이 파기되지 않아야 한다.
+    # ('미저장' 동의의 전문 파기는 test_session_access가 별도로 검증)
+    db.add(Consent(session_id=session.id, storage_policy="anonymous", agreed=True))
     db.commit()
     return session.id
 

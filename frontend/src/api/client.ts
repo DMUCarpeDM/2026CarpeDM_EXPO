@@ -17,9 +17,34 @@ export const api = axios.create({
   timeout: 10_000,
 });
 
+/** 세션 능력 토큰 — 생성 시 서버가 발급하고, 세션 데이터 조회에 필요하다.
+ * 새로고침·크래시 복구를 위해 세션 id별로 localStorage에 보관한다. */
+export function sessionToken(id: number): string {
+  return localStorage.getItem(`mirroting-session-${id}`) ?? '';
+}
+
+function setSessionToken(id: number, token: string): void {
+  if (token) localStorage.setItem(`mirroting-session-${id}`, token);
+}
+
+/** 관람객 간 격리 — 대기 화면 복귀 시 이전 사람의 익명 키·세션 토큰을 지운다 */
+export function resetVisitorIdentity(): void {
+  localStorage.removeItem('mirroting-client-key');
+  for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith('mirroting-session-')) localStorage.removeItem(k);
+  }
+}
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('mirroting-token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  // 세션 능력 토큰 — /sessions/{id}… 호출에 자동 첨부 (IDOR 차단)
+  const m = config.url?.match(/^\/sessions\/(\d+)(?:\/|$)/);
+  if (m) {
+    const st = sessionToken(Number(m[1]));
+    if (st) config.headers['X-Session-Token'] = st;
+  }
   return config;
 });
 
@@ -48,6 +73,7 @@ export async function createSession(opts: {
     client_key: clientKey(),
     consent: { agreed: opts.agreed, storage_policy: 'none' },
   });
+  setSessionToken(data.id, data.access_token);
   return data;
 }
 

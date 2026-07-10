@@ -19,6 +19,9 @@ const QUESTION_TYPE_LABEL: Record<Turn['question_type'], string> = {
   deepening: '심화 질문',
 };
 
+// 전시(키오스크) 모드 무조작 자동 복귀 기준 (ReportPage와 동일)
+const KIOSK_IDLE_MS = 90_000;
+
 export default function RoleplayPage() {
   const navigate = useNavigate();
   const { sessionId } = useParams();
@@ -175,6 +178,24 @@ export default function RoleplayPage() {
     const timer = setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(timer);
   }, [briefingOpen]);
+
+  // 전시(키오스크) 모드: 브리핑에서 관람객이 그냥 떠나면 거울이 무한 대기하지 않도록
+  // 무조작 90초 후 대기 화면으로 자동 복귀 (역할극 본편은 세션 타이머가 스스로 마무리)
+  useEffect(() => {
+    if (!mirror || !briefingOpen) return;
+    let idle: ReturnType<typeof setTimeout>;
+    const reset = () => {
+      clearTimeout(idle);
+      idle = setTimeout(() => navigate('/kiosk'), KIOSK_IDLE_MS);
+    };
+    reset();
+    const events: (keyof WindowEventMap)[] = ['pointerdown', 'keydown'];
+    events.forEach((e) => window.addEventListener(e, reset));
+    return () => {
+      clearTimeout(idle);
+      events.forEach((e) => window.removeEventListener(e, reset));
+    };
+  }, [mirror, briefingOpen, navigate]);
 
   const finish = useCallback(async () => {
     if (!session) return;

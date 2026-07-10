@@ -126,14 +126,23 @@ export function useNonverbal(
 
     async function init() {
       setVisionStatus('loading');
+      let audioOnly = false;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           video: { width: 640, height: 480 },
           audio: true, // 오디오 트랙은 녹음기·음량 미터에서 재사용
         });
       } catch {
-        setVisionStatus('no-camera');
-        return; // 카메라/마이크 거부 → 비언어 미측정으로 진행
+        // 카메라 거부/부재 — 오디오만이라도 확보한다. 키보드 없는 미러에서
+        // 카메라를 거부하면 녹음 스트림(video.srcObject)이 없어 오프라인 서버 STT까지
+        // 막혀 '텍스트 전용 막다른 길'이 되던 문제 해소 (마이크는 허용된 경우).
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          audioOnly = true;
+        } catch {
+          setVisionStatus('no-camera');
+          return; // 카메라·마이크 모두 거부 → 텍스트 입력만
+        }
       }
       if (cancelled || !videoRef.current) {
         stream.getTracks().forEach((t) => t.stop()); // StrictMode 이중 실행 누수 방지
@@ -141,6 +150,13 @@ export function useNonverbal(
       }
       videoRef.current.srcObject = stream;
       await videoRef.current.play().catch(() => undefined);
+
+      // 카메라 없이 오디오만 확보된 경우: 비전 분석은 건너뛰되, 녹음·서버 STT용
+      // 스트림은 video.srcObject에 남겨 둔다 (RoleplayPage 녹음 경로가 이를 사용).
+      if (audioOnly) {
+        setVisionStatus('no-camera');
+        return;
+      }
 
       // 마이크 레벨 미터 (Web Audio — 시각화 전용, 저장 안 함)
       let analyser: AnalyserNode | null = null;

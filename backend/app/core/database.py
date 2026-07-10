@@ -8,15 +8,16 @@ engine = create_engine(
     connect_args={"check_same_thread": False} if settings.database_url.startswith("sqlite") else {},
 )
 
-if settings.database_url.startswith("sqlite"):
+if engine.url.get_backend_name() == "sqlite":
     @event.listens_for(engine, "connect")
     def _sqlite_pragmas(dbapi_conn, _record):
-        # WAL: 분석 스레드가 쓰는 동안에도 진행률 폴링·다음 세션 생성이 잠기지 않게.
-        # busy_timeout: 잠금 경합 시 즉시 "database is locked"로 죽는 대신 대기.
-        cur = dbapi_conn.cursor()
-        cur.execute("PRAGMA journal_mode=WAL")
-        cur.execute("PRAGMA busy_timeout=15000")
-        cur.close()
+        # SQLite는 기본값이 FK OFF — 켜지 않으면 ForeignKey/CASCADE가 전부 무시된다.
+        # WAL + busy_timeout: FastAPI 스레드풀에서 읽기/쓰기가 겹칠 때 'database is locked' 방지.
+        cursor = dbapi_conn.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=5000")
+        cursor.close()
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
@@ -29,5 +30,8 @@ def get_db():
     db = SessionLocal()
     try:
         yield db
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()

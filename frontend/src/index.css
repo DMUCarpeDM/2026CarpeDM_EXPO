@@ -36,8 +36,8 @@
   --s-6: 24px;
   --s-8: 32px;
 
-  font-family: 'Pretendard Variable', Pretendard, -apple-system, 'Apple SD Gothic Neo',
-    'Noto Sans KR', sans-serif;
+  font-family: 'Pretendard Variable', Pretendard, system-ui, -apple-system, 'Apple SD Gothic Neo',
+    'Malgun Gothic', 'Noto Sans KR', sans-serif;
 }
 
 * {

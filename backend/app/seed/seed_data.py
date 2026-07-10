@@ -147,7 +147,7 @@ EPISODES = [
     {
         "order": 1,
         "title": "출근 — 심상치 않은 첫인사",
-        "modes": "5,10",
+        "modes": [5, 10],
         "character_id": "kim_teamlead",
         "virtual_time": "09:04",
         "intro_variants": {},  # 첫 에피소드 — 수행도 이력이 없어 변주 없음
@@ -203,7 +203,7 @@ EPISODES = [
     {
         "order": 2,
         "title": "장애 문의 전화 — 긴급 상황 대응",
-        "modes": "5,10",
+        "modes": [5, 10],
         "character_id": "han_cs",
         "virtual_time": "10:12",
         "intro_variants": {
@@ -263,7 +263,7 @@ EPISODES = [
     {
         "order": 3,
         "title": "장애 수습 후 팀장 보고",
-        "modes": "5,10",
+        "modes": [5, 10],
         "character_id": "kim_teamlead",
         "virtual_time": "14:30",
         "intro_variants": {
@@ -321,7 +321,7 @@ EPISODES = [
     {
         "order": 4,
         "title": "야간 모니터링 요청 대응",
-        "modes": "10",
+        "modes": [10],
         "character_id": "park_senior",
         "virtual_time": "17:10",
         "intro_variants": {
@@ -372,7 +372,7 @@ EPISODES = [
     {
         "order": 5,
         "title": "회식 제안 대응",
-        "modes": "10",
+        "modes": [10],
         "character_id": "lee_peer",
         "virtual_time": "18:02",
         "intro_variants": {

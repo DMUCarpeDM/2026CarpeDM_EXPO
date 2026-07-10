@@ -24,6 +24,15 @@ def test_admin_requires_token_when_configured(monkeypatch):
 
 
 def test_admin_open_when_token_unset(monkeypatch):
+    """토큰 미설정 시 루프백(같은 PC) 요청은 허용 — TestClient 기본 호스트는 루프백으로 간주."""
     seed()
     monkeypatch.setattr(settings, "admin_token", "")
     assert client.post("/api/admin/reset").status_code == 200
+
+
+def test_admin_denied_from_non_loopback_when_token_unset(monkeypatch):
+    """토큰 미설정이어도 부스 LAN(비루프백)에서는 운영 API 접근을 거부한다."""
+    seed()
+    monkeypatch.setattr(settings, "admin_token", "")
+    lan = TestClient(app, client=("192.168.0.42", 40000))
+    assert lan.post("/api/admin/reset").status_code == 403

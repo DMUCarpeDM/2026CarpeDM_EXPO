@@ -43,12 +43,32 @@ def _migrate_columns() -> None:
                 conn.execute(text(ddl))
 
 
+def _migrate_modes_json() -> None:
+    """episodes.modes 구형 포맷('5,10' 콤마 문자열) → JSON 배열 일회성 변환.
+
+    JSON 컬럼 전환 이전에 만들어진 전시 DB의 행은 json.loads가 불가능한 TEXT라
+    엔티티 로드(_upsert_episodes) 시점에 크래시한다. 배열 리터럴이 아닌 값만 감싼다.
+    """
+    inspector = inspect(engine)
+    if "episodes" not in inspector.get_table_names():
+        return
+    with engine.begin() as conn:
+        conn.execute(text(
+            "UPDATE episodes SET modes = '[]' "
+            "WHERE modes IS NULL OR trim(modes) = ''"
+        ))
+        conn.execute(text(
+            "UPDATE episodes SET modes = '[' || modes || ']' "
+            "WHERE modes NOT LIKE '[%'"
+        ))
+
+
 def _upsert_episodes(db, scenario: Scenario) -> None:
     """에피소드 시드 갱신 — 삭제 후 재삽입 대신 order 기준 제자리 갱신.
 
     id를 보존해야 기존 세션 턴의 episode_id 참조(리포트 근거 구간·재도전 비교)가
     서버 재시작 후에도 끊기지 않는다. 시드에서 사라진 에피소드는 턴이 참조하면
-    modes=""로 은퇴시켜 진행(episodes_for_mode)에서만 제외하고, 참조가 없으면 지운다.
+    modes=[]로 은퇴시켜 진행(episodes_for_mode)에서만 제외하고, 참조가 없으면 지운다.
     """
     current = {
         ep.order: ep
@@ -64,13 +84,14 @@ def _upsert_episodes(db, scenario: Scenario) -> None:
     for ep in current.values():
         referenced = db.query(Turn.id).filter_by(episode_id=ep.id).first() is not None
         if referenced:
-            ep.modes = ""
+            ep.modes = []
         else:
             db.delete(ep)
 
 
 def seed(db=None) -> None:
     _migrate_columns()
+    _migrate_modes_json()
     Base.metadata.create_all(engine)
     own_session = db is None
     db = db or SessionLocal()

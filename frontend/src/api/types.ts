@@ -13,7 +13,7 @@ export interface EpisodeBriefing {
   intent: string;
   points: string[];
   character_id: string;
-  modes: string;
+  modes: number[];
 }
 
 export interface Scenario {
@@ -52,6 +52,7 @@ export interface RoleplaySession {
   difficulty: 'basic' | 'pressure';
   scenario: Scenario;
   current_turn: Turn | null;
+  access_token: string; // 세션 능력 토큰 (생성 응답에만 값, 복구 응답은 빈 문자열)
 }
 
 export interface NonverbalMetrics {

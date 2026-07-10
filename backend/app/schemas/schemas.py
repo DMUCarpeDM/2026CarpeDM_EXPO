@@ -79,6 +79,8 @@ class SessionOut(BaseModel):
     difficulty: str
     scenario: ScenarioOut
     current_turn: TurnOut | None = None
+    # 세션 접근 능력 토큰 — 이후 세션 조회 시 X-Session-Token 헤더로 되돌려준다 (생성 응답에만 값)
+    access_token: str = ""
 
 
 class HistoryTurnOut(TurnOut):
@@ -146,7 +148,7 @@ class NonverbalIn(BaseModel):
 
 
 class ResponseIn(BaseModel):
-    text: str = ""
+    text: str = Field(default="", max_length=4000)  # 발화 1턴 상한 — 무한 저장·DoS 차단
     stt_source: str = "webspeech"  # webspeech | text
     duration_ms: int = 0
     nonverbal: NonverbalIn | None = None
@@ -170,6 +172,14 @@ class ProgressOut(BaseModel):
     status: str
     stage: str = ""
     pct: int = 0
+
+
+class SurveyIn(BaseModel):
+    """리포트 후 만족도 설문 (PRD KPI: 이해도·공감·개인화 체감, 각 1~5점)."""
+    q_clarity: int | None = Field(default=None, ge=1, le=5)
+    q_empathy: int | None = Field(default=None, ge=1, le=5)
+    q_personalization: int | None = Field(default=None, ge=1, le=5)
+    comment: str = ""
 
 
 # ---- report ----
@@ -201,8 +211,11 @@ class AdminMetricsOut(BaseModel):
     sessions_completed: int
     completion_rate: float
     retry_rate: float
+    second_attempt_rate: float  # 2차 수행률 (KPI) — attempt_no 기반
     avg_total_score: float | None
     avg_analysis_ms: float | None
     avg_fit_scores: dict
     # 관측성: 폴백 발동률·측정 가동률 — 조용한 품질 강등의 현장 감시
     observability: dict = {}
+    avg_improvement: float | None = None  # 1차→2차 평균 점수 개선 (KPI)
+    survey_avg: dict = {}  # {clarity, empathy, personalization} 평균 (KPI 설문)
