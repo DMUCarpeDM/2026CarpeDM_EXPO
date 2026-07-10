@@ -35,10 +35,11 @@ def _runs(timeline: list[dict], key: str, predicate) -> list[dict]:
     runs: list[dict] = []
     current: dict | None = None
     for bin_ in timeline:
+        t = bin_.get("t")  # 클라이언트 전송 페이로드 — 불량/누락 빈이 분석 전체를 죽이지 않도록 가드
         value = bin_.get(key)
-        if value is not None and predicate(value):
+        if t is not None and value is not None and predicate(value):
             if current is None:
-                current = {"start": bin_["t"], "bins": 1}
+                current = {"start": t, "bins": 1}
             else:
                 current["bins"] += 1
         else:
@@ -91,10 +92,12 @@ def detect_turn_events(
 
     align = alignment or {}
     spans = align.get("spans", [])
-    if "quietest" in align and spans:
-        events.append({"kind": "quiet", "at": spans[align["quietest"]]["start"]})
-    if "fastest" in align and spans:
-        events.append({"kind": "fast", "at": spans[align["fastest"]]["start"]})
+    qi = align.get("quietest")
+    if isinstance(qi, int) and 0 <= qi < len(spans):
+        events.append({"kind": "quiet", "at": spans[qi]["start"]})
+    fi = align.get("fastest")
+    if isinstance(fi, int) and 0 <= fi < len(spans):
+        events.append({"kind": "fast", "at": spans[fi]["start"]})
     # 머뭇거림(문장 중간 끊김) — 쉼 위치 분류가 있을 때만, 상위 2개
     for h in (align.get("hesitations") or [])[:2]:
         events.append({"kind": "hesitation", "at": h["at"]})
