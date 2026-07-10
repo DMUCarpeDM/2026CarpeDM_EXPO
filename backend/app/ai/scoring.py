@@ -4,6 +4,10 @@ band_score: 이상 구간 안이면 100점, 한계 구간 밖이면 0점, 사이
 모든 Fit 점수는 이 함수로 원시 지표를 0~100으로 변환한 뒤 가중 평균한다.
 """
 
+# 점수 산식 버전 — 밴드 기준·가중치·측정 방법이 바뀌면 반드시 올린다.
+# 백분위·추이 비교는 동일 버전 표본끼리만 수행한다 (analysis_results/reports에 스냅샷).
+ENGINE_VERSION = "1"
+
 
 def clamp(v: float, lo: float = 0.0, hi: float = 100.0) -> float:
     return max(lo, min(hi, v))

@@ -90,7 +90,7 @@ def test_pick_reaction_unknown_character_is_safe():
 
 def make_episode(id: int, order: int, **kw) -> Episode:
     return Episode(
-        id=id, scenario_id=1, order=order, title=f"EP{order}", modes="5,10",
+        id=id, scenario_id=1, order=order, title=f"EP{order}", modes=[5, 10],
         character_id="kim_teamlead", initial_question=f"기본 질문 {order}",
         virtual_time=kw.get("virtual_time", ""),
         intro_variants=kw.get("intro_variants", {}),

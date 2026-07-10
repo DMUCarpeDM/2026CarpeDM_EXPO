@@ -8,6 +8,7 @@
 """
 from sqlalchemy import select
 
+from app.ai.scoring import ENGINE_VERSION
 from app.models import AnalysisResult, FitType, Report, RoleplaySession
 from app.services.deep_analysis import build_deep_analysis
 from app.services.dialogue.reactions import select_ending
@@ -842,6 +843,7 @@ def build_report(
     report = Report(
         session_id=session.id,
         total_score=total,
+        engine_version=ENGINE_VERSION,
         fit_scores=fit_scores,
         strengths=strengths,
         improvements=improvements,

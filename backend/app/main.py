@@ -22,6 +22,42 @@ def _purge_expired_media() -> None:
         print(f"보관 기간 만료 음성 {removed}건 삭제")
 
 
+def _purge_expired_quotes() -> None:
+    """보관 기간이 지난 '미저장' 동의 세션의 리포트 verbatim 파기 (S-CBYKOH).
+
+    미저장 동의에서 리포트의 인용(발화 원문 조각)은 체험 직후 열람을 위한
+    한시 보존이다. 음성(.wav)과 같은 보관 창이 지나면 서사·인용 필드를 비우고
+    KPI 집계에 쓰는 수치(total_score, fit_scores)만 남긴다.
+    """
+    from datetime import timedelta
+
+    from app.core.database import SessionLocal
+    from app.models import Consent, Report, RoleplaySession, utcnow
+
+    cutoff = utcnow() - timedelta(days=settings.media_retention_days)
+    db = SessionLocal()
+    try:
+        expired = (
+            db.query(Report)
+            .join(RoleplaySession, Report.session_id == RoleplaySession.id)
+            .outerjoin(Consent, Consent.session_id == RoleplaySession.id)
+            .filter(RoleplaySession.ended_at.isnot(None), RoleplaySession.ended_at < cutoff)
+            .filter((Consent.id.is_(None)) | (Consent.storage_policy == "none"))
+            .filter(Report.evidence_segments != [])
+            .all()
+        )
+        for report in expired:
+            report.evidence_segments = []
+            report.rebuild = {}
+            report.headline = {}
+            report.deep_analysis = {}
+        if expired:
+            db.commit()
+            print(f"보관 기간 만료 미저장 리포트 인용 {len(expired)}건 파기")
+    finally:
+        db.close()
+
+
 def _prewarm_models() -> None:
     """모델 예열 — 첫 체험자가 로드 비용(수십 초)을 내지 않게 한다 (전시 운영).
 
@@ -101,13 +137,28 @@ def _recover_interrupted_analyses() -> None:
     threading.Thread(target=_resume, daemon=True).start()
 
 
+def _assert_secure_config() -> None:
+    """전시/운영 배포 안전장치 — require_secure면 안전하지 않은 설정으로 기동을 거부한다."""
+    insecure = []
+    if settings.jwt_secret == "change-me-in-production":
+        insecure.append("MIRROTING_JWT_SECRET(기본값)")
+    if not settings.admin_token:
+        insecure.append("MIRROTING_ADMIN_TOKEN(미설정)")
+    if settings.require_secure and insecure:
+        raise RuntimeError("보안 설정 필요(require_secure=on): " + ", ".join(insecure))
+    if settings.jwt_secret == "change-me-in-production":
+        print("[warn] MIRROTING_JWT_SECRET 기본값 사용 — 계정 기능 배포 전 반드시 변경")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     seed()  # 테이블 생성 + 시나리오 시드 (멱등)
     _purge_expired_media()
+    _purge_expired_quotes()
     _recover_interrupted_analyses()
+    _assert_secure_config()
     if not settings.admin_token:
-        print("[warn] MIRROTING_ADMIN_TOKEN 미설정 — 운영 API(/api/admin)가 무인증으로 열립니다")
+        print("[warn] MIRROTING_ADMIN_TOKEN 미설정 — 운영 API(/api/admin)는 로컬(같은 PC)에서만 접근 가능")
     import threading
 
     threading.Thread(target=_prewarm_models, daemon=True).start()

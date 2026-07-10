@@ -11,9 +11,9 @@ router = APIRouter(prefix="/scenarios", tags=["scenarios"])
 def to_scenario_out(scenario: Scenario) -> ScenarioOut:
     titles: dict[str, list[str]] = {"5": [], "10": []}
     for ep in scenario.episodes:
-        for mode in ("5", "10"):
-            if mode in ep.modes.split(","):
-                titles[mode].append(ep.title)
+        for mode in (5, 10):
+            if mode in ep.modes:
+                titles[str(mode)].append(ep.title)
     return ScenarioOut(
         id=scenario.id,
         slug=scenario.slug,
