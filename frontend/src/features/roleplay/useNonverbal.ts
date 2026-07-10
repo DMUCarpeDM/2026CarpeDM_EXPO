@@ -11,6 +11,7 @@
  * 오프라인 전시 대비: `npm run setup-offline`으로 wasm/모델을 public/에 받아두면
  * 로컬 자산을 우선 사용하고, 없으면 CDN에서 로드한다.
  */
+import type { FaceLandmarker, PoseLandmarker } from '@mediapipe/tasks-vision';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { NonverbalMetrics } from '../../api/types';
 import { resolveModel, resolveWasmUrl } from '../../lib/visionAssets';
@@ -118,6 +119,10 @@ export function useNonverbal(
     let stream: MediaStream | null = null;
     let timer: ReturnType<typeof setInterval> | null = null;
     let audioCtx: AudioContext | null = null;
+    // 클린업에서 close()하기 위해 effect 스코프에 둔다 — 해제하지 않으면 세션마다
+    // WebGL 컨텍스트 2개가 누수돼 하루 운영 중 비전 초기화가 실패하기 시작한다
+    let face: FaceLandmarker | null = null;
+    let pose: PoseLandmarker | null = null;
 
     async function init() {
       setVisionStatus('loading');
@@ -158,18 +163,27 @@ export function useNonverbal(
         const poseModel = await resolveModel('pose');
 
         const fileset = await vision.FilesetResolver.forVisionTasks(wasmUrl);
-        const face = await vision.FaceLandmarker.createFromOptions(fileset, {
+        face = await vision.FaceLandmarker.createFromOptions(fileset, {
           baseOptions: { modelAssetPath: faceModel },
           runningMode: 'VIDEO',
           numFaces: 1,
           outputFaceBlendshapes: true, // 시선 상하·깜빡임·미소 측정용
         });
-        const pose = await vision.PoseLandmarker.createFromOptions(fileset, {
+        pose = await vision.PoseLandmarker.createFromOptions(fileset, {
           baseOptions: { modelAssetPath: poseModel },
           runningMode: 'VIDEO',
           numPoses: 1,
         });
-        if (cancelled) return;
+        if (cancelled) {
+          // 생성 대기 중 클린업이 이미 지나갔다 — 여기서 직접 해제
+          face.close();
+          pose.close();
+          face = null;
+          pose = null;
+          return;
+        }
+        const faceLm = face;
+        const poseLm = pose;
         setVisionStatus('ready');
 
         // 프레임 간 연속 추적 상태 (턴과 무관): 제스처 변위·다인 가드용
@@ -197,8 +211,8 @@ export function useNonverbal(
           }
 
           try {
-            const faceResult = face.detectForVideo(video, ts);
-            const poseResult = pose.detectForVideo(video, ts + 0.001);
+            const faceResult = faceLm.detectForVideo(video, ts);
+            const poseResult = poseLm.detectForVideo(video, ts + 0.001);
             const lm = faceResult.faceLandmarks?.[0];
             const plm = poseResult.landmarks?.[0];
 
@@ -519,7 +533,11 @@ export function useNonverbal(
           }
         }, SAMPLE_MS);
       } catch {
-        // MediaPipe 로드 실패(오프라인·차단 등) → 사유를 화면에 표시
+        // MediaPipe 로드 실패(오프라인·차단 등) → 부분 생성분 해제 후 사유를 화면에 표시
+        face?.close();
+        pose?.close();
+        face = null;
+        pose = null;
         if (!cancelled) setVisionStatus('failed');
       }
     }
@@ -530,6 +548,10 @@ export function useNonverbal(
       if (timer) clearInterval(timer);
       stream?.getTracks().forEach((t) => t.stop());
       void audioCtx?.close();
+      face?.close();
+      pose?.close();
+      face = null;
+      pose = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

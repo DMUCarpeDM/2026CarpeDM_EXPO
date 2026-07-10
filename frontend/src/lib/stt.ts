@@ -1,6 +1,7 @@
 /** Web Speech API 기반 음성 인식 (Chrome 계열, API 키 불필요).
  * 미지원 브라우저에서는 isSpeechRecognitionSupported()가 false → 텍스트 입력 폴백.
  */
+import { pingKioskActivity } from './kioskIdle';
 
 export function isSpeechRecognitionSupported(): boolean {
   return !!(window.SpeechRecognition ?? window.webkitSpeechRecognition);
@@ -21,6 +22,7 @@ export class SpeechCapture {
     rec.continuous = true;
     rec.interimResults = true;
     rec.onresult = (ev) => {
+      pingKioskActivity(); // 답변 발화 중 = 세션 진행 중 (무조작 복귀 방지)
       let interim = '';
       for (let i = ev.resultIndex; i < ev.results.length; i++) {
         const result = ev.results[i];

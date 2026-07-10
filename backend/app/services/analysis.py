@@ -45,8 +45,12 @@ def run_analysis(session_id: int) -> None:
             provider = get_stt_provider()
             if provider:
                 for t in no_text:
-                    t.response_text = provider.transcribe(t.audio_path)
-                    t.stt_source = "whisper"
+                    # 턴 단위 격리: 손상된 오디오 한 건이 세션 전체를 무너뜨리지 않게
+                    try:
+                        t.response_text = provider.transcribe(t.audio_path)
+                        t.stt_source = "whisper"
+                    except Exception:
+                        traceback.print_exc()
                 db.commit()
 
         # 2) Response-Fit (턴별) + 담화 구조 분석 (심층 리포트용)
@@ -57,9 +61,14 @@ def run_analysis(session_id: int) -> None:
                 continue
             # 과거 시드 방식이 남긴 깨진 에피소드 참조 방어 — 체크리스트 없이 분석 지속
             checklist = t.episode.checklist if t.episode else []
-            metrics = response_fit.analyze_response(t.response_text, checklist)
-            metrics["discourse"] = analyze_discourse(t.response_text, t.question_text)
-            score = response_fit.score_response(metrics)
+            # 턴 단위 격리: 한 턴의 분석 실패는 그 턴만 건너뛰고 리포트를 완성한다
+            try:
+                metrics = response_fit.analyze_response(t.response_text, checklist)
+                metrics["discourse"] = analyze_discourse(t.response_text, t.question_text)
+                score = response_fit.score_response(metrics)
+            except Exception:
+                traceback.print_exc()
+                continue
             db.add(AnalysisResult(
                 session_id=session.id, turn_id=t.id,
                 fit_type=FitType.response, raw_metrics=metrics, score=score,
@@ -72,24 +81,29 @@ def run_analysis(session_id: int) -> None:
         _set_progress(db, session, "voice", 45)
         voice_scores: list[tuple[float, float]] = []
         for t in turns:
-            if t.audio_path:
-                metrics = voice_fit.analyze_audio(t.audio_path, t.response_text)
-                # 텍스트-음성 정렬: 어느 문장에서 무너졌는지 (Vosk 단어 타임스탬프)
-                provider = get_stt_provider()
-                if metrics and provider and hasattr(provider, "transcribe_words"):
-                    try:
-                        alignment = voice_align.analyze_alignment(
-                            t.audio_path, provider.transcribe_words(t.audio_path),
-                        )
-                        if alignment:
-                            metrics["alignment"] = alignment
-                    except Exception:
-                        pass  # 정렬은 부가 분석 — 실패해도 턴 분석은 유지
-            elif t.stt_source == "webspeech":
-                metrics = voice_fit.estimate_from_text(t.response_text, t.response_duration_ms)
-            else:
-                metrics = {}
-            score = voice_fit.score_voice(metrics)
+            # 턴 단위 격리: 병리적 오디오 한 건의 DSP 예외가 리포트 전체를 날리지 않게
+            try:
+                if t.audio_path:
+                    metrics = voice_fit.analyze_audio(t.audio_path, t.response_text)
+                    # 텍스트-음성 정렬: 어느 문장에서 무너졌는지 (Vosk 단어 타임스탬프)
+                    provider = get_stt_provider()
+                    if metrics and provider and hasattr(provider, "transcribe_words"):
+                        try:
+                            alignment = voice_align.analyze_alignment(
+                                t.audio_path, provider.transcribe_words(t.audio_path),
+                            )
+                            if alignment:
+                                metrics["alignment"] = alignment
+                        except Exception:
+                            pass  # 정렬은 부가 분석 — 실패해도 턴 분석은 유지
+                elif t.stt_source == "webspeech":
+                    metrics = voice_fit.estimate_from_text(t.response_text, t.response_duration_ms)
+                else:
+                    metrics = {}
+                score = voice_fit.score_voice(metrics)
+            except Exception:
+                traceback.print_exc()
+                continue
             if score is None:
                 continue
             db.add(AnalysisResult(
@@ -105,14 +119,19 @@ def run_analysis(session_id: int) -> None:
         for t in turns:
             nv = t.nonverbal_metrics or {}
             duration = (t.response_duration_ms or 0) / 1000
-            eye = nonverbal.score_eye(nv, duration)
+            # 턴 단위 격리: 예상 밖 지표 페이로드는 그 턴만 건너뛴다
+            try:
+                eye = nonverbal.score_eye(nv, duration)
+                posture = nonverbal.score_posture(nv)
+            except Exception:
+                traceback.print_exc()
+                continue
             if eye is not None:
                 db.add(AnalysisResult(
                     session_id=session.id, turn_id=t.id,
                     fit_type=FitType.eye, raw_metrics=nv, score=eye,
                 ))
                 eye_scores.append((eye, 1.0))
-            posture = nonverbal.score_posture(nv)
             if posture is not None:
                 db.add(AnalysisResult(
                     session_id=session.id, turn_id=t.id,

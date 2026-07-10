@@ -12,6 +12,9 @@ import type {
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api',
+  // 응답 없는 요청은 제한 시간 후 실패시켜 재시도 UI로 넘긴다 — 무한 대기는
+  // submitting 잠금과 겹쳐 키오스크 전체를 굳게 만든다 (전시 생존성)
+  timeout: 10_000,
 });
 
 api.interceptors.request.use((config) => {
@@ -68,9 +71,11 @@ export async function submitResponse(
     nonverbal: NonverbalMetrics | null;
   },
 ): Promise<NextTurnResult> {
+  // 서버가 리액션 개인화(Ollama, 기본 7s 타임아웃)까지 마치고 응답하므로 여유를 준다
   const { data } = await api.post(
     `/sessions/${sessionId}/turns/${turnId}/response`,
     body,
+    { timeout: 20_000 },
   );
   return data;
 }
@@ -83,11 +88,13 @@ export async function uploadAudio(
   const form = new FormData();
   form.append('file', wav, 'response.wav');
   const url = `/sessions/${sessionId}/turns/${turnId}/audio`;
+  // 서버 STT(오프라인 폴백)가 전사까지 마치고 응답하므로 기본보다 길게 잡는다
+  const opts = { timeout: 15_000 };
   try {
-    return (await api.post(url, form)).data;
+    return (await api.post(url, form, opts)).data;
   } catch {
     // 전시장 네트워크 순단 대비 1회 자동 재전송 (S-UKMAHL)
-    return (await api.post(url, form)).data;
+    return (await api.post(url, form, opts)).data;
   }
 }
 
