@@ -69,13 +69,17 @@ def get_report(
             },
         }
 
-    # 현장 체험자 백분위 (표본 5건 이상일 때만) — 전시 경쟁 요소
+    # 현장 체험자 백분위 (표본 5건 이상일 때만) — 전시 경쟁 요소.
+    # 산식 버전이 다른 점수는 비교 표본에서 제외 (engine_version 스냅샷).
     percentile_top = None
     other_scores = [
         row[0]
         for row in db.query(Report.total_score)
         .join(RoleplaySession, Report.session_id == RoleplaySession.id)
-        .filter(Report.session_id != session.id)
+        .filter(
+            Report.session_id != session.id,
+            Report.engine_version == report.engine_version,
+        )
         .all()
     ]
     if len(other_scores) >= 5:

@@ -16,4 +16,5 @@ import pytest
 @pytest.fixture(scope="session", autouse=True)
 def _cleanup_test_db():
     yield
-    Path("test_mirroting.db").unlink(missing_ok=True)
+    for suffix in ("", "-wal", "-shm"):  # WAL 모드 부속 파일 포함
+        Path(f"test_mirroting.db{suffix}").unlink(missing_ok=True)

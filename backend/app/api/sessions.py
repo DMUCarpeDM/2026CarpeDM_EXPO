@@ -4,13 +4,24 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_optional_user, require_session
 from app.api.scenarios import to_scenario_out
 from app.core.config import settings
 from app.core.database import get_db
-from app.models import Consent, Episode, RoleplaySession, Scenario, SessionStatus, Turn, User
+from app.models import (
+    Consent,
+    Episode,
+    RoleplaySession,
+    Scenario,
+    SessionStatus,
+    SurveyResponse,
+    Turn,
+    User,
+    utcnow,
+)
 from app.schemas import (
     HistoryTurnOut,
     NextTurnOut,
@@ -19,6 +30,7 @@ from app.schemas import (
     SessionCreateIn,
     SessionOut,
     SessionResumeOut,
+    SurveyIn,
     TurnOut,
     TurnSignalsOut,
 )
@@ -84,13 +96,22 @@ def create_session(
     if scenario is None:
         raise HTTPException(status_code=404, detail="시나리오를 찾을 수 없습니다")
 
+    client_key = body.client_key or str(uuid.uuid4())
+    mode = body.mode if body.mode in (5, 10) else 5
+    # 회차 기록 (KPI '2차 수행률'·'1차→2차 개선') — 같은 참여자×시나리오×모드 기준
+    prev_attempts = (
+        db.query(func.count(RoleplaySession.id))
+        .filter_by(client_key=client_key, scenario_id=scenario.id, mode=mode)
+        .scalar() or 0
+    )
     session = RoleplaySession(
         scenario_id=scenario.id,
         user_id=user.id if user else None,
-        client_key=body.client_key or str(uuid.uuid4()),
+        client_key=client_key,
         access_token=secrets.token_urlsafe(24),
-        mode=body.mode if body.mode in (5, 10) else 5,
+        mode=mode,
         difficulty=body.difficulty,
+        attempt_no=prev_attempts + 1,
     )
     db.add(session)
     db.flush()
@@ -182,7 +203,7 @@ def submit_response(
     turn.response_duration_ms = body.duration_ms
     if body.nonverbal:
         turn.nonverbal_metrics = body.nonverbal.model_dump()
-    turn.answered_at = datetime.now(timezone.utc)
+    turn.answered_at = utcnow()
 
     # 리액션 비트 + 수행도 갱신 — 이 답변이 상대의 반응과 하루의 전개를 결정한다
     episode = db.get(Episode, turn.episode_id)
@@ -280,7 +301,7 @@ def finish_session(
         transition(session, SessionStatus.analyzing)
     except InvalidTransition as e:
         raise HTTPException(status_code=409, detail=str(e))
-    session.ended_at = datetime.now(timezone.utc)
+    session.ended_at = utcnow()
     session.analysis_progress = {"stage": "queued", "pct": 0}
     db.commit()
     background.add_task(run_analysis, session_id)
@@ -302,6 +323,24 @@ def retry_analysis(
     db.commit()
     background.add_task(run_analysis, session_id)
     return ProgressOut(status=session.status.value, stage="queued", pct=0)
+
+
+@router.post("/{session_id}/survey", status_code=201)
+def submit_survey(session_id: int, body: SurveyIn, db: Session = Depends(get_db)):
+    """리포트 후 만족도 설문 저장 — 재제출 시 덮어쓴다 (세션당 1건)."""
+    session = db.get(RoleplaySession, session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다")
+    survey = db.query(SurveyResponse).filter_by(session_id=session_id).first()
+    if survey is None:
+        survey = SurveyResponse(session_id=session_id)
+        db.add(survey)
+    survey.q_clarity = body.q_clarity
+    survey.q_empathy = body.q_empathy
+    survey.q_personalization = body.q_personalization
+    survey.comment = body.comment.strip()
+    db.commit()
+    return {"ok": True}
 
 
 @router.get("/{session_id}/progress", response_model=ProgressOut)

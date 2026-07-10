@@ -11,10 +11,19 @@ client_key가 'demo-'로 시작하므로 실제 체험 데이터와 구분되며
 """
 import random
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
 from app.core.database import Base, SessionLocal, engine
-from app.models import Report, RoleplaySession, Scenario, SessionStatus
+from app.models import (
+    AnalysisResult,
+    FitType,
+    Report,
+    RoleplaySession,
+    Scenario,
+    SessionStatus,
+    SurveyResponse,
+    utcnow,
+)
 
 FIT_LABELS = {
     "response": "Response-Fit (응답 적절성)",
@@ -24,14 +33,20 @@ FIT_LABELS = {
 }
 
 
-def _make_report(session: RoleplaySession, base: float, rng: random.Random) -> Report:
+def _make_results(db, session: RoleplaySession, base: float, rng: random.Random) -> None:
+    """리포트(화면용 문서) + 세션 레벨 분석 결과(집계용 단일 진실)를 함께 생성 —
+    실제 분석 파이프라인과 동일한 이중 구조를 유지해야 대시보드 SQL 집계가 데모에서도 동작한다."""
     fits = {}
     scores = []
     for fit in FIT_LABELS:
         score = round(max(20, min(98, rng.gauss(base, 9))), 1)
         fits[fit] = {"score": score, "label": FIT_LABELS[fit], "summary": ""}
         scores.append(score)
-    return Report(
+        db.add(AnalysisResult(
+            session_id=session.id, turn_id=None, fit_type=FitType(fit),
+            raw_metrics={}, score=score,
+        ))
+    db.add(Report(
         session_id=session.id,
         total_score=round(sum(scores) / len(scores), 1),
         fit_scores=fits,
@@ -40,7 +55,14 @@ def _make_report(session: RoleplaySession, base: float, rng: random.Random) -> R
         evidence_segments=[],
         headline={},
         analysis_ms=rng.randint(1400, 3600),
-    )
+    ))
+    if rng.random() < 0.7:  # 설문 응답률 70% 가정
+        db.add(SurveyResponse(
+            session_id=session.id,
+            q_clarity=rng.randint(3, 5),
+            q_empathy=rng.randint(3, 5),
+            q_personalization=rng.randint(2, 5),
+        ))
 
 
 def clean(db) -> int:
@@ -68,25 +90,28 @@ def seed_demo() -> None:
             print("시나리오가 없습니다 — 서버를 한 번 기동해 시드를 먼저 실행하세요.")
             return
 
-        now = datetime.now(timezone.utc)
+        now = utcnow()
         created = 0
         for visitor in range(15):
             key = f"demo-{visitor:02d}"
             attempts = 2 if visitor % 2 == 0 else 1  # 절반은 재도전
             base = rng.uniform(52, 72)
+            # 재도전 KPI(2차 수행률·개선 폭)가 정확히 잡히도록 방문자별 모드를 고정
+            mode = 5 if rng.random() < 0.75 else 10
             for attempt in range(attempts):
                 session = RoleplaySession(
                     scenario_id=scenario.id,
                     client_key=key,
-                    mode=5 if rng.random() < 0.75 else 10,
+                    mode=mode,
                     difficulty="basic" if rng.random() < 0.8 else "pressure",
+                    attempt_no=attempt + 1,
                     status=SessionStatus.completed,
                     started_at=now - timedelta(hours=rng.uniform(1, 72)),
                 )
                 db.add(session)
                 db.flush()
                 # 재도전은 평균 +9점 (개선 체감 스토리)
-                db.add(_make_report(session, base + attempt * 9, rng))
+                _make_results(db, session, base + attempt * 9, rng)
                 created += 1
         db.commit()
         print(f"데모 세션 {created}건 생성 완료 (client_key: demo-*)")

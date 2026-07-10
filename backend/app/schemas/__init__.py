@@ -13,6 +13,7 @@ from app.schemas.schemas import (
     SessionOut,
     SessionResumeOut,
     SignupIn,
+    SurveyIn,
     TokenOut,
     TurnOut,
     TurnSignalsOut,
@@ -22,5 +23,6 @@ from app.schemas.schemas import (
 __all__ = [
     "AdminMetricsOut", "ConsentIn", "HistoryTurnOut", "LoginIn", "NextTurnOut", "NonverbalIn",
     "ProgressOut", "ReportOut", "ResponseIn", "ScenarioOut", "SessionCreateIn",
-    "SessionOut", "SessionResumeOut", "SignupIn", "TokenOut", "TurnOut", "TurnSignalsOut", "UserOut",
+    "SessionOut", "SessionResumeOut", "SignupIn", "SurveyIn", "TokenOut", "TurnOut",
+    "TurnSignalsOut", "UserOut",
 ]

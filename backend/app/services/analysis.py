@@ -9,7 +9,7 @@ from pathlib import Path
 
 from app.ai import nonverbal, response_fit, voice_align, voice_fit
 from app.ai.discourse import analyze_discourse
-from app.ai.scoring import weighted_mean
+from app.ai.scoring import ENGINE_VERSION, weighted_mean
 from app.ai.stt import get_stt_provider
 from app.core.database import SessionLocal
 from app.models import AnalysisResult, Consent, FitType, Report, RoleplaySession, SessionStatus, Turn
@@ -31,8 +31,8 @@ def run_analysis(session_id: int) -> None:
         session = db.get(RoleplaySession, session_id)
         if session is None or session.status != SessionStatus.analyzing:
             return
-        # 멱등성: 중단된 이전 실행(크래시·재시작)이 남긴 부분 결과를 지우고 처음부터.
-        # 재시도·기동 복구가 결과를 중복 적재하지 않기 위한 전제다.
+        # 멱등성: 중단된 이전 실행(크래시·재시작·재시도)이 남긴 부분 결과를 지우고 처음부터.
+        # 지우지 않으면 (session_id, turn_id, fit_type) 유니크 제약에 걸린다.
         db.query(AnalysisResult).filter_by(session_id=session_id).delete()
         db.query(Report).filter_by(session_id=session_id).delete()
         db.commit()
@@ -62,7 +62,7 @@ def run_analysis(session_id: int) -> None:
             score = response_fit.score_response(metrics)
             db.add(AnalysisResult(
                 session_id=session.id, turn_id=t.id,
-                fit_type=FitType.response, raw_metrics=metrics, score=score,
+                fit_type=FitType.response, raw_metrics=metrics, score=score, engine_version=ENGINE_VERSION,
             ))
             weight = sum(i.get("weight", 1.0) for i in checklist) or 1.0
             response_scores.append((score, weight))
@@ -94,7 +94,7 @@ def run_analysis(session_id: int) -> None:
                 continue
             db.add(AnalysisResult(
                 session_id=session.id, turn_id=t.id,
-                fit_type=FitType.voice, raw_metrics=metrics, score=score,
+                fit_type=FitType.voice, raw_metrics=metrics, score=score, engine_version=ENGINE_VERSION,
             ))
             # 오디오 없이 발화 시간으로 근사한 턴(webspeech)은 단일 프록시(말속도)라
             # 신뢰도가 낮다 — 실측 오디오 턴을 가리지 않도록 세션 평균에서 하향 가중.
@@ -111,14 +111,14 @@ def run_analysis(session_id: int) -> None:
             if eye is not None:
                 db.add(AnalysisResult(
                     session_id=session.id, turn_id=t.id,
-                    fit_type=FitType.eye, raw_metrics=nv, score=eye,
+                    fit_type=FitType.eye, raw_metrics=nv, score=eye, engine_version=ENGINE_VERSION,
                 ))
                 eye_scores.append((eye, 1.0))
             posture = nonverbal.score_posture(nv)
             if posture is not None:
                 db.add(AnalysisResult(
                     session_id=session.id, turn_id=t.id,
-                    fit_type=FitType.posture, raw_metrics=nv, score=posture,
+                    fit_type=FitType.posture, raw_metrics=nv, score=posture, engine_version=ENGINE_VERSION,
                 ))
                 posture_scores.append((posture, 1.0))
         db.commit()
@@ -135,7 +135,7 @@ def run_analysis(session_id: int) -> None:
             if score is not None:
                 db.add(AnalysisResult(
                     session_id=session.id, turn_id=None, fit_type=fit,
-                    raw_metrics={}, score=score,
+                    raw_metrics={}, score=score, engine_version=ENGINE_VERSION,
                 ))
         db.commit()
 

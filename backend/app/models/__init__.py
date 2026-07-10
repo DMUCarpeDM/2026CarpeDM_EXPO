@@ -1,6 +1,7 @@
 from app.models.models import (
     AnalysisResult,
     AnonymousId,
+    AuditEvent,
     Consent,
     Device,
     Episode,
@@ -10,13 +11,16 @@ from app.models.models import (
     RoleplaySession,
     Scenario,
     SessionStatus,
+    SurveyResponse,
     Turn,
     User,
+    utcnow,
 )
 
 __all__ = [
     "AnalysisResult",
     "AnonymousId",
+    "AuditEvent",
     "Consent",
     "Device",
     "Episode",
@@ -26,6 +30,8 @@ __all__ = [
     "RoleplaySession",
     "Scenario",
     "SessionStatus",
+    "SurveyResponse",
     "Turn",
     "User",
+    "utcnow",
 ]

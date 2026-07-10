@@ -25,7 +25,7 @@ TURN_BUDGET = {5: 6, 10: 11}
 class TemplateDialogueProvider:
     def episodes_for_mode(self, episodes: list[Episode], mode: int) -> list[Episode]:
         return sorted(
-            [ep for ep in episodes if str(mode) in ep.modes.split(",")],
+            [ep for ep in episodes if mode in ep.modes],
             key=lambda ep: ep.order,
         )
 

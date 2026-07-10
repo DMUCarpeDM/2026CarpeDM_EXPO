@@ -5,13 +5,13 @@ from app.services.dialogue.template_provider import TemplateDialogueProvider
 provider = TemplateDialogueProvider()
 
 
-def make_episode(id: int, order: int, modes: str = "5,10", max_turns: int = 2, **kw) -> Episode:
+def make_episode(id: int, order: int, modes: list | None = None, max_turns: int = 2, **kw) -> Episode:
     return Episode(
         id=id,
         scenario_id=1,
         order=order,
         title=f"EP{order}",
-        modes=modes,
+        modes=modes if modes is not None else [5, 10],
         character_id="kim_teamlead",
         initial_question=f"질문 {order}",
         checklist=kw.get("checklist", []),
@@ -40,14 +40,14 @@ def session(mode: int = 5, difficulty: str = "basic") -> RoleplaySession:
 
 
 def test_first_question_uses_first_episode_of_mode():
-    eps = [make_episode(1, 1), make_episode(2, 2, modes="10")]
+    eps = [make_episode(1, 1), make_episode(2, 2, modes=[10])]
     spec = provider.first_question(session(mode=5), eps)
     assert spec.episode_id == 1
     assert spec.question_type == "initial"
 
 
 def test_mode_10_includes_exclusive_episodes():
-    eps = [make_episode(1, 1), make_episode(2, 2, modes="10")]
+    eps = [make_episode(1, 1), make_episode(2, 2, modes=[10])]
     assert len(provider.episodes_for_mode(eps, 5)) == 1
     assert len(provider.episodes_for_mode(eps, 10)) == 2
 

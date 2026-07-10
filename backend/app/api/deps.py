@@ -65,3 +65,13 @@ def get_optional_user(
         return None
     subject = decode_access_token(authorization.removeprefix("Bearer "))
     return db.get(User, int(subject)) if subject else None
+
+
+def require_admin(user: User | None = Depends(get_optional_user)) -> User | None:
+    """관리자 가드 — 전시 모드(admin_auth_required=False)에서는 통과시키되 감사 로그용
+    사용자만 전달하고, 기관 모드에서는 role='admin' 토큰을 강제한다."""
+    if not settings.admin_auth_required:
+        return user
+    if user is None or user.role != "admin":
+        raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다")
+    return user

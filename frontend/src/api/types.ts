@@ -13,7 +13,7 @@ export interface EpisodeBriefing {
   intent: string;
   points: string[];
   character_id: string;
-  modes: string;
+  modes: number[];
 }
 
 export interface Scenario {

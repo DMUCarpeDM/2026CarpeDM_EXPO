@@ -6,7 +6,7 @@ from app.services.dialogue.ollama_provider import OllamaDialogueProvider
 
 def make_episode() -> Episode:
     return Episode(
-        id=1, scenario_id=1, order=1, title="EP1", modes="5,10",
+        id=1, scenario_id=1, order=1, title="EP1", modes=[5, 10],
         character_id="kim_teamlead", initial_question="질문",
         situation="상황", max_turns=3,
         checklist=[{"id": "a", "label": "핵심 A", "keywords": ["보고"], "followup": "A는요?", "weight": 1.0}],
