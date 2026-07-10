@@ -61,6 +61,7 @@ def analyze_response(
     syllables = count_hangul_syllables(text)
 
     return {
+        "has_checklist": bool(checklist),
         "coverage": round(covered_weight / total_weight, 3),
         "covered_ids": sorted(covered),
         "semantic_hits": semantic_hits,  # 키워드는 놓쳤지만 의미로 인식한 항목
@@ -121,10 +122,16 @@ def _pick_quotes(
 
 
 def score_response(metrics: dict) -> float:
-    score = 58.0 * metrics["coverage"]
-    score += band_score(metrics["syllables"], *LENGTH_BANDS) * 0.22
-    score += 12.0 * metrics["politeness"]["formal_ratio"]
-    score += min(8.0, 4.0 * len(metrics["recommended_hits"]))
+    length = band_score(metrics["syllables"], *LENGTH_BANDS) * 0.22
+    formality = 12.0 * metrics["politeness"]["formal_ratio"]
+    recommended = min(8.0, 4.0 * len(metrics["recommended_hits"]))
+    if metrics.get("has_checklist", True):
+        score = 58.0 * metrics["coverage"] + length + formality + recommended
+    else:
+        # 체크리스트 없음(깨진 에피소드 참조) → 커버리지(58점)는 미측정.
+        # 측정 가능한 축(길이·격식·권장, 최대 42점)만 100점 만점으로 재정규화해,
+        # 데이터 결함이 좋은 답변의 감점으로 둔갑하지 않게 한다.
+        score = (length + formality + recommended) / 42.0 * 100.0
     for hit in metrics["banned_hits"]:
         score -= PENALTY.get(hit["severity"], 8.0)
     score -= min(BANMAL_PENALTY_CAP, BANMAL_PENALTY * metrics["politeness"]["banmal_count"])

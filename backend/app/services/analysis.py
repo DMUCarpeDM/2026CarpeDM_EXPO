@@ -96,7 +96,9 @@ def run_analysis(session_id: int) -> None:
                 session_id=session.id, turn_id=t.id,
                 fit_type=FitType.voice, raw_metrics=metrics, score=score,
             ))
-            voice_scores.append((score, 1.0))
+            # 오디오 없이 발화 시간으로 근사한 턴(webspeech)은 단일 프록시(말속도)라
+            # 신뢰도가 낮다 — 실측 오디오 턴을 가리지 않도록 세션 평균에서 하향 가중.
+            voice_scores.append((score, 0.35 if metrics.get("estimated") else 1.0))
 
         # 4) Eye/Posture-Fit (클라이언트 MediaPipe 집계 지표)
         _set_progress(db, session, "nonverbal", 65)
@@ -151,6 +153,15 @@ def run_analysis(session_id: int) -> None:
                     t.audio_path = ""
             db.commit()
 
+        # 최종 승격 전 DB 진실 재확인 — 분석 도중 운영자 리셋(→aborted)이 들어왔는지.
+        # SessionLocal은 expire_on_commit=False라 in-memory status가 stale할 수 있어,
+        # 그대로 completed로 전이하면 중단된 세션이 되살아나 지표·CSV를 오염시킨다.
+        db.refresh(session)
+        if session.status != SessionStatus.analyzing:
+            db.query(AnalysisResult).filter_by(session_id=session_id).delete()
+            db.query(Report).filter_by(session_id=session_id).delete()
+            db.commit()
+            return
         transition(session, SessionStatus.completed)
         _set_progress(db, session, "done", 100)
     except Exception:
