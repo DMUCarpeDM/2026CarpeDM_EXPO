@@ -225,7 +225,14 @@ export default function RoleplayPage() {
         setDraft(finalText);
         setInterim(interimText);
       },
-      (msg) => setNotice(msg),
+      (msg, fatal) => {
+        setNotice(msg);
+        if (fatal) {
+          // 마이크 사용 불가(뽑힘·권한 회수) — "듣는 중" 표시를 정리하고 텍스트 입력으로 유도
+          setRecordingState(false);
+          setInterim('');
+        }
+      },
     );
     if (ok) {
       setRecordingState(true);

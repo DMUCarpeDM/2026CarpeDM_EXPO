@@ -162,9 +162,11 @@ export default function ReportPage() {
   useEffect(() => {
     const id = Number(sessionId);
     if (!id) return;
+    let failures = 0; // 연속 실패 — 서버 다운/재시작 시 무한 "퇴근하는 중" 방지
     pollRef.current = setInterval(async () => {
       try {
         const progress = await getProgress(id);
+        failures = 0;
         setStage(progress.stage);
         setPct(progress.pct);
         if (progress.status === 'completed') {
@@ -175,7 +177,12 @@ export default function ReportPage() {
           setError('분석 중 문제가 발생했습니다. 다시 시도해주세요.');
         }
       } catch {
-        /* 다음 폴링에서 재시도 */
+        failures += 1;
+        if (failures >= 30) {
+          // 약 21초 연속 실패 — 에러 UI로 전환해 재시도/처음으로 버튼을 노출한다
+          if (pollRef.current) clearInterval(pollRef.current);
+          setError('서버와 연결이 끊겼습니다. 잠시 후 다시 시도해주세요.');
+        }
       }
     }, 700);
     return () => {

@@ -18,6 +18,11 @@ except ImportError:  # pragma: no cover
     _kiwi = None
 
 
+def kiwi_available() -> bool:
+    """형태소 분석기 가동 여부 — 없으면 격식/기본형 판정이 문자열 근사로 강등된다."""
+    return _kiwi is not None
+
+
 def _squash(text: str) -> str:
     return text.replace(" ", "").lower()
 

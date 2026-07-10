@@ -20,7 +20,8 @@ STAGES = ["stt", "response", "voice", "nonverbal", "scoring", "report"]
 
 
 def _set_progress(db, session: RoleplaySession, stage: str, pct: int) -> None:
-    session.analysis_progress = {"stage": stage, "pct": pct}
+    # "at": 진행률 정체 감지용 — get_progress가 이 시각으로 죽은 분석 스레드를 판별한다
+    session.analysis_progress = {"stage": stage, "pct": pct, "at": time.time()}
     db.commit()
 
 
@@ -177,7 +178,7 @@ def run_analysis(session_id: int) -> None:
         db.rollback()
         session = db.get(RoleplaySession, session_id)
         if session:
-            session.analysis_progress = {"stage": "error", "pct": 0}
+            session.analysis_progress = {"stage": "error", "pct": 0, "at": time.time()}
             db.commit()
     finally:
         db.close()

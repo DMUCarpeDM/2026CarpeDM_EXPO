@@ -93,11 +93,22 @@ def _response_evidence(turn_results: list[AnalysisResult]) -> dict | None:
         sugg = ("같은 상황에서 이렇게 바꿔 말해보세요: "
                 "\"지금은 확실하지 않아서, 확인 후 15분 안에 말씀드리겠습니다.\"")
     elif coverage < 0.5 and missing_labels:
-        observed = f"핵심 요소 {len(missing_labels)}가지가 빠졌어요: {', '.join(missing_labels[:3])}"
-        interp = "구조가 없으면 듣는 사람이 되물어야 하고, 그만큼 신뢰가 깎여요."
+        # 의미 매칭 없이(키워드 단독) 판정된 누락은 표현이 달랐을 뿐일 수 있다 —
+        # "빠졌다"는 단정 대신 확인 실패로 완곡화한다 (오판 억제 원칙)
+        if m.get("semantic_active", False):
+            observed = f"핵심 요소 {len(missing_labels)}가지가 빠졌어요: {', '.join(missing_labels[:3])}"
+            interp = "구조가 없으면 듣는 사람이 되물어야 하고, 그만큼 신뢰가 깎여요."
+        else:
+            observed = (f"핵심 요소 {len(missing_labels)}가지를 답변에서 찾지 못했어요: "
+                        f"{', '.join(missing_labels[:3])}")
+            interp = ("다르게 표현하셨을 수도 있어요. 다만 듣는 사람이 바로 알아들을 "
+                      "문장으로 담는 게 가장 안전해요.")
         sugg = f"빠진 것 중 하나만 먼저 연습해보세요. 다음에는 이렇게: {_prescription_for(missing_labels[0])}"
     elif missing_labels:
-        observed = f"딱 하나가 아쉬웠어요 — 누락: {missing_labels[0]}"
+        if m.get("semantic_active", False):
+            observed = f"딱 하나가 아쉬웠어요 — 누락: {missing_labels[0]}"
+        else:
+            observed = f"딱 하나를 답변에서 찾지 못했어요 — {missing_labels[0]}"
         interp = "나머지 구조는 좋았어요. 이 한 조각이 들어가면 완성도가 확 올라가요."
         sugg = f"다음에는 이 문장을 끼워 넣어보세요: {_prescription_for(missing_labels[0])}"
     elif banned:
