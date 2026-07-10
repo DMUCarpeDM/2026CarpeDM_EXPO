@@ -110,6 +110,10 @@ class RoleplaySession(Base):
     client_key: Mapped[str] = mapped_column(String(64), default="", index=True)
     # 세션 접근 능력 토큰 — 생성 시 발급, 세션 데이터 조회에 요구 (순차 id 열거 IDOR 차단)
     access_token: Mapped[str] = mapped_column(String(64), default="")
+    # 기관 배포 확장(Phase 1 전방 호환) — 단일 테넌트(전시)는 NULL. Phase 2에서 테넌트 스코프에 사용.
+    # nullable이라 _migrate_columns가 기존 DB에 무손실 추가하고 현행 동작은 바뀌지 않는다.
+    institution_id: Mapped[int | None] = mapped_column(ForeignKey("institutions.id"), nullable=True)
+    device_id: Mapped[int | None] = mapped_column(ForeignKey("devices.id"), nullable=True)
     mode: Mapped[int] = mapped_column(Integer, default=5)  # 5 | 10 (분)
     difficulty: Mapped[str] = mapped_column(String(20), default="basic")  # basic | pressure
     status: Mapped[SessionStatus] = mapped_column(Enum(SessionStatus), default=SessionStatus.ready)
