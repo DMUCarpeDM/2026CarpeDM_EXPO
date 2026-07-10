@@ -71,8 +71,8 @@ npm run dev        # http://localhost:5173
 ### 테스트
 
 ```bash
-cd backend && ./.venv/bin/python -m pytest tests   # 대화 엔진·점수화·FSM·콘텐츠 규격 (246개)
-cd frontend && npm run test                         # 비언어 판정 코어 행동 테스트 (vitest)
+cd backend && ./.venv/bin/python -m pytest tests   # 대화 엔진·점수화·FSM·콘텐츠 규격 (255개: 251 통과·4 스킵)
+cd frontend && npm run test                         # 비언어 판정 코어 행동 테스트 (node --test)
 cd frontend && npx tsc -b && npm run build          # 타입 검사 + 프로덕션 빌드
 ```
 
@@ -143,7 +143,7 @@ backend/
   app/services/        대화 엔진(dialogue/) · 분석 오케스트레이션 · 리포트 생성
   app/ai/              4-Fit 분석 모듈 · 점수 정규화 · STT 제공자
   app/api/             REST 라우터 (auth · scenarios · sessions · reports · admin · codes)
-  tests/               pytest 32건
+  tests/               pytest 255개(25개 파일)
 frontend/
   src/components/      Icon · Avatar (공용)
   src/features/        onboarding · roleplay · report · kiosk · admin · auth
