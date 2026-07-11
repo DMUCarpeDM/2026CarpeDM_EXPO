@@ -87,6 +87,31 @@ def test_normal_analysis_still_completes():
         db.close()
 
 
+def test_new_observation_metrics_flow_into_report():
+    """신규 관찰 지표가 파이프라인 끝(리포트 JSON)까지 흐른다 — 배선 회귀 방지.
+
+    텍스트 턴만 있는 세션: delivery 카드에 구체성 행이 항상 나와야 하고,
+    음성 실측이 없으므로 congruence 카드는 판정 보류(부재)여야 한다.
+    """
+    seed()
+    db = SessionLocal()
+    try:
+        sid = _make_analyzing_session_with_turn(db)
+    finally:
+        db.close()
+    run_analysis(sid)
+    db = SessionLocal()
+    try:
+        s = db.get(RoleplaySession, sid)
+        deep = s.report.deep_analysis
+        delivery = deep.get("delivery")
+        assert delivery is not None
+        assert any("구체성" in r["label"] for r in delivery["rows"])
+        assert "congruence" not in deep, "음성 실측 없는 세션에 일치도 카드가 나오면 안 된다"
+    finally:
+        db.close()
+
+
 # ---- B: 불량 timeline 견고성 ----
 
 def test_malformed_timeline_bin_does_not_crash():

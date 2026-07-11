@@ -82,6 +82,7 @@ export interface NonverbalMetrics {
   listening_front_ratio: number | null; // 듣기(상대 TTS) 중 정면 응시율
   answering_front_ratio: number | null; // 말하기(답변) 중 정면 응시율
   contact_bout_mean_sec: number; // 연속 응시 구간 평균 길이 (응시 리듬)
+  contact_streak_max_sec: number; // 최장 연속 응시 초 (아이컨택 스트릭 — 긍정 지표)
   onset_aversion_sec: number; // 답변 개시 2.5초 유예 구간의 시선 회피 (감점 제외 근거)
   gaze_zones: number[]; // 3×3 시선 존 분포 (위/중/아래 × 좌/중/우)
   // 교차 분석용 2초 빈 타임라인 — 빈당 집계 숫자만 (영상·좌표 미전송)
@@ -183,6 +184,14 @@ export interface Report {
   deep_analysis: {
     delivery?: {
       title: string;
+      rows: { label: string; value: string }[];
+      comment: string;
+      confidence?: { level: string; n: number };
+    };
+    // 말-목소리 일치도 — 텍스트 확신(모호어) × 음성 안정(떨림·끊김) 교차 프로파일
+    congruence?: {
+      title: string;
+      level: string;
       rows: { label: string; value: string }[];
       comment: string;
       confidence?: { level: string; n: number };

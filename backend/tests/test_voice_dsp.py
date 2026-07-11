@@ -148,6 +148,37 @@ def test_periodicity_high_for_pure_tone(wav_path):
     assert m_pure["periodicity"] > m_breathy["periodicity"]
 
 
+# ---- 신규 관찰 지표: 억양 폭·모노톤 구간·말끝 소실 ----
+
+def test_pitch_range_semitones(wav_path):
+    # 120↔200Hz 교차 = 약 8.8반음, 순음은 ~0반음
+    varied_sig = np.concatenate([tone(120, 1), tone(200, 1), tone(120, 1), tone(200, 1)])
+    varied = analyze_audio(wav_path(varied_sig), "가" * 16)
+    mono = analyze_audio(wav_path(tone(150, 3)), "가" * 12)
+    assert varied["pitch_range_st"] is not None and varied["pitch_range_st"] >= 6
+    assert mono["pitch_range_st"] is not None and mono["pitch_range_st"] <= 1.5
+
+
+def test_monotone_run_measures_flat_stretch(wav_path):
+    # 4초 순음 → 최장 모노톤 구간이 발화 길이에 근접해야 한다
+    mono = analyze_audio(wav_path(tone(150, 4)), "가" * 18)
+    assert mono["monotone_run_sec"] is not None and mono["monotone_run_sec"] >= 3.0
+    # 1초마다 톤이 크게 바뀌면 런이 그 주기 수준으로 짧아야 한다
+    varied_sig = np.concatenate([tone(120, 1), tone(180, 1), tone(140, 1), tone(200, 1)])
+    varied = analyze_audio(wav_path(varied_sig), "가" * 18)
+    assert (varied["monotone_run_sec"] or 0) <= 1.6
+
+
+def test_final_fade_detects_dying_ending(wav_path):
+    # 마지막 0.7초 성량이 크게 줄어든 발화 — "~하겠습니…" 말끝 소실 모사
+    fading = np.concatenate([tone(150, 3, amp=0.4), tone(150, 0.7, amp=0.12)])
+    m = analyze_audio(wav_path(fading), "가" * 16)
+    assert m["final_fade_pct"] is not None and m["final_fade_pct"] <= -45
+    # 끝까지 일정한 성량이면 소실로 판정하지 않는다
+    steady = analyze_audio(wav_path(tone(150, 3)), "가" * 12)
+    assert steady["final_fade_pct"] is not None and steady["final_fade_pct"] >= -15
+
+
 # ---- 소음 강건 VAD: 전시장 배경 소음에서도 발화 구조가 살아있어야 한다 ----
 
 def noisy(sec: float, amp: float = 0.06, seed: int = 7) -> np.ndarray:

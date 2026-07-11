@@ -57,6 +57,16 @@ F0_MIN, F0_MAX = 75, 400
 PAUSE_MIN_SEC = 0.25   # 이보다 짧은 무음은 조음 간격으로 보고 무시
 LONG_PAUSE_SEC = 1.2   # 침묵으로 인지되는 길이
 
+# ---- 관찰 전용 지표 상수 (점수 미반영 — 리포트 계기판·근거 코칭용) ----
+# 모노톤 구간: 러닝 중앙값 대비 ±1반음(~5.9%) 이내면 같은 톤으로 본다.
+# f0_cv(전체 변동계수)는 '한 대목만 단조로운' 발화를 평균으로 가리므로 별도 측정.
+MONOTONE_TOL = 0.06
+MONOTONE_MIN_SAMPLES = 4   # 이보다 짧은 런은 구간으로 인정하지 않음
+MONOTONE_GAP_BREAK_SEC = 1.0  # 무성 공백이 이보다 길면 런을 끊는다 (쉼 너머 연결 금지)
+# 말끝 성량 소실: 마지막 유성 0.6초 평균 RMS vs 전체 유성 중앙값.
+# energy_drift(전/후반)는 완만한 감쇠용 — '마지막 문장에서 훅 꺼지는' 말끝은 못 잡는다.
+FINAL_FADE_WIN_SEC = 0.6
+
 
 def _frame_rms(samples: np.ndarray) -> np.ndarray:
     n = max(1, (len(samples) - FRAME) // HOP + 1)
@@ -154,6 +164,29 @@ def _fix_octave_outliers(track: list) -> list:
         elif abs(v * 2 - med) / med < 0.10:    # 합의의 절반으로 꺼짐 → 2배로
             fixed[i] = v * 2
     return fixed
+
+
+def _monotone_run_sec(
+    f0_samples: list[tuple[int, float]], sec_per_frame: float,
+) -> float | None:
+    """같은 톤(±1반음)이 이어진 최장 구간 길이(초) — 국소 단조로움 관찰 지표.
+
+    러닝 중앙값 기준 MONOTONE_TOL 초과 이탈 또는 긴 무성 공백에서 런을 끊는다.
+    """
+    best = 0.0
+    run: list[tuple[int, float]] = []
+    for idx, f0 in f0_samples:
+        if run:
+            if (idx - run[-1][0]) * sec_per_frame > MONOTONE_GAP_BREAK_SEC:
+                run = []
+            else:
+                med = float(np.median([v for _, v in run]))
+                if med > 0 and abs(f0 - med) / med > MONOTONE_TOL:
+                    run = []
+        run.append((idx, f0))
+        if len(run) >= MONOTONE_MIN_SAMPLES:
+            best = max(best, (run[-1][0] - run[0][0]) * sec_per_frame)
+    return round(best, 1) if best else None
 
 
 def _tremor_metrics(samples: np.ndarray, sr: int) -> tuple[float | None, float | None]:
@@ -257,19 +290,31 @@ def analyze_audio(path: str, response_text: str) -> dict:
 
     # F0 추적 (유성 프레임을 4개 간격으로 서브샘플 — 성능/정확도 균형).
     # 트랙 완성 후 고립 옥타브 이탈을 이웃 합의로 수리한다.
-    f0_values = []
+    # 프레임 인덱스를 함께 보존 — 모노톤 구간(시간 길이) 측정의 시계축.
+    f0_samples: list[tuple[int, float]] = []
     for i in np.flatnonzero(voiced)[::4]:
         frame = samples[i * HOP: i * HOP + FRAME]
         if len(frame) == FRAME:
             f0 = _estimate_f0(frame, sr)
             if f0 is not None:
-                f0_values.append(f0)
-    f0_values = [v for v in _fix_octave_outliers(f0_values) if v is not None]
+                f0_samples.append((int(i), f0))
+    fixed = _fix_octave_outliers([v for _, v in f0_samples])
+    f0_samples = [(i, v) for (i, _), v in zip(f0_samples, fixed) if v is not None]
+    f0_values = [v for _, v in f0_samples]
     f0_mean = float(np.median(f0_values)) if len(f0_values) >= 5 else None
     f0_cv = (
         float(np.std(f0_values) / np.mean(f0_values))
         if f0_mean is not None else None
     )
+    # 억양 폭(반음): F0 p10~p90 스프레드 — CV(%)보다 사람이 읽을 수 있는 단위.
+    # 자연 발화의 억양 폭은 대략 4~12반음, 2반음 미만이면 단조롭게 들린다 — 관찰 지표.
+    pitch_range_st = None
+    if len(f0_values) >= 8:
+        p10, p90 = np.percentile(f0_values, [10, 90])
+        if p10 > 0:
+            pitch_range_st = float(12 * np.log2(p90 / p10))
+    # 모노톤 최장 구간(초) — 국소 단조로움. f0_cv가 평균으로 가리는 축.
+    monotone_run = _monotone_run_sec(f0_samples, sec_per_frame)
     # 피치·성량 떨림(jitter/shimmer): 짧은 창 전용 경로 — 표준 프레임은
     # 생리적 떨림(4~12Hz)을 평균으로 지우므로 별도 측정한다.
     f0_jitter_pct, shimmer_pct = _tremor_metrics(samples, sr)
@@ -326,6 +371,17 @@ def analyze_audio(path: str, response_text: str) -> dict:
         if d_front > 0.05:
             rate_drift_pct = round((d_back / d_front - 1.0) * 100)
 
+    # 말끝 성량 소실(%): 마지막 유성 0.6초 평균 RMS vs 전체 유성 중앙값.
+    # 음수가 클수록 말끝이 사라진다("~하겠습니…") — 관찰 지표, 코칭 문구의 실측 근거.
+    final_fade_pct = None
+    voiced_idx = np.flatnonzero(voiced)
+    fade_n = max(3, int(FINAL_FADE_WIN_SEC / sec_per_frame))
+    if len(voiced_idx) >= fade_n * 3:
+        tail = rms[voiced_idx[-fade_n:]]
+        ref = float(np.median(rms[voiced_idx]))
+        if ref > 1e-9:
+            final_fade_pct = round((float(tail.mean()) / ref - 1.0) * 100)
+
     return {
         "duration_sec": round(duration, 2),
         "lead_in_sec": round(lead_in_sec, 2),
@@ -342,6 +398,9 @@ def analyze_audio(path: str, response_text: str) -> dict:
         "periodicity": round(periodicity, 3) if periodicity is not None else None,
         "final_f0_slope": round(final_f0_slope, 1) if final_f0_slope is not None else None,
         "rate_drift_pct": rate_drift_pct,
+        "pitch_range_st": round(pitch_range_st, 1) if pitch_range_st is not None else None,
+        "monotone_run_sec": monotone_run,
+        "final_fade_pct": final_fade_pct,
         "syllables": syllables,
     }
 

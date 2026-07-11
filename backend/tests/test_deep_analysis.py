@@ -1,5 +1,10 @@
 """심층 교차 분석 검증 — 순수 빌더 함수를 합성 데이터로 대조."""
-from app.services.deep_analysis import build_adaptation, build_composure, build_delivery
+from app.services.deep_analysis import (
+    build_adaptation,
+    build_composure,
+    build_congruence,
+    build_delivery,
+)
 
 
 # ---- delivery (담화 구조) ----
@@ -9,6 +14,9 @@ def _discourse(**kw) -> dict:
         "conclusion_first": True, "time_commitment_count": 1, "ownership_count": 1,
         "hedge_per_100syl": 1.0, "question_alignment": 0.6,
         "max_clauses_per_sentence": 2, "sentence_count": 3,
+        "specificity_count": 2, "trailing_count": 0, "cushion_count": 0,
+        "self_repair_count": 0, "conclusion_delay_syllables": 0,
+        "lexical_diversity": 0.7,
     }
     base.update(kw)
     return base
@@ -40,6 +48,93 @@ def test_delivery_flags_missing_deadline():
 def test_delivery_none_without_data():
     assert build_delivery([]) is None
     assert build_delivery([{}]) is None
+
+
+def test_delivery_flags_trailing_sentences():
+    d = build_delivery([_discourse(trailing_count=2)])
+    assert "말끝" in d["comment"]
+    assert any("말끝 흐림" in r["label"] for r in d["rows"])
+
+
+def test_delivery_flags_zero_specificity():
+    # 구조는 갖췄지만 숫자가 전혀 없는 답변 — 다음 단계로 수치를 처방
+    d = build_delivery([_discourse(specificity_count=0)])
+    assert "숫자" in d["comment"]
+
+
+def test_delivery_praises_cushion_speaker():
+    d = build_delivery([_discourse(cushion_count=2)])
+    assert "쿠션어" in d["comment"]
+    assert any("쿠션어" in r["label"] for r in d["rows"])
+
+
+def test_delivery_specificity_row_always_present():
+    d = build_delivery([_discourse()])
+    assert any("구체성" in r["label"] for r in d["rows"])
+
+
+def test_delivery_conclusion_delay_row_with_rate():
+    # 말속도가 있으면 결론 도달 거리를 초로도 환산해 보여준다
+    d = build_delivery([_discourse(conclusion_delay_syllables=40)], speech_rate_sps=4.0)
+    row = next(r for r in d["rows"] if r["label"] == "결론 도달")
+    assert "40음절" in row["value"] and "10초" in row["value"]
+
+
+def test_delivery_conclusion_delay_first_sentence():
+    d = build_delivery([_discourse(conclusion_delay_syllables=0)])
+    row = next(r for r in d["rows"] if r["label"] == "결론 도달")
+    assert row["value"] == "첫 문장"
+
+
+# ---- congruence (말-목소리 일치도) ----
+
+def _voice(jitter=2.0, shimmer=2.0, hes=0, long_pauses=0, estimated=False):
+    v = {
+        "f0_jitter_pct": jitter, "shimmer_pct": shimmer,
+        "long_pause_count": long_pauses,
+        "alignment": {"pause_quality": {"deliberate_count": 0, "hesitation_count": hes}},
+    }
+    if estimated:
+        v["estimated"] = True
+    return v
+
+
+def test_congruence_match_profile():
+    # 말도 단정적, 목소리도 안정 → 언행일치
+    c = build_congruence([_discourse()], [_voice()])
+    assert c is not None and c["level"] == "언행일치"
+
+
+def test_congruence_delivery_gap():
+    # 말은 단정적인데 목소리 떨림(jitter+shimmer 동시) → 전달 보강형
+    c = build_congruence(
+        [_discourse(hedge_per_100syl=1.0)], [_voice(jitter=9.0, shimmer=12.0)])
+    assert c["level"] == "전달 보강형"
+
+
+def test_congruence_expression_gap():
+    # 목소리는 안정적인데 모호어가 확신을 깎음 → 표현 보강형
+    c = build_congruence([_discourse(hedge_per_100syl=6.0)], [_voice()])
+    assert c["level"] == "표현 보강형"
+    assert any("모호어" in r["label"] for r in c["rows"])
+
+
+def test_congruence_both_shaky():
+    # 유보적 표현 + 문장 중간 끊김 반복 → 동반 긴장형
+    c = build_congruence([_discourse(hedge_per_100syl=6.0)], [_voice(hes=3)])
+    assert c["level"] == "동반 긴장형"
+
+
+def test_congruence_requires_measured_audio():
+    # webspeech 근사 턴(estimated)만 있으면 판정 보류 — 떨림·끊김이 없는 데이터
+    assert build_congruence([_discourse()], [_voice(estimated=True)]) is None
+    assert build_congruence([], [_voice()]) is None
+
+
+def test_congruence_single_tremor_axis_not_shaky():
+    # jitter 단독 상승(shimmer 정상)은 채점과 같은 이중 게이트로 동요로 보지 않는다
+    c = build_congruence([_discourse()], [_voice(jitter=9.0, shimmer=2.0)])
+    assert c["level"] == "언행일치"
 
 
 # ---- composure (압박 내성) ----

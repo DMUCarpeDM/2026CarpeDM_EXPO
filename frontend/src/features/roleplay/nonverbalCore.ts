@@ -493,6 +493,11 @@ export function finalizeTurnMetrics(acc: Accumulator, base: Baseline): Nonverbal
         ? Math.round((mean(bouts) * SAMPLE_MS) / 100) / 10
         : 0;
     })(),
+    // 최장 연속 응시(아이컨택 스트릭) — 눈맞춤이 실제로 '성립'한 증거. 긍정 지표
+    contact_streak_max_sec: (() => {
+      const longest = Math.max(0, ...acc.contactBouts, acc.curContactStreak);
+      return Math.round((longest * SAMPLE_MS) / 100) / 10;
+    })(),
     // 답변 개시 직후(2.5초 유예)의 시선 회피 — 생각 정리 행동, 감점에서 제외할 근거
     onset_aversion_sec: Math.round((acc.onsetOffFrames * SAMPLE_MS) / 100) / 10,
     // 3×3 시선 존 분포 (위/중/아래 × 좌/중/우) — 시선 지도

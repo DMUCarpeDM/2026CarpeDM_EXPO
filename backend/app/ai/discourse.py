@@ -1,17 +1,24 @@
 """담화 구조 분석 — 보고 화법의 '조직'을 형태소 수준에서 측정한다.
 
 체크리스트 매칭(무엇을 말했나)을 넘어, 문장이 어떻게 조직됐는가를 본다.
-실무 커뮤니케이션 코칭에서 실제로 교정하는 여섯 축:
+실무 커뮤니케이션 코칭에서 실제로 교정하는 축:
 
   결론 선행(BLUF)   비즈니스 보고의 제1원칙 — 첫 문장에 상태/결론이 오는가
+  결론 도달 거리    결론이 나오기까지 몇 음절을 듣게 만들었는가 (선행 여부의 정량판)
   근거 연결         주장 뒤에 이유가 따라오는가 (이유 마커·연결어미)
   시점 약속         "확인하겠다"가 아니라 "10분 안에 확인하겠다"인가
                     — 숫자+시간 단위+기한 표지의 결합만 인정 (막연한 '나중에' 배제)
   책임 문형         1인칭 주어 + 의지 어미("제가 ~하겠습니다") — 소유권의 언어
   헤지(모호) 밀도   "좀/약간/아마/~것 같다" — 과도하면 신뢰를 깎는 완충 언어
   질문 정합성       질문의 핵심 명사가 답변에 얼마나 이어지는가 (동문서답 감지)
+  구체성            숫자·수량 표현의 수 — "문의 5건, 고객사 3곳"이 보고의 급을 가른다
+  어휘 다양성       내용어 기본형의 반복 정도 — 같은 단어만 도는 답변 감지
+  말끝 흐림         연결어미로 끝나 완결되지 않은 문장 ("~해서…") — 자신감 신호
+  쿠션어            "죄송하지만/괜찮으시다면" — 청자 배려의 긍정 지표
+  자기 수정         "그게 아니라" 류 되감기 — 문장 설계 전에 말이 나가는 습관
 
 전부 kiwipiepy 형태소 + 정규식 — 외부 API 없음. kiwipiepy 부재 시 휴리스틱 폴백.
+신규 지표는 전부 관찰 전용(점수 미반영) — 리포트·심층 분석 카드에서만 소비한다.
 """
 import re
 from functools import lru_cache
@@ -56,6 +63,36 @@ ALTERNATIVE_MARKERS = [
     "까지는 가능", "라면 가능", "먼저 해", "시간을 조정",
 ]
 
+# 구체성: 숫자·수량 표현 — 아라비아 숫자(+단위)와 한글 수사+단위 결합.
+# 단위 없는 맨 숫자("3시까지"의 3)도 구체성이므로 숫자 자체를 센다.
+# '한번'(부사, "한번 볼게요")은 수량이 아니므로 '한'은 공백+단위 결합만,
+# '번' 계수사와의 결합은 제외한다 — 오탐(막연한 말을 구체로 오인)이 더 나쁘다.
+_NUMERIC_RE = re.compile(
+    r"[0-9]+(?:[.,][0-9]+)?"
+    r"|한\s+(?:개|건|명|곳|가지|분|시간|일|주)"
+    r"|(?:두|세|네|다섯|여섯|일곱|여덟|아홉|열)\s*(?:개|건|명|곳|번|가지|분|시간|일|주|차례)"
+)
+
+# 쿠션어(완충 표현) — 요청·거절·정정 앞에 얹는 청자 배려 언어. 긍정 지표(가점 아님).
+CUSHION_PHRASES = [
+    "죄송하지만", "죄송한데", "번거로우시겠지만", "바쁘신 와중에", "바쁘시겠지만",
+    "괜찮으시다면", "괜찮으시면", "실례지만", "실례가 안 된다면", "양해 부탁",
+    "말씀 중에 죄송", "여쭤봐도 될까요", "여쭤봐도 괜찮을까요",
+]
+
+# 자기 수정(되감기) — 말이 문장 설계보다 먼저 나갈 때의 정정 마커. 보수적으로 좁게.
+SELF_REPAIR_PATTERNS = [
+    "그게 아니라", "아 아니", "아니 잠깐", "잘못 말씀드렸", "정정하겠습니다", "정정할게요",
+]
+
+# 어휘 다양성이 의미를 갖는 최소 내용어 표본 — 이보다 짧으면 판정 보류(None)
+_LEXICAL_MIN_TOKENS = 20
+# 내용어 품사: 일반·고유 명사, 동사, 형용사, 일반 부사, 어근
+_CONTENT_TAGS = ("NNG", "NNP", "VV", "VA", "MAG", "XR")
+
+# 말끝 흐림 폴백(형태소 분석기 부재 시): 대표적 연결어미로 끝나는 문장만 좁게 판정
+_TRAILING_FALLBACK_ENDINGS = ("인데", "는데", "해서", "라서", "하고", "이고", "지만")
+
 
 @lru_cache(maxsize=256)
 def _content_nouns(text: str) -> frozenset[str]:
@@ -75,6 +112,47 @@ def _sentences(text: str) -> list[str]:
         except Exception:
             pass
     return [s.strip() for s in re.split(r"[.!?\n]", text) if s.strip()]
+
+
+def _lexical_diversity(text: str) -> float | None:
+    """내용어 기본형 TTR(고유 내용어/전체 내용어). 표본 부족·분석기 부재 시 None.
+
+    구어 답변은 짧아 원 TTR이 길이에 민감하다 — 최소 표본 게이트로 보류 처리.
+    """
+    if _kiwi is None:
+        return None
+    tokens = [t.form for t in _kiwi.tokenize(text) if t.tag in _CONTENT_TAGS]
+    if len(tokens) < _LEXICAL_MIN_TOKENS:
+        return None
+    return round(len(set(tokens)) / len(tokens), 2)
+
+
+def _is_trailing(sentence: str) -> bool:
+    """말끝 흐림 — 문장이 종결어미 없이 연결어미로 끝나는가 ("확인은 했는데…").
+
+    명사구 답변("네, 알겠습니다" 뒤의 "플랫폼팀 업무요" 등)은 EF가 없어도
+    완결이므로, '마지막 형태소가 연결어미(EC)'일 때만 흐림으로 판정한다.
+    """
+    if count_hangul_syllables(sentence) < 4:
+        return False  # 짧은 조각은 판정 보류 — 간투사·호응 표현 오판 방지
+    if _kiwi is not None:
+        tokens = [t for t in _kiwi.tokenize(sentence) if t.tag not in ("SF", "SP", "SE", "SW")]
+        return bool(tokens) and tokens[-1].tag == "EC"
+    stripped = sentence.rstrip(".!?… ")
+    return stripped.endswith(_TRAILING_FALLBACK_ENDINGS) and not stripped.endswith("요")
+
+
+def _conclusion_delay(sents: list[str]) -> int | None:
+    """결론 마커가 등장하기 전까지 청자가 들은 음절 수. 결론 문장이 없으면 None.
+
+    conclusion_first(불리언)의 정량판 — '얼마나 미뤘는가'를 거리로 보여준다.
+    """
+    heard = 0
+    for sent in sents:
+        if any(m in sent for m in CONCLUSION_MARKERS):
+            return heard
+        heard += count_hangul_syllables(sent)
+    return None
 
 
 def analyze_discourse(text: str, question_text: str = "") -> dict:
@@ -129,9 +207,20 @@ def analyze_discourse(text: str, question_text: str = "") -> dict:
         for s in sents:
             max_clauses = max(max_clauses, sum(1 for t in _kiwi.tokenize(s) if t.tag == "EC"))
 
+    # 구체성 — 숫자·수량 표현 수 ("15분 안에", "문의 5건")
+    specificity_count = len(_NUMERIC_RE.findall(text))
+
+    # 쿠션어·자기 수정 — 출현 횟수 (원문 인용 없음: 미저장 동의 파기 경로와 무관하게 안전)
+    cushion_count = sum(text.count(p) for p in CUSHION_PHRASES)
+    self_repair_count = sum(text.count(p) for p in SELF_REPAIR_PATTERNS)
+
+    # 말끝 흐림 — 연결어미로 끝나 완결되지 않은 문장 수
+    trailing_count = sum(1 for s in sents if _is_trailing(s))
+
     return {
         "sentence_count": len(sents),
         "conclusion_first": conclusion_first,
+        "conclusion_delay_syllables": _conclusion_delay(sents),
         "reason_marker_count": reason_count,
         "time_commitment_count": time_commitments,
         "ownership_count": ownership_count,
@@ -141,4 +230,9 @@ def analyze_discourse(text: str, question_text: str = "") -> dict:
         "question_alignment": alignment,
         "avg_sentence_syllables": round(sum(sent_syllables) / len(sent_syllables), 1),
         "max_clauses_per_sentence": max_clauses,
+        "specificity_count": specificity_count,
+        "lexical_diversity": _lexical_diversity(text),
+        "trailing_count": trailing_count,
+        "cushion_count": cushion_count,
+        "self_repair_count": self_repair_count,
     }

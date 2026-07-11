@@ -121,6 +121,7 @@ class NonverbalIn(BaseModel):
     listening_front_ratio: float | None = None  # 듣기 중 정면 응시율
     answering_front_ratio: float | None = None  # 말하기 중 정면 응시율
     contact_bout_mean_sec: float = 0.0  # 연속 응시 평균 길이 (응시 리듬)
+    contact_streak_max_sec: float = 0.0  # 최장 연속 응시 (아이컨택 스트릭 — 긍정 지표)
     onset_aversion_sec: float = 0.0  # 답변 개시 유예 구간 회피 (감점 제외 근거)
     gaze_zones: list[int] = []  # 3×3 시선 존 (위/중/아래 × 좌/중/우)
     # 교차 분석 타임라인: [{t, front, press, tilt}] — 2초 빈당 집계 숫자만

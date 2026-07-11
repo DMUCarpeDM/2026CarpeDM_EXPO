@@ -1,7 +1,11 @@
 """심층 교차 분석 — 단일 지표를 넘어 지표 사이의 관계를 읽는다.
 
-전문 코치가 실제로 보는 세 가지 렌즈:
-  delivery   담화 구조 — 말의 '조직력' (결론 선행·기한 약속·책임 문형·모호어)
+전문 코치가 실제로 보는 네 가지 렌즈:
+  delivery   담화 구조 — 말의 '조직력' (결론 선행·기한 약속·책임 문형·모호어·
+             구체성·말끝 흐림·쿠션어)
+  congruence 말-목소리 일치도 — 텍스트의 확신(모호어 밀도)과 음성의 안정
+             (떨림·문장 중간 끊김)이 같은 방향인가. "내용은 단정적인데 목소리가
+             흔들린다"는 어느 단일 Fit 점수에도 없는 프로파일이다.
   composure  압박 내성 — 압박 질문 턴과 평상 턴의 비언어·음성 지표 델타.
              "압박에서 무엇이 무너지는가"는 단일 턴 점수로는 보이지 않는다.
   adaptation 적응 곡선 — 세션 전/후반 종합 점수 추세. 첫 만남의 어색함을
@@ -10,6 +14,7 @@
 모든 판정은 관찰·해석·처방 3단 구조로 리포트에 전달되고, 표본이 부족하면
 해당 렌즈 자체를 생략한다(어설픈 단정 금지 — 오판 억제 원칙).
 """
+from app.ai.voice_fit import TREMOR_JITTER_FLOOR, TREMOR_SHIMMER_FLOOR
 from app.models import FitType, RoleplaySession
 from app.services.moments import build_moments
 
@@ -28,8 +33,11 @@ def _confidence(n: int, solid: int, fair: int) -> dict:
 # delivery — 담화 구조 종합
 # ---------------------------------------------------------------------------
 
-def build_delivery(discourse_list: list[dict]) -> dict | None:
-    """턴별 discourse 지표(analyze_discourse 결과)를 세션 관점으로 종합."""
+def build_delivery(discourse_list: list[dict], speech_rate_sps: float | None = None) -> dict | None:
+    """턴별 discourse 지표(analyze_discourse 결과)를 세션 관점으로 종합.
+
+    speech_rate_sps: 세션 평균 말속도(음절/초) — 결론 도달 거리를 초로 환산할 근거.
+    """
     ds = [d for d in discourse_list if d]
     if not ds:
         return None
@@ -41,15 +49,35 @@ def build_delivery(discourse_list: list[dict]) -> dict | None:
     aligns = [d["question_alignment"] for d in ds if d.get("question_alignment") is not None]
     alignment = _mean(aligns)
     max_clauses = max((d.get("max_clauses_per_sentence", 0) for d in ds), default=0)
+    specificity = sum(d.get("specificity_count", 0) for d in ds)
+    trailing = sum(d.get("trailing_count", 0) for d in ds)
+    cushions = sum(d.get("cushion_count", 0) for d in ds)
+    repairs = sum(d.get("self_repair_count", 0) for d in ds)
+    delays = [d["conclusion_delay_syllables"] for d in ds
+              if d.get("conclusion_delay_syllables") is not None]
 
     rows = [
         {"label": "결론 선행", "value": f"{len(ds)}번 중 {sum(1 for d in ds if d.get('conclusion_first'))}번"},
         {"label": "기한 있는 약속", "value": f"{time_commits}회"},
         {"label": "책임 문형(제가 ~하겠습니다)", "value": f"{ownership}회"},
         {"label": "모호어 밀도", "value": f"100음절당 {hedge:.1f}회"},
+        {"label": "구체성(숫자·수치)", "value": f"{specificity}회"},
     ]
+    # 결론 도달 거리 — 결론 문장이 실제로 있었던 턴에 한해, 청자가 기다린 음절 수
+    if delays:
+        delay = _mean(delays)
+        value = "첫 문장" if delay < 10 else f"평균 {delay:.0f}음절 후"
+        if delay >= 10 and speech_rate_sps:
+            value += f" (~{delay / speech_rate_sps:.0f}초)"
+        rows.append({"label": "결론 도달", "value": value})
     if alignment is not None:
         rows.append({"label": "질문 정합성", "value": f"{round(alignment * 100)}%"})
+    if cushions:
+        rows.append({"label": "쿠션어(완충 표현)", "value": f"{cushions}회"})
+    if trailing:
+        rows.append({"label": "말끝 흐림(미완결 문장)", "value": f"{trailing}문장"})
+    if repairs:
+        rows.append({"label": "자기 수정(되감기)", "value": f"{repairs}회"})
 
     negatives = sum(d.get("negative_no_alternative", 0) for d in ds)
     if negatives:
@@ -71,19 +99,115 @@ def build_delivery(discourse_list: list[dict]) -> dict | None:
     elif hedge >= 4.0:
         comment = ("'좀·아마·~것 같아요' 같은 완충어가 자주 섞였어요. 내용이 맞아도 확신이 "
                    "없어 보이게 만들어요. 사실은 단정하고, 불확실한 부분만 콕 집어 유보하세요.")
+    elif trailing >= 2:
+        comment = ("문장이 '~해서…'처럼 끝을 맺지 못하고 흐려진 게 여러 번이에요. 내용이 "
+                   "맞아도 말끝이 사라지면 확신도 같이 사라져요 — 문장의 마지막 세 글자"
+                   "(\"~했습니다\")까지 또렷하게 밀어보세요.")
     elif time_commits == 0:
         comment = ("'확인하겠습니다'는 있었지만 '언제까지'가 없었어요. 기한 없는 약속은 "
                    "듣는 사람에게 약속으로 남지 않아요 — \"10분 안에 회신드릴게요\"처럼 시점을 붙이세요.")
+    elif specificity == 0:
+        comment = ("답변에 숫자가 한 번도 등장하지 않았어요. \"문의 5건, 고객사 3곳\"처럼 "
+                   "수치 하나만 들어가도 보고의 정확도가 다르게 들려요 — 다음 도전에서는 "
+                   "숫자를 하나 넣는 걸 목표로 해보세요.")
     elif max_clauses >= 5:
         comment = ("한 문장에 절이 다섯 개 이상 이어지는 만연체가 관찰됐어요. 마침표를 "
                    "두 배로 쓰면 같은 내용이 두 배로 정리되어 들려요.")
+    elif cushions >= 2:
+        comment = ("결론 선행에 쿠션어(\"죄송하지만\", \"괜찮으시다면\")까지 갖춘 보고 구조예요. "
+                   "내용과 배려가 같이 잡힌 답변은 흔치 않아요 — 이 화법을 그대로 유지하세요.")
     else:
         comment = ("결론 선행, 기한 약속, 책임 표현이 고르게 갖춰진 보고 구조예요. "
                    "이제 내용이 아니라 전달의 완급(쉼과 강세)을 다듬을 단계입니다.")
 
     return {
-        "title": "말의 구조", "rows": rows, "comment": comment,
+        "title": "말의 구조", "rows": rows[:8], "comment": comment,
         "confidence": _confidence(len(ds), solid=3, fair=2),
+    }
+
+
+# ---------------------------------------------------------------------------
+# congruence — 말-목소리 일치도
+# ---------------------------------------------------------------------------
+
+# 텍스트 확신 판정: 모호어 밀도(100음절당) — delivery의 지적 임계(4.0)와 동일 축
+_HEDGY_TEXT = 4.0
+# 음성 동요 판정: 문장 중간 끊김(주저) 평균, 긴 침묵 폴백 — 위치 인지 채점과 동일 축
+_HESITATION_MEAN = 1.5
+_LONG_PAUSE_MEAN = 2.0
+
+
+def build_congruence(discourse_list: list[dict], voice_list: list[dict]) -> dict | None:
+    """텍스트의 확신(모호어)과 음성의 안정(떨림·끊김)이 같은 방향인지 교차 판정.
+
+    실측 오디오 턴이 있어야 한다(webspeech 근사 턴은 떨림·끊김이 없어 제외).
+    네 프로파일: 언행일치 / 전달 보강형(말은 단정, 목소리 동요) /
+    표현 보강형(목소리 안정, 말이 유보적) / 동반 긴장형.
+    """
+    ds = [d for d in discourse_list if d and "hedge_per_100syl" in d]
+    vs = [v for v in voice_list if v and not v.get("estimated")]
+    if not ds or not vs:
+        return None
+
+    hedge = _mean([d["hedge_per_100syl"] for d in ds]) or 0.0
+    text_hedgy = hedge >= _HEDGY_TEXT
+
+    jitters = [v["f0_jitter_pct"] for v in vs if v.get("f0_jitter_pct") is not None]
+    shimmers = [v["shimmer_pct"] for v in vs if v.get("shimmer_pct") is not None]
+    hesitations = [
+        (v.get("alignment") or {}).get("pause_quality", {}).get("hesitation_count")
+        for v in vs if (v.get("alignment") or {}).get("pause_quality") is not None
+    ]
+    hesitations = [h for h in hesitations if h is not None]
+    long_pauses = [v.get("long_pause_count", 0) for v in vs]
+
+    # 떨림은 채점과 같은 이중 게이트(jitter·shimmer 동시) — 오판 억제 원칙 공유
+    tremor = bool(
+        jitters and shimmers
+        and _mean(jitters) > TREMOR_JITTER_FLOOR
+        and _mean(shimmers) > TREMOR_SHIMMER_FLOOR
+    )
+    broken = (
+        _mean(hesitations) >= _HESITATION_MEAN if hesitations
+        else (_mean(long_pauses) or 0.0) >= _LONG_PAUSE_MEAN
+    )
+    voice_shaky = tremor or broken
+
+    rows = [{"label": "모호어 밀도(말)", "value": f"100음절당 {hedge:.1f}회"}]
+    if jitters:
+        rows.append({"label": "목소리 떨림(jitter)", "value": f"{_mean(jitters):.1f}%"})
+    if hesitations:
+        rows.append({"label": "문장 중간 끊김", "value": f"평균 {_mean(hesitations):.1f}회"})
+    elif any(long_pauses):
+        rows.append({"label": "긴 침묵(1.2초+)", "value": f"평균 {_mean(long_pauses):.1f}회"})
+
+    if not text_hedgy and not voice_shaky:
+        level, comment = "언행일치", (
+            "말의 내용도 단정적이고 목소리도 안정적이었어요. 내용과 전달의 확신이 "
+            "같은 방향인 사람은 드물어요 — 이 일치감이 신뢰의 실체입니다."
+        )
+    elif not text_hedgy and voice_shaky:
+        level, comment = "전달 보강형", (
+            "문장은 단정적인데 목소리가 흔들렸어요. 내용이 아니라 전달이 확신을 "
+            "깎는 프로파일이에요 — 답변 첫 문장을 평소보다 한 톤 낮게, 천천히 "
+            "시작하면 목소리가 문장을 따라잡습니다."
+        )
+    elif text_hedgy and not voice_shaky:
+        level, comment = "표현 보강형", (
+            "목소리는 안정적인데 '좀·아마·~것 같아요'가 확신을 덜어냈어요. 전달력은 "
+            "이미 갖춰져 있어요 — 단어만 바꾸면 바로 좋아지는, 가장 고치기 쉬운 "
+            "프로파일입니다. 사실은 단정하고 불확실한 부분만 유보하세요."
+        )
+    else:
+        level, comment = "동반 긴장형", (
+            "말끝의 유보와 목소리의 동요가 같이 나타났어요. 긴장이 표현과 전달 "
+            "양쪽으로 새는 패턴이에요 — 답변 전에 숨을 한 번 내쉬고, 첫 문장을 "
+            "미리 정해두는 것부터 시작해보세요. 첫 문장이 안정되면 나머지는 따라옵니다."
+        )
+
+    return {
+        "title": "말-목소리 일치도", "level": level, "rows": rows[:4], "comment": comment,
+        "confidence": _confidence(min(len(ds), len(vs)), solid=3, fair=2),
     }
 
 
@@ -227,6 +351,14 @@ def build_deep_analysis(session: RoleplaySession, turn_results: list) -> dict:
         for entry in by_turn.values() if FitType.response in entry
     ]
 
+    # congruence — 텍스트(discourse) × 음성 실측의 세션 레벨 교차
+    voice_list = [
+        entry[FitType.voice].raw_metrics
+        for entry in by_turn.values() if FitType.voice in entry
+    ]
+    rates = [v["speech_rate_sps"] for v in voice_list if v.get("speech_rate_sps")]
+    avg_rate = _mean(rates)
+
     # composure — 압박/평상 턴의 (nonverbal, voice) 페어
     pressure_pairs: list[tuple[dict, dict]] = []
     normal_pairs: list[tuple[dict, dict]] = []
@@ -267,8 +399,10 @@ def build_deep_analysis(session: RoleplaySession, turn_results: list) -> dict:
         })
 
     deep: dict = {}
-    if (delivery := build_delivery(discourse_list)) is not None:
+    if (delivery := build_delivery(discourse_list, speech_rate_sps=avg_rate)) is not None:
         deep["delivery"] = delivery
+    if (congruence := build_congruence(discourse_list, voice_list)) is not None:
+        deep["congruence"] = congruence
     if (composure := build_composure(pressure_pairs, normal_pairs)) is not None:
         deep["composure"] = composure
     if (adaptation := build_adaptation(turn_scores)) is not None:
