@@ -13,6 +13,7 @@ import type { FitScore, Report } from '../../api/types';
 import Icon, { type IconName } from '../../components/Icon';
 import { useMirrorMode } from '../../lib/mirrorMode';
 import { useSessionStore } from '../../stores/sessionStore';
+import { kindLabel, sameMoment, selectHeroMoment } from './heroMoment';
 import MirrorReportView from './MirrorReportView';
 import RadarChart from './RadarChart';
 
@@ -285,6 +286,11 @@ export default function ReportPage() {
   }
 
   const delta = report.previous ? report.total_score - report.previous.total_score : null;
+  // 결정적 순간 히어로 — 하단 심층분석에 묻혀 있던 '그때 하던 말'을 리포트 상단으로.
+  const heroMoment = selectHeroMoment(report.deep_analysis?.moments);
+  const restMoments = (report.deep_analysis?.moments ?? []).filter(
+    (mo) => !heroMoment || !sameMoment(mo, heroMoment),
+  );
 
   return (
     <div className="page report">
@@ -347,6 +353,34 @@ export default function ReportPage() {
         </section>
       )}
 
+      {heroMoment && (
+        <section className="hero-moment">
+          <span className="hero-moment-eyebrow">
+            <Icon name="spark" size={14} /> 결정적 순간
+          </span>
+          <div className="hero-moment-signals">
+            {heroMoment.kinds.map((k) => (
+              <span key={k} className="hero-signal-chip">{kindLabel(k)}</span>
+            ))}
+            {heroMoment.composite && (
+              <span className="hero-signal-chip composite">동시 발생</span>
+            )}
+          </div>
+          {heroMoment.quote ? (
+            <blockquote className="hero-moment-quote">
+              <span className="hero-moment-quote-label">그때 하던 말</span>
+              “{heroMoment.quote}…”
+            </blockquote>
+          ) : (
+            <p className="hero-moment-desc">{heroMoment.description}</p>
+          )}
+          <p className="hero-moment-context">
+            {heroMoment.turn_order}번째 답변 · {heroMoment.at_sec}초
+            {heroMoment.pressure_context && ' · 압박 질문 직후'}
+          </p>
+        </section>
+      )}
+
       <section className="analysis-visuals">
         <div className="card radar-card">
           <h2>4-Fit 프로파일 {report.previous && <small className="legend">─ 이번 &nbsp; ┄ 직전</small>}</h2>
@@ -403,11 +437,13 @@ export default function ReportPage() {
               {' — '}{report.deep_analysis.growth.comment}
             </p>
           )}
-          {report.deep_analysis.moments && report.deep_analysis.moments.length > 0 && (
+          {restMoments.length > 0 && (
             <div className="deep-moments">
-              <strong className="deep-moments-title">결정적 순간</strong>
+              <strong className="deep-moments-title">
+                {heroMoment ? '그 밖의 순간' : '결정적 순간'}
+              </strong>
               <ul>
-                {report.deep_analysis.moments.map((mo) => (
+                {restMoments.map((mo) => (
                   <li key={`${mo.turn_order}-${mo.at_sec}`}>
                     <span className="deep-moment-when">
                       {mo.turn_order}번째 답변 · {mo.at_sec}초

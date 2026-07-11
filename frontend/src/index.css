@@ -946,6 +946,84 @@ h2 .icon {
   margin: 0;
 }
 
+/* 결정적 순간 히어로 — 하단 심층분석에 묻혀 있던 '그때 하던 말'을 상단으로 (재고 있는데 보이게) */
+.hero-moment {
+  background: linear-gradient(180deg, var(--accent-weak), var(--surface));
+  border: 1px solid var(--accent);
+  border-radius: var(--r-md);
+  padding: var(--s-6);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-3);
+}
+
+.hero-moment-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+
+.hero-moment-signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+.hero-signal-chip {
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+.hero-signal-chip.composite {
+  border-color: var(--accent);
+  background: var(--accent-weak);
+  color: var(--accent);
+}
+
+.hero-moment-quote {
+  margin: var(--s-1) 0 0;
+  padding-left: var(--s-4);
+  border-left: 3px solid var(--accent);
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.6;
+  color: var(--text);
+  text-wrap: balance;
+}
+
+.hero-moment-quote-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-3);
+  margin-bottom: 4px;
+}
+
+.hero-moment-desc {
+  margin: var(--s-1) 0 0;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.hero-moment-context {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-3);
+}
+
 .analysis-visuals {
   display: grid;
   grid-template-columns: 1fr 1.3fr;
@@ -2646,6 +2724,50 @@ h2 .icon {
   color: var(--text-2);
   max-width: 26ch;
   text-wrap: balance;
+}
+
+/* 결정적 순간 — 부스 대형화면의 '와' 지점 (score 다음 막) */
+.mirror-moment-signals {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--s-3);
+}
+
+.mirror-signal-chip {
+  font-size: var(--fs-caption);
+  padding: var(--s-2) var(--s-4);
+  border-radius: var(--r-full);
+  border: 1px solid var(--border-strong);
+  color: var(--text-2);
+}
+
+.mirror-signal-chip.composite {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.mirror-moment-quote {
+  margin: 0;
+  font-size: var(--fs-title);
+  font-weight: 700;
+  line-height: 1.45;
+  max-width: 20ch;
+  text-wrap: balance;
+}
+
+.mirror-moment-desc {
+  margin: 0;
+  font-size: var(--fs-subtitle);
+  line-height: 1.5;
+  max-width: 24ch;
+  text-wrap: balance;
+}
+
+.mirror-moment-context {
+  margin: 0;
+  font-size: var(--fs-caption);
+  color: var(--text-3);
 }
 
 .mirror-radar .radar-chart {

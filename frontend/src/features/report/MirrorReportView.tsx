@@ -10,6 +10,7 @@ import type { Report } from '../../api/types';
 import Avatar from '../../components/Avatar';
 import FrameGlow from '../../components/FrameGlow';
 import { speak, stopSpeaking } from '../../lib/tts';
+import { kindLabel, selectHeroMoment } from './heroMoment';
 import RadarChart from './RadarChart';
 
 interface Props {
@@ -30,12 +31,16 @@ export default function MirrorReportView({
   onRetry, retryCountdown, onFinish,
 }: Props) {
   const ending = report.day_ending;
+  // 결정적 순간 — 부스 대형화면의 '와' 지점. 강한 순간이 있을 때만 막을 추가한다.
+  const hero = useMemo(() => selectHeroMoment(report.deep_analysis?.moments), [report]);
   const acts = useMemo(() => {
     const list: string[] = [];
     if (ending?.text) list.push('ending');
-    list.push('score', 'fits', 'takeaway');
+    list.push('score');
+    if (hero) list.push('moment');
+    list.push('fits', 'takeaway');
     return list;
-  }, [ending]);
+  }, [ending, hero]);
   const [actIndex, setActIndex] = useState(0);
   const act = acts[actIndex];
   const [qrSvg, setQrSvg] = useState('');
@@ -59,8 +64,12 @@ export default function MirrorReportView({
     if (act === 'score' && report.headline && 'sentence' in report.headline) {
       speak(`오늘의 총점은 ${Math.round(report.total_score)}점. ${report.headline.sentence}`, { rate: 1.02 });
     }
+    if (act === 'moment' && hero) {
+      speak(`${hero.description}${hero.quote ? `. 그때 하던 말은, ${hero.quote}` : ''}`,
+        { rate: 1.0, pitch: 0.9 });
+    }
     return stopSpeaking;
-  }, [act, ending, report]);
+  }, [act, ending, report, hero]);
 
   function advance() {
     stopSpeaking();
@@ -105,6 +114,28 @@ export default function MirrorReportView({
           )}
           {headline && <p className="mirror-headline">“{headline.sentence}”</p>}
           <p className="mirror-tap-hint">탭하면 항목별로 볼 수 있어요</p>
+        </div>
+      )}
+
+      {act === 'moment' && hero && (
+        <div className="mirror-report-act">
+          <p className="mirror-ob-eyebrow">결정적 순간</p>
+          <div className="mirror-moment-signals">
+            {hero.kinds.map((k) => (
+              <span key={k} className="mirror-signal-chip">{kindLabel(k)}</span>
+            ))}
+            {hero.composite && <span className="mirror-signal-chip composite">동시 발생</span>}
+          </div>
+          {hero.quote ? (
+            <p className="mirror-moment-quote">“{hero.quote}…”</p>
+          ) : (
+            <p className="mirror-moment-desc">{hero.description}</p>
+          )}
+          <p className="mirror-moment-context">
+            {hero.turn_order}번째 답변 · {hero.at_sec}초
+            {hero.pressure_context && ' · 압박 질문 직후'}
+          </p>
+          <p className="mirror-tap-hint">탭하면 항목별 코칭으로 넘어가요</p>
         </div>
       )}
 
