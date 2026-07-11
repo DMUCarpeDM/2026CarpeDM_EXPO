@@ -6,15 +6,22 @@ import {
   adminMetrics,
   adminReset,
   adminToken,
+  getHealth,
   setAdminToken,
 } from '../../api/client';
 import type { AdminMetrics } from '../../api/types';
 import Icon from '../../components/Icon';
+import { isOfflineMode, setOfflineMode } from '../../lib/offlineMode';
+import { koreanVoiceStatus } from '../../lib/tts';
 
 export default function AdminPage() {
   const [metrics, setMetrics] = useState<AdminMetrics | null>(null);
   const [message, setMessage] = useState('');
   const [kiosk, setKiosk] = useState(localStorage.getItem('mirroting-kiosk') === '1');
+  const [offline, setOffline] = useState(isOfflineMode());
+  // 전시 준비 점검: 서버 STT 제공자(whisper/vosk/없음)와 TTS 음성 상태(로컬/네트워크/없음)
+  const [serverStt, setServerStt] = useState<string | null | undefined>(undefined);
+  const [voice, setVoice] = useState(koreanVoiceStatus());
   // 서버에 MIRROTING_ADMIN_TOKEN이 설정된 경우에만 401이 떨어지고 입력창이 열린다
   const [needToken, setNeedToken] = useState(false);
   const [token, setToken] = useState(adminToken());
@@ -38,6 +45,23 @@ export default function AdminPage() {
   }, [handleError]);
 
   useEffect(load, [load]);
+
+  // 오프라인 준비 상태 점검 — 서버 STT는 1회 조회, TTS 음성은 로드 완료 시 갱신
+  useEffect(() => {
+    getHealth().then((h) => setServerStt(h.server_stt)).catch(() => setServerStt(null));
+    const refresh = () => setVoice(koreanVoiceStatus());
+    refresh();
+    const timer = window.setTimeout(refresh, 500); // 음성 목록 지연 로드 대비
+    if (typeof speechSynthesis !== 'undefined') {
+      speechSynthesis.addEventListener('voiceschanged', refresh);
+    }
+    return () => {
+      window.clearTimeout(timer);
+      if (typeof speechSynthesis !== 'undefined') {
+        speechSynthesis.removeEventListener('voiceschanged', refresh);
+      }
+    };
+  }, []);
 
   async function reset() {
     try {
@@ -71,6 +95,17 @@ export default function AdminPage() {
     setMessage(next ? '전시 모드 ON — 리포트 90초 무조작 시 자동 초기화됩니다.' : '전시 모드 OFF');
   }
 
+  function toggleOffline() {
+    const next = !offline;
+    setOfflineMode(next);
+    setOffline(next);
+    setMessage(
+      next
+        ? '오프라인 모드 ON — 음성 인식을 서버(로컬)로 강제하고, TTS는 내장 음성만 사용합니다.'
+        : '오프라인 모드 OFF — 브라우저 음성 인식(Web Speech)을 우선 사용합니다.',
+    );
+  }
+
   return (
     <div className="page admin">
       <header className="admin-header">
@@ -78,6 +113,9 @@ export default function AdminPage() {
         <div className="admin-actions">
           <button className="ghost-btn" onClick={toggleKiosk}>
             <Icon name="monitor" size={15} /> 전시 모드 {kiosk ? 'ON' : 'OFF'}
+          </button>
+          <button className="ghost-btn" onClick={toggleOffline}>
+            <Icon name="mic" size={15} /> 오프라인 모드 {offline ? 'ON' : 'OFF'}
           </button>
           <button className="ghost-btn" onClick={exportCsv}>
             <Icon name="download" size={15} /> CSV 내보내기
@@ -88,6 +126,33 @@ export default function AdminPage() {
         </div>
       </header>
       {message && <div className="notice">{message}</div>}
+
+      {/* 오프라인 준비 점검 — 인터넷 없이 STT/TTS가 동작 가능한지 (전시 세팅용) */}
+      <div className={`offline-readiness ${offline ? 'active' : ''}`}>
+        <span className="offline-readiness-title">
+          <Icon name="activity" size={14} /> 오프라인 준비
+        </span>
+        <span className="offline-readiness-item">
+          음성 인식(STT):{' '}
+          {serverStt === undefined
+            ? '확인 중…'
+            : serverStt === 'whisper'
+              ? '✅ whisper (로컬)'
+              : serverStt === 'vosk'
+                ? '⚠️ vosk (로컬·품질 낮음)'
+                : '❌ 서버 인식 없음 — 브라우저 인터넷 필요'}
+        </span>
+        <span className="offline-readiness-item">
+          음성 합성(TTS):{' '}
+          {voice === 'pending'
+            ? '확인 중…'
+            : voice === 'local'
+              ? '✅ 내장 음성 (로컬)'
+              : voice === 'network'
+                ? '⚠️ 네트워크 음성 — 인터넷 필요'
+                : '❌ 한국어 음성 없음 — 시스템에 음성 설치 필요'}
+        </span>
+      </div>
 
       {needToken && (
         <form className="admin-token-form" onSubmit={saveToken}>

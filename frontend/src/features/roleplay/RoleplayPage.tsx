@@ -5,6 +5,7 @@ import type { Character, Turn, TurnSignals } from '../../api/types';
 import Avatar from '../../components/Avatar';
 import Icon from '../../components/Icon';
 import { useMirrorMode } from '../../lib/mirrorMode';
+import { isOfflineMode } from '../../lib/offlineMode';
 import { AudioTurnRecorder } from '../../lib/recorder';
 import { isSpeechRecognitionSupported, SpeechCapture } from '../../lib/stt';
 import { speak, stopSpeaking } from '../../lib/tts';
@@ -241,7 +242,10 @@ export default function RoleplayPage() {
     const video = videoRef.current;
     const stream = video?.srcObject as MediaStream | null;
     if (stream) recorderRef.current.start(stream);
-    const ok = captureRef.current.start(
+    // 오프라인 모드: Web Speech(Chrome→Google, 인터넷 필요)를 아예 건너뛰고
+    // 녹음→서버 whisper(완전 로컬)로만 인식한다. 짧은 회로로 start()를 호출하지 않는다.
+    const forceOffline = isOfflineMode();
+    const ok = !forceOffline && captureRef.current.start(
       (finalText, interimText) => {
         setDraft(finalText);
         setInterim(interimText);
@@ -259,9 +263,17 @@ export default function RoleplayPage() {
       setRecordingState(true);
       sttUsedRef.current = true;
     } else if (serverStt && stream) {
-      // 브라우저 STT 불가(오프라인 등) → 녹음만 하고 서버가 텍스트로 변환
+      // 브라우저 STT를 건너뛰었거나(오프라인 모드) 미지원 → 녹음만 하고 서버가 텍스트로 변환
       setRecordingState(true);
-      setNotice('오프라인 인식 모드 — 말한 뒤 정지 버튼을 누르고 전달하면 서버가 텍스트로 변환합니다.');
+      setNotice(
+        forceOffline
+          ? '오프라인 인식 모드 — 말한 뒤 정지하고 전달하면 로컬 음성 인식으로 변환합니다.'
+          : '오프라인 인식 모드 — 말한 뒤 정지 버튼을 누르고 전달하면 서버가 텍스트로 변환합니다.',
+      );
+    } else if (forceOffline) {
+      // 오프라인 모드인데 서버 STT가 준비 안 됨 — 운영자에게 설정 문제로 알린다
+      setRecordingState(false);
+      setNotice('오프라인 모드인데 서버 음성 인식이 준비되지 않았어요. 운영자에게 알려주세요. (whisper 미설치)');
     } else {
       setNotice(
         mirror
