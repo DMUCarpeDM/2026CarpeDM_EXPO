@@ -101,6 +101,11 @@ export interface NonverbalMetrics {
   nod_count: number; // 듣는 동안 끄덕임 근사 횟수 (진폭 게이트, 긍정 신호 전용)
   listen_sec: number; // 듣기 페이즈 누적 초 — 경청 판정의 표본 게이트
   listen_lean_pct: number | null; // 기준 어깨폭 대비 듣기 중 전진(+)/후퇴(-) %
+  // ---- 상체 자세 확장 ④: 세움/구부정·움츠림·정면성·만지작 (관찰 지표) ----
+  torso_lean_deg: number | null; // 상체 앞뒤 기울기(기준 대비, 도) — 음수=앞으로 굽음/양수=젖힘, 하체 가림 시 null
+  torso_yaw_deg: number | null; // 몸통 요(기준 대비, 도) — 클수록 상대에게 몸을 틈(정면성 저하), 월드 미가동 시 null
+  shoulder_raise_pct: number | null; // 귀-어깨 간격 축소율 % — +면 어깨 올라감(긴장), 기준 없으면 null
+  fidget_ratio: number | null; // 손목 자잘한 반복 움직임 비율 — 만지작(불안), 제스처 표본 부족 시 null
   sample_ms: number; // 측정 샘플링 주기 ms — 기본 200, 운영자 튜닝 가능 (§2.5)
   answer_offset_sec: number | null; // 턴 시작→답변 녹음 시작 초 (교차 분석 시계 정합)
   calibrated: boolean; // 정면 기준 캘리브레이션 적용 여부

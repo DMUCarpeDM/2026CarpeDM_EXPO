@@ -39,6 +39,10 @@ export const EYE_Y_RESCUE = 0.05; // 홍채가 이 안(중앙)이면 blendshape�
 // 어깨너비의 4% 이상일 때만 — 추적 지터를 끄덕임으로 오인하지 않는 보수 게이트
 export const NOD_MIN_SWING = 0.04;
 export const NOD_JITTER_EPS = 0.005; // 이보다 작은 표본 간 변화는 무시
+// 손 만지작(fidget, ④): 손목 월드 변위(m/샘플)가 이 밴드 안이면 '자잘한 반복 움직임'
+// = 불안 신호. 위(FIDGET_MAX=제스처 활동 임계와 동일)는 설명 제스처, 아래는 정지로 본다.
+export const FIDGET_MIN = 0.004; // ~0.02 m/s (샘플 200ms 기준) — 추적 지터 배제 하한
+export const FIDGET_MAX = 0.02; // ~0.1 m/s — gestureActive 임계와 경계 공유(서로 배타)
 // 교차 분석 타임라인 빈
 export const TIMELINE_BIN_MS = 2000;
 export const TIMELINE_MAX_BINS = 120; // 4분 상한 — 페이로드 폭주 방지
@@ -116,6 +120,11 @@ export interface Accumulator {
   hipXs: number[]; // 골반 중심 x(어깨너비 정규화) 시계열 — 체중 이동 습관
   lowerVisFrames: number; // 무릎이 보인 프레임 (서 있는 미러 vs 책상 웹 구분)
   guardFrames: number; // 다인 가드로 자세 집계를 건너뛴 프레임
+  // ---- 상체 자세 확장 (④): 세움/구부정·움츠림·정면성·만지작 (관찰 지표) ----
+  torsoLeanRaw: number[]; // 상체 앞뒤 기울기(도) 원시 시계열 — 기준은 finalize에서 차감
+  torsoYawRaw: number[]; // 몸통 요(도) 원시 시계열 — 정면성
+  shoulderGapRaw: number[]; // 귀-어깨 간격(2D, 어깨너비 정규화) 원시 시계열 — 움츠림
+  fidgetSamples: number; // 손목 변위가 만지작 밴드(FIDGET_MIN~MAX)에 든 표본 수
   // ---- 경청 자세 (듣기 페이즈 — 긍정 관찰 전용) ----
   nodReversals: number; // 듣기 중 고개 상하 방향 반전(진폭 게이트 통과) — 끄덕임 근사
   nodPrevGap: number | null; // 직전 headGap 표본
@@ -173,6 +182,10 @@ export const emptyAcc = (): Accumulator => ({
   hipXs: [],
   lowerVisFrames: 0,
   guardFrames: 0,
+  torsoLeanRaw: [],
+  torsoYawRaw: [],
+  shoulderGapRaw: [],
+  fidgetSamples: 0,
   nodReversals: 0,
   nodPrevGap: null,
   nodDir: 0,
@@ -193,11 +206,14 @@ export interface Baseline {
   eyeY: number | null; // 정면 응시 때의 홍채 수직 위치 (개인별 눈꺼풀 형태 보정)
   blinkPerMin: number | null; // 안정 상태(브리핑) 깜빡임 기저선 — 급증 판정의 개인 기준
   width: number | null; // 평상시 어깨폭 — 듣기 리닝(전진/후퇴)의 기준 거리
+  torsoLean: number; // 평상시 상체 앞뒤 기울기(도) — 세움/구부정의 개인 기준
+  torsoYaw: number; // 평상시 몸통 요(도) — 정면성의 개인 기준(카메라 설치각 보정)
+  shoulderGap: number | null; // 평상시 귀-어깨 간격 — 움츠림 판정의 개인 기준
 }
 
 export const emptyBaseline = (): Baseline => ({
   set: false, asym: 0, tilt: 0, headGap: null, roll: 0, eyeX: null, eyeY: null,
-  blinkPerMin: null, width: null,
+  blinkPerMin: null, width: null, torsoLean: 0, torsoYaw: 0, shoulderGap: null,
 });
 
 export interface CalibrationSamples {
@@ -208,6 +224,9 @@ export interface CalibrationSamples {
   eyeX: number[];
   eyeY: number[];
   width: number[];
+  torsoLean: number[];
+  torsoYaw: number[];
+  shoulderGap: number[];
   blinks: number;
   blinkFrames: number;
   blinkOn: boolean;
@@ -215,6 +234,7 @@ export interface CalibrationSamples {
 
 export const emptyCalibration = (): CalibrationSamples => ({
   asym: [], tilt: [], headGap: [], roll: [], eyeX: [], eyeY: [], width: [],
+  torsoLean: [], torsoYaw: [], shoulderGap: [],
   blinks: 0, blinkFrames: 0, blinkOn: false,
 });
 
@@ -237,6 +257,11 @@ export function finalizeCalibration(cal: CalibrationSamples): Baseline {
     // 평상시 어깨폭 — 듣기 리닝(전진/후퇴)의 기준. 미러 앞 위치가 고정된 전시
     // 환경 전제이며, 걸어서 이동하면 리닝으로 오인될 수 있다(실기기 검증 항목)
     width: cal.width.length >= 4 ? median(cal.width) : null,
+    // 상체 자세 기준(④): 평상시 앞뒤 기울기·요·귀어깨 간격. 표본 4개 미만이면
+    // 절대 폴백(0/null)으로 두어 오판을 만들지 않는다.
+    torsoLean: cal.torsoLean.length >= 4 ? median(cal.torsoLean) : 0,
+    torsoYaw: cal.torsoYaw.length >= 4 ? median(cal.torsoYaw) : 0,
+    shoulderGap: cal.shoulderGap.length >= 4 ? median(cal.shoulderGap) : null,
   };
 }
 
@@ -356,6 +381,34 @@ export function updateNod(acc: Accumulator, headGap: number): void {
     }
   }
   acc.nodPrevGap = headGap;
+}
+
+// ---------------------------------------------------------------------------
+// 상체 자세 확장 (④ 구체화) — 세움/구부정·움츠림·정면성 기하 (전부 순수·테스트 가능)
+// ---------------------------------------------------------------------------
+
+/** 상체 앞뒤 기울기(도): 골반→어깨 벡터가 수직에서 벗어난 시상면(옆) 각도.
+ * 월드 좌표(골반 원점, m). vert는 절댓값만 쓰므로 y 부호에 무관하고, 앞뒤는 z로만
+ * 갈린다. MediaPipe 월드 z는 카메라에 가까울수록 작으므로 어깨가 골반보다 앞
+ * (구부정·기댐)이면 depth<0 → 음수, 뒤로 젖히면 양수. 부호 최종 확인은 실기기 보정 항목.
+ * 캘리브레이션 기준을 빼 상대 판정하므로 카메라 설치 각도에는 강건하다. */
+export function torsoLeanDeg(sy: number, sz: number, hy: number, hz: number): number {
+  const vert = Math.abs(hy - sy) + 1e-6; // 어깨-골반 수직 거리 (부호 무관)
+  const depth = sz - hz; // 어깨가 골반보다 앞(카메라 쪽)이면 음수
+  return (Math.atan2(depth, vert) * 180) / Math.PI;
+}
+
+/** 몸통 정면성(요, 도): 어깨선이 카메라 정면(x축)에서 벗어난 각도. 0=정면(양 어깨 등거리),
+ * 90°에 가까울수록 몸을 옆으로 튼 것. 월드 x·z. 상대 판정을 위해 기준 요를 뺀다. */
+export function torsoYawDeg(xl: number, zl: number, xr: number, zr: number): number {
+  return (Math.atan2(Math.abs(zl - zr), Math.abs(xl - xr) + 1e-6) * 180) / Math.PI;
+}
+
+/** 어깨 움츠림 비율(%): 귀-어깨 수직 간격이 기준 대비 줄어든 정도. 양수면 어깨가
+ * 위로 올라감(긴장). baseGap은 브리핑 평상 자세의 간격(2D, 어깨너비 정규화). */
+export function shoulderRaisePct(gap: number, baseGap: number): number {
+  if (baseGap <= 1e-6) return 0;
+  return Math.round(((baseGap - gap) / baseGap) * 100);
 }
 
 // ---------------------------------------------------------------------------
@@ -549,6 +602,27 @@ export function finalizeTurnMetrics(acc: Accumulator, base: Baseline): Nonverbal
       if (base.width === null || acc.listenWidths.length < framesFor(2000)) return null;
       return Math.round((mean(acc.listenWidths) / base.width - 1) * 100);
     })(),
+    // ---- 상체 자세 확장 (④): 세움/구부정·움츠림·정면성·만지작 — 관찰 지표 ----
+    // 세움/구부정: 답변 중 평균 상체 앞뒤 기울기, 기준(평상 자세) 차감. 골반이 3초
+    // 이상 보인 턴만(하체 가림·데스크 모드는 보류=null). 음수=앞으로 굽음, 양수=젖힘
+    torso_lean_deg: acc.torsoLeanRaw.length >= framesFor(3000)
+      ? Math.round((mean(acc.torsoLeanRaw) - (base.set ? base.torsoLean : 0)) * 10) / 10
+      : null,
+    // 정면성: 평균 몸통 요(도)에서 기준 요 차감 — 값이 클수록 몸을 옆으로 틀었다.
+    // 월드 좌표가 3초 이상 잡힌 턴만
+    torso_yaw_deg: acc.torsoYawRaw.length >= framesFor(3000)
+      ? Math.round((mean(acc.torsoYawRaw) - (base.set ? base.torsoYaw : 0)) * 10) / 10
+      : null,
+    // 어깨 움츠림(%): 귀-어깨 간격이 기준 대비 줄어든 정도. +면 어깨가 올라감(긴장).
+    // 기준(shoulderGap)이 없거나 표본 2초 미만이면 보류
+    shoulder_raise_pct: base.shoulderGap !== null && acc.shoulderGapRaw.length >= framesFor(2000)
+      ? shoulderRaisePct(mean(acc.shoulderGapRaw), base.shoulderGap)
+      : null,
+    // 손 만지작: 손목 변위가 만지작 밴드에 든 표본 비율 — 큰 설명 제스처(gesture_active)와
+    // 배타적. 제스처 표본 5초 미만이면 보류
+    fidget_ratio: acc.gestureSamples >= framesFor(5000)
+      ? Math.round((acc.fidgetSamples / acc.gestureSamples) * 100) / 100
+      : null,
     // 측정 샘플링 주기 — 서버가 프레임 수를 시간으로 해석할 때의 기준 (운영 튜닝 가능)
     sample_ms: SAMPLE_MS,
     // 시계축 정합: 턴 시작(질문 TTS)→답변 녹음 시작까지 초. moments가 비언어

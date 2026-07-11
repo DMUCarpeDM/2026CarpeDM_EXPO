@@ -141,6 +141,11 @@ class NonverbalIn(BaseModel):
     nod_count: int = 0  # 듣는 동안 끄덕임 근사 (진폭 게이트, 긍정 신호 전용)
     listen_sec: float = 0.0  # 듣기 페이즈 누적 초 (경청 판정 표본 게이트)
     listen_lean_pct: float | None = None  # 기준 어깨폭 대비 듣기 리닝 % (+전진/-후퇴)
+    # ---- 상체 자세 확장 ④: 세움/구부정·움츠림·정면성·만지작 (관찰 지표 — 감점 없음) ----
+    torso_lean_deg: float | None = None  # 상체 앞뒤 기울기(기준 대비, 도) — 음수=앞굽음/양수=젖힘
+    torso_yaw_deg: float | None = None  # 몸통 요(기준 대비, 도) — 클수록 정면성 저하(몸을 틈)
+    shoulder_raise_pct: float | None = None  # 귀-어깨 간격 축소율 % — +면 어깨 올라감(긴장)
+    fidget_ratio: float | None = None  # 손목 자잘한 반복 움직임 비율 — 만지작(불안)
     sample_ms: int = 200  # 측정 샘플링 주기 — 프레임 수를 시간으로 해석할 때의 기준
     answer_offset_sec: float | None = None  # 턴 시작→답변 녹음 시작 초 (moments 시계 정합)
     calibrated: bool = False  # 정면 기준 캘리브레이션 적용 여부

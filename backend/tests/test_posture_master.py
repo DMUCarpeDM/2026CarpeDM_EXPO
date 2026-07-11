@@ -144,3 +144,85 @@ def test_posture_v2_penalizes_collapse_not_improvement():
     improved = score_posture({**base, "tilt_drift_deg": -5.0})
     assert collapsed < v1  # 좋게 시작해 무너지는 자세는 평균만으로는 안 보인다
     assert improved >= v1  # 후반에 좋아진 자세(음수 드리프트)는 감점하지 않는다
+
+
+# ---- 상체 자세 확장 ④: 세움/구부정 (앞뒤 축 — 지금까지 없던 구멍) ----
+
+def test_torso_slouch_observed():
+    # 기준 대비 앞으로 굽음(음수) → 구부정 카드
+    segs = _habit_segments(_session(_turn(torso_lean_deg=-14)))
+    assert any("구부정" in g["observed"] for g in segs)
+
+
+def test_torso_lean_back_observed():
+    segs = _habit_segments(_session(_turn(torso_lean_deg=13)))
+    assert any("젖혀져" in g["observed"] for g in segs)
+
+
+def test_torso_lean_moderate_silent():
+    # 중간 지대(±10° 미만)는 지적하지 않는다 — 보수 관찰
+    assert _habit_segments(_session(_turn(torso_lean_deg=-4))) == []
+
+
+def test_torso_lean_withheld_on_old_payload():
+    # 구 페이로드(필드 없음) → 카드 없음 (하위 호환)
+    assert _habit_segments(_session(_turn())) == []
+
+
+# ---- 정면성 (얼굴은 정면, 몸통은 옆 = 방어적) ----
+
+def test_torso_yaw_observed_when_facing():
+    segs = _habit_segments(_session(_turn(torso_yaw_deg=15, front_gaze_ratio=0.8)))
+    assert any("틀어져" in g["observed"] for g in segs)
+
+
+def test_torso_yaw_withheld_when_gaze_off():
+    # 시선도 이탈(front 0.3)이면 자세가 아니라 시선 문제 — 몸통 카드는 침묵(Eye-Fit 담당)
+    assert _habit_segments(_session(_turn(torso_yaw_deg=15, front_gaze_ratio=0.3))) == []
+
+
+# ---- 어깨 움츠림 (긴장 반응) ----
+
+def test_shoulder_raise_observed():
+    segs = _habit_segments(_session(_turn(shoulder_raise_pct=18)))
+    assert any("어깨가 평소보다" in g["observed"] for g in segs)
+
+
+def test_shoulder_raise_moderate_silent():
+    assert _habit_segments(_session(_turn(shoulder_raise_pct=5))) == []
+
+
+def test_composure_detects_shoulder_shrug():
+    def pair(raise_pct):
+        return ({"front_gaze_ratio": 0.9, "shoulder_raise_pct": raise_pct}, {})
+    c = build_composure([pair(15)], [pair(2), pair(1)])
+    assert "어깨 움츠림" in " ".join(r["label"] for r in c["rows"])
+
+
+def test_composure_skips_shoulder_on_old_payload():
+    old = ({"front_gaze_ratio": 0.9}, {})
+    c = build_composure([old], [old])
+    assert all("어깨 움츠림" not in r["label"] for r in c["rows"])
+
+
+# ---- 손 만지작 (자잘한 반복 = 불안, 큰 설명 제스처와 구분) ----
+
+def test_fidget_observed():
+    segs = _habit_segments(_session(_turn(
+        fidget_ratio=0.5, gesture_active_ratio=0.2, hands_visible_ratio=0.8,
+    )))
+    assert any("만지작" in g["observed"] for g in segs)
+
+
+def test_fidget_withheld_when_big_gestures():
+    # 큰 제스처가 지배적(active 0.7)이면 만지작이 아니라 설명 — 침묵
+    assert _habit_segments(_session(_turn(
+        fidget_ratio=0.5, gesture_active_ratio=0.7, hands_visible_ratio=0.8,
+    ))) == []
+
+
+def test_fidget_withheld_when_hands_unseen():
+    # 손이 화면에 거의 없으면 판정 불가 — 보류
+    assert _habit_segments(_session(_turn(
+        fidget_ratio=0.5, gesture_active_ratio=0.2, hands_visible_ratio=0.2,
+    ))) == []

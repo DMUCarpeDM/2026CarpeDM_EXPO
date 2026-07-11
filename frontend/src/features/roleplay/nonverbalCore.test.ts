@@ -18,7 +18,10 @@ import {
   median,
   resolveGaze,
   resolveHeadDown,
+  shoulderRaisePct,
   stdDev,
+  torsoLeanDeg,
+  torsoYawDeg,
   trackerJumped,
   updateNod,
   verticalIrisRatio,
@@ -234,6 +237,53 @@ describe('finalizeTurnMetrics — 턴 직렬화', () => {
     noAnswer.frames = 20;
     noAnswer.turnStartedAt = 1_000_000;
     assert.equal(finalizeTurnMetrics(noAnswer, emptyBaseline())!.answer_offset_sec, null);
+  });
+});
+
+describe('상체 자세 확장 ④ — 기하 헬퍼', () => {
+  it('torsoLeanDeg — 앞으로 굽으면 음수·뒤로 젖히면 양수 (월드 z 앞=작음)', () => {
+    assert.ok(torsoLeanDeg(0, 0, 1, 1) < 0); // 어깨 z(0) < 골반 z(1) = 앞
+    assert.ok(torsoLeanDeg(0, 1, 1, 0) > 0); // 어깨 z(1) > 골반 z(0) = 뒤
+    assert.ok(Math.abs(torsoLeanDeg(0, 0.5, 1, 0.5)) < 1e-6); // 수직 정렬 = 0
+  });
+  it('torsoYawDeg — 양 어깨 등거리면 0, 한쪽이 깊으면 90°에 접근', () => {
+    assert.ok(Math.abs(torsoYawDeg(-1, 0, 1, 0)) < 1e-6); // 카메라 정면
+    assert.ok(torsoYawDeg(0, 0, 0, 1) > 80); // 몸을 완전히 옆으로 틈
+  });
+  it('shoulderRaisePct — 간격이 줄면 양수(어깨 올라감), 기준 0이면 방어적 0', () => {
+    assert.equal(shoulderRaisePct(0.8, 1.0), 20); // 20% 축소 = 어깨 올라감
+    assert.equal(shoulderRaisePct(1.0, 1.0), 0);
+    assert.equal(shoulderRaisePct(0.5, 0), 0); // 기준 없음(0) 방어
+  });
+});
+
+describe('finalizeTurnMetrics — 상체 자세 확장 ④ 게이트', () => {
+  it('표본·기준이 충분하면 기준 차감해 내보낸다', () => {
+    const acc = emptyAcc();
+    acc.frames = 20;
+    acc.torsoLeanRaw = Array(15).fill(-12); // 3초(15프레임) 충족
+    acc.torsoYawRaw = Array(15).fill(14);
+    acc.shoulderGapRaw = Array(10).fill(0.9); // 2초(10) 충족
+    acc.gestureSamples = 30; // 5초(25) 충족
+    acc.fidgetSamples = 12;
+    const base = { ...emptyBaseline(), set: true, torsoLean: -2, torsoYaw: 4, shoulderGap: 1.0 };
+    const m = finalizeTurnMetrics(acc, base)!;
+    assert.equal(m.torso_lean_deg, -10); // -12 - (-2)
+    assert.equal(m.torso_yaw_deg, 10); // 14 - 4
+    assert.equal(m.shoulder_raise_pct, 10); // (1.0-0.9)/1.0
+    assert.equal(m.fidget_ratio, 0.4); // 12/30
+  });
+
+  it('표본 부족·기준 없음이면 null 보류', () => {
+    const acc = emptyAcc();
+    acc.frames = 20;
+    acc.torsoLeanRaw = Array(8).fill(-12); // 3초 미만
+    acc.shoulderGapRaw = Array(10).fill(0.9);
+    acc.gestureSamples = 10; // 5초 미만
+    const m = finalizeTurnMetrics(acc, emptyBaseline())!; // shoulderGap 기준 null
+    assert.equal(m.torso_lean_deg, null);
+    assert.equal(m.shoulder_raise_pct, null); // 기준 없음
+    assert.equal(m.fidget_ratio, null);
   });
 });
 

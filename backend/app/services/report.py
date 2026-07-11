@@ -668,6 +668,73 @@ def _habit_segments(session: RoleplaySession) -> list[dict]:
             "양발을 어깨너비로 두고 체중을 고르게 실어보세요. 하체가 고정되면 목소리도 안정돼요.",
         ))
 
+    # ---- 상체 자세 확장 ④: 세움/구부정·정면성·움츠림·만지작 (관찰 전용, 실기기 보정 임계) ----
+    # 세움/구부정: 답변 중 상체가 기준(평상)보다 앞으로 굽거나 뒤로 젖혀짐. 하체·골반이
+    # 안 보이는 턴은 프론트가 null 보류. 부호 규약(월드 z 앞=음수)은 실기기 보정에서 최종 확인.
+    torso_leans = [
+        v for t in turns
+        if (v := t.nonverbal_metrics.get("torso_lean_deg")) is not None
+    ]
+    if torso_leans:
+        tl = sum(torso_leans) / len(torso_leans)
+        if tl <= -10:
+            segs.append(seg(
+                "답변하는 동안 상체가 평소보다 앞으로 굽어 있었어요(구부정).",
+                "상체가 무너지면 목소리가 함께 눌리고, 자신 없어 보이는 인상이 굳어져요.",
+                "답변 시작 전 1초: 정수리를 위로 당긴다는 느낌으로 등을 세우고 첫 문장을 시작해보세요.",
+            ))
+        elif tl >= 10:
+            segs.append(seg(
+                "답변하는 동안 상체가 뒤로 젖혀져 있었어요.",
+                "뒤로 기댄 자세는 편해 보여도 상대에겐 무성의하거나 거리를 두는 태도로 읽힐 수 있어요.",
+                "골반을 의자 깊숙이 넣고 상체를 살짝 앞으로 세우면 '집중하고 있다'는 신호가 됩니다.",
+            ))
+
+    # 정면성: 얼굴은 정면인데 몸통이 옆으로 틀어짐 = 방어적. 정면 응시가 유지된 턴에서만
+    # 말한다 — 몸도 얼굴도 옆이면 그건 시선 이탈이라 Eye-Fit이 이미 잡는다.
+    facing = [
+        v for t in turns
+        if (v := t.nonverbal_metrics.get("torso_yaw_deg")) is not None
+        and t.nonverbal_metrics.get("front_gaze_ratio", 0) >= 0.6
+    ]
+    if facing and sum(facing) / len(facing) >= 12:
+        segs.append(seg(
+            "시선은 정면이었지만 상체는 한쪽으로 틀어져 있었어요.",
+            "몸통이 상대를 정면으로 마주하지 않으면, 눈은 맞춰도 마음은 열지 않은 인상을 줄 수 있어요.",
+            "어깨선을 상대(카메라)와 나란히 맞춰보세요. 몸이 정면을 향하면 같은 말도 더 확신 있게 전달돼요.",
+        ))
+
+    # 어깨 움츠림: 귀-어깨 간격이 기준 대비 줄어듦 = 어깨가 올라붙는 긴장 반응
+    raises = [
+        v for t in turns
+        if (v := t.nonverbal_metrics.get("shoulder_raise_pct")) is not None
+    ]
+    if raises and sum(raises) / len(raises) >= 12:
+        segs.append(seg(
+            f"답변 중 어깨가 평소보다 약 {round(sum(raises) / len(raises))}% 위로 올라가 있었어요.",
+            "긴장하면 어깨가 귀 쪽으로 올라붙어요 — 목소리가 눌리고 경직된 인상으로 이어질 수 있어요.",
+            "답하기 전에 숨을 한 번 내쉬며 어깨를 툭 내려놓고 시작해보세요. 그것만으로 목소리가 트여요.",
+        ))
+
+    # 손 만지작: 큰 설명 제스처가 아닌 자잘한 반복 손 움직임(불안). 손 가시 게이트 +
+    # 큰 제스처가 지배적이지 않을 때만 말한다(설명 제스처와 구분).
+    fidgets = [
+        v for t in turns
+        if (v := t.nonverbal_metrics.get("fidget_ratio")) is not None
+    ]
+    actives = [
+        v for t in turns
+        if (v := t.nonverbal_metrics.get("gesture_active_ratio")) is not None
+    ]
+    if (fidgets and hands_vis and sum(hands_vis) / len(hands_vis) >= 0.5
+            and sum(fidgets) / len(fidgets) >= 0.35
+            and (not actives or sum(actives) / len(actives) <= 0.4)):
+        segs.append(seg(
+            "손이 큰 동작 없이 자잘하게 계속 움직였어요(만지작).",
+            "작고 반복적인 손 움직임은 불안·초조의 신호로 읽히기 쉬워요 — 말의 신뢰도를 갉아먹어요.",
+            "손을 가볍게 맞잡거나 책상에 얹어 '정지점'을 하나 만들어보세요. 손이 멈추면 말이 또렷해져요.",
+        ))
+
     # ---- 경청 자세 (듣기 페이즈) ----
     # 듣기 리닝: 후퇴(-8% 이하)는 거리두기로 읽힐 수 있는 행동 교정 관찰,
     # 전진(+8% 이상)은 경청 신호 칭찬. 기준 어깨폭이 없으면(null) 판정 보류.

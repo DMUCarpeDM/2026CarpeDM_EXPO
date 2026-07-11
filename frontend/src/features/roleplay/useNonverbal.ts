@@ -22,6 +22,8 @@ import {
   emptyAcc,
   emptyBaseline,
   emptyCalibration,
+  FIDGET_MAX,
+  FIDGET_MIN,
   finalizeCalibration,
   finalizeTurnMetrics,
   framesFor,
@@ -31,6 +33,8 @@ import {
   SAMPLE_MS,
   TIMELINE_BIN_MS,
   TIMELINE_MAX_BINS,
+  torsoLeanDeg,
+  torsoYawDeg,
   trackerJumped,
   updateNod,
   verticalIrisRatio,
@@ -313,6 +317,10 @@ export function useNonverbal(
             let lowerVisible = false;
             let hipX: number | null = null;
             let personUnstable = false;
+            // 상체 자세 확장 (④): 원시값 — 기준 차감은 finalize에서 (null=측정 보류)
+            let torsoLean: number | null = null; // 앞뒤 기울기(도) — 세움/구부정
+            let torsoYaw: number | null = null; // 몸통 요(도) — 정면성
+            let shoulderGap: number | null = null; // 귀-어깨 간격(2D) — 움츠림
             const wlm = poseResult.worldLandmarks?.[0];
             // 가시성 신뢰 게이트: 미러 환경에서 하반신·가려진 관절의 추정 잡음 차단
             const vis = (p?: { visibility?: number }) => !!p && (p.visibility ?? 1) > 0.5;
@@ -378,7 +386,8 @@ export function useNonverbal(
                       if (d < 0.5) { // 0.5m/샘플(2.5m/s) 초과 변위는 추적 글리치 → 폐기
                         acc.gestureDistSum += d;
                         acc.gestureSamples += 1;
-                        if (d > 0.02) acc.gestureActive += 1; // 0.1 m/s 초과 = 활동
+                        if (d > FIDGET_MAX) acc.gestureActive += 1; // 0.1 m/s 초과 = 활동
+                        else if (d > FIDGET_MIN) acc.fidgetSamples += 1; // 자잘한 반복 = 만지작
                       }
                     }
                     prevWrists[side] = [w.x, w.y, w.z];
@@ -394,6 +403,27 @@ export function useNonverbal(
                   hipX = ((lh.x + rh.x) / 2) / width;
                 }
                 lowerVisible = vis(plm[25]) && vis(plm[26]); // 무릎 — 서 있는 미러 감지
+
+                // ---- 상체 자세 확장 (④): 정면성·세움/구부정·움츠림 ----
+                // C. 정면성 — 어깨선 요(월드 x·z). 월드 어깨가 잡힌 프레임만
+                if (worldUsed && wls && wrs) {
+                  torsoYaw = torsoYawDeg(wls.x, wls.z, wrs.x, wrs.z);
+                  // A. 세움/구부정 — 골반→어깨 시상면 기울기(월드). 골반 가시 게이트
+                  const wlh = wlm?.[23];
+                  const wrh = wlm?.[24];
+                  if (wlh && wrh && vis(wlh) && vis(wrh)) {
+                    torsoLean = torsoLeanDeg(
+                      (wls.y + wrs.y) / 2, (wls.z + wrs.z) / 2,
+                      (wlh.y + wrh.y) / 2, (wlh.z + wrh.z) / 2,
+                    );
+                  }
+                }
+                // B. 움츠림 — 귀-어깨 수직 간격(2D, 어깨너비 정규화, 귀가 어깨 위=양수)
+                const earL = plm[7];
+                const earR = plm[8];
+                if (vis(earL) && vis(earR)) {
+                  shoulderGap = ((ls.y + rs.y) / 2 - (earL.y + earR.y) / 2) / width;
+                }
               }
             }
 
@@ -407,6 +437,10 @@ export function useNonverbal(
               if (eyeInHeadX !== null) cal.eyeX.push(eyeInHeadX);
               if (eyeInHeadY !== null) cal.eyeY.push(eyeInHeadY);
               if (shoulderWidth !== null) cal.width.push(shoulderWidth);
+              // 상체 자세 기준(④): 평상 자세의 앞뒤 기울기·요·귀어깨 간격
+              if (torsoLean !== null) cal.torsoLean.push(torsoLean);
+              if (torsoYaw !== null) cal.torsoYaw.push(torsoYaw);
+              if (shoulderGap !== null) cal.shoulderGap.push(shoulderGap);
               // 깜빡임 기저선(동역학): 얼굴이 추적된 프레임에서만 세어 비율 왜곡 방지
               if (lm) {
                 cal.blinkFrames += 1;
@@ -505,6 +539,10 @@ export function useNonverbal(
               if (handSeen) acc.handSeenFrames += 1;
               if (lowerVisible) acc.lowerVisFrames += 1;
               if (hipX !== null) acc.hipXs.push(hipX);
+              // 상체 자세 확장 (④): 원시 시계열 — 기준 차감·게이트는 finalize에서
+              if (torsoLean !== null) acc.torsoLeanRaw.push(torsoLean);
+              if (torsoYaw !== null) acc.torsoYawRaw.push(torsoYaw);
+              if (shoulderGap !== null) acc.shoulderGapRaw.push(shoulderGap);
               acc.lastFront = front;
               if (blink && !acc.blinkActive) acc.blinkCount += 1;
               acc.blinkActive = blink;

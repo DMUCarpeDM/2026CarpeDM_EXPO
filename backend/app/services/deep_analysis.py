@@ -96,6 +96,9 @@ _COMPOSURE_PROBES = [
     ("정면 응시", -0.10, lambda nv, vm: nv.get("front_gaze_ratio")),
     ("깜빡임", +8.0, lambda nv, vm: nv.get("blink_per_min")),
     ("긴장 표정(입술 압축)", +0.15, lambda nv, vm: nv.get("mouth_press_ratio")),
+    # 어깨 움츠림(④): 압박에서 귀-어깨 간격이 8%p 이상 더 줄면 '어깨가 올라붙는' 긴장
+    # 반응. 기준 어깨 간격 없는 페이로드는 shoulder_raise_pct=None → 자동 제외.
+    ("어깨 움츠림", +8.0, lambda nv, vm: nv.get("shoulder_raise_pct")),
     # 표정 복구(마스터리 ⑤): 긴장 표정이 풀리기까지의 평균 초 — 압박에서 0.8초 이상
     # 길어지면 '표정이 오래 굳는' 반응. 구 페이로드에는 키가 없어 자동 제외된다.
     ("표정 복구 시간", +0.8, lambda nv, vm: nv.get("expr_recover_sec")),
