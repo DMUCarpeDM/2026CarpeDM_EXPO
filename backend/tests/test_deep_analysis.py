@@ -90,6 +90,37 @@ def test_composure_skips_expression_probe_on_old_payload():
     assert all("표정 복구" not in r["label"] for r in c["rows"])
 
 
+# ---- 표현 동작 확장 ⑤: 압박에서 표정 굳음·손동작 위축·머리 흔들림 ----
+
+def _pair5(brow=0.3, amp=30.0, motion=0.03, **kw):
+    """표현 동작 필드를 덧붙인 (nonverbal, voice) 페어."""
+    nv, vm = _pair(**kw)
+    nv.update({"brow_raise_ratio": brow, "gesture_amplitude": amp, "head_motion": motion})
+    return (nv, vm)
+
+
+def test_composure_flags_expression_freeze_under_pressure():
+    # 표정만 굳음 (눈썹 0.30→0.15, 0.10 임계 초과) → 단독 악화
+    c = build_composure([_pair5(brow=0.15)], [_pair5(), _pair5()])
+    assert any("표정 생동감" in r["label"] for r in c["rows"])
+    assert c["level"] in ("회복형", "동요형")
+
+
+def test_composure_flags_gesture_shrink_and_head_motion():
+    # 손동작 30→25cm(−5), 머리 흔들림 0.03→0.07(+0.04) — 둘 다 악화
+    c = build_composure([_pair5(amp=25.0, motion=0.07)], [_pair5(), _pair5()])
+    labels = [r["label"] for r in c["rows"]]
+    assert "손동작 크기" in labels
+    assert "머리 흔들림" in labels
+
+
+def test_composure_skips_expression_motion_probes_on_old_payload():
+    # 구 페이로드(⑤ 필드 없음)에서는 새 프로브가 조용히 제외된다 (하위 호환)
+    old = ({"front_gaze_ratio": 0.9}, {})
+    labels = [r["label"] for r in (build_composure([old], [old]) or {"rows": []})["rows"]]
+    assert "손동작 크기" not in labels and "머리 흔들림" not in labels
+
+
 # ---- adaptation (적응 곡선) ----
 
 def test_adaptation_up_trend():

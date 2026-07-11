@@ -237,6 +237,56 @@ describe('finalizeTurnMetrics — 턴 직렬화', () => {
   });
 });
 
+describe('표현 동작 확장 ⑤ — 표정 생동감·제스처 크기/양손·머리 흔들림', () => {
+  it('눈썹 표현력은 올림 프레임 비율 (항상 계산, 감점 아님)', () => {
+    const acc = emptyAcc();
+    acc.frames = 20;
+    acc.browRaiseFrames = 10;
+    assert.equal(finalizeTurnMetrics(acc, emptyBaseline())!.brow_raise_ratio, 0.5);
+  });
+
+  it('제스처 크기는 표본 5초 미만이면 보류, 충분하면 cm로 계산', () => {
+    const short = emptyAcc();
+    short.frames = 20;
+    short.gestureReachSamples = 24; // framesFor(5000)=25 미만
+    short.gestureReachSum = 24 * 0.3;
+    assert.equal(finalizeTurnMetrics(short, emptyBaseline())!.gesture_amplitude, null);
+
+    const acc = emptyAcc();
+    acc.frames = 40;
+    acc.gestureReachSamples = 30;
+    acc.gestureReachSum = 30 * 0.3; // 평균 0.3m → 30cm
+    assert.equal(finalizeTurnMetrics(acc, emptyBaseline())!.gesture_amplitude, 30);
+  });
+
+  it('양손 제스처는 손 활동 3초 미만이면 보류, 충분하면 비율', () => {
+    const short = emptyAcc();
+    short.frames = 20;
+    short.handActiveFrames = 14; // framesFor(3000)=15 미만
+    short.twoHandFrames = 7;
+    assert.equal(finalizeTurnMetrics(short, emptyBaseline())!.gesture_two_handed_ratio, null);
+
+    const acc = emptyAcc();
+    acc.frames = 30;
+    acc.handActiveFrames = 20;
+    acc.twoHandFrames = 10; // 절반은 양손
+    assert.equal(finalizeTurnMetrics(acc, emptyBaseline())!.gesture_two_handed_ratio, 0.5);
+  });
+
+  it('머리 흔들림은 답변 표본 3초 미만이면 보류, 충분하면 위치 표준편차', () => {
+    const short = emptyAcc();
+    short.frames = 20;
+    short.headPosSamples = Array(14).fill({ x: 0, y: 0 });
+    assert.equal(finalizeTurnMetrics(short, emptyBaseline())!.head_motion, null);
+
+    const acc = emptyAcc();
+    acc.frames = 30;
+    // x는 ±0.1 교대(표준편차 0.1), y는 고정(0) → hypot(0.1, 0) = 0.1
+    acc.headPosSamples = Array.from({ length: 20 }, (_, i) => ({ x: i % 2 ? 0.1 : -0.1, y: 0 }));
+    assert.equal(finalizeTurnMetrics(acc, emptyBaseline())!.head_motion, 0.1);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // 감사 패스 이식분 — 시간 기반 게이트·다인 가드·수직 홍채 (구 nonverbalMath 하네스)
 // ---------------------------------------------------------------------------

@@ -19,6 +19,7 @@ import {
   type Accumulator,
   type Baseline,
   type OffDir,
+  BROW_RAISE_MIN,
   emptyAcc,
   emptyBaseline,
   emptyCalibration,
@@ -26,6 +27,7 @@ import {
   finalizeTurnMetrics,
   framesFor,
   gazeZoneIndex,
+  HAND_ACTIVE_MIN,
   resolveGaze,
   resolveHeadDown,
   SAMPLE_MS,
@@ -245,6 +247,10 @@ export function useNonverbal(
             const mouthPress = ((shapes.mouthPressLeft ?? 0) + (shapes.mouthPressRight ?? 0)) / 2 > 0.45;
             const browDown = ((shapes.browDownLeft ?? 0) + (shapes.browDownRight ?? 0)) / 2 > 0.5;
             const tension = mouthPress || browDown; // 긴장 표정 에피소드 판정용
+            // 눈썹 올림(표정 생동감 — 관찰 지표, 감점 아님): 안쪽·바깥쪽 눈썹 올림 평균.
+            // 무표정↔강조·경청 반응을 가른다. browDown(찡그림)과 독립된 축.
+            const browRaise = ((shapes.browInnerUp ?? 0)
+              + (shapes.browOuterUpLeft ?? 0) + (shapes.browOuterUpRight ?? 0)) / 3 > BROW_RAISE_MIN;
             // 진정성 미소 근사(Duchenne proxy): 입꼬리(mouthSmile)와 눈둘레근(eyeSquint)이
             // 동시에 움직여야 눈까지 웃는 미소다. 깜빡임 중에는 eyeSquint가 함께 올라가
             // 오판을 만들므로 제외한다 — 임계값은 실기기 검증 항목(demo-checklist §2.5).
@@ -305,6 +311,7 @@ export function useNonverbal(
             let tiltRaw: number | null = null;
             let headGap: number | null = null;
             let shoulderX: number | null = null;
+            let noseRelX: number | null = null; // 코 수평 위치(어깨중심 대비, 너비 정규화) — 머리 흔들림
             let shoulderWidth: number | null = null;
             let handFace = false;
             let armCross = false;
@@ -348,6 +355,7 @@ export function useNonverbal(
                 }
                 headGap = ((ls.y + rs.y) / 2 - noseP.y) / width;
                 shoulderX = ((ls.x + rs.x) / 2) / width;
+                noseRelX = (noseP.x - (ls.x + rs.x) / 2) / width;
 
                 // ---- 무의식 습관 (BlazePose 손목 15/16 재사용, 보수적 판정) ----
                 const lw = plm[15];
@@ -368,6 +376,12 @@ export function useNonverbal(
                 // ---- 제스처 에너지 (월드 좌표 손목, m/s): 경직↔과다의 양끝 관찰 ----
                 // 월드 좌표는 골반 원점이라 몸 전체의 이동·카메라 흔들림과 무관하게
                 // '몸에 대한 손의 움직임'만 잰다. 월드가 없으면 보류(null 페이로드)
+                // ⑤ 확장: 도달거리(크기)와 양손 동시 활동(양손 제스처)을 함께 집계.
+                const worldShoulder = wls && wrs && vis(wls) && vis(wrs)
+                  ? { x: (wls.x + wrs.x) / 2, y: (wls.y + wrs.y) / 2, z: (wls.z + wrs.z) / 2 }
+                  : null;
+                let leftActive = false;
+                let rightActive = false;
                 for (const [side, wi] of [['l', 15], ['r', 16]] as const) {
                   const w = wlm?.[wi];
                   if (w && vis(w)) {
@@ -378,13 +392,32 @@ export function useNonverbal(
                       if (d < 0.5) { // 0.5m/샘플(2.5m/s) 초과 변위는 추적 글리치 → 폐기
                         acc.gestureDistSum += d;
                         acc.gestureSamples += 1;
-                        if (d > 0.02) acc.gestureActive += 1; // 0.1 m/s 초과 = 활동
+                        if (d > HAND_ACTIVE_MIN) { // 0.1 m/s 초과 = 활동
+                          acc.gestureActive += 1;
+                          if (side === 'l') leftActive = true;
+                          else rightActive = true;
+                        }
+                      }
+                    }
+                    // 제스처 크기: 손목이 어깨중심에서 뻗은 거리(m). 1.2m 초과는 추적 글리치.
+                    if (worldShoulder && runningRef.current) {
+                      const reach = Math.hypot(
+                        w.x - worldShoulder.x, w.y - worldShoulder.y, w.z - worldShoulder.z,
+                      );
+                      if (reach < 1.2) {
+                        acc.gestureReachSum += reach;
+                        acc.gestureReachSamples += 1;
                       }
                     }
                     prevWrists[side] = [w.x, w.y, w.z];
                   } else {
                     prevWrists[side] = null; // 가림 후 재등장 시 점프 변위 방지
                   }
+                }
+                // 양손 제스처: 두 손이 같은 프레임에 함께 움직였는지 (강조·확신 신호)
+                if (runningRef.current && (leftActive || rightActive)) {
+                  acc.handActiveFrames += 1;
+                  if (leftActive && rightActive) acc.twoHandFrames += 1;
                 }
 
                 // ---- 전신: 골반 스웨이(체중 이동 습관)·하체 가시성 ----
@@ -475,6 +508,10 @@ export function useNonverbal(
                     && Date.now() - acc.answerStartedAt < ONSET_GRACE_MS) {
                   acc.onsetOffFrames += 1;
                 }
+                // 머리 흔들림: 말하는 동안의 코 위치(어깨너비 정규화) — finalize에서 표준편차
+                if (noseRelX !== null && headGap !== null) {
+                  acc.headPosSamples.push({ x: noseRelX, y: headGap });
+                }
               }
 
               // 3×3 시선 존 (행: 위/중/아래 × 열: 좌/중/우) — 시선 분포 지도
@@ -514,6 +551,7 @@ export function useNonverbal(
               }
               if (mouthPress) acc.mouthPressFrames += 1;
               if (browDown) acc.browDownFrames += 1;
+              if (browRaise) acc.browRaiseFrames += 1; // 표정 생동감 (관찰 지표)
               // 긴장 표정 에피소드: 시작~풀림까지의 연속 구간 (표정 복구 시간 재료).
               // 0.4초 미만의 단발 깜빡임 잡음은 에피소드로 세지 않는다.
               if (tension) {

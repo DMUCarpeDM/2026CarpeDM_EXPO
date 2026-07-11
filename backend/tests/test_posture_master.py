@@ -144,3 +144,36 @@ def test_posture_v2_penalizes_collapse_not_improvement():
     improved = score_posture({**base, "tilt_drift_deg": -5.0})
     assert collapsed < v1  # 좋게 시작해 무너지는 자세는 평균만으로는 안 보인다
     assert improved >= v1  # 후반에 좋아진 자세(음수 드리프트)는 감점하지 않는다
+
+
+# ---- 표현 동작 확장 ⑤: 표정 생동감·머리 흔들림 습관 카드 ----
+
+def test_expression_flat_observed():
+    # 얼굴이 잡힌(깜빡임>0) 세션에서 눈썹이 거의 안 움직이면 무표정 관찰 카드
+    segs = _habit_segments(_session(_turn(brow_raise_ratio=0.0, blink_per_min=18)))
+    assert any("표정 변화" in g["observed"] for g in segs)
+
+
+def test_expression_flat_withheld_without_face():
+    # 얼굴 추적 근거(깜빡임)가 없으면 '무표정'으로 오판하지 않는다 (포즈만 잡힌 턴 배제)
+    assert _habit_segments(_session(_turn(brow_raise_ratio=0.0, blink_per_min=0))) == []
+
+
+def test_expression_lively_praised():
+    segs = _habit_segments(_session(_turn(brow_raise_ratio=0.3, blink_per_min=18)))
+    assert any("살아 있었어요" in g["observed"] for g in segs)
+
+
+def test_expression_withheld_on_old_payload():
+    # brow_raise_ratio 키가 없는 구 페이로드는 무표정으로 판정하지 않는다
+    assert _habit_segments(_session(_turn(blink_per_min=18))) == []
+
+
+def test_head_motion_restless_observed():
+    segs = _habit_segments(_session(_turn(head_motion=0.08, blink_per_min=18)))
+    assert any("머리가 자잘하게" in g["observed"] for g in segs)
+
+
+def test_head_motion_steady_stays_silent():
+    # 낮은 흔들림(0.02)은 지적하지 않는다
+    assert _habit_segments(_session(_turn(head_motion=0.02, blink_per_min=18))) == []
