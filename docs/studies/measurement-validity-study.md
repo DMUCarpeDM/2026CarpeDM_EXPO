@@ -3,6 +3,11 @@
 > 역할: 데이터 사이언티스트 · 목적: "4-Fit 점수가 그럴듯한 숫자가 아니라 **타당한 측정**"임을 증거로 보이기.
 > 이것은 *설계서*다(결과 아님). 대상 전략의 핵심 근거이자, `docs/pitch/qa-anticipation.md`의 타당성 답변 카드의 출처.
 > 작성 2026-07-10. 통계 기법·표본 수는 가정과 한계를 함께 밝힌다. 클로드는 통계 자문이지 최종 검증자가 아님 — 실제 분석은 사람이 수행.
+>
+> **실행 키트(2026-07-11 추가)** — 이 설계서를 8/1 전에 돌리기 위한 실물:
+> · 전문가 채점 폼 [`expert-rating-form.md`](expert-rating-form.md)(§5 별첨 제작분)
+> · 분석 스크립트 [`analyze_validity.py`](analyze_validity.py)(numpy만, Spearman ρ·Fisher CI·ICC(2,k)·BH·Mann–Whitney, `--selftest` 통과)
+> · pilot 실행 계획 [`validity-pilot-plan.md`](validity-pilot-plan.md)(섭외·블라인드 짝짓기·사전등록)
 
 ---
 
