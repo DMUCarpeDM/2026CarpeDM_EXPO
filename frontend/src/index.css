@@ -4,23 +4,24 @@
    ============================================================ */
 
 :root {
-  /* 색 — 무채색 바탕 + 단일 액센트 */
-  --bg: #0e1015;
-  --surface: #14161d;
-  --surface-2: #191c25;
-  --border: #262a35;
-  --border-strong: #323848;
-  --text: #e7eaf2;
-  --text-2: #9aa2b6;
-  --text-3: #6b7387;
-  --accent: #5b7cfa;
-  --accent-strong: #4a6af0;
-  --accent-weak: rgba(91, 124, 250, 0.12);
-  --good: #3ecf8e;
-  --warn: #e2b93b;
-  --bad: #e5645f;
-  --good-weak: rgba(62, 207, 142, 0.1);
-  --bad-weak: rgba(229, 100, 95, 0.1);
+  /* 색 — 라이트(웹 기본). Figma Carpedm 디자인 팔레트(스크린샷 추출값 기반).
+     미러(전시 거울)는 아래 html.mirror-mode에서 다크로 복원한다. */
+  --bg: #f5f7fa;
+  --surface: #ffffff;
+  --surface-2: #eef2f7;
+  --border: #e4e8ef;
+  --border-strong: #cbd3df;
+  --text: #1b2333;
+  --text-2: #5b6577;
+  --text-3: #8b93a5;
+  --accent: #357ef3;
+  --accent-strong: #1e63e0;
+  --accent-weak: rgba(53, 126, 243, 0.1);
+  --good: #12a05f;
+  --warn: #b7791f;
+  --bad: #e0393f;
+  --good-weak: rgba(18, 160, 95, 0.1);
+  --bad-weak: rgba(224, 57, 63, 0.09);
 
   /* 형태 */
   --r-sm: 8px;
@@ -38,6 +39,27 @@
 
   font-family: 'Pretendard Variable', Pretendard, system-ui, -apple-system, 'Apple SD Gothic Neo',
     'Malgun Gothic', 'Noto Sans KR', sans-serif;
+}
+
+/* 미러(전시 거울) 모드 — 다크 유지. :root의 라이트 팔레트를 기존 다크 값으로 되돌린다.
+   mirrorMode.ts가 <html>에 .mirror-mode를 토글하므로 웹만 라이트, 미러는 그대로 다크. */
+html.mirror-mode {
+  --bg: #0e1015;
+  --surface: #14161d;
+  --surface-2: #191c25;
+  --border: #262a35;
+  --border-strong: #323848;
+  --text: #e7eaf2;
+  --text-2: #9aa2b6;
+  --text-3: #6b7387;
+  --accent: #5b7cfa;
+  --accent-strong: #4a6af0;
+  --accent-weak: rgba(91, 124, 250, 0.12);
+  --good: #3ecf8e;
+  --warn: #e2b93b;
+  --bad: #e5645f;
+  --good-weak: rgba(62, 207, 142, 0.1);
+  --bad-weak: rgba(229, 100, 95, 0.1);
 }
 
 * {
