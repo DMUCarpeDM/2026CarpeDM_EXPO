@@ -6,7 +6,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toggleFx, useFxEnabled } from './FrameGlow';
-import { exitMirrorMode } from '../lib/mirrorMode';
+import { enterGlassesMode, exitGlassesMode, useGlassesMode } from '../lib/glassesMode';
+import { enterMirrorMode, exitMirrorMode } from '../lib/mirrorMode';
 import { useSessionStore } from '../stores/sessionStore';
 
 const HOLD_MS = 3000;
@@ -25,6 +26,7 @@ export default function OperatorPanel() {
   const navigate = useNavigate();
   const clearSession = useSessionStore((s) => s.clear);
   const fxEnabled = useFxEnabled();
+  const glasses = useGlassesMode();
   const [open, setOpen] = useState(false);
   const [holding, setHolding] = useState(false);
   const [sampleMs, setSampleMs] = useState(currentSampleMs);
@@ -79,6 +81,32 @@ export default function OperatorPanel() {
               연출 효과 {fxEnabled ? '끄기 (저사양 모드)' : '켜기'}
             </button>
             <div className="operator-sample">
+              <span className="operator-sample-label">전시 표현</span>
+              <div className="operator-sample-btns">
+                <button
+                  className={`ghost-btn ${!glasses ? 'active' : ''}`}
+                  onClick={() => {
+                    exitGlassesMode();
+                    enterMirrorMode();
+                  }}
+                >
+                  거울
+                </button>
+                <button
+                  className={`ghost-btn ${glasses ? 'active' : ''}`}
+                  onClick={() => {
+                    enterGlassesMode();
+                    exitMirrorMode();
+                  }}
+                >
+                  글래스 HUD
+                </button>
+              </div>
+              <span className="operator-sample-hint">
+                같은 세션·같은 측정, 표현 계층만 전환 (즉시 적용)
+              </span>
+            </div>
+            <div className="operator-sample">
               <span className="operator-sample-label">측정 정밀도 (샘플링)</span>
               <div className="operator-sample-btns">
                 {SAMPLE_OPTIONS.map((ms) => (
@@ -99,6 +127,7 @@ export default function OperatorPanel() {
               className="ghost-btn"
               onClick={() => {
                 exitMirrorMode();
+                exitGlassesMode();
                 clearSession();
                 setOpen(false);
                 navigate('/');
