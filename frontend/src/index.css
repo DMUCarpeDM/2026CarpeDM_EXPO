@@ -1604,6 +1604,35 @@ h2 .icon {
   text-decoration: none;
 }
 
+.offline-readiness {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--s-3) var(--s-4);
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.offline-readiness.active {
+  border-color: var(--accent);
+  background: var(--accent-weak);
+}
+
+.offline-readiness-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  font-weight: 600;
+}
+
+.offline-readiness-item {
+  opacity: 0.9;
+}
+
 .admin-token-form {
   display: flex;
   gap: var(--s-2);
