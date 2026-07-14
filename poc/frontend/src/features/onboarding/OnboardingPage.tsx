@@ -78,9 +78,7 @@ export default function OnboardingPage() {
       <header className="hero">
         <p className="hero-badge">4-Fit 미러팅 · AI 직장생활 시뮬레이션</p>
         <h1>
-          오늘, <span className="accent">㈜클라우드밋</span>에
-          <br />
-          입사했습니다
+          오늘, <span className="accent">㈜클라우드밋</span>에 입사했습니다
         </h1>
         <p className="hero-sub">
           {scenario?.world_setting.situation ??

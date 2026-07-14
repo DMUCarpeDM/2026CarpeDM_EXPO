@@ -344,6 +344,7 @@ h2 .icon {
 .start-btn {
   font-size: 1.05rem;
   padding: 16px;
+  padding-left: 0;
 }
 
 .code-link {
