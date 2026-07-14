@@ -220,6 +220,23 @@ describe('finalizeTurnMetrics — 턴 직렬화', () => {
     assert.deepEqual(timeline[0], { t: 0, front: 0.5, press: 0, tilt: 2 });
   });
 
+  it('최장 연속 응시(아이컨택 스트릭)는 완료 바우트와 진행 중 스트릭의 최댓값', () => {
+    const acc = emptyAcc();
+    acc.frames = 40;
+    acc.contactBouts = [10, 45]; // 완료 바우트: 2.0s, 9.0s
+    acc.curContactStreak = 20; // 진행 중: 4.0s — 최댓값은 완료 바우트 9.0s
+    assert.equal(finalizeTurnMetrics(acc, emptyBaseline())!.contact_streak_max_sec, 9);
+
+    const ongoing = emptyAcc();
+    ongoing.frames = 40;
+    ongoing.curContactStreak = 30; // 턴 내내 유지 중인 스트릭도 인정 (× 200ms = 6.0s)
+    assert.equal(finalizeTurnMetrics(ongoing, emptyBaseline())!.contact_streak_max_sec, 6);
+
+    const none = emptyAcc();
+    none.frames = 40; // 응시 성립 없음 → 0
+    assert.equal(finalizeTurnMetrics(none, emptyBaseline())!.contact_streak_max_sec, 0);
+  });
+
   it('시계축 정합: 답변 시작 오프셋을 페이로드로 내보낸다', () => {
     // moments가 비언어(턴 시계)와 음성 스팬(답변 시계)을 같은 축으로 합성할 근거
     const acc = emptyAcc();

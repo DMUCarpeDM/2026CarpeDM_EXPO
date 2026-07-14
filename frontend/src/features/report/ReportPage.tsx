@@ -387,8 +387,9 @@ export default function ReportPage() {
         )}
       </section>
 
-      {/* 심층 교차 분석 — 단일 지표를 넘어 지표 사이의 관계 (담화 구조·압박 내성·적응 곡선) */}
+      {/* 심층 교차 분석 — 단일 지표를 넘어 지표 사이의 관계 (담화 구조·일치도·압박 내성·적응 곡선) */}
       {(report.deep_analysis?.delivery ||
+        report.deep_analysis?.congruence ||
         report.deep_analysis?.composure ||
         report.deep_analysis?.adaptation ||
         report.deep_analysis?.moments) && (
@@ -440,6 +441,28 @@ export default function ReportPage() {
                   ))}
                 </ul>
                 <p>{report.deep_analysis.delivery.comment}</p>
+              </div>
+            )}
+            {report.deep_analysis.congruence && (
+              <div className="deep-card">
+                <strong>
+                  {report.deep_analysis.congruence.title}
+                  <span className="deep-level">{report.deep_analysis.congruence.level}</span>
+                  {report.deep_analysis.congruence.confidence && (
+                    <span className="deep-confidence">
+                      {report.deep_analysis.congruence.confidence.level}
+                    </span>
+                  )}
+                </strong>
+                <ul>
+                  {report.deep_analysis.congruence.rows.map((r) => (
+                    <li key={r.label}>
+                      <span>{r.label}</span>
+                      <em>{r.value}</em>
+                    </li>
+                  ))}
+                </ul>
+                <p>{report.deep_analysis.congruence.comment}</p>
               </div>
             )}
             {report.deep_analysis.composure && (

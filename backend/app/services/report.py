@@ -219,6 +219,16 @@ def _voice_evidence(turn_results: list[AnalysisResult]) -> dict | None:
         interp = "단조로운 억양은 안정적이지만, 핵심이 어디인지 듣는 사람이 놓치게 만들어요."
         sugg = ("핵심 단어 하나만 반음 올려보세요: \"**15분 안에** 회신드리겠습니다.\" "
                 "숫자와 결론에 억양을 실으면 전달력이 크게 올라갑니다.")
+    elif (mono := m.get("monotone_run_sec")) is not None and mono >= 8:
+        observed = f"같은 톤(±1반음)이 최장 {mono}초 이어졌어요 — 그 구간은 한 음으로 들렸어요"
+        interp = "전체 억양이 좋아도, 긴 모노톤 구간에서는 듣는 사람의 집중이 미끄러져요."
+        sugg = ("긴 설명 구간일수록 문장 시작을 반음 올려서 새로 출발하세요. "
+                "\"그리고, (톤 업) 두 번째는—\"처럼 문장마다 톤을 리셋하면 구간이 살아납니다.")
+    elif (fade := m.get("final_fade_pct")) is not None and fade <= -45:
+        observed = f"마지막 문장 성량이 평균 대비 {abs(fade)}% 낮았어요 — 말끝이 사라졌어요"
+        interp = "\"~하겠습니…\"처럼 끝이 소리에서 지워지면, 약속 자체가 흐릿하게 기억돼요."
+        sugg = ("문장 끝 세 글자(\"~습니다\")를 첫 글자와 같은 크기로 밀어보세요. "
+                "말끝이 단단하면 같은 내용도 결정된 사안처럼 들립니다.")
     elif drift < -35:
         observed = f"후반 성량이 전반 대비 {abs(drift)}% 감소 — 목소리가 점점 작아졌어요"
         interp = "끝으로 갈수록 잦아드는 목소리는 확신이 빠져나가는 것처럼 들려요."
@@ -297,7 +307,12 @@ def _eye_evidence(turn_results: list[AnalysisResult]) -> dict | None:
         interp = "잦은 깜빡임은 본인도 모르는 긴장 신호로 전달될 수 있어요."
         sugg = "답변 시작 전에 한 번 길게 숨을 내쉬어 보세요. 호흡이 내려가면 깜빡임도 함께 줄어요."
     else:
-        observed = f"정면 응시 {int(ratio * 100)}%, 이탈 {off_count}회, 최장 이탈 {longest}초 — 안정적이었어요"
+        streak = m.get("contact_streak_max_sec", 0)
+        observed = (
+            f"정면 응시 {int(ratio * 100)}%, 한 번에 최장 {streak}초 연속으로 눈을 맞췄어요"
+            if streak >= 8 else
+            f"정면 응시 {int(ratio * 100)}%, 이탈 {off_count}회, 최장 이탈 {longest}초 — 안정적이었어요"
+        )
         interp = "말의 신뢰도를 시선이 받쳐주고 있었어요."
         smile = m.get("smile_ratio", 0)
         sugg = (
@@ -419,6 +434,13 @@ def _fit_detail_metrics(fit: FitType, results: list[AnalysisResult]) -> list[dic
         ]
         if formals:
             add("존댓말 유지", f"{round(sum(formals) / len(formals) * 100)}%")
+        # 어휘 다양성 — 내용어 기본형 TTR (표본 부족 턴은 None으로 자동 제외)
+        diversity = [
+            v for r in results
+            if (v := (r.raw_metrics.get("discourse") or {}).get("lexical_diversity")) is not None
+        ]
+        if diversity:
+            add("어휘 다양성", f"{round(sum(diversity) / len(diversity) * 100)}%")
     elif fit == FitType.voice:
         rate = _mean_metric(results, "speech_rate_sps")
         add("말속도", f"{rate:.1f}음절/초" if rate else None)
@@ -429,6 +451,13 @@ def _fit_detail_metrics(fit: FitType, results: list[AnalysisResult]) -> list[dic
         jitter = _mean_metric(results, "f0_jitter_pct")
         if jitter is not None and jitter > 8:
             add("피치 흔들림", f"{jitter:.0f}%")
+        # 말끝 성량 — 뚜렷하게 꺼질 때만 계기판에 노출 (관찰 지표)
+        fades = [
+            v for r in results
+            if (v := r.raw_metrics.get("final_fade_pct")) is not None
+        ]
+        if fades and min(fades) <= -40:
+            add("말끝 성량", f"{min(fades)}%")
         fillers = [
             r.raw_metrics["alignment"]["fillers"]
             for r in results if r.raw_metrics.get("alignment")
@@ -443,8 +472,13 @@ def _fit_detail_metrics(fit: FitType, results: list[AnalysisResult]) -> list[dic
             ]
             if any(d is True for d in designed):
                 add("강조 설계", "문장 간 대비 있음")
-        f0cv = _mean_metric(results, "f0_cv")
-        add("억양 변동(F0)", f"{round(f0cv * 100)}%" if f0cv is not None else None)
+        # 억양 폭(반음) — CV(%)보다 읽기 쉬운 단위. 없으면 기존 F0 CV로 폴백
+        prange = _mean_metric(results, "pitch_range_st")
+        if prange is not None:
+            add("억양 폭", f"{prange:.1f}반음")
+        else:
+            f0cv = _mean_metric(results, "f0_cv")
+            add("억양 변동(F0)", f"{round(f0cv * 100)}%" if f0cv is not None else None)
     elif fit == FitType.eye:
         speak_ratio = _mean_metric(results, "answering_front_ratio")
         listen_ratio = _mean_metric(results, "listening_front_ratio")
@@ -460,6 +494,11 @@ def _fit_detail_metrics(fit: FitType, results: list[AnalysisResult]) -> list[dic
         bout = _mean_metric(results, "contact_bout_mean_sec")
         if bout:
             add("응시 리듬", f"평균 {bout:.1f}초 유지")
+        # 최장 연속 응시 — 긍정 지표. 눈맞춤이 실제로 '성립'했음을 보여주는 스트릭
+        streak = max(
+            (r.raw_metrics.get("contact_streak_max_sec", 0) for r in results), default=0)
+        if streak >= 5:
+            add("최장 연속 응시", f"{streak}초")
         longest = max((r.raw_metrics.get("longest_off_sec", 0) for r in results), default=0)
         if longest:
             add("최장 이탈", f"{longest}초")
@@ -480,7 +519,7 @@ def _fit_detail_metrics(fit: FitType, results: list[AnalysisResult]) -> list[dic
         drift = max((r.raw_metrics.get("tilt_drift_deg", 0) for r in results), default=0)
         if drift > 1:
             add("후반 변화", f"+{drift}°")
-    return rows[:4]
+    return rows[:5]
 
 
 def _build_speech_stats(turn_results: list[AnalysisResult], session: RoleplaySession) -> dict:
