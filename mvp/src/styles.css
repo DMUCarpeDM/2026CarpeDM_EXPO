@@ -1,0 +1,20 @@
+/* Cascade order mirrors the former single stylesheet. Keep these imports ordered. */
+@import "./styles/base.css";
+@import "./styles/home-legacy.css";
+@import "./styles/selection-setup-base.css";
+@import "./styles/practice-base.css";
+@import "./styles/result.css";
+@import "./styles/feedback.css";
+@import "./styles/share.css";
+@import "./styles/compare.css";
+@import "./styles/responsive-legacy.css";
+@import "./styles/navigation.css";
+@import "./styles/desktop-dashboard.css";
+@import "./styles/print.css";
+@import "./styles/fidelity-foundation.css";
+@import "./styles/fidelity-home.css";
+@import "./styles/fidelity-reports.css";
+@import "./styles/fidelity-practice.css";
+@import "./styles/fidelity-responsive.css";
+@import "./styles/setup-flow.css";
+@import "./styles/preview-redesign.css";
