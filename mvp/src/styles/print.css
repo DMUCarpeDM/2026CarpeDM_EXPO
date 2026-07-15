@@ -1,0 +1,48 @@
+/* PDF/인쇄 출력 최적화 스타일 */
+@media print {
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  
+  .top-nav,
+  .app-footer,
+  .report-actions,
+  .bottom-actions,
+  .compare-actions,
+  .dual-cta,
+  .page-toolbar,
+  .link-button,
+  .mic-button,
+  .send-button,
+  .mobile-menu-button {
+    display: none !important;
+  }
+  
+  .app-shell {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  
+  .page {
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+  
+  /* 카드 및 패널 스타일 인쇄 최적화 */
+  .panel,
+  .card,
+  .insight-card,
+  .overall-card,
+  .fit-analysis,
+  .coaching-summary,
+  .attempt-card {
+    background: #fff !important;
+    border: 1px solid #ddd !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+    margin-bottom: 20px !important;
+  }
+}
+

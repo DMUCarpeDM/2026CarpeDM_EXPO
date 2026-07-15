@@ -1,0 +1,50 @@
+/* Results and comparison use the report-board proportions of the supplied desktops. */
+.result-page,
+.compare-page { width: min(100% - 48px, 1840px); }
+.result-page .page-toolbar { justify-content: flex-start; }
+.result-report-layout { display: grid; grid-template-columns: minmax(360px, .37fr) minmax(0, 1fr); gap: 24px; }
+.overall-card,
+.fit-analysis { padding: 28px; border-radius: 17px; background: #fff; }
+.overall-card { min-height: 804px; }
+.overall-card h2 { font-size: 18px; }
+.overall-body { grid-template-columns: 1fr; gap: 30px; }
+.overall-card .score-ring { justify-self: center; width: 260px; height: 260px; }
+.score-comment { margin: -10px 0 0; padding: 17px; border: 1px solid #dbe8ff; border-radius: 13px; background: #f7faff; color: #60718a; font-size: 14px; line-height: 1.55; }
+.quality-list { gap: 10px; }
+.metric-bar { padding: 13px; border: 1px solid var(--line-cool); border-radius: 13px; }
+.result-main-report { min-width: 0; }
+.report-heading { display: flex; align-items: start; justify-content: space-between; gap: 24px; padding: 7px 4px 25px; }
+.report-heading h1 { margin: 0; color: #13223b; font-size: 32px; letter-spacing: -1px; }
+.report-heading p { margin: 8px 0 0; color: #6c7d95; }
+.report-meta { display: grid; grid-template-columns: repeat(3, minmax(126px, 1fr)); gap: 10px; }
+.report-meta .info-row { grid-template-columns: 20px 1fr; gap: 8px; min-height: 61px; padding: 10px 12px; border: 1px solid var(--line-cool); border-radius: 12px; background: #fff; }
+.report-meta .info-row strong { grid-column: 2; font-size: 13px; }
+.coaching-overview { padding: 24px; border-radius: 17px; }
+.coaching-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.coaching-columns .feedback-box { min-height: 305px; padding: 0 18px; border: 0; border-radius: 0; background: transparent; }
+.coaching-columns .feedback-box + .feedback-box { border-left: 1px solid var(--line-cool); }
+.coaching-columns .feedback-box h3 { margin: 0; padding: 7px 0 13px; color: #16243b; font-size: 18px; }
+.coaching-columns .feedback-box ul { display: grid; gap: 11px; padding: 0; list-style: none; }
+.coaching-columns .feedback-box li { padding: 17px 16px 17px 39px; border: 1px solid #edf1f6; border-radius: 12px; color: #52647d; line-height: 1.55; }
+.coaching-columns .feedback-box.blue li { background: linear-gradient(90deg, #f8fbff, #fff); }
+.coaching-columns .feedback-box.accent li { background: linear-gradient(90deg, #fffaf4, #fff); }
+.report-insight-card { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 30px; align-items: center; margin-top: 20px; padding: 25px 32px; border-radius: 17px; }
+.report-insight-card > div:first-child { display: flex; gap: 15px; align-items: start; }
+.report-insight-card .round-icon { flex: 0 0 auto; width: 42px; height: 42px; }
+.report-insight-card h2 { margin: 0; color: #17243b; font-size: 18px; }
+.report-insight-card p { margin: 7px 0 0; color: #65758d; line-height: 1.65; }
+.report-radar-placeholder { display: grid; place-items: center; width: 168px; height: 132px; justify-self: end; border: 1px solid #d6e5ff; border-radius: 50%; background: radial-gradient(circle, rgba(0,100,255,.12) 0 2%, transparent 2.5% 22%, rgba(0,100,255,.08) 22.5% 24%, transparent 24.5% 47%, rgba(0,100,255,.07) 47.5% 49%, transparent 49.5%); color: #5e7190; font-size: 12px; }
+.report-radar-placeholder b { color: var(--blue-strong); font-size: 32px; }
+.report-detail-row { display: grid; grid-template-columns: auto 1fr auto; gap: 15px; align-items: center; width: 100%; margin-top: 20px; padding: 20px 25px; border: 1px solid var(--line-cool); border-radius: 16px; background: #fff; color: var(--blue-strong); text-align: left; }
+.report-detail-row span { display: grid; gap: 3px; color: #17243b; }
+.report-detail-row small { color: #728099; font-size: 13px; }
+.result-page .dual-cta { max-width: 760px; margin: 23px 0 0 auto; }
+
+.compare-page .page-title { margin-top: 8px; }
+.attempt-grid { gap: 24px; }
+.attempt-card { min-height: 282px; padding: 26px; border-radius: 16px; }
+.attempt-card.selected { border-width: 1px; box-shadow: inset 0 3px 0 var(--blue-strong), var(--shadow-exhibition); }
+.compare-grid { grid-template-columns: minmax(0, 1.1fr) minmax(480px, .9fr); gap: 24px; }
+.comparison-table,.improved-card,.history-card,.growth-card,.compare-actions { border-radius: 16px; }
+.history-grid { grid-template-columns: 1fr 1fr .8fr; }
+

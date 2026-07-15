@@ -1,0 +1,100 @@
+goal: >-
+  Transform the Mirrorting MVP into a 1920x1080 kiosk-ready desktop exhibition
+  application whose mockup-aligned UI uses the PoC backend's real four-Fit
+  analysis from camera and microphone input, without requiring internet access.
+
+constraints:
+  - Only the MVP UI is exposed at the exhibition; the PoC runs locally as its analysis backend.
+  - Run the MVP, PoC backend, local AI models, and required assets on one exhibition PC with no network dependency.
+  - Require both camera and microphone permissions before an exercise can start.
+  - Capture and retain submitted turn audio plus analysis results after a session ends for exhibition/demo operation.
+  - Do not use a sidebar on any MVP screen.
+  - Keep the existing MVP functional flow and screens; apply the supplied five PC mockups as the visual direction.
+  - Build reusable shared UI components for repeated controls and surfaces, including buttons, header bars, progress indicators, cards, score displays, and status badges.
+  - Use generated raster assets only when an existing project asset or code/vector asset is not suitable; add any generated asset to the MVP project.
+
+acceptance_criteria:
+  - name: Mockup-aligned desktop experience
+    description: >-
+      At a 1920x1080 16:9 fullscreen viewport, the landing, simulator setup,
+      live practice, analysis report, and comparison views match the supplied
+      PC mockups in information hierarchy, layout, color, typography, and
+      spacing, while the remaining existing MVP views use the same design system.
+  - name: Shared UI without sidebars
+    description: >-
+      All MVP views use the shared components for repeated UI patterns and no
+      rendered route includes a sidebar; navigation is provided by the shared
+      header and in-content controls.
+  - name: Real four-Fit exercise and report
+    description: >-
+      An exercise cannot start until camera and microphone permissions are
+      granted; completing one exercise sends text/audio/nonverbal input to the
+      local PoC backend and renders backend-produced Response, Voice, Eye, and
+      Posture results rather than demo scores in the report and comparison views.
+  - name: Offline single-PC exhibition operation
+    description: >-
+      With network access disabled, the MVP and local PoC services start on the
+      same exhibition PC, complete a four-Fit exercise, and show its report
+      using only preinstalled models and local assets.
+  - name: Unattended kiosk recovery
+    description: >-
+      Completed-session audio and analysis results remain available for the
+      exhibition demo, and the UI returns to the MVP start screen after 90
+      seconds of inactivity on the report flow.
+
+ontology_schema:
+  name: ExhibitionPracticeSession
+  description: >-
+    The MVP-facing session that coordinates local permissions, PoC analysis,
+    report presentation, retained demonstration records, and kiosk recovery.
+  fields:
+    - name: viewport
+      type: "{ width: 1920, height: 1080, mode: fullscreen }"
+      description: Target kiosk viewport.
+    - name: permission_state
+      type: "{ camera: granted|denied|prompt, microphone: granted|denied|prompt }"
+      description: Required gate before practice starts.
+    - name: four_fit_input
+      type: "{ response_text: string, audio: file, nonverbal_metrics: object }"
+      description: Browser-collected input passed to the PoC backend.
+    - name: four_fit_result
+      type: "{ response: number, voice: number, eye: number, posture: number, report: object }"
+      description: PoC-produced report data rendered by the MVP.
+    - name: retained_record
+      type: "{ audio_reference: string, analysis_result: object, completed_at: datetime }"
+      description: Audio and analysis data retained after completion for the exhibition demo.
+    - name: kiosk_state
+      type: "{ active_view: string, idle_timeout_seconds: 90 }"
+      description: UI state used to restore the start view after inactivity.
+
+evaluation_principles:
+  - name: functional authenticity
+    description: Real PoC analysis results take precedence over visual placeholders or mock data.
+    weight: 1.0
+  - name: exhibition resilience
+    description: The complete workflow works offline on one PC and recovers cleanly for the next visitor.
+    weight: 1.0
+  - name: visual consistency
+    description: The supplied PC mockups and reusable component system drive every MVP view.
+    weight: 0.9
+  - name: focused scope
+    description: Preserve existing MVP behavior; do not expose the PoC UI or add unrelated features.
+    weight: 0.8
+
+exit_conditions:
+  - name: acceptance_criteria_satisfied
+    criteria: All five acceptance criteria pass in a 1920x1080 fullscreen, offline exhibition-PC rehearsal.
+    description: The complete requirement set is verified in the target exhibition environment.
+  - name: regression_checks_green
+    criteria: Existing MVP and PoC automated checks relevant to changed behavior pass.
+    description: Changed behavior does not regress the existing MVP or PoC.
+  - name: kiosk_rehearsal_complete
+    criteria: A full permission-gated practice, four-Fit report, retained-record check, and 90-second reset succeed on the exhibition PC.
+    description: The unattended demonstration flow recovers reliably for the next visitor.
+
+metadata:
+  seed_version: 1
+  generated_at: "2026-07-13"
+  source: "Approved direct-interview transcript; MCP interview artifact contained no answered rounds."
+  interview_session_id: "interview_20260713_072531"
+  ambiguity_score: 0.15

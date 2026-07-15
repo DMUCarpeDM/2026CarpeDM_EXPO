@@ -1,0 +1,100 @@
+goal: >-
+  Improve the Mirrorting MVP into a 1920×1080 offline exhibition experience whose
+  unified, sidebar-free desktop UI follows the supplied PC mockups while preserving
+  all existing MVP flows and presenting real PoC-backed 4-Fit analysis.
+
+constraints:
+  - The MVP is the only user-visible exhibition application; the PoC UI is not displayed.
+  - The MVP and PoC analysis backend run on the same exhibition PC without network access.
+  - A session may start only after both camera and microphone permissions are granted.
+  - Response, Voice, Eye, and Posture results must come from the real PoC analysis pipeline.
+  - Raw turn audio and analysis results are retained after a completed demo session.
+  - No MVP screen may use a sidebar.
+  - Generated raster assets are added only when a needed image cannot be met by an existing asset; use imagegen for those assets.
+
+acceptance_criteria:
+  - >-
+    At 1920×1080 in fullscreen, the landing, simulator setup, live practice,
+    analysis report, and comparison screens visibly match the supplied desktop
+    mockups in layout, hierarchy, color, typography, and spacing.
+  - >-
+    All existing MVP flows remain reachable and use a shared component system for
+    repeated controls and patterns, including buttons, header bars, progress bars,
+    cards, score displays, and status badges; no sidebar is rendered.
+  - >-
+    A user who grants camera and microphone permissions can complete a practice
+    session that sends real response text/audio and camera-derived nonverbal metrics
+    to the local PoC backend and receives real Response, Voice, Eye, and Posture scores.
+  - >-
+    A user who denies either camera or microphone permission cannot start a practice
+    session and receives a clear permission-required state.
+  - >-
+    On the exhibition PC with no network connection, the MVP, local PoC backend,
+    4-Fit analysis, and report flow complete successfully; after 90 seconds of
+    inactivity on a completed report, the UI returns to the start screen.
+
+ontology_schema:
+  name: MirrortingExhibitionMvp
+  entities:
+    - name: ExhibitionRuntime
+      fields:
+        - name: viewport
+          type: string
+          description: 1920x1080 fullscreen
+        - name: offline
+          type: boolean
+        - name: inactivity_reset_seconds
+          type: integer
+    - name: PracticeSession
+      fields:
+        - name: camera_permission
+          type: granted | denied
+        - name: microphone_permission
+          type: granted | denied
+        - name: audio_recording
+          type: binary
+        - name: nonverbal_metrics
+          type: NonverbalMetrics
+    - name: FourFitReport
+      fields:
+        - name: response
+          type: FitScore
+        - name: voice
+          type: FitScore
+        - name: eye
+          type: FitScore
+        - name: posture
+          type: FitScore
+        - name: retained_audio
+          type: binary
+    - name: FitScore
+      fields:
+        - name: score
+          type: number
+        - name: evidence
+          type: array
+        - name: feedback
+          type: array
+
+evaluation_principles:
+  - name: exhibition_reliability
+    description: The complete experience works on one offline PC with its real camera and microphone.
+    weight: 1.0
+  - name: analysis_integrity
+    description: UI scores and feedback are sourced from the PoC pipeline, never fabricated demo values.
+    weight: 1.0
+  - name: visual_coherence
+    description: Mockup fidelity and shared components produce a consistent desktop product.
+    weight: 0.9
+
+exit_conditions:
+  - name: acceptance_complete
+    description: Every acceptance criterion passes in the actual exhibition environment.
+  - name: regression_safe
+    description: Existing MVP functional flows and relevant PoC backend tests pass.
+
+metadata:
+  seed_version: 1
+  interview_source: conversation-fallback
+  interview_session_id: interview_20260713_072531
+  ambiguity_score: 0.15
