@@ -134,6 +134,12 @@ class Episode(Base):
     scenario: Mapped["Scenario"] = relationship(back_populates="episodes")
 
 
+# 데모/리허설 세션 격리 접두사 — demo_data.py가 이 접두사로 세션을 만들고,
+# 방문자 대면 백분위/코호트 표본은 이 접두사를 제외한다. 실제 체험 세션은
+# UUID(또는 프론트 localStorage 키)라 이 접두사를 갖지 않는다.
+DEMO_CLIENT_KEY_PREFIX = "demo-"
+
+
 class RoleplaySession(Base):
     __tablename__ = "roleplay_sessions"
     __table_args__ = (

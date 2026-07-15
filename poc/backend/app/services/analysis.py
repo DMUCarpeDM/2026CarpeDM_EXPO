@@ -50,6 +50,24 @@ def _set_progress(db, session: RoleplaySession, stage: str, pct: int) -> None:
     db.commit()
 
 
+def _seniority(role: str) -> str:
+    """캐릭터 role 문자열 → 청자 지위. 완곡 명령(상향 지시형) 판정에만 쓴다."""
+    role = role or ""
+    if any(k in role for k in ("팀장", "상사", "부장", "이사", "대표", "사장")):
+        return "superior"
+    if any(k in role for k in ("선임", "선배", "사수")):
+        return "senior"
+    if "동료" in role:
+        return "peer"
+    return "other"
+
+
+def _seniority_by_character(session: RoleplaySession) -> dict[str, str]:
+    """시나리오 등장인물 id → 지위 매핑 (Episode.character_id로 청자 지위 조회)."""
+    chars = (session.scenario.characters if session.scenario else None) or []
+    return {c.get("id"): _seniority(c.get("role", "")) for c in chars if c.get("id")}
+
+
 def run_analysis(session_id: int) -> None:
     db = SessionLocal()
     started = time.monotonic()
@@ -81,16 +99,21 @@ def run_analysis(session_id: int) -> None:
 
         # 2) Response-Fit (턴별) + 담화 구조 분석 (심층 리포트용)
         _set_progress(db, session, "response", 25)
+        seniority = _seniority_by_character(session)
         response_scores: list[tuple[float, float]] = []
         for t in turns:
             if not t.response_text:
                 continue
             # 과거 시드 방식이 남긴 깨진 에피소드 참조 방어 — 체크리스트 없이 분석 지속
             checklist = t.episode.checklist if t.episode else []
+            # 청자 지위: 상사·선배 턴에서만 완곡 명령(상향 지시형)을 집계
+            listener = seniority.get(t.episode.character_id, "") if t.episode else ""
             # 턴 단위 격리: 한 턴의 분석 실패는 그 턴만 건너뛰고 리포트를 완성한다
             try:
                 metrics = response_fit.analyze_response(t.response_text, checklist)
-                metrics["discourse"] = analyze_discourse(t.response_text, t.question_text)
+                metrics["discourse"] = analyze_discourse(
+                    t.response_text, t.question_text, listener,
+                )
                 score = response_fit.score_response(metrics)
             except Exception:
                 traceback.print_exc()

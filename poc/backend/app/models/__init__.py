@@ -1,4 +1,5 @@
 from app.models.models import (
+    DEMO_CLIENT_KEY_PREFIX,
     AnalysisResult,
     AnonymousId,
     AuditEvent,
@@ -18,6 +19,7 @@ from app.models.models import (
 )
 
 __all__ = [
+    "DEMO_CLIENT_KEY_PREFIX",
     "AnalysisResult",
     "AnonymousId",
     "AuditEvent",

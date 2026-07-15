@@ -15,6 +15,7 @@ from datetime import timedelta
 
 from app.core.database import Base, SessionLocal, engine
 from app.models import (
+    DEMO_CLIENT_KEY_PREFIX,
     AnalysisResult,
     FitType,
     Report,
@@ -67,7 +68,7 @@ def _make_results(db, session: RoleplaySession, base: float, rng: random.Random)
 
 def clean(db) -> int:
     demo_sessions = db.query(RoleplaySession).filter(
-        RoleplaySession.client_key.like("demo-%")
+        RoleplaySession.client_key.like(f"{DEMO_CLIENT_KEY_PREFIX}%")
     ).all()
     ids = [s.id for s in demo_sessions]
     if ids:
@@ -93,7 +94,7 @@ def seed_demo() -> None:
         now = utcnow()
         created = 0
         for visitor in range(15):
-            key = f"demo-{visitor:02d}"
+            key = f"{DEMO_CLIENT_KEY_PREFIX}{visitor:02d}"
             attempts = 2 if visitor % 2 == 0 else 1  # 절반은 재도전
             base = rng.uniform(52, 72)
             # 재도전 KPI(2차 수행률·개선 폭)가 정확히 잡히도록 방문자별 모드를 고정

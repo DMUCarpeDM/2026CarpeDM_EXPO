@@ -83,6 +83,10 @@ def build_delivery(discourse_list: list[dict], speech_rate_sps: float | None = N
     if negatives:
         rows.append({"label": "대안 없는 불가 통보", "value": f"{negatives}회"})
 
+    directives = sum(d.get("directive_to_senior", 0) for d in ds)
+    if directives:
+        rows.append({"label": "상향 지시형(완곡 명령)", "value": f"{directives}회"})
+
     # 코치 코멘트 — 가장 큰 개선 지점 하나만 (과잉 지적 금지).
     # 정합성은 보수적 임계값(0.15) — 자기소개처럼 질문 명사 재사용이 원래 낮은
     # 턴이 섞이므로, 진짜 동문서답 수준일 때만 지적한다.
@@ -90,6 +94,10 @@ def build_delivery(discourse_list: list[dict], speech_rate_sps: float | None = N
         comment = ("'안 됩니다'가 대안 없이 반복됐어요. 불가 통보 자체는 문제가 아니에요 — "
                    "\"지금은 어렵지만, 내일 오전까지는 가능합니다\"처럼 문장 뒤에 다음 문을 "
                    "하나 열어두면 같은 거절도 협력으로 들려요.")
+    elif directives:
+        comment = ("상사·선배님께 '~하세요/~해 주세요'처럼 지시형으로 말한 대목이 있었어요. "
+                   "내용이 맞아도 윗사람에겐 명령처럼 들릴 수 있어요 — \"~해 주시겠어요?\"나 "
+                   "\"~부탁드려도 될까요?\"처럼 여쭙는 형태로 바꾸면 같은 요청도 훨씬 부드러워요.")
     elif alignment is not None and alignment < 0.15:
         comment = ("질문의 핵심 단어가 답변에 거의 이어지지 않았어요. 답을 시작하기 전에 "
                    "질문 속 단어 하나를 그대로 받아 말하면(\"로그인 장애는요—\") 동문서답 인상이 사라져요.")
