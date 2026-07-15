@@ -337,14 +337,18 @@ def retry_analysis(
 
 
 @router.post("/{session_id}/survey", status_code=201)
-def submit_survey(session_id: int, body: SurveyIn, db: Session = Depends(get_db)):
-    """리포트 후 만족도 설문 저장 — 재제출 시 덮어쓴다 (세션당 1건)."""
-    session = db.get(RoleplaySession, session_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다")
-    survey = db.query(SurveyResponse).filter_by(session_id=session_id).first()
+def submit_survey(
+    body: SurveyIn,
+    session: RoleplaySession = Depends(require_session),
+    db: Session = Depends(get_db),
+):
+    """리포트 후 만족도 설문 저장 — 재제출 시 덮어쓴다 (세션당 1건).
+
+    다른 세션 API처럼 능력 토큰(require_session)으로 소유를 검증한다 —
+    토큰 없이 임의 세션 id에 설문을 기록·덮어쓰는 IDOR(KPI 오염)를 차단."""
+    survey = db.query(SurveyResponse).filter_by(session_id=session.id).first()
     if survey is None:
-        survey = SurveyResponse(session_id=session_id)
+        survey = SurveyResponse(session_id=session.id)
         db.add(survey)
     survey.q_clarity = body.q_clarity
     survey.q_empathy = body.q_empathy

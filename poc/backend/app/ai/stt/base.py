@@ -126,7 +126,9 @@ def get_stt_provider() -> SttProvider | None:
     """사용 가능한 첫 제공자를 캐시해 반환 (모델 로드는 1회)."""
     try:
         return WhisperProvider()
-    except ImportError:
+    except Exception:
+        # ImportError(미설치)뿐 아니라 모델 로드 실패 등 어떤 이유로든 Whisper가
+        # 안 뜨면 Vosk로 폴백한다 — 아래 Vosk 시도와 대칭.
         pass
     try:
         return VoskProvider()
