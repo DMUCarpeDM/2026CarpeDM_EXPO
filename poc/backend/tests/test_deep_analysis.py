@@ -1,0 +1,203 @@
+"""심층 교차 분석 검증 — 순수 빌더 함수를 합성 데이터로 대조."""
+from app.services.deep_analysis import (
+    build_adaptation,
+    build_composure,
+    build_congruence,
+    build_delivery,
+)
+
+
+# ---- delivery (담화 구조) ----
+
+def _discourse(**kw) -> dict:
+    base = {
+        "conclusion_first": True, "time_commitment_count": 1, "ownership_count": 1,
+        "hedge_per_100syl": 1.0, "question_alignment": 0.6,
+        "max_clauses_per_sentence": 2, "sentence_count": 3,
+        "specificity_count": 2, "trailing_count": 0, "cushion_count": 0,
+        "self_repair_count": 0, "conclusion_delay_syllables": 0,
+        "lexical_diversity": 0.7,
+    }
+    base.update(kw)
+    return base
+
+
+def test_delivery_praises_structured_speaker():
+    d = build_delivery([_discourse(), _discourse()])
+    assert d is not None
+    assert "완급" in d["comment"]  # 개선 지점이 없으면 다음 단계 제시
+
+
+def test_delivery_flags_off_topic_first():
+    # 정합성 문제가 결론 선행 문제보다 우선 지적돼야 한다 (동문서답이 더 치명적)
+    d = build_delivery([_discourse(question_alignment=0.05, conclusion_first=False)])
+    assert "질문" in d["comment"]
+
+
+def test_delivery_moderate_alignment_not_flagged():
+    # 자기소개 등 명사 재사용이 낮은 턴이 섞인 보통 수준(0.2)은 지적하지 않는다
+    d = build_delivery([_discourse(question_alignment=0.2, conclusion_first=False)])
+    assert "질문" not in d["comment"]
+
+
+def test_delivery_flags_missing_deadline():
+    d = build_delivery([_discourse(time_commitment_count=0)])
+    assert "기한" in d["comment"] or "시점" in d["comment"]
+
+
+def test_delivery_none_without_data():
+    assert build_delivery([]) is None
+    assert build_delivery([{}]) is None
+
+
+def test_delivery_flags_trailing_sentences():
+    d = build_delivery([_discourse(trailing_count=2)])
+    assert "말끝" in d["comment"]
+    assert any("말끝 흐림" in r["label"] for r in d["rows"])
+
+
+def test_delivery_flags_zero_specificity():
+    # 구조는 갖췄지만 숫자가 전혀 없는 답변 — 다음 단계로 수치를 처방
+    d = build_delivery([_discourse(specificity_count=0)])
+    assert "숫자" in d["comment"]
+
+
+def test_delivery_praises_cushion_speaker():
+    d = build_delivery([_discourse(cushion_count=2)])
+    assert "쿠션어" in d["comment"]
+    assert any("쿠션어" in r["label"] for r in d["rows"])
+
+
+def test_delivery_specificity_row_always_present():
+    d = build_delivery([_discourse()])
+    assert any("구체성" in r["label"] for r in d["rows"])
+
+
+def test_delivery_conclusion_delay_row_with_rate():
+    # 말속도가 있으면 결론 도달 거리를 초로도 환산해 보여준다
+    d = build_delivery([_discourse(conclusion_delay_syllables=40)], speech_rate_sps=4.0)
+    row = next(r for r in d["rows"] if r["label"] == "결론 도달")
+    assert "40음절" in row["value"] and "10초" in row["value"]
+
+
+def test_delivery_conclusion_delay_first_sentence():
+    d = build_delivery([_discourse(conclusion_delay_syllables=0)])
+    row = next(r for r in d["rows"] if r["label"] == "결론 도달")
+    assert row["value"] == "첫 문장"
+
+
+# ---- congruence (말-목소리 일치도) ----
+
+def _voice(jitter=2.0, shimmer=2.0, hes=0, long_pauses=0, estimated=False):
+    v = {
+        "f0_jitter_pct": jitter, "shimmer_pct": shimmer,
+        "long_pause_count": long_pauses,
+        "alignment": {"pause_quality": {"deliberate_count": 0, "hesitation_count": hes}},
+    }
+    if estimated:
+        v["estimated"] = True
+    return v
+
+
+def test_congruence_match_profile():
+    # 말도 단정적, 목소리도 안정 → 언행일치
+    c = build_congruence([_discourse()], [_voice()])
+    assert c is not None and c["level"] == "언행일치"
+
+
+def test_congruence_delivery_gap():
+    # 말은 단정적인데 목소리 떨림(jitter+shimmer 동시) → 전달 보강형
+    c = build_congruence(
+        [_discourse(hedge_per_100syl=1.0)], [_voice(jitter=9.0, shimmer=12.0)])
+    assert c["level"] == "전달 보강형"
+
+
+def test_congruence_expression_gap():
+    # 목소리는 안정적인데 모호어가 확신을 깎음 → 표현 보강형
+    c = build_congruence([_discourse(hedge_per_100syl=6.0)], [_voice()])
+    assert c["level"] == "표현 보강형"
+    assert any("모호어" in r["label"] for r in c["rows"])
+
+
+def test_congruence_both_shaky():
+    # 유보적 표현 + 문장 중간 끊김 반복 → 동반 긴장형
+    c = build_congruence([_discourse(hedge_per_100syl=6.0)], [_voice(hes=3)])
+    assert c["level"] == "동반 긴장형"
+
+
+def test_congruence_requires_measured_audio():
+    # webspeech 근사 턴(estimated)만 있으면 판정 보류 — 떨림·끊김이 없는 데이터
+    assert build_congruence([_discourse()], [_voice(estimated=True)]) is None
+    assert build_congruence([], [_voice()]) is None
+
+
+def test_congruence_single_tremor_axis_not_shaky():
+    # jitter 단독 상승(shimmer 정상)은 채점과 같은 이중 게이트로 동요로 보지 않는다
+    c = build_congruence([_discourse()], [_voice(jitter=9.0, shimmer=2.0)])
+    assert c["level"] == "언행일치"
+
+
+# ---- composure (압박 내성) ----
+
+def _pair(front=0.9, blink=15.0, press=0.05, jitter=3.0, pause=0.15, recover=0.3):
+    return (
+        {"front_gaze_ratio": front, "blink_per_min": blink, "mouth_press_ratio": press,
+         "expr_recover_sec": recover},
+        {"f0_jitter_pct": jitter, "pause_ratio": pause},
+    )
+
+
+def test_composure_calm_profile():
+    normal = [_pair(), _pair()]
+    pressure = [_pair()]  # 압박에서도 동일 → 침착형
+    c = build_composure(pressure, normal)
+    assert c["level"] == "침착형"
+
+
+def test_composure_shaken_profile():
+    normal = [_pair(), _pair()]
+    pressure = [_pair(front=0.55, blink=30.0, press=0.35, jitter=12.0)]  # 다중 악화
+    c = build_composure(pressure, normal)
+    assert c["level"] == "동요형"
+    assert any("정면 응시" in r["label"] for r in c["rows"])
+
+
+def test_composure_needs_both_groups():
+    assert build_composure([], [_pair()]) is None
+    assert build_composure([_pair()], []) is None
+
+
+def test_composure_detects_slow_expression_recovery():
+    # 표정 복구(마스터리 ⑤): 압박에서 긴장 표정만 오래 굳는 단독 반응 → 회복형
+    normal = [_pair(recover=0.4), _pair(recover=0.6)]
+    pressure = [_pair(recover=1.8)]
+    c = build_composure(pressure, normal)
+    assert c["level"] == "회복형"
+    assert "표정 복구 시간" in c["comment"]
+    # 악화 지표는 표시 상한(4행)에서 밀리지 않고 맨 앞에 온다
+    assert c["rows"][0]["label"] == "표정 복구 시간"
+
+
+def test_composure_skips_expression_probe_on_old_payload():
+    # 구 페이로드(expr_recover_sec 없음)에서는 프로브가 조용히 제외된다 (하위 호환)
+    old = ({"front_gaze_ratio": 0.9}, {})
+    c = build_composure([old], [old])
+    assert all("표정 복구" not in r["label"] for r in c["rows"])
+
+
+# ---- adaptation (적응 곡선) ----
+
+def test_adaptation_up_trend():
+    a = build_adaptation([(1, 50.0), (2, 60.0), (3, 75.0), (4, 80.0)])
+    assert a["trend"] == "up"
+    assert a["points"][0]["turn_order"] == 1
+
+
+def test_adaptation_down_trend():
+    a = build_adaptation([(1, 85.0), (2, 75.0), (3, 60.0), (4, 55.0)])
+    assert a["trend"] == "down"
+
+
+def test_adaptation_flat_and_minimum_turns():
+    assert build_adaptation([(1, 70.0), (2, 72.0), (3, 69.0)])["trend"] == "flat"
+    assert build_adaptation([(1, 70.0), (2, 90.0)]) is None  # 3턴 미만 판정 보류

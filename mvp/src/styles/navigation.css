@@ -1,0 +1,111 @@
+/* 글로벌 네비게이션 드롭다운 팝업 */
+.nav-dropdown-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.nav-dropdown {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  min-width: 290px;
+  background: var(--color-glass);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  padding: 16px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: navDropdownFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes navDropdownFadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.nav-dropdown h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-ink);
+  margin: 0 0 4px 0;
+}
+
+.nav-dropdown ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nav-dropdown ul li {
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--color-graphite);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  line-height: 1.4;
+  word-break: keep-all;
+}
+
+.nav-dropdown ul li:hover {
+  background: rgba(0, 100, 255, 0.06);
+  color: var(--color-blue);
+}
+
+.nav-dropdown ul li strong {
+  color: var(--color-ink);
+}
+
+/* 알림 드롭다운 */
+.bell-dropdown {
+  right: -10px;
+}
+
+/* 프로필 드롭다운 */
+.profile-dropdown {
+  right: 0;
+}
+
+.profile-dropdown .user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 8px;
+}
+
+.profile-dropdown .user-info strong {
+  font-size: 15px;
+  color: var(--color-ink);
+}
+
+.profile-dropdown .user-info span {
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.profile-dropdown hr {
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  margin: 4px 0;
+}
+
+/* 시나리오 드롭다운 */
+.scenario-dropdown {
+  left: 0;
+  right: auto;
+}
+
+.scenario-dropdown ul li.active {
+  background: var(--color-blue-soft);
+  color: var(--color-blue);
+  font-weight: 600;
+}
+

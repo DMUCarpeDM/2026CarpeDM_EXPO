@@ -1,0 +1,345 @@
+/* PC 최적화 대시보드 그리드 보강 */
+@media (min-width: 1161px) {
+  /* ResultPage 대시보드 2열 레이아웃 */
+  .result-page .result-grid {
+    display: grid;
+    grid-template-columns: 420px 1fr;
+    align-items: start;
+    gap: 32px;
+  }
+  
+  .result-page .lower-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 32px;
+    margin-top: 32px;
+  }
+  
+  .result-page {
+    max-width: 1484px;
+    margin: 0 auto;
+  }
+
+  /* FeedbackPage 2열 대시보드 */
+  .feedback-layout {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 32px;
+    align-items: start;
+  }
+  
+  .feedback-context {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  /* ComparePage 2열 대시보드 */
+  .compare-page {
+    max-width: 1484px;
+    margin: 0 auto;
+  }
+  
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 420px;
+    gap: 32px;
+    align-items: start;
+  }
+  
+  .history-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+  
+  .compare-actions {
+    grid-column: span 2;
+    display: flex;
+    justify-content: flex-end;
+    gap: 16px;
+  }
+  
+  .compare-actions .primary-button {
+    width: auto;
+    min-width: 200px;
+  }
+  
+  .compare-actions > div {
+    display: flex;
+    gap: 16px;
+  }
+}
+
+@media (min-width: 1500px) and (min-height: 900px) {
+  .app-shell {
+    width: min(1720px, calc(100% - 56px));
+    padding: 18px 0 34px;
+  }
+
+  .screen-frame {
+    min-height: calc(100vh - 126px);
+  }
+
+  .page {
+    padding: 28px 0 34px;
+  }
+
+  .top-nav {
+    min-height: 78px;
+    padding: 12px 34px;
+  }
+
+  .top-nav nav {
+    gap: 54px;
+  }
+
+  .home-page {
+    padding-top: 42px;
+  }
+
+  .home-hero,
+  .recommend-section,
+  .product-benefits {
+    max-width: 1600px;
+  }
+
+  .home-hero {
+    grid-template-columns: minmax(0, 0.88fr) minmax(620px, 0.96fr);
+    gap: 96px;
+    min-height: 590px;
+  }
+
+  .hero-copy {
+    padding-left: 52px;
+  }
+
+  .hero-copy h1 {
+    max-width: 720px;
+    font-size: 74px;
+  }
+
+  .hero-copy p {
+    max-width: 640px;
+    font-size: 21px;
+  }
+
+  .home-visual {
+    min-height: 610px;
+  }
+
+  .portrait.hero.image-backed {
+    width: min(500px, 54vw);
+    height: 590px;
+  }
+
+  .floating-stat {
+    min-width: 176px;
+    padding: 22px;
+  }
+
+  .stat-coach {
+    top: 122px;
+    left: 32px;
+  }
+
+  .stat-feedback {
+    top: 300px;
+    right: 34px;
+  }
+
+  .stat-suggestion {
+    bottom: 72px;
+    left: 10px;
+  }
+
+  .home-recommend-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 22px;
+  }
+
+  .recommend-card {
+    min-height: 160px;
+    padding: 28px 64px 28px 26px;
+  }
+
+  .selection-layout,
+  .setup-page {
+    grid-template-columns: minmax(0, 1fr) 420px;
+    gap: 76px;
+  }
+
+  .selection-main,
+  .setup-main {
+    max-width: 1160px;
+  }
+
+  .choice-grid {
+    gap: 18px;
+  }
+
+  .choice-card {
+    min-height: 118px;
+    padding: 22px 26px;
+  }
+
+  .choice-card.compact {
+    min-height: 112px;
+    padding: 20px;
+  }
+
+  .summary-panel {
+    padding: 30px;
+  }
+
+  .preview-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(520px, 0.68fr);
+    gap: 76px;
+    align-items: start;
+  }
+
+  .preview-page,
+  .share-page {
+    max-width: 1720px;
+    margin: 0 auto;
+  }
+
+  .scenario-brief {
+    padding: 28px 34px;
+  }
+
+  .brief-row {
+    padding: 30px 0;
+  }
+
+  .role-profile {
+    grid-template-columns: 230px 1fr;
+    padding: 32px;
+  }
+
+  .practice-page {
+    padding-top: 20px;
+  }
+
+  .practice-head {
+    margin-bottom: 18px;
+  }
+
+  .camera-frame {
+    min-height: calc(100vh - 178px);
+    border-radius: 22px;
+  }
+
+  .camera-ai-prompt {
+    top: 92px;
+    left: 36px;
+    width: 430px;
+    padding: 20px 22px;
+  }
+
+  .rec-label {
+    top: 36px;
+    left: 36px;
+  }
+
+  .camera-panel-stack {
+    top: 32px;
+    right: 32px;
+    bottom: 112px;
+    width: 410px;
+    gap: 14px;
+  }
+
+  .camera-panel-stack .chat-collapsible-content {
+    max-height: 420px;
+  }
+
+  .record-control-strip {
+    bottom: 34px;
+  }
+
+  .guide-chip {
+    bottom: 28px;
+  }
+
+  .result-page,
+  .compare-page {
+    max-width: 1720px;
+  }
+
+  .result-page .result-grid {
+    grid-template-columns: 520px 1fr;
+    gap: 36px;
+  }
+
+  .overall-card,
+  .fit-analysis,
+  .coaching-summary,
+  .info-card,
+  .comparison-table,
+  .improved-card,
+  .history-card,
+  .growth-card,
+  .compare-actions {
+    padding: 32px;
+  }
+
+  .overall-body {
+    grid-template-columns: 230px 1fr;
+    gap: 32px;
+  }
+
+  .fit-analysis .fit-card-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .fit-card {
+    min-height: 244px;
+  }
+
+  .feedback-layout {
+    grid-template-columns: minmax(0, 1fr) 460px;
+    gap: 42px;
+  }
+
+  .share-layout {
+    grid-template-columns: minmax(0, 1fr) 520px;
+    gap: 42px;
+    max-width: 1484px;
+  }
+
+  .export-grid,
+  .quick-share {
+    gap: 18px;
+  }
+
+  .insight-step {
+    min-height: 148px;
+  }
+
+  .compare-grid {
+    grid-template-columns: minmax(0, 1fr) 480px;
+    gap: 34px;
+  }
+
+  .attempt-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 34px;
+  }
+
+  .attempt-card {
+    min-height: 286px;
+  }
+
+  .history-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 480px;
+    gap: 34px;
+  }
+
+  .compare-actions {
+    grid-column: auto;
+    display: grid;
+  }
+}
+

@@ -1,0 +1,92 @@
+@media (max-width: 1040px) {
+  .top-nav nav { gap: 18px; }
+  .page,.selection-page,.setup-page,.home-page { width: min(100% - 42px, 100%); }
+  .home-hero { grid-template-columns: 1fr .85fr; min-height: 540px; margin-bottom: 74px; }
+  .home-fit-section { grid-template-columns: 1fr; }
+  .home-section-copy { padding-top: 0; }
+  .home-fit-board { grid-template-columns: 1fr; }
+  .home-advantages-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .home-advantage-card:nth-child(3) { border-right: 0; }
+  .home-advantage-card:nth-child(-n+3) { border-bottom: 1px solid var(--line-cool); }
+  .home-radar-card { grid-template-columns: auto auto auto; }
+  .home-radar-chart { width: 168px; height: 168px; }
+  .result-page .page-title { padding-left: 0; }
+  .result-report-layout { grid-template-columns: 1fr; }
+  .overall-card { min-height: 0; }
+  .overall-body { grid-template-columns: 270px 1fr; }
+  .result-page .dual-cta { margin-left: auto; }
+  .camera-panel-stack { width: min(42%, 430px); }
+}
+
+@media (min-width: 761px) and (max-width: 1160px) {
+  .top-nav {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0;
+    min-height: 64px;
+    padding: 0 22px;
+  }
+
+  .brand { min-width: 176px; font-size: 21px; }
+  .top-nav nav,
+  .nav-actions { flex-wrap: nowrap; }
+  .top-nav nav { gap: 18px; padding-left: 4px; }
+  .top-nav nav button { min-width: auto; padding: 0 3px; font-size: 14px; }
+  .nav-actions { gap: 7px; }
+  .timer-pill { padding: 0 10px; font-size: 13px; }
+  .profile-button strong { display: none; }
+}
+
+@media (max-width: 760px) {
+  .app-shell { padding-bottom: 22px; }
+  .top-nav { top: 10px; width: calc(100% - 28px); min-height: 56px; margin-top: 10px; padding: 0 16px; }
+  .brand { min-width: 0; min-height: 38px; padding: 0; border-right: 0; font-size: 19px; }
+  .brand-mark { width: 28px; height: 28px; margin-right: 8px; border-radius: 50%; font-size: 15px; }
+  .top-nav nav,.timer-pill,.divider,.bell-button,.profile-button { display: none; }
+  .nav-actions { justify-content: flex-end; }
+  .mobile-menu-button { display: grid; }
+  .page,.selection-page,.setup-page,.home-page,.result-page,.compare-page,.practice-page { width: min(100% - 28px, 100%); padding-top: 26px; }
+  .page-title h1 { font-size: 35px; letter-spacing: -1.8px; }
+  .selection-layout,.setup-page { grid-template-columns: 1fr; gap: 26px; }
+  .summary-panel { position: static; padding: 24px; }
+  .home-hero { min-height: 655px; grid-template-columns: 1fr; align-items: start; margin-bottom: 56px; padding: 0 0 315px; background-position: 72% bottom; background-size: auto 340px; }
+  .hero-copy h1 { font-size: 46px; letter-spacing: -0.075em; word-spacing: -0.13em; }
+  .hero-actions .primary-button { min-width: 0; }
+  .hero-social-proof .avatar { width: 42px; height: 42px; }
+  .coach-device { min-height: 350px; width: 275px; padding: 28px 22px; border-radius: 37px; }
+  .coach-device p { margin-top: 22px; font-size: 19px; }
+  .coach-device > span:not(.coach-device-mark) { padding: 9px 11px; font-size: 10px; }
+  .home-section-copy { grid-template-columns: 1fr; }
+  .home-fit-grid { grid-template-columns: repeat(2, 1fr); }
+  .home-fit-card:nth-child(2) { border-right: 0; }
+  .home-fit-card { min-height: 220px; padding: 18px; border-bottom: 1px solid var(--line-cool); }
+  .home-fit-card > strong { font-size: 33px; }
+  .home-fit-card > span { gap: 5px; font-size: 12px; white-space: nowrap; }
+  .home-fit-card > span img { width: 46px; height: 46px; }
+  .home-fit-card > span small { display: none; }
+  .home-radar-card { grid-template-columns: 1fr; }
+  .home-radar-chart { width: 174px; height: 174px; }
+  .home-fit-section { margin-bottom: 58px; padding-top: 58px; }
+  .home-advantages { margin-top: 0; padding: 58px 0 64px; }
+  .home-advantages-head h2 { font-size: 30px; }
+  .home-advantages-grid { grid-template-columns: 1fr; }
+  .home-advantage-card,.home-advantage-card:nth-child(3) { min-height: 0; padding: 23px; border-right: 0; border-bottom: 1px solid var(--line-cool); }
+  .home-advantage-card:last-child { border-bottom: 0; }
+  .home-advantage-card > img { width: 88px; height: 88px; }
+  .choice-card { min-height: 145px; }
+  .result-page .fit-analysis .fit-card-grid { grid-template-columns: repeat(2, 1fr); }
+  .overall-body { grid-template-columns: 1fr; }
+  .report-heading,.coaching-columns,.report-insight-card,.result-page .dual-cta { grid-template-columns: 1fr; }
+  .report-heading { display: grid; }
+  .report-meta { grid-template-columns: 1fr; }
+  .coaching-columns .feedback-box + .feedback-box { border-top: 1px solid var(--line-cool); border-left: 0; }
+  .report-insight-card { display: grid; }
+  .report-radar-placeholder { justify-self: start; }
+  .attempt-grid,.compare-grid,.history-grid { grid-template-columns: 1fr; }
+  .practice-page .page-toolbar { top: 18px; left: 18px; }
+  .camera-column,.camera-frame { min-height: calc(100vh - 104px); }
+  .camera-ai-prompt { top: 80px; left: 18px; width: calc(100% - 36px); padding: 18px; }
+  .camera-ai-prompt p { font-size: 19px; }
+  .camera-panel-stack { right: 14px; bottom: 99px; left: 14px; width: auto; }
+  .record-control-strip { right: 14px; left: 14px; bottom: 16px; min-height: 65px; padding: 12px 15px; }
+}
+

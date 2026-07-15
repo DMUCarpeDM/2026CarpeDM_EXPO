@@ -1,0 +1,7 @@
+node_modules/
+dist/
+artifacts/
+.omo/
+.ouroboros/
+tmp/
+.DS_Store
