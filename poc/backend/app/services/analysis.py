@@ -4,6 +4,7 @@ FastAPI BackgroundTask로 실행되며 단계별로 session.analysis_progress를
   stt → response → voice → nonverbal → scoring → report → done
 """
 import copy
+import threading
 import time
 import traceback
 from pathlib import Path
@@ -44,6 +45,14 @@ def strip_turn_verbatim(metrics: dict) -> dict:
     return m
 
 
+# 같은 세션의 run_analysis 동시 실행 가드 (프로세스 내). finish·재시도·재시작
+# 복구가 같은 세션을 동시에 큐잉하면 두 스레드가 서로의 AnalysisResult/Report를
+# 지우고 재삽입해 UNIQUE 제약 위반·결과 손상을 낸다. BackgroundTask는 같은
+# 프로세스 스레드풀에서 돌므로 인메모리 가드로 충분하다.
+_analysis_guard = threading.Lock()
+_analysis_in_flight: set[int] = set()
+
+
 def _set_progress(db, session: RoleplaySession, stage: str, pct: int) -> None:
     # "at": 진행률 정체 감지용 — get_progress가 이 시각으로 죽은 분석 스레드를 판별한다
     session.analysis_progress = {"stage": stage, "pct": pct, "at": time.time()}
@@ -51,6 +60,10 @@ def _set_progress(db, session: RoleplaySession, stage: str, pct: int) -> None:
 
 
 def run_analysis(session_id: int) -> None:
+    with _analysis_guard:
+        if session_id in _analysis_in_flight:
+            return  # 같은 세션 분석이 이미 진행 중 — 동시 실행(결과 손상·UNIQUE 위반) 차단
+        _analysis_in_flight.add(session_id)
     db = SessionLocal()
     started = time.monotonic()
     try:
@@ -71,6 +84,10 @@ def run_analysis(session_id: int) -> None:
             provider = get_stt_provider()
             if provider:
                 for t in no_text:
+                    # 전사 진행 중 'at'을 갱신해 정체 오판을 막는다 — 오디오 턴이 많으면
+                    # 누적 CPU 전사가 정체 임계(180s)를 넘겨, 살아있는 스레드가 죽은 것으로
+                    # 오판되고(get_progress) 그 틈에 운영자 재시도가 두 번째 분석을 동시 실행한다.
+                    _set_progress(db, session, "stt", 5)
                     # 턴 단위 격리: 손상된 오디오 한 건이 세션 전체를 무너뜨리지 않게
                     try:
                         t.response_text = provider.transcribe(t.audio_path)
@@ -229,3 +246,5 @@ def run_analysis(session_id: int) -> None:
             db.commit()
     finally:
         db.close()
+        with _analysis_guard:
+            _analysis_in_flight.discard(session_id)

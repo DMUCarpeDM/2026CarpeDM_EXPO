@@ -24,7 +24,9 @@ def require_session(
     if session is None:
         raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다")
     token = session.access_token or ""
-    if not token or not secrets.compare_digest(x_session_token, token):
+    # 바이트로 비교 — compare_digest는 non-ASCII str에 TypeError를 던진다.
+    # 조작된 non-ASCII 토큰 헤더가 미처리 500을 내지 않게 UTF-8 바이트로 상수시간 대조.
+    if not token or not secrets.compare_digest(x_session_token.encode("utf-8"), token.encode("utf-8")):
         raise HTTPException(status_code=403, detail="세션 접근 권한이 없습니다")
     return session
 
@@ -69,7 +71,7 @@ def require_admin(
     if user is not None and user.role == "admin":
         return user
     if settings.admin_token:
-        if not secrets.compare_digest(x_admin_token, settings.admin_token):
+        if not secrets.compare_digest(x_admin_token.encode("utf-8"), settings.admin_token.encode("utf-8")):
             raise HTTPException(status_code=401, detail="운영 토큰이 올바르지 않습니다")
         return user
     host = request.client.host if request.client else ""
