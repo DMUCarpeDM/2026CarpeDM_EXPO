@@ -7,9 +7,11 @@
     "dev": "vite --host 0.0.0.0",
     "test": "node --test src/lib/*.test.js",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "setup-offline": "node scripts/setup-offline.mjs"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "^0.10.35",
     "@vitejs/plugin-react": "^4.3.4",
     "framer-motion": "^12.42.2",
     "react": "^19.0.0",

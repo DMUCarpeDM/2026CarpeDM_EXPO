@@ -7,6 +7,7 @@ import { Send } from "reicon-react/icons/Send";
 import { User4 } from "reicon-react/icons/User4";
 import { motion } from "framer-motion";
 import { IconGlyph } from "../components/ui/IconGlyph";
+import { NonverbalTracker } from "../lib/nonverbal";
 
 export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSignals, onSubmit, busy, error, mediaStream }) {
   const [draft, setDraft] = useState("");
@@ -15,6 +16,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
   const recorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const recordingStartedAtRef = useRef(0);
+  const trackerRef = useRef(null);
   const character = scenario?.characters?.find((item) => item.id === turn?.character_id);
   const characterName = character?.name || "AI 상대";
   const responseState = turnSignals ? `${Math.round(turnSignals.coverage * 100)}% 커버` : "답변 대기";
@@ -36,6 +38,14 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
     if (videoRef.current && mediaStream) videoRef.current.srcObject = mediaStream;
   }, [mediaStream]);
 
+  // 비언어 측정(Eye/Posture) 모델을 미리 로드하고 언마운트 시 해제
+  useEffect(() => {
+    const tracker = new NonverbalTracker();
+    trackerRef.current = tracker;
+    tracker.load();
+    return () => { tracker.close(); trackerRef.current = null; };
+  }, []);
+
   useEffect(() => {
     if (!mediaStream || !turn) return undefined;
     if (!window.MediaRecorder) {
@@ -55,7 +65,19 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
     recorderRef.current = recorder;
     recorder.start();
     setCaptureError("");
-    return () => { if (recorder.state !== "inactive") recorder.stop(); };
+    // 비언어 측정 시작 — 모델 로드가 끝나는 대로(첫 턴 포함) 이 턴 동안 시선·자세를 표본화
+    let cancelledTracker = false;
+    (async () => {
+      const tracker = trackerRef.current;
+      if (!tracker) return;
+      await tracker.load();
+      if (!cancelledTracker && videoRef.current) tracker.start(videoRef.current);
+    })();
+    return () => {
+      cancelledTracker = true;
+      if (recorder.state !== "inactive") recorder.stop();
+      trackerRef.current?.stop();
+    };
   }, [mediaStream, turn]);
 
   const stopTurnRecorder = () => new Promise((resolve, reject) => {
@@ -80,7 +102,9 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
     try {
       const audio = await stopTurnRecorder();
       if (audio.size === 0) throw new Error("답변 음성이 녹음되지 않았어요. 마이크 권한을 확인해 주세요.");
-      await onSubmit({ text: draft, audio, durationMs: Math.round(performance.now() - recordingStartedAtRef.current), nonverbalMetrics: collectNonverbalMetrics() });
+      // 시선·자세 측정 종료 → NonverbalIn 페이로드. 모델 미로드·표본 부족이면 카메라 메타로 폴백(측정 제외)
+      const nonverbalMetrics = trackerRef.current?.stop() ?? collectNonverbalMetrics();
+      await onSubmit({ text: draft, audio, durationMs: Math.round(performance.now() - recordingStartedAtRef.current), nonverbalMetrics });
       setDraft("");
       setCaptureError("");
     } catch (err) { setCaptureError(err.message); }

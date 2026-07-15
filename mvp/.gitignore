@@ -5,3 +5,7 @@ artifacts/
 .ouroboros/
 tmp/
 .DS_Store
+
+# MediaPipe 오프라인 자산 (poc에서 복사 또는 CDN 폴백)
+public/mediapipe-wasm/
+public/models/
