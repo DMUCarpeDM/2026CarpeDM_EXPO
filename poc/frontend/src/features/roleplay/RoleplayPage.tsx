@@ -4,12 +4,14 @@ import { finishSession, getHealth, getSession, submitResponse, uploadAudio } fro
 import type { Character, Turn, TurnSignals } from '../../api/types';
 import Avatar from '../../components/Avatar';
 import Icon from '../../components/Icon';
+import { useGlassesMode } from '../../lib/glassesMode';
 import { useMirrorMode } from '../../lib/mirrorMode';
 import { isOfflineMode } from '../../lib/offlineMode';
 import { AudioTurnRecorder } from '../../lib/recorder';
 import { isSpeechRecognitionSupported, SpeechCapture } from '../../lib/stt';
 import { speak, stopSpeaking } from '../../lib/tts';
 import { useSessionStore } from '../../stores/sessionStore';
+import RoleplayGlassesView from './RoleplayGlassesView';
 import RoleplayMirrorView from './RoleplayMirrorView';
 import { useNonverbal } from './useNonverbal';
 
@@ -27,6 +29,7 @@ export default function RoleplayPage() {
   const navigate = useNavigate();
   const { sessionId } = useParams();
   const mirror = useMirrorMode();
+  const glasses = useGlassesMode();
   const { session, currentTurn, turnHistory, advance, restore } = useSessionStore();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const overlayRef = useRef<HTMLCanvasElement | null>(null);
@@ -183,7 +186,7 @@ export default function RoleplayPage() {
   // 전시(키오스크) 모드: 브리핑에서 관람객이 그냥 떠나면 거울이 무한 대기하지 않도록
   // 무조작 90초 후 대기 화면으로 자동 복귀 (역할극 본편은 세션 타이머가 스스로 마무리)
   useEffect(() => {
-    if (!mirror || !briefingOpen) return;
+    if ((!mirror && !glasses) || !briefingOpen) return;
     let idle: ReturnType<typeof setTimeout>;
     const reset = () => {
       clearTimeout(idle);
@@ -196,7 +199,7 @@ export default function RoleplayPage() {
       clearTimeout(idle);
       events.forEach((e) => window.removeEventListener(e, reset));
     };
-  }, [mirror, briefingOpen, navigate]);
+  }, [mirror, glasses, briefingOpen, navigate]);
 
   const finish = useCallback(async () => {
     if (!session) return;
@@ -276,7 +279,7 @@ export default function RoleplayPage() {
       setNotice('오프라인 모드인데 서버 음성 인식이 준비되지 않았어요. 운영자에게 알려주세요. (whisper 미설치)');
     } else {
       setNotice(
-        mirror
+        mirror || glasses
           ? '음성 인식을 사용할 수 없어요. 운영자를 불러주세요.'
           : '이 브라우저는 음성 인식을 지원하지 않아요. 텍스트로 입력해주세요. (Chrome 권장)',
       );
@@ -360,6 +363,43 @@ export default function RoleplayPage() {
   const seconds = String(secondsLeft % 60).padStart(2, '0');
   const episodeTitles = session.scenario.episode_titles[String(session.mode)] ?? [];
   const episodeIndex = episodeTitles.indexOf(currentTurn.episode_title);
+
+  // 스마트 글래스 HUD — 같은 로직, 1인칭 헤드업 문법 (실시간 코칭 넛지형).
+  // 미러와 동일한 신호를 받되 표현만 헤드업 디스플레이로 바꾼다.
+  if (glasses && character) {
+    return (
+      <RoleplayGlassesView
+        session={session}
+        currentTurn={currentTurn}
+        character={character}
+        reactionCharacter={reactionCharacter}
+        phase={phase}
+        aiSpeaking={aiSpeaking}
+        secondsLeft={secondsLeft}
+        totalSeconds={totalSeconds}
+        recording={recording}
+        submitting={submitting}
+        draft={draft}
+        interim={interim}
+        notice={notice}
+        live={live}
+        cameraReady={cameraReady}
+        tip={tip}
+        lastSignals={lastSignals}
+        videoRef={videoRef}
+        overlayRef={overlayRef}
+        briefingOpen={briefingOpen && currentTurn.order === 1 && !!briefing}
+        briefing={briefing}
+        onStartDay={() => {
+          finishCalibration();
+          setBriefingOpen(false);
+        }}
+        toggleMic={toggleMic}
+        submit={submit}
+        finish={finish}
+      />
+    );
+  }
 
   // 미러 모드 — 같은 로직, 거울 문법의 표현 계층 (기획서 §0)
   if (mirror && character) {

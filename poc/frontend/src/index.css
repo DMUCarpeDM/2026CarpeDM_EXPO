@@ -3035,3 +3035,480 @@ h2 .icon {
   padding: 1px 8px;
   border-radius: var(--r-full);
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   스마트 글래스 HUD — 역할극의 1인칭 문법 (RoleplayGlassesView)
+   미러와 같은 신호원, 헤드업 디스플레이 표현. 실시간 코칭 큐가 주인공.
+   ══════════════════════════════════════════════════════════════════════ */
+.glasses-hud {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: calc(var(--s-6) + 6px) var(--s-6) var(--s-6);
+  background: radial-gradient(120% 80% at 50% 8%, #0b1420 0%, #05070c 60%, #04060a 100%);
+  color: var(--text);
+  overflow: hidden;
+}
+
+/* 착용자 시야 재현 — 정적 비네트 (연출 효과, 저사양에도 가벼움) */
+.glasses-hud::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(130% 90% at 50% 45%, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
+  z-index: 1;
+}
+
+/* 모서리 브래킷 */
+.glasses-frame {
+  position: absolute;
+  inset: var(--s-4);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.gf-corner {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border: 2px solid rgba(62, 207, 142, 0.5);
+}
+
+.gf-corner.tl { top: 0; left: 0; border-right: none; border-bottom: none; }
+.gf-corner.tr { top: 0; right: 0; border-left: none; border-bottom: none; }
+.gf-corner.bl { bottom: 0; left: 0; border-right: none; border-top: none; }
+.gf-corner.br { bottom: 0; right: 0; border-left: none; border-top: none; }
+
+.glasses-hud.pressure .gf-corner { border-color: rgba(229, 100, 95, 0.55); }
+
+/* 상단 상태 바 */
+.glasses-topbar {
+  position: relative;
+  z-index: 3;
+  width: 100%;
+  max-width: 760px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--fs-caption);
+  letter-spacing: 0.08em;
+  color: var(--text-2);
+}
+
+.glasses-clock,
+.glasses-priv {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.glasses-clock.urgent { color: var(--bad); }
+
+.glasses-clock.big {
+  font-size: var(--fs-title);
+  color: var(--good);
+  letter-spacing: 0.02em;
+}
+
+.glasses-brand {
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: rgba(62, 207, 142, 0.85);
+  text-transform: uppercase;
+}
+
+.glasses-progress {
+  position: relative;
+  z-index: 3;
+  width: 100%;
+  max-width: 760px;
+  height: 2px;
+  margin-top: var(--s-2);
+  background: rgba(62, 207, 142, 0.12);
+  border-radius: var(--r-full);
+  overflow: hidden;
+}
+
+.glasses-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--good), rgba(62, 207, 142, 0.35));
+  box-shadow: 0 0 10px rgba(62, 207, 142, 0.5);
+  transition: width 1s linear;
+}
+
+/* 카메라는 숨은 센서 — 착용자 자신은 화면에 없다 */
+.glasses-camera-hidden {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.glasses-camera-hidden video,
+.glasses-camera-hidden canvas {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 무대 = 상대·큐·자막·게이지를 담는 축소 가능 영역. 화면이 낮아 넘치면
+   컨트롤을 밀어내는 대신 이 무대가 클립된다 (min-height:0 + overflow) */
+.glasses-stage {
+  position: relative;
+  z-index: 3;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-3);
+  overflow: hidden;
+}
+
+/* 마주한 상대 */
+.glasses-target {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.glasses-target-avatar {
+  position: relative;
+  border-radius: var(--r-full);
+  padding: 4px;
+  border: 1px solid rgba(62, 207, 142, 0.35);
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.glasses-target.speaking .glasses-target-avatar {
+  border-color: var(--accent);
+  box-shadow: 0 0 22px rgba(91, 124, 250, 0.45);
+}
+
+.glasses-speaking-ping {
+  position: absolute;
+  inset: -4px;
+  border-radius: var(--r-full);
+  border: 2px solid var(--accent);
+  animation: glasses-ping 1.4s ease-out infinite;
+}
+
+@keyframes glasses-ping {
+  0% { opacity: 0.7; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.25); }
+}
+
+.glasses-target-name {
+  margin-top: var(--s-2);
+  font-size: var(--fs-body);
+  font-weight: 700;
+}
+
+.glasses-target-role {
+  font-size: var(--fs-caption);
+  color: var(--text-2);
+}
+
+.glasses-pressure-chip {
+  margin-top: 4px;
+  font-size: var(--fs-caption);
+  font-weight: 700;
+  color: var(--bad);
+  border: 1px solid rgba(229, 100, 95, 0.5);
+  border-radius: var(--r-full);
+  padding: 2px 10px;
+}
+
+/* 실시간 코칭 큐 — HUD의 주인공. 슬롯은 높이를 예약해 레이아웃 흔들림 방지 */
+.glasses-cue-slot {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.glasses-cue {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  max-width: 90vw;
+  padding: var(--s-3) var(--s-5);
+  border-radius: var(--r-full);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  background: rgba(5, 8, 14, 0.72);
+  border: 1px solid var(--border-strong);
+  backdrop-filter: blur(4px);
+  animation: glasses-cue-in 0.3s ease;
+}
+
+.glasses-cue-icon { display: inline-flex; opacity: 0.9; }
+
+.glasses-cue.warn {
+  color: #fbe7a6;
+  border-color: rgba(226, 185, 59, 0.6);
+  box-shadow: 0 0 26px rgba(226, 185, 59, 0.22);
+}
+
+.glasses-cue.ok {
+  color: #bff0d6;
+  border-color: rgba(62, 207, 142, 0.6);
+  box-shadow: 0 0 26px rgba(62, 207, 142, 0.2);
+}
+
+.glasses-cue.info {
+  color: var(--text-2);
+  border-color: var(--border-strong);
+}
+
+@keyframes glasses-cue-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 자막 — 글래스는 근안 소형 디스플레이 은유라 미러(40px)보다 조밀하게 */
+.glasses-subtitle {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-2);
+  text-align: center;
+}
+
+.glasses-sub-line {
+  margin: 0;
+  font-size: var(--fs-body);
+  line-height: 1.4;
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+.glasses-sub-mine {
+  margin: 0;
+  font-size: var(--fs-body);
+  line-height: 1.5;
+  color: var(--good);
+  font-weight: 500;
+}
+
+.glasses-sub-mine .interim { color: var(--text-3); }
+
+.glasses-sub-listening {
+  margin: 0;
+  font-size: var(--fs-body);
+  color: var(--text-2);
+}
+
+.glasses-notice {
+  margin: 0;
+  font-size: var(--fs-caption);
+  color: var(--warn);
+}
+
+/* 4-Fit 주변시야 게이지 */
+.glasses-gauges {
+  display: flex;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.glasses-gauge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--border);
+  background: rgba(10, 14, 22, 0.6);
+  font-size: var(--fs-caption);
+}
+
+.glasses-gauge-orb {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-full);
+  background: var(--text-3);
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.glasses-gauge.ok .glasses-gauge-orb {
+  background: var(--good);
+  box-shadow: 0 0 8px rgba(62, 207, 142, 0.6);
+}
+
+.glasses-gauge.warn .glasses-gauge-orb {
+  background: var(--warn);
+  box-shadow: 0 0 8px rgba(226, 185, 59, 0.6);
+}
+
+.glasses-gauge-label { color: var(--text-2); }
+.glasses-gauge-value { color: var(--text); font-variant-numeric: tabular-nums; }
+
+.glasses-mic-bar {
+  width: 34px;
+  height: 4px;
+  border-radius: var(--r-full);
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.glasses-mic-fill {
+  display: block;
+  height: 100%;
+  background: var(--good);
+  transition: width 0.1s linear;
+}
+
+/* 컨트롤 — 무대 밖 하단 고정. flex-none이라 자막이 길어도 절대 잘리지 않는다 */
+.glasses-controls {
+  position: relative;
+  z-index: 3;
+  flex: 0 0 auto;
+  margin-top: var(--s-4);
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+}
+
+.glasses-mic-btn {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--border-strong);
+  background: rgba(10, 14, 22, 0.7);
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.glasses-mic-btn:hover:not(:disabled) { transform: scale(1.05); }
+
+.glasses-mic-btn.recording {
+  border-color: var(--bad);
+  color: var(--bad);
+  box-shadow: 0 0 22px rgba(229, 100, 95, 0.4);
+  animation: glasses-rec 1.4s ease-in-out infinite;
+}
+
+@keyframes glasses-rec {
+  0%, 100% { box-shadow: 0 0 18px rgba(229, 100, 95, 0.3); }
+  50% { box-shadow: 0 0 30px rgba(229, 100, 95, 0.6); }
+}
+
+.glasses-submit-btn { min-width: 96px; }
+
+.glasses-finish-link {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  font-size: var(--fs-caption);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.glasses-mic-btn:disabled,
+.glasses-finish-link:disabled { opacity: 0.5; cursor: default; }
+
+/* 브리핑 = HUD 부팅 · 시선 보정 */
+.glasses-briefing {
+  position: relative;
+  z-index: 3;
+  margin: auto;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-3);
+  text-align: center;
+}
+
+.glasses-boot {
+  font-size: var(--fs-caption);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(62, 207, 142, 0.85);
+}
+
+.glasses-briefing-title {
+  margin: var(--s-2) 0 0;
+  font-size: var(--fs-title);
+}
+
+.glasses-briefing-scene {
+  margin: 0;
+  color: var(--text-2);
+  line-height: 1.55;
+}
+
+.glasses-briefing-points {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  justify-content: center;
+}
+
+.glasses-chip {
+  font-size: var(--fs-caption);
+  color: var(--text);
+  border: 1px solid rgba(62, 207, 142, 0.35);
+  border-radius: var(--r-full);
+  padding: 4px 12px;
+}
+
+.glasses-calib-ring {
+  width: 78px;
+  height: 78px;
+  border-radius: var(--r-full);
+  border: 2px dashed var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: var(--s-2);
+}
+
+.glasses-calib-ring.active {
+  border-color: rgba(62, 207, 142, 0.7);
+  border-style: solid;
+  animation: glasses-calib 2s ease-in-out infinite;
+}
+
+.glasses-calib-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--r-full);
+  background: var(--good);
+}
+
+@keyframes glasses-calib {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(62, 207, 142, 0.35); }
+  50% { box-shadow: 0 0 0 12px rgba(62, 207, 142, 0); }
+}
+
+.glasses-briefing-calib {
+  margin: 0;
+  font-size: var(--fs-caption);
+  color: var(--text-2);
+}
+
+.glasses-start-btn { margin-top: var(--s-3); }
+
+/* 저사양 모드(운영자 연출 효과 끔): HUD 연속 애니메이션 정지 */
+.glasses-hud.no-fx .glasses-speaking-ping,
+.glasses-hud.no-fx .glasses-mic-btn.recording,
+.glasses-hud.no-fx .glasses-calib-ring.active { animation: none; }

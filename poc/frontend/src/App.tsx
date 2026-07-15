@@ -6,15 +6,18 @@ import KioskPage from './features/kiosk/KioskPage';
 import OnboardingPage from './features/onboarding/OnboardingPage';
 import ReportPage from './features/report/ReportPage';
 import RoleplayPage from './features/roleplay/RoleplayPage';
+import { restoreGlassesMode, useGlassesMode } from './lib/glassesMode';
 import { useKioskIdleReturn } from './lib/kioskIdle';
 import { restoreMirrorMode, useMirrorMode } from './lib/mirrorMode';
 
 restoreMirrorMode(); // 부팅 시 저장된 모드를 <html> 클래스에 복원
+restoreGlassesMode();
 
 function Shell() {
   const location = useLocation();
   const isKiosk = location.pathname === '/kiosk';
   const mirror = useMirrorMode();
+  const glasses = useGlassesMode();
   useKioskIdleReturn(); // 미러 모드 전 화면 무조작 복귀 — 어디서 방치돼도 대기 화면으로
   return (
     <div className="app-shell">
@@ -27,8 +30,8 @@ function Shell() {
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/admin" element={<AdminPage />} />
       </Routes>
-      {mirror && <OperatorPanel />}
-      {!isKiosk && !mirror && (
+      {(mirror || glasses) && <OperatorPanel />}
+      {!isKiosk && !mirror && !glasses && (
         <footer className="app-footer">
           <span>4-Fit 미러팅 · CarpeDM · 2026 동양미래EXPO</span>
           <nav>
