@@ -63,6 +63,17 @@ ALTERNATIVE_MARKERS = [
     "까지는 가능", "라면 가능", "먼저 해", "시간을 조정",
 ]
 
+# 완곡 명령(상향 지시형): 신입이 상사·선배에게 명령/지시형 종결어미를 쓰는 실수.
+# 종결이 명령형("~하세요/~하십시오")이되, 정중한 요청(부탁드립니다/해 주시겠어요?)·
+# 인사말(안녕하세요/수고하세요)은 지시가 아니므로 제외한다. 관찰 코칭 전용이며,
+# 오분류는 '놓침'(과소 감지) 쪽으로 좁게 설계한다(요청형 어미를 넓게 면제).
+_DIRECTIVE_ENDINGS = ("세요", "십시오")
+_REQUEST_SOFTENERS = (
+    "부탁", "여쭤", "여쭙", "여쭈", "양해", "죄송", "실례", "혹시",
+    "괜찮으시", "괜찮으면", "주시겠", "주실", "주시면", "주시길",
+)
+_PLEASANTRY = ("안녕", "수고", "고생", "축하", "환영", "감사")
+
 # 구체성: 숫자·수량 표현 — 아라비아 숫자(+단위)와 한글 수사+단위 결합.
 # 단위 없는 맨 숫자("3시까지"의 3)도 구체성이므로 숫자 자체를 센다.
 # '한번'(부사, "한번 볼게요")은 수량이 아니므로 '한'은 공백+단위 결합만,
@@ -155,8 +166,30 @@ def _conclusion_delay(sents: list[str]) -> int | None:
     return None
 
 
-def analyze_discourse(text: str, question_text: str = "") -> dict:
-    """응답의 담화 구조 지표. 텍스트가 너무 짧으면(한 문장 미만) 대부분 None."""
+def _directive_to_senior(sents: list[str]) -> int:
+    """상사·선배 대상 지시형 종결 문장 수 — 요청·인사말은 명령이 아니므로 제외."""
+    count = 0
+    for s in sents:
+        core = s.rstrip(" .!?~…\t").strip()
+        if not core.endswith(_DIRECTIVE_ENDINGS):
+            continue
+        if any(w in s for w in _REQUEST_SOFTENERS):  # 부탁·양해·완곡 요청형
+            continue
+        if any(p in s for p in _PLEASANTRY):          # 안녕하세요/수고하세요 등 인사
+            continue
+        count += 1
+    return count
+
+
+def analyze_discourse(
+    text: str, question_text: str = "", listener_seniority: str = "",
+) -> dict:
+    """응답의 담화 구조 지표. 텍스트가 너무 짧으면(한 문장 미만) 대부분 None.
+
+    listener_seniority: 청자 지위("superior"|"senior"|"peer"|"other"|""). 상사·선배
+    (superior/senior)일 때만 완곡 명령(상향 지시형)을 집계한다 — 동료·타부서에는
+    지시형이 결례로 보기 어려워 과잉 지적을 피한다.
+    """
     text = (text or "").strip()
     if not text:
         return {}
@@ -200,6 +233,12 @@ def analyze_discourse(text: str, question_text: str = "") -> dict:
             if not any(m in window for m in ALTERNATIVE_MARKERS):
                 negative_no_alternative += 1
 
+    # 완곡 명령(상향 지시형) — 상사·선배 대상 턴에서만 집계
+    directive_to_senior = (
+        _directive_to_senior(sents)
+        if listener_seniority in ("superior", "senior") else 0
+    )
+
     # 문장 부담 — 만연체 감지 (평균 문장 음절, 문장당 최대 연결어미 수)
     sent_syllables = [count_hangul_syllables(s) for s in sents] or [syllables]
     max_clauses = 0
@@ -227,6 +266,7 @@ def analyze_discourse(text: str, question_text: str = "") -> dict:
         "hedge_count": hedge_count,
         "hedge_per_100syl": hedge_per_100,
         "negative_no_alternative": negative_no_alternative,
+        "directive_to_senior": directive_to_senior,
         "question_alignment": alignment,
         "avg_sentence_syllables": round(sum(sent_syllables) / len(sent_syllables), 1),
         "max_clauses_per_sentence": max_clauses,

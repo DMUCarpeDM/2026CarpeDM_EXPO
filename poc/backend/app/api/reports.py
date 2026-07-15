@@ -4,7 +4,13 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_session
 from app.core.database import get_db
-from app.models import AnalysisResult, Report, RoleplaySession, SessionStatus
+from app.models import (
+    DEMO_CLIENT_KEY_PREFIX,
+    AnalysisResult,
+    Report,
+    RoleplaySession,
+    SessionStatus,
+)
 from app.schemas import ReportOut
 
 router = APIRouter(prefix="/sessions", tags=["reports"])
@@ -71,6 +77,7 @@ def get_report(
 
     # 현장 체험자 백분위 (표본 5건 이상일 때만) — 전시 경쟁 요소.
     # 산식 버전이 다른 점수는 비교 표본에서 제외 (engine_version 스냅샷).
+    # 데모/리허설 세션(demo-*)도 제외 — 리허설 시드가 방문자 백분위를 오염시키지 않도록.
     percentile_top = None
     other_scores = [
         row[0]
@@ -79,6 +86,7 @@ def get_report(
         .filter(
             Report.session_id != session.id,
             Report.engine_version == report.engine_version,
+            ~RoleplaySession.client_key.like(f"{DEMO_CLIENT_KEY_PREFIX}%"),
         )
         .all()
     ]
@@ -97,10 +105,13 @@ def get_report(
         others = [
             row[0]
             for row in db.query(AnalysisResult.score)
+            .join(RoleplaySession, AnalysisResult.session_id == RoleplaySession.id)
             .filter(
                 AnalysisResult.fit_type == fit,
                 AnalysisResult.turn_id.is_(None),
                 AnalysisResult.session_id != session.id,
+                # 데모/리허설 세션 제외 — percentile_top과 동일 근거
+                ~RoleplaySession.client_key.like(f"{DEMO_CLIENT_KEY_PREFIX}%"),
             )
             .all()
         ]
