@@ -1,0 +1,459 @@
+@media (max-width: 1160px) {
+  .top-nav {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .top-nav nav,
+  .nav-actions {
+    flex-wrap: wrap;
+    padding-left: 0;
+  }
+
+  .setup-page,
+  .selection-layout,
+  .home-hero,
+  .preview-grid,
+  .practice-layout,
+  .result-grid,
+  .lower-grid,
+  .feedback-layout,
+  .share-layout,
+  .compare-grid,
+  .history-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-panel {
+    position: static;
+  }
+
+  .attempt-grid,
+  .fit-card-grid,
+  .export-grid,
+  .home-recommend-grid,
+  .choice-grid.four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-hero {
+    gap: 24px;
+  }
+
+  .product-benefits {
+    grid-template-columns: 1fr;
+  }
+
+  .assist-showcase,
+  .advantage-grid,
+  .service-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .transcript-preview {
+    min-height: 520px;
+  }
+
+  .hero-copy {
+    padding-left: 0;
+  }
+
+  .home-visual {
+    min-height: 460px;
+  }
+
+  .compare-row {
+    grid-template-columns: 48px 1fr;
+  }
+
+  .compare-row > * {
+    min-width: 0;
+  }
+
+  .attempt-card {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    min-height: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    padding: 8px;
+  }
+
+  .page {
+    padding: 20px 8px;
+  }
+
+  .setup-main,
+  .selection-main,
+  .page-toolbar,
+  .page-title,
+  .choice-section,
+  .choice-grid,
+  .choice-card,
+  .scenario-ready-card,
+  .primary-bar,
+  .summary-panel {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .top-nav {
+    position: static;
+    padding: 16px;
+    grid-template-columns: 1fr auto;
+  }
+
+  .brand {
+    border-right: 0;
+  }
+
+  .top-nav > nav,
+  .scenario-select,
+  .profile-button strong,
+  .divider {
+    display: none;
+  }
+
+  .nav-actions {
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  .mobile-menu-button {
+    display: grid;
+  }
+
+  .page-title h1 {
+    font-size: 34px;
+  }
+
+  .choice-grid.three,
+  .choice-grid.four,
+  .home-hero,
+  .home-recommend-grid,
+  .summary-boxes,
+  .two-cards,
+  .dual-cta,
+  .bottom-actions,
+  .bottom-actions.compact-actions,
+  .attempt-grid,
+  .export-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-page {
+    padding-top: 22px;
+  }
+
+  .hero-copy h1 {
+    font-size: 42px;
+  }
+
+  .hero-copy p {
+    font-size: 16px;
+  }
+
+  .home-visual {
+    min-height: 390px;
+  }
+
+  .product-benefits {
+    margin-top: 56px;
+  }
+
+  .benefit-head,
+  .advantage-head {
+    gap: 12px;
+  }
+
+  .benefit-head {
+    margin-bottom: 38px;
+  }
+
+  .advantage-head {
+    margin-top: 64px;
+    margin-bottom: 30px;
+  }
+
+  .benefit-head h2,
+  .advantage-head h2 {
+    font-size: 34px;
+  }
+
+  .benefit-head p,
+  .advantage-head p {
+    font-size: 16px;
+  }
+
+  .assist-card {
+    min-height: 390px;
+    padding: 22px;
+    border-radius: 24px;
+  }
+
+  .assist-demo {
+    padding: 16px;
+  }
+
+  .advantage-grid {
+    gap: 30px;
+  }
+
+  .advantage-visual {
+    min-height: 220px;
+  }
+
+  .advantage-card p,
+  .service-stat-row p {
+    font-size: 16px;
+  }
+
+  .service-metrics {
+    margin-top: 72px;
+  }
+
+  .transcript-preview {
+    min-height: 420px;
+    padding: 26px;
+    border-radius: 26px;
+  }
+
+  .transcript-card {
+    min-height: 360px;
+    padding: 24px;
+  }
+
+  .service-stat-row {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    padding: 26px 0;
+  }
+
+  .portrait.hero {
+    right: 50%;
+    width: 250px;
+    height: 340px;
+    transform: translateX(50%);
+  }
+
+  .floating-stat {
+    min-width: 128px;
+    padding: 14px;
+  }
+
+  .stat-coach {
+    top: 44px;
+    left: 4px;
+  }
+
+  .stat-feedback {
+    top: 138px;
+    right: 4px;
+  }
+
+  .stat-suggestion {
+    bottom: 18px;
+    left: 10px;
+  }
+
+  .recommend-card {
+    min-height: 120px;
+  }
+
+  .mini-stepper,
+  .step-pills {
+    justify-content: flex-start;
+    overflow-x: auto;
+  }
+
+  .mini-stepper i {
+    width: 64px;
+  }
+
+  .camera-frame {
+    min-height: 620px;
+  }
+
+  .face-guide {
+    width: min(190px, calc(100% - 116px));
+  }
+
+  .body-guide {
+    width: min(360px, calc(100% - 72px));
+  }
+
+  .camera-ai-prompt {
+    top: 70px;
+    left: 18px;
+    right: 18px;
+    width: auto;
+  }
+
+  .camera-panel-stack {
+    top: auto;
+    right: 16px;
+    bottom: 16px;
+    left: 16px;
+    width: auto;
+    min-width: 0;
+    max-height: 46%;
+  }
+
+  .camera-panel-stack .chat-collapsible-content {
+    max-height: 220px;
+  }
+
+  .camera-panel-stack .live-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+    margin: 10px 0 0;
+  }
+
+  .camera-panel-stack .live-chip {
+    min-height: 58px;
+    gap: 4px;
+    padding: 8px 10px;
+  }
+
+  .camera-panel-stack .live-chip span {
+    font-size: 11px;
+  }
+
+  .camera-panel-stack .live-chip strong {
+    font-size: 14px;
+  }
+
+  .camera-panel-stack .ai-status-badge {
+    display: inline-flex;
+    min-width: 0;
+    max-width: 128px;
+    overflow: hidden;
+    padding: 4px 7px;
+    border: 1px solid rgba(96, 165, 250, 0.36);
+    border-radius: 999px;
+    color: #dbeafe;
+    background: rgba(0, 100, 255, 0.18);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .camera-panel-stack .tip-strip.small {
+    display: none;
+  }
+
+  .record-control-strip {
+    bottom: 56%;
+    max-width: calc(100% - 32px);
+  }
+
+  .guide-chip {
+    bottom: calc(52% + 28px);
+    max-width: calc(100% - 32px);
+    text-align: center;
+  }
+
+  .record-control-strip > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .chat-panel {
+    min-height: auto;
+  }
+
+  .overall-body,
+  .report-preview-body,
+  .role-profile,
+  .mini-report > div,
+  .attempt-card {
+    grid-template-columns: 1fr;
+  }
+
+  .insight-flow {
+    grid-template-columns: 1fr;
+  }
+
+  .insight-flow > svg {
+    justify-self: center;
+    transform: rotate(90deg);
+  }
+
+  .fit-card-grid,
+  .preview-fit-grid,
+  .quick-share {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .live-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 430px) {
+  .share-preview,
+  .report-preview-card,
+  .mini-report,
+  .insight-card,
+  .comparison-table,
+  .improved-card,
+  .history-card,
+  .growth-card,
+  .compare-actions,
+  .attempt-card {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .share-layout,
+  .feedback-layout,
+  .compare-grid,
+  .history-grid {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .attempt-meta,
+  .attempt-card > div:first-child {
+    min-width: 0;
+  }
+
+  .attempt-meta > * {
+    max-width: 100%;
+  }
+
+  .attempt-card h2,
+  .attempt-card h3,
+  .attempt-card p {
+    overflow-wrap: anywhere;
+  }
+
+  .mini-score-row {
+    grid-template-columns: 28px 1fr 52px;
+    row-gap: 8px;
+  }
+
+  .mini-score-row i {
+    grid-column: 2 / -1;
+    grid-row: 2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
