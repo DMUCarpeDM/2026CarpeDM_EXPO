@@ -229,6 +229,11 @@ _COMPOSURE_PROBES = [
     # 듣기 자세(경청 리닝): 압박 턴에서 듣는 동안 상체가 8%p 이상 물러나면
     # '지적 앞에서 몸이 물러나는' 반응. 기준 어깨폭 없는 페이로드는 자동 제외.
     ("듣기 자세(리닝)", -8.0, lambda nv, vm: nv.get("listen_lean_pct")),
+    # 표현 동작(⑤): 압박에서 표정이 굳고(눈썹 정지), 손이 위축되고(제스처 작아짐),
+    # 머리가 흔들리는(안절부절) 반응 — 전부 본인 평상 턴 대비 상대 판정이라 개인차에 강건.
+    ("표정 생동감", -0.10, lambda nv, vm: nv.get("brow_raise_ratio")),
+    ("손동작 크기", -3.0, lambda nv, vm: nv.get("gesture_amplitude")),
+    ("머리 흔들림", +0.02, lambda nv, vm: nv.get("head_motion")),
     ("목소리 떨림", +4.0, lambda nv, vm: vm.get("f0_jitter_pct")),
     ("침묵 비율", +0.15, lambda nv, vm: vm.get("pause_ratio")),
     # 압박 음성 반응(Voice 전문가 패스): 스트레스의 고전적 지표 — 피치 상승과

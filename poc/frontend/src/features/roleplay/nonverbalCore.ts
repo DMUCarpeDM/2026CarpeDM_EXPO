@@ -43,6 +43,14 @@ export const NOD_JITTER_EPS = 0.005; // 이보다 작은 표본 간 변화는 �
 export const TIMELINE_BIN_MS = 2000;
 export const TIMELINE_MAX_BINS = 120; // 4분 상한 — 페이로드 폭주 방지
 
+// ---- 표현 동작 확장 ⑤ (전부 감점 없는 관찰 지표) ----
+// 눈썹 표현력(표정 생동감): browInnerUp/OuterUp 블렌드셰이프 평균이 이 이상이면 '올림'.
+// 무표정↔풍부한 표정을 가르는 보수 임계값 — 실기기 보정 항목(demo-checklist §2.5).
+export const BROW_RAISE_MIN = 0.4;
+// 손 활동 임계 — 손목 월드 변위가 이 이상이면 그 손이 '움직이는 중'. 양손 제스처
+// 판정에서 gestureActive와 같은 경계를 공유한다(m/샘플, ~0.1 m/s @200ms).
+export const HAND_ACTIVE_MIN = 0.02;
+
 export type OffDir = 'down' | 'up' | 'left' | 'right';
 
 // ---------------------------------------------------------------------------
@@ -122,6 +130,13 @@ export interface Accumulator {
   nodDir: number; // 현재 이동 방향 (+1 아래 / -1 위 / 0 초기)
   nodSwing: number; // 현재 방향으로의 누적 진폭
   listenWidths: number[]; // 듣기 중 어깨폭 — 기준(캘리브레이션) 대비 전진/후퇴 리닝
+  // ---- 표현 동작 확장 ⑤: 표정 생동감·제스처 크기/양손·머리 흔들림 (관찰 전용) ----
+  browRaiseFrames: number; // 눈썹 올림(browInnerUp/OuterUp) 프레임 — 표정 생동감
+  gestureReachSum: number; // 손목-어깨중심 거리(m, 월드) 합 — 제스처 크기
+  gestureReachSamples: number; // 도달거리 표본 수 (손목별)
+  twoHandFrames: number; // 양 손목이 같은 프레임에 함께 움직인 프레임 (양손 제스처)
+  handActiveFrames: number; // 한 손이라도 움직인 프레임 (양손 비율 분모)
+  headPosSamples: { x: number; y: number }[]; // 말하기 중 코 위치(어깨너비 정규화) — 머리 흔들림
   // 교차 분석용 2초 빈 타임라인 — 영상이 아니라 빈당 집계 숫자 3개만 (프라이버시 유지)
   turnStartedAt: number;
   bins: { frames: number; front: number; press: number; tiltSum: number }[];
@@ -178,6 +193,12 @@ export const emptyAcc = (): Accumulator => ({
   nodDir: 0,
   nodSwing: 0,
   listenWidths: [],
+  browRaiseFrames: 0,
+  gestureReachSum: 0,
+  gestureReachSamples: 0,
+  twoHandFrames: 0,
+  handActiveFrames: 0,
+  headPosSamples: [],
   turnStartedAt: 0,
   bins: [],
   tips: [],
@@ -554,6 +575,27 @@ export function finalizeTurnMetrics(acc: Accumulator, base: Baseline): Nonverbal
       if (base.width === null || acc.listenWidths.length < framesFor(2000)) return null;
       return Math.round((mean(acc.listenWidths) / base.width - 1) * 100);
     })(),
+    // ---- 표현 동작 확장 ⑤: 표정 생동감·제스처 크기/양손·머리 흔들림 (관찰 지표) ----
+    // 눈썹 표현력: 눈썹 올림 프레임 비율 — 무표정↔풍부한 표정. 강조·경청의 비언어 신호
+    brow_raise_ratio: Math.round((acc.browRaiseFrames / acc.frames) * 100) / 100,
+    // 제스처 크기: 손목이 어깨중심에서 뻗은 평균 거리(cm, 월드) — 속도(gesture_energy)와
+    // 구분되는 '개방성/시원함'. 월드 손목 표본 5초 미만이면 보류(null)
+    gesture_amplitude: acc.gestureReachSamples >= framesFor(5000)
+      ? Math.round((acc.gestureReachSum / acc.gestureReachSamples) * 100 * 10) / 10
+      : null,
+    // 양손 제스처 비율: 양 손목이 동시에 움직인 프레임 / 한 손이라도 움직인 프레임 —
+    // 양손 사용은 강조·확신의 신호. 손 활동 3초 미만이면 보류(null)
+    gesture_two_handed_ratio: acc.handActiveFrames >= framesFor(3000)
+      ? Math.round((acc.twoHandFrames / acc.handActiveFrames) * 100) / 100
+      : null,
+    // 머리 흔들림: 말하는 동안 코 위치(어깨너비 정규화)의 표준편차 — roll(각도)·
+    // sway(어깨)와 다른 축의 '안절부절/떨림'. 답변 표본 3초 미만이면 보류(null)
+    head_motion: acc.headPosSamples.length >= framesFor(3000)
+      ? Math.round(Math.hypot(
+          stdDev(acc.headPosSamples.map((p) => p.x)),
+          stdDev(acc.headPosSamples.map((p) => p.y)),
+        ) * 1000) / 1000
+      : null,
     // 측정 샘플링 주기 — 서버가 프레임 수를 시간으로 해석할 때의 기준 (운영 튜닝 가능)
     sample_ms: SAMPLE_MS,
     // 시계축 정합: 턴 시작(질문 TTS)→답변 녹음 시작까지 초. moments가 비언어

@@ -145,6 +145,11 @@ class NonverbalIn(BaseModel):
     sample_ms: int = 200  # 측정 샘플링 주기 — 프레임 수를 시간으로 해석할 때의 기준
     answer_offset_sec: float | None = None  # 턴 시작→답변 녹음 시작 초 (moments 시계 정합)
     calibrated: bool = False  # 정면 기준 캘리브레이션 적용 여부
+    # ---- 표현 동작 확장 ⑤: 표정 생동감·제스처 크기/양손·머리 흔들림 (관찰 지표 — 감점 없음) ----
+    brow_raise_ratio: float = 0.0  # 눈썹 올림(browInnerUp/OuterUp) 프레임 비율 — 표정 생동감
+    gesture_amplitude: float | None = None  # 손목-어깨중심 평균 거리(cm, 월드) — 제스처 크기, 표본 부족 시 null
+    gesture_two_handed_ratio: float | None = None  # 양손 동시 활동 비율 — 양손 강조, 표본 부족 시 null
+    head_motion: float | None = None  # 말할 때 코 위치 표준편차(어깨너비 정규화) — 머리 흔들림, 표본 부족 시 null
     tips: list[str] = []  # 턴 중 발생한 실시간 코칭 (S-JKEYHS 리포트 연동)
 
 

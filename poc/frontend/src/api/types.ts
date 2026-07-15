@@ -105,6 +105,11 @@ export interface NonverbalMetrics {
   sample_ms: number; // 측정 샘플링 주기 ms — 기본 200, 운영자 튜닝 가능 (§2.5)
   answer_offset_sec: number | null; // 턴 시작→답변 녹음 시작 초 (교차 분석 시계 정합)
   calibrated: boolean; // 정면 기준 캘리브레이션 적용 여부
+  // ---- 표현 동작 확장 ⑤: 표정 생동감·제스처 크기/양손·머리 흔들림 (관찰 지표 — 감점 없음) ----
+  brow_raise_ratio: number; // 눈썹 올림(browInnerUp/OuterUp) 프레임 비율 — 표정 생동감/강조
+  gesture_amplitude: number | null; // 손목이 어깨중심에서 뻗은 평균 거리(cm, 월드) — 크기/개방성, 표본 5초 미만 null
+  gesture_two_handed_ratio: number | null; // 양 손목 동시 활동 프레임 / 한 손이라도 활동 — 양손 강조, 손 활동 3초 미만 null
+  head_motion: number | null; // 말할 때 코 위치(어깨너비 정규화) 표준편차 — 머리 흔들림(안절부절), 답변 3초 미만 null
   tips: string[]; // 턴 중 발생한 실시간 코칭 문구
 }
 

@@ -516,6 +516,10 @@ def _fit_detail_metrics(fit: FitType, results: list[AnalysisResult]) -> list[dic
         roll = _mean_metric(results, "head_roll_deg")
         if roll is not None and roll > 0.5:
             add("고개 갸웃", f"{roll:.1f}°")
+        # 표현 동작(⑤): 손동작 크기 — 속도(경직/과다)와 구분되는 개방성. 값 있을 때만.
+        amp = _mean_metric(results, "gesture_amplitude")
+        if amp is not None:
+            add("손동작 크기", f"{amp:.0f}cm")
         drift = max((r.raw_metrics.get("tilt_drift_deg", 0) for r in results), default=0)
         if drift > 1:
             add("후반 변화", f"+{drift}°")
@@ -729,6 +733,36 @@ def _habit_segments(session: RoleplaySession) -> list[dict]:
             "입술을 꾹 누르는 긴장 표정이 반복적으로 관찰됐어요.",
             "긴장 자체는 자연스러워요 — 다만 말 사이 침묵과 겹치면 위축돼 보일 수 있어요.",
             "답하기 전에 숨을 한 번 내쉬고 시작하면 표정이 함께 풀려요.",
+        ))
+
+    # 표정 생동감(⑤): 눈썹 올림 비율 — 무표정↔풍부한 표정. 답변 내내 표정 변화가
+    # 거의 없으면 관찰 코칭, 풍부하면 강점으로 (감점 아님). 임계값은 실기기 보정 항목.
+    # 필드가 있는(v5) 턴만 — 구 페이로드/미측정을 '무표정'으로 오판하지 않는다.
+    brows = [v for t in turns if (v := t.nonverbal_metrics.get("brow_raise_ratio")) is not None]
+    # 얼굴이 실제로 잡힌 세션에서만 '무표정'을 말한다 (포즈만 잡힌 턴의 0을 배제).
+    # 다초 답변에서 얼굴이 추적되면 깜빡임이 거의 항상 잡히므로 이를 근거로 쓴다.
+    face_tracked = any(t.nonverbal_metrics.get("blink_per_min", 0) > 0 for t in turns)
+    brow = sum(brows) / len(brows) if brows else 0
+    if brows and brow <= 0.03 and face_tracked:
+        segs.append(seg(
+            "답변 내내 표정 변화(눈썹 움직임)가 거의 없었어요.",
+            "무표정은 안정적으로 보일 수 있지만, 길어지면 상대는 '반응이 없다'고 느껴 대화가 일방적으로 흘러요.",
+            "핵심 단어나 상대의 말에 눈썹만 살짝 올려보세요. 표정 하나로 '듣고 있다'는 신호가 전해져요.",
+        ))
+    elif brows and brow >= 0.25:
+        segs.append(seg(
+            "말하는 동안 표정(눈썹)이 살아 있었어요.",
+            "표정 변화는 말에 생기를 더하고, 상대가 내용에 집중하게 만들어요 — 훈련으로 만들기 어려운 강점이에요.",
+            "이 생동감을 유지하되, 중요한 결론에서는 잠깐 표정을 가라앉혀 무게를 실어보세요.",
+        ))
+
+    # 머리 흔들림(⑤): 말하는 동안 코 위치 표준편차 — 안절부절. 값 있는 턴만 평균.
+    motions = [v for t in turns if (v := t.nonverbal_metrics.get("head_motion")) is not None]
+    if motions and sum(motions) / len(motions) >= 0.05:
+        segs.append(seg(
+            "말하는 동안 머리가 자잘하게 계속 움직였어요.",
+            "본인은 느끼지 못해도, 끊임없이 흔들리는 머리는 듣는 사람에게 불안정한 인상으로 이어질 수 있어요.",
+            "답변 첫 문장에서 턱과 머리를 한 번 고정해보세요. 머리가 멈추면 목소리도 함께 또렷해져요.",
         ))
 
     # 미소 타이밍: 압박 질문 중의 미소는 당황·비웃음으로 오해될 수 있다
