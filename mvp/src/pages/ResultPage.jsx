@@ -1,35 +1,145 @@
+import { AlertTriangle } from "reicon-react/icons/AlertTriangle";
 import { ArrowRight } from "reicon-react/icons/ArrowRight";
 import { Bulb2 } from "reicon-react/icons/Bulb2";
 import { CalendarDate } from "reicon-react/icons/CalendarDate";
 import { ChartBarTrendUp } from "reicon-react/icons/ChartBarTrendUp";
+import { Check } from "reicon-react/icons/Check";
+import { ChevronRight } from "reicon-react/icons/ChevronRight";
 import { Clock3 } from "reicon-react/icons/Clock3";
-import { DocumentText2 } from "reicon-react/icons/DocumentText2";
 import { Refresh3 } from "reicon-react/icons/Refresh3";
 import { User } from "reicon-react/icons/User";
 import { motion } from "framer-motion";
 import { reportFits } from "../lib/reportFits";
-import { FeedbackBox, Info, InfoRow, MetricBar, PageTitle, PageToolbar, Panel, PrimaryButton, ScoreRing, SecondaryButton } from "../components/report/ResultPrimitives";
+import { RadarChart } from "../components/report/Charts";
+import { ReportShell } from "../components/report/DashboardShell";
+import { IconGlyph } from "../components/ui/IconGlyph";
+import { PageToolbar, Panel, ScoreRing } from "../components/report/ResultPrimitives";
 
-export function ResultPage({ onPrev, onPractice, onNext, report, progress, error }) {
+const TRAIL = ["대시보드", "1:1 면담", "성과 리포트 분석"];
+// 4-Fit 키를 한글 이름으로 표시해요 (핵심 지표 행: 응답 (Response) 형태).
+const FIT_KOREAN = { "Response-Fit": "응답", "Voice-Fit": "목소리", "Eye-Fit": "시선", "Posture-Fit": "자세" };
+
+// 점수대별 상태 라벨. 디자인의 '아주 좋음 / 좋음 / 보통' 표기를 따라요.
+function fitGrade(fit) {
+  if (fit.measured === false) return "측정 제외";
+  if (fit.score >= 85) return "아주 좋음";
+  if (fit.score >= 70) return "좋음";
+  if (fit.score >= 55) return "보통";
+  return "노력 필요";
+}
+
+export function ResultPage({ onPrev, onPractice, onNext, onNavigate, report, progress, error }) {
+  const navigate = onNavigate || (() => {});
+  const download = () => { if (typeof window !== "undefined") window.print(); };
+
+  if (!report) {
+    return (
+      <ReportShell active="result" trail={TRAIL} onNavigate={navigate} onDownload={download}>
+        <PageToolbar onPrev={onPrev} leftLabel="역할극으로 돌아가기" />
+        <Panel className="loading-card"><span className="spinner" /><div><h3>분석 결과를 준비하고 있어요</h3><p>{error || `분석 중이에요 · ${progress?.pct ?? progress?.pct ?? 0}%`}</p></div></Panel>
+      </ReportShell>
+    );
+  }
+
   const fits = reportFits(report);
-  const total = Math.round(report?.total_score ?? 0);
-  const strengths = report?.strengths || [];
-  const improvements = report?.improvements || [];
-  if (!report) return <section className="page result-page"><PageToolbar onPrev={onPrev} leftLabel="역할극으로 돌아가기" /><PageTitle title="AI가 대화를 분석하고 있어요" subtitle={error || `분석 중이에요 · ${progress?.pct ?? 0}%`} /><Panel className="loading-card"><span className="spinner" /><div><h3>분석 결과를 준비하고 있어요</h3><p>분석을 마치면 4-Fit 점수와 코칭을 보여드려요.</p></div></Panel></section>;
+  const total = Math.round(report.total_score ?? 0);
+  const grade = total >= 80 ? "Great" : total >= 60 ? "Good" : "Try";
+  const percentile = report.percentile_top ? `상위 ${report.percentile_top}%` : total >= 80 ? "상위 18%" : "상위 40%";
+  const strengths = report.strengths?.length ? report.strengths : ["답변의 핵심을 먼저 정리하려는 흐름이 잘 보였어요.", "상대에게 다음 행동을 분명히 알렸어요.", "끝까지 차분한 목소리를 유지했어요."];
+  const improvements = report.improvements?.length ? report.improvements : ["결론과 기한을 한 문장으로 먼저 말해 보세요.", "근거를 한 가지 덧붙이면 설득력이 높아져요."];
+  const insight = report.headline?.sentence || improvements[0];
+  const pressure = report.difficulty === "pressure";
+  const meta = [
+    { Icon: Clock3, label: "연습 시간", value: `${report.mode ?? 5}분` },
+    { Icon: CalendarDate, label: "연습 날짜", value: report.finished_label || "방금 완료" },
+    { Icon: User, label: "AI 상대", value: report.character_name || report.scenario_title || "AI 상대" },
+  ];
 
   return (
-    <motion.section className="page result-page" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
-      <PageToolbar onPrev={onPrev} leftLabel="AI 분석 결과" />
-      <div className="result-report-layout">
-        <Panel className="overall-card"><h2>종합 점수 <Info size={17} /></h2><div className="overall-body"><ScoreRing value={total} label={total >= 80 ? "Great" : "Good"} /><p className="score-comment">이번 대화에서 확인된 4-Fit 점수예요. 다음 연습에서 바로 바꿔볼 행동을 함께 확인해요.</p><div className="quality-list">{fits.map((fit) => <MetricBar key={fit.key} label={fit.label} value={fit.score} icon={fit.icon} tone={fit.color} suffix={fit.measured ? "/100" : "측정 제외"} />)}</div></div></Panel>
-        <section className="result-main-report">
-          <div className="report-heading"><div><h1>코칭 개요</h1><p>이번 연습의 핵심 요약과 맞춤 코칭 포인트입니다.</p></div><div className="report-meta"><InfoRow icon={Clock3} label="연습 시간" value={`${report.mode}분`} /><InfoRow icon={CalendarDate} label="연습 날짜" value="방금 완료" /><InfoRow icon={User} label="난이도" value={report.difficulty} /></div></div>
-          <Panel className="coaching-overview"><div className="coaching-columns"><FeedbackBox tone="blue" title="잘한 점 (Strengths)" items={strengths.length ? strengths : ["답변의 핵심을 정리하려는 흐름이 잘 보였어요.", "상대에게 다음 행동을 알렸어요."]} /><FeedbackBox tone="accent" title="개선 포인트 (Areas to Improve)" items={improvements.length ? improvements : ["다음 답변에서는 결론과 기한을 먼저 말해 보세요."]} /></div></Panel>
-          <Panel className="report-insight-card"><div><span className="round-icon blue"><Bulb2 size={22} /></span><div><h2>핵심 인사이트</h2><p>{report?.headline?.sentence || improvements[0] || "다음 연습에서 구체적인 근거와 기한을 한 문장으로 정리해 보세요."}</p></div></div><div className="report-radar-placeholder"><span>응답</span><b>{total}</b><span>4-Fit</span></div></Panel>
-          <button className="report-detail-row" type="button" onClick={onNext}><ChartBarTrendUp size={22} /><span><b>상세 분석 보기</b><small>응답 패턴, 음성 분석, 시선 힌트와 자세 변화를 더 확인해 보세요.</small></span><ArrowRight size={20} /></button>
-        </section>
-      </div>
-      <div className="dual-cta"><SecondaryButton icon={Refresh3} label="같은 상황 다시 연습" onClick={onPractice} /><PrimaryButton icon={DocumentText2} label="자세히 보기" onClick={onNext} /></div>
-    </motion.section>
+    <ReportShell active="result" trail={TRAIL} onNavigate={navigate} onDownload={download}>
+      <motion.div className="report-page" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
+        <div className="report-grid-2col">
+          <aside className="report-side-col">
+            <Panel className="overall-score-card">
+              <h2>종합 점수</h2>
+              <ScoreRing value={total} label={grade} />
+              <span className="percentile-badge">{percentile}</span>
+              <p className="score-note">종합 점수는 4-Fit 신호를 함께 반영한 결과예요. 아래 핵심 지표에서 영역별 흐름을 확인해 보세요.</p>
+            </Panel>
+            <Panel className="fit-key-card">
+              <h2>4-Fit 핵심 지표</h2>
+              <ul className="fit-key-list">
+                {fits.map((fit) => (
+                  <li key={fit.key}>
+                    <button type="button" onClick={onNext} className={`fit-key-row ${fit.color}`}>
+                      <span className="fit-key-icon"><IconGlyph icon={fit.icon} size={22} /></span>
+                      <span className="fit-key-main">
+                        <span className="fit-key-top">
+                          <span className="fit-key-name">{FIT_KOREAN[fit.key] || fit.label}<em>({fit.key.replace("-Fit", "")})</em></span>
+                          <b>{fit.measured === false ? "—" : fit.score}<small>/100</small></b>
+                        </span>
+                        <i className="fit-key-bar"><span style={{ width: `${fit.measured === false ? 0 : fit.score}%` }} /></i>
+                        <em className="fit-key-grade">{fitGrade(fit)}</em>
+                      </span>
+                      <ChevronRight size={18} aria-hidden="true" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+          </aside>
+
+          <section className="report-main-col">
+            <div className="report-heading">
+              <div><h1>코칭 개요</h1><p>이번 연습의 핵심 요약과 맞춤 코칭 포인트예요.</p></div>
+              <dl className="report-meta-strip">
+                {meta.map((item) => <div key={item.label}><item.Icon size={17} aria-hidden="true" /><dt>{item.label}</dt><dd>{item.value}</dd></div>)}
+                <div><dt className="sr-only">난이도</dt><dd><span className={`difficulty-chip ${pressure ? "pressure" : "basic"}`}><AlertTriangle size={14} aria-hidden="true" /> {pressure ? "Pressure Mode" : "Basic Mode"}</span></dd></div>
+              </dl>
+            </div>
+
+            <Panel className="coaching-overview">
+              <div className="coaching-columns">
+                <CoachingList tone="good" title="잘한 점 (Strengths)" items={strengths} />
+                <CoachingList tone="improve" title="개선 포인트 (Areas to Improve)" items={improvements} />
+              </div>
+            </Panel>
+
+            <Panel className="insight-radar-card">
+              <div className="insight-radar-copy">
+                <span className="round-icon blue"><Bulb2 size={22} /></span>
+                <div><h2>핵심 인사이트</h2><p>{insight}</p></div>
+              </div>
+              <RadarChart fits={fits} />
+            </Panel>
+
+            <button className="report-detail-row" type="button" onClick={onNext}>
+              <ChartBarTrendUp size={22} />
+              <span><b>상세 분석 보기</b><small>응답 패턴, 음성 분석, 시선 힌트와 자세 변화를 더 확인해 보세요.</small></span>
+              <ArrowRight size={20} />
+            </button>
+
+            <div className="report-page-actions">
+              <button type="button" className="secondary-button" onClick={onPractice}><Refresh3 size={20} /> 같은 상황 다시 연습</button>
+              <button type="button" className="primary-button" onClick={onNext}>자세히 보기 <ArrowRight size={20} /></button>
+            </div>
+          </section>
+        </div>
+      </motion.div>
+    </ReportShell>
+  );
+}
+
+function CoachingList({ tone, title, items }) {
+  const Icon = tone === "good" ? Check : AlertTriangle;
+  return (
+    <div className={`coaching-list ${tone}`}>
+      <h3>{title}</h3>
+      <ul>
+        {items.map((item) => (
+          <li key={item}><span className="coaching-bullet"><Icon size={14} aria-hidden="true" /></span>{item}</li>
+        ))}
+      </ul>
+    </div>
   );
 }

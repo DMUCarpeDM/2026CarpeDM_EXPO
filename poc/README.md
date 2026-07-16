@@ -47,7 +47,7 @@
 ```bash
 cd backend
 bash scripts/setup_ai.sh    # 권장: Python 3.12 venv + AI 스택 전체(Whisper·Vosk·Ollama) 원커맨드
-./.venv/bin/uvicorn app.main:app --reload --port 8000
+./.venv/bin/uvicorn app.main:app --reload --port 8001
 ```
 
 `setup_ai.sh` 없이 최소 실행만 하려면 `python3 -m venv .venv && ./.venv/bin/pip install
@@ -55,7 +55,7 @@ bash scripts/setup_ai.sh    # 권장: Python 3.12 venv + AI 스택 전체(Whispe
 `GET /api/health`로 확인: `{"server_stt": "whisper", "dialogue_provider": "ollama"}`.
 
 첫 기동 시 SQLite 스키마 생성과 시나리오 시드가 자동 실행된다.
-API 문서: <http://localhost:8000/docs>
+API 문서: <http://localhost:8001/docs> (8000은 carpedm-kiosk가 사용)
 
 > **DB 스키마 변경 규칙:** 마이그레이션 도구 없이 `create_all`만 사용하므로,
 > 모델(`app/models/models.py`)을 수정하면 기존 테이블에는 반영되지 않는다.
