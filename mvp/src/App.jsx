@@ -140,7 +140,13 @@ export default function App() {
       })
       .catch(() => setApiError("서버를 실행하면 연습을 시작할 수 있어요."));
   }, []);
-  useEffect(() => { getHealth().then(setAiHealth).catch(() => setAiHealth(null)); }, []);
+  // 분석 서버 상태를 주기적으로 확인해 상단 네비 칩과 준비 화면이 항상 현재 상태를 보여줘요.
+  useEffect(() => {
+    const check = () => getHealth().then(setAiHealth).catch(() => setAiHealth(null));
+    check();
+    const timer = window.setInterval(check, 15000);
+    return () => window.clearInterval(timer);
+  }, []);
   useEffect(() => {
     const demo = new URLSearchParams(window.location.search).get("demo");
     if (!demo) return;
@@ -272,7 +278,7 @@ export default function App() {
   const chromeless = CHROMELESS_VIEWS.has(active);
 
   return <main className={`app-shell ${chromeless ? "chromeless" : ""}`}>
-    {!chromeless && <TopNav active={active} scenarioTitle={session?.scenario?.title || selectedSetupScenario?.title} sessionMode={session?.mode || mode} menuOpen={menuOpen} onMenuOpen={setMenuOpen} onNavigate={navigate} scenarios={apiScenarios} onScenarioSelect={(slug) => { const selected = apiScenarios.find((item) => item.slug === slug); setPocScenarioSlug(slug); setCounterpart(selected?.characters?.[0]?.id || ""); navigate("role"); }} />}
+    {!chromeless && <TopNav active={active} scenarioTitle={session?.scenario?.title || selectedSetupScenario?.title} sessionMode={session?.mode || mode} aiHealth={aiHealth} menuOpen={menuOpen} onMenuOpen={setMenuOpen} onNavigate={navigate} scenarios={apiScenarios} onScenarioSelect={(slug) => { const selected = apiScenarios.find((item) => item.slug === slug); setPocScenarioSlug(slug); setCounterpart(selected?.characters?.[0]?.id || ""); navigate("role"); }} />}
     <MobileMenuSheet open={menuOpen} active={active} onClose={() => setMenuOpen(false)} onNavigate={navigate} />
     <div className="screen-frame">
       {active === "home" && <HomePage onNext={() => navigate("role")} />}

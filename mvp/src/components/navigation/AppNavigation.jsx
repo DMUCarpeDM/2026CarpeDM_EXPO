@@ -7,9 +7,10 @@ import { Menu4 } from "reicon-react/icons/Menu4";
 import { X } from "reicon-react/icons/X";
 import { motion } from "framer-motion";
 import { IconGlyph } from "../ui/IconGlyph";
+import { describeHealth } from "../../lib/serverStatus";
 import { navMap } from "./navigationConfig";
 
-export function TopNav({ active, scenarioTitle, sessionMode, menuOpen, onMenuOpen, onNavigate, scenarios = [], onScenarioSelect }) {
+export function TopNav({ active, scenarioTitle, sessionMode, aiHealth, menuOpen, onMenuOpen, onNavigate, scenarios = [], onScenarioSelect }) {
   const [bellOpen, setBellOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [scenarioOpen, setScenarioOpen] = useState(false);
@@ -60,6 +61,7 @@ export function TopNav({ active, scenarioTitle, sessionMode, menuOpen, onMenuOpe
             {scenarioOpen && scenarios.length > 0 && <div className="nav-dropdown scenario-dropdown glass-panel" onClick={(event) => event.stopPropagation()}><h3>시나리오 전환</h3><ul>{scenarios.map((scenario) => <li key={scenario.slug} onClick={() => { onScenarioSelect(scenario.slug); setScenarioOpen(false); }} className={scenario.title === scenarioTitle ? "active" : ""}>{scenario.title}</li>)}</ul></div>}
           </div>
         )}
+        <ServerStatusPill aiHealth={aiHealth} />
         <span className="timer-pill"><Clock3 size={17} /> {sessionMode ? `${sessionMode}분 모드` : "연습 준비"}</span>
         <span className="divider" />
         <div className="nav-dropdown-wrapper">
@@ -91,4 +93,15 @@ export function MobileMenuSheet({ open, active, onClose, onNavigate }) {
 
 function Avatar({ size = "md" }) {
   return <span className={`avatar profile-avatar ${size} blue`} aria-hidden="true">M</span>;
+}
+
+// 분석 서버 연결 상태 칩 — 운영자가 어느 화면에서든 백엔드 상태를 바로 확인할 수 있어요.
+function ServerStatusPill({ aiHealth }) {
+  const status = describeHealth(aiHealth);
+  return (
+    <span className={`server-status-pill ${status.tone}`} role="status" title={status.detail}>
+      <i aria-hidden="true" />
+      {status.label}
+    </span>
+  );
 }

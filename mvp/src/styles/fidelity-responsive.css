@@ -42,6 +42,7 @@
   .brand { min-width: 0; min-height: 38px; padding: 0; border-right: 0; font-size: 19px; }
   .brand-mark { width: 28px; height: 28px; margin-right: 8px; border-radius: 50%; font-size: 15px; }
   .top-nav nav,.timer-pill,.divider,.bell-button,.profile-button { display: none; }
+  .server-status-pill { min-height: 38px; padding: 0 11px; font-size: 12px; }
   .nav-actions { justify-content: flex-end; }
   .mobile-menu-button { display: grid; }
   .page,.selection-page,.setup-page,.home-page,.result-page,.compare-page,.practice-page { width: min(100% - 28px, 100%); padding-top: 26px; }

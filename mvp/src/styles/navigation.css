@@ -1,3 +1,47 @@
+/* 분석 서버 연결 상태 칩 — DESIGN.md 상태 색만 사용(sky=정상, warm=제한, danger=미연결) */
+.server-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.server-status-pill i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* 텍스트 색은 soft 배경 위 4.5:1(AA) 이상을 위해 상태 토큰보다 한 단계 어둡게 써요. */
+.server-status-pill.ok {
+  color: #086b92;
+  border-color: rgba(14, 165, 233, 0.28);
+  background: var(--color-sky-soft);
+}
+
+.server-status-pill.degraded {
+  color: #9a5300;
+  border-color: rgba(255, 138, 0, 0.32);
+  background: var(--accent-warm-soft);
+}
+
+.server-status-pill.down {
+  color: #b34e00;
+  border-color: rgba(217, 95, 0, 0.34);
+  background: #fdeee1;
+}
+
+.server-status-pill.down i {
+  animation: rec-pulse 1.4s ease-in-out infinite;
+}
+
 /* 글로벌 네비게이션 드롭다운 팝업 */
 .nav-dropdown-wrapper {
   position: relative;

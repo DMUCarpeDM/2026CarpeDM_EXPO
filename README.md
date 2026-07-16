@@ -28,6 +28,21 @@ MVP는 분석 엔진을 중복 구현 하지 않았음. `poc/backend`를 로컬 
 
 필수 환경은 Python 3.12 권장, Node.js 20 이상, 카메라·마이크입니다. Ollama와 STT 모델을 준비하면 로컬 AI 분석을 사용할 수 있고, 준비되지 않은 경우에도 PoC의 폴백 경로로 화면 흐름을 확인할 수 있습니다.
 
+### 원커맨드 실행 (권장)
+
+```bash
+bash scripts/expo_start.sh          # 준비(최초 1회, 수 분) → 분석 서버 → 전시 프론트 → 브라우저
+bash scripts/expo_start.sh status   # 실행 상태 확인
+bash scripts/expo_start.sh stop     # 중지
+```
+
+- 최초 실행은 `poc/backend/scripts/setup_ai.sh`를 자동으로 돌려 Python 3.12 venv·whisper·Vosk·Ollama 모델을 준비합니다(이후 실행은 수 초).
+- 프론트는 개발 서버가 아니라 **프로덕션 빌드**(`vite preview`)로 서빙되고, `/api` 프록시 체인까지 자동 검증합니다.
+- 로그·PID는 `.expo-run/`에 남습니다. 상단 네비의 **분석 서버 상태 칩**(연결됨/일부 제한/미연결)으로 언제든 연결 상태를 확인할 수 있습니다.
+- Vosk(오프라인 폴백)·Ollama(대화 개인화) 준비에 실패해도 경고만 남기고 계속 진행합니다 — 주 경로(whisper STT·템플릿 대화)는 항상 동작합니다.
+
+### 수동 실행
+
 1. 첫 터미널에서 분석 서버를 준비하고 실행합니다.
 
    ```bash
