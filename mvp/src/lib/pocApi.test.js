@@ -42,7 +42,7 @@ test("createSession preserves the PoC setup payload", async () => {
   });
 });
 
-test("submitResponse sends text audio and nonverbal metrics to the PoC backend", async () => {
+test("submitResponse follows the PoC two-call contract — audio upload then JSON response", async () => {
   const calls = [];
   globalThis.fetch = async (url, options) => {
     calls.push({ url, options });
@@ -60,20 +60,51 @@ test("submitResponse sends text audio and nonverbal metrics to the PoC backend",
       text: "I will send the report today.",
       audio,
       durationMs: 1234,
-      nonverbalMetrics: { camera_width: 1280, camera_height: 720, video_track_ready: true },
+      nonverbalMetrics: { front_gaze_ratio: 0.8, frames: 120 },
     },
   );
 
-  assert.equal(calls[0].url, "http://127.0.0.1:8000/api/sessions/session-1/turns/turn-1/response");
+  // ① 오디오는 /audio 엔드포인트에 'file' 필드 멀티파트로
+  assert.equal(calls[0].url, "http://127.0.0.1:8000/api/sessions/session-1/turns/turn-1/audio");
   assert.equal(calls[0].options.method, "POST");
   assert.equal(calls[0].options.headers["X-Session-Token"], "token-1");
   assert.ok(calls[0].options.body instanceof FormData);
-  assert.equal(calls[0].options.body.get("text"), "I will send the report today.");
-  assert.equal(calls[0].options.body.get("duration_ms"), "1234");
-  assert.deepEqual(JSON.parse(calls[0].options.body.get("nonverbal_metrics")), {
-    camera_width: 1280,
-    camera_height: 720,
-    video_track_ready: true,
+  assert.ok(calls[0].options.body.get("file") instanceof File);
+
+  // ② 응답은 /response 엔드포인트에 JSON으로 (멀티파트를 보내면 백엔드가 422로 거부)
+  assert.equal(calls[1].url, "http://127.0.0.1:8000/api/sessions/session-1/turns/turn-1/response");
+  assert.equal(calls[1].options.method, "POST");
+  assert.equal(calls[1].options.headers["X-Session-Token"], "token-1");
+  assert.equal(calls[1].options.headers["Content-Type"], "application/json");
+  const payload = JSON.parse(calls[1].options.body);
+  assert.deepEqual(payload, {
+    text: "I will send the report today.",
+    stt_source: "webspeech",
+    duration_ms: 1234,
+    nonverbal: { front_gaze_ratio: 0.8, frames: 120 },
   });
-  assert.ok(calls[0].options.body.get("audio") instanceof File);
+});
+
+test("submitResponse still submits text when the audio upload fails", async () => {
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    if (url.endsWith("/audio")) {
+      return new Response(JSON.stringify({ detail: "저장 실패" }), { status: 500 });
+    }
+    return new Response(JSON.stringify({ finished: false }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  const result = await submitResponse(
+    { id: "session-1", access_token: "token-1" },
+    "turn-1",
+    { text: "결론부터 말씀드리겠습니다.", audio: new Blob(["x"], { type: "audio/webm" }), durationMs: 900, nonverbalMetrics: null },
+  );
+
+  assert.equal(result.finished, false);
+  assert.equal(calls.length, 2, "오디오 실패에도 텍스트 제출은 진행된다");
+  assert.equal(calls[1].url, "http://127.0.0.1:8000/api/sessions/session-1/turns/turn-1/response");
 });

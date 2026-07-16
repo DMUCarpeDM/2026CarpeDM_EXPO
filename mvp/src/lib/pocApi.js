@@ -70,17 +70,32 @@ export function createSession({ difficulty, mode, scenarioSlug, consent }) {
   });
 }
 
-export function submitResponse(session, turnId, input) {
-  const form = new FormData();
-  form.set("text", input.text);
-  form.set("stt_source", "browser_media");
-  form.set("duration_ms", String(input.durationMs));
-  form.set("nonverbal_metrics", JSON.stringify(input.nonverbalMetrics));
-  form.set("audio", input.audio, `turn-${turnId}.webm`);
+export async function submitResponse(session, turnId, input) {
+  // PoC 백엔드 계약은 2콜이다 — ① 오디오 업로드(/audio, 텍스트가 비면 서버 STT가 채움)
+  // ② JSON 응답 제출(/response). 멀티파트 1콜로 보내면 422로 거부된다.
+  if (input.audio && input.audio.size > 0) {
+    const form = new FormData();
+    form.set("file", input.audio, `turn-${turnId}.webm`);
+    try {
+      await request(`/sessions/${session.id}/turns/${turnId}/audio`, {
+        method: "POST",
+        token: session.access_token,
+        body: form,
+      });
+    } catch (error) {
+      // 텍스트가 있으면 오디오는 보조 신호 — 업로드 실패로 답변까지 막지 않는다.
+      if (!input.text.trim()) throw error;
+    }
+  }
   return request(`/sessions/${session.id}/turns/${turnId}/response`, {
     method: "POST",
     token: session.access_token,
-    body: form,
+    body: JSON.stringify({
+      text: input.text,
+      stt_source: "webspeech",
+      duration_ms: input.durationMs || 0,
+      nonverbal: input.nonverbalMetrics || null,
+    }),
   });
 }
 

@@ -1,9 +1,12 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
-from app.api import admin, auth, codes, reports, scenarios, sessions
+from app.api import admin, auth, codes, receipt, reports, scenarios, sessions
 from app.core.config import settings
 from app.seed.run import seed
 
@@ -167,6 +170,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
+
+@app.exception_handler(RequestValidationError)
+async def _validation_error_with_binary_input(request: Request, exc: RequestValidationError):
+    """422 응답이 500으로 둔갑하던 결함 방어 — 멀티파트로 잘못 보낸 요청의
+    검증 에러에는 업로드 원문(바이트)이 input으로 담기는데, 기본 인코더가
+    이를 UTF-8로 디코드하다 크래시한다. 바이트는 크기 표기로 치환해 돌려준다."""
+    errors = jsonable_encoder(
+        exc.errors(),
+        custom_encoder={bytes: lambda b: f"<{len(b)} bytes>"},
+    )
+    return JSONResponse(status_code=422, content={"detail": errors})
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -175,7 +191,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-for router in (auth.router, scenarios.router, sessions.router, reports.router, admin.router, codes.router):
+for router in (auth.router, scenarios.router, sessions.router, reports.router, receipt.router, admin.router, codes.router):
     app.include_router(router, prefix="/api")
 
 
