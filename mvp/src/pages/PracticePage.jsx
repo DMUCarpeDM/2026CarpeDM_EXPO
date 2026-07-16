@@ -16,6 +16,7 @@ import { User4 } from "reicon-react/icons/User4";
 import { motion } from "framer-motion";
 import { IconGlyph } from "../components/ui/IconGlyph";
 import { LiveFitMeter } from "../components/report/Charts";
+import { useFaceTracking } from "../lib/useFaceTracking";
 import counterpartPortrait from "../assets/team-lead-portrait.webp";
 
 function formatClock(totalSeconds) {
@@ -41,6 +42,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
   const [notesOpen, setNotesOpen] = useState(false);
   const [notes, setNotes] = useState("");
   const videoRef = useRef(null);
+  const overlayRef = useRef(null);
   const cameraRef = useRef(null);
   const chatBodyRef = useRef(null);
   const recorderRef = useRef(null);
@@ -51,6 +53,23 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
   const characterName = character?.name || "AI 상대";
   const coverage = turnSignals ? Math.round(turnSignals.coverage * 100) : null;
   const aiReady = aiHealth?.dialogue_provider === "ollama" && aiHealth?.ollama?.dialogue;
+  // MediaPipe 실시간 얼굴·상체 트래킹 (영상 미전송 — 브라우저 안에서만 분석)
+  const track = useFaceTracking(mediaStream, videoRef, overlayRef);
+  const trackingLive = track.status === "ready" && track.tracking;
+  const eyeMeter = trackingLive
+    ? track.eyeFront
+      ? { percent: 92, status: "Good", caption: "상대와 눈을 맞추고 있어요", muted: false, warn: false }
+      : { percent: 45, status: "주의", caption: "화면 속 상대를 바라봐 주세요", muted: false, warn: true }
+    : track.status === "loading"
+      ? { percent: 0, status: "…", caption: "분석 모델 준비 중", muted: true, warn: false }
+      : { percent: 0, status: "–", caption: "측정 불가", muted: true, warn: false };
+  const postureMeter = track.status === "ready" && track.poseTracked
+    ? track.postureLevel
+      ? { percent: 100, status: "Good", caption: "좋은 자세예요!", muted: false, warn: false }
+      : { percent: 55, status: "주의", caption: "어깨 수평을 맞춰보세요", muted: false, warn: true }
+    : track.status === "loading"
+      ? { percent: 0, status: "…", caption: "분석 모델 준비 중", muted: true, warn: false }
+      : { percent: 0, status: "–", caption: "측정 불가", muted: true, warn: false };
 
   // 메시지별 실제 시각 기록. 데모/재개 세션은 asked_at 필드나 턴 라벨로 폴백해요.
   const stampFor = (key, fallback) => stampsRef.current.get(key) || fallback;
@@ -158,20 +177,21 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
       <div className="practice-stage">
         <motion.section className="practice-camera" aria-label="연습 카메라" ref={cameraRef} {...rise(0.06)}>
           <video ref={videoRef} className={`camera-video ${mediaStream ? "is-live" : ""}`} autoPlay muted playsInline aria-label="내 카메라 미리보기" />
-          <TrackingOverlay silhouette={!mediaStream} />
+          <canvas ref={overlayRef} className="tracking-canvas" aria-hidden="true" />
+          {!trackingLive && <TrackingOverlay silhouette={!mediaStream} />}
           <div className="camera-topline left">
             <span className="camera-live-chip"><b><i aria-hidden="true" />LIVE</b>AI 카메라</span>
           </div>
           <div className="camera-topline right">
-            <span className="camera-latency"><Signal size={14} /> 28ms</span>
+            <span className="camera-latency"><Signal size={14} /> {track.status === "ready" ? `${track.inferMs}ms` : "28ms"}</span>
             <button type="button" className="camera-expand" onClick={toggleCameraFullscreen} aria-label="카메라 전체 화면">
               <Expand size={15} />
             </button>
           </div>
           <VoiceLevelChip mediaStream={mediaStream} />
-          <div className="camera-eye-chip">
-            <span className="eye-chip-title"><IconGlyph icon="coach" size={15} /> 시선 유지 좋음</span>
-            <span className="eye-chip-sub"><CheckCircle size={14} /> 상대의 눈을 바라보고 듣고 있어요!</span>
+          <div className={`camera-eye-chip ${trackingLive && !track.eyeFront ? "warn" : ""}`}>
+            <span className="eye-chip-title"><IconGlyph icon="coach" size={15} /> {trackingLive && !track.eyeFront ? "시선이 벗어났어요" : "시선 유지 좋음"}</span>
+            <span className="eye-chip-sub"><CheckCircle size={14} /> {trackingLive && !track.eyeFront ? "화면 속 상대의 눈을 바라봐 주세요" : "상대의 눈을 바라보고 듣고 있어요!"}</span>
           </div>
           <div className="camera-subtitle">
             <div className="camera-subtitle-head">
@@ -197,8 +217,8 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
             <div className="live-fit-grid">
               <LiveFitMeter tone="response" label="응답" english="Response" kind="percent" percent={coverage} status={coverage === null ? "대기" : "Coverage"} caption={coverage === null ? "첫 답변 후 표시돼요" : coverage >= 70 ? "잘하고 있어요!" : "핵심을 더 채워보세요"} />
               <LiveFitMeter tone="voice" label="목소리" english="Voice" kind="wave" percent={66} status="텍스트 연습" caption="또렷한 톤을 유지해 보세요" />
-              <LiveFitMeter tone="eye" label="시선" english="Eye" kind="icon" icon="eye" percent={0} status="–" caption="측정 불가" muted />
-              <LiveFitMeter tone="posture" label="자세" english="Posture" kind="icon" icon="posture" percent={100} status="Good" caption="좋은 자세예요!" />
+              <LiveFitMeter tone="eye" label="시선" english="Eye" kind="icon" icon="eye" percent={eyeMeter.percent} status={eyeMeter.status} caption={eyeMeter.caption} muted={eyeMeter.muted} warn={eyeMeter.warn} />
+              <LiveFitMeter tone="posture" label="자세" english="Posture" kind="icon" icon="posture" percent={postureMeter.percent} status={postureMeter.status} caption={postureMeter.caption} muted={postureMeter.muted} warn={postureMeter.warn} />
             </div>
             {!aiReady && <p className="live-fit-note"><IconGlyph icon="coach" size={16} /> 기본 질문 모드로 진행 중 — Ollama 연결 시 개인화 질문이 활성화돼요.</p>}
           </motion.section>

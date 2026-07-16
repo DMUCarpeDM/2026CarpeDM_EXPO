@@ -78,8 +78,8 @@ export function TrendChart({ series, xLabels, height = 210, min = 40, max = 100 
 // kind: percent(링 중앙에 %), wave(파형 아이콘), icon(글리프 아이콘). muted면 회색 처리.
 const LIVE_FIT_COLORS = { response: "#0064ff", voice: "#2f7cff", eye: "#0ea5e9", posture: "#10b981" };
 
-export function LiveFitMeter({ icon, label, english, tone, percent, status, caption, kind = "percent", muted = false }) {
-  const color = muted ? "#c3cad4" : LIVE_FIT_COLORS[tone] || "#0064ff";
+export function LiveFitMeter({ icon, label, english, tone, percent, status, caption, kind = "percent", muted = false, warn = false }) {
+  const color = muted ? "#c3cad4" : warn ? "#f59e0b" : LIVE_FIT_COLORS[tone] || "#0064ff";
   return (
     <div className={`live-fit-meter ${tone} ${muted ? "muted" : ""}`}>
       <span className="live-fit-label">{label}</span>

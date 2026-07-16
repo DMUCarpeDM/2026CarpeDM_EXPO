@@ -149,7 +149,11 @@ export default function App() {
     if (!demo) return;
     setReport(DEMO_REPORT);
     setHistory(DEMO_HISTORY);
-    if (demo === "practice") { setSession(DEMO_SESSION); setTurn(DEMO_TURN); setTurnHistory(DEMO_TURN_HISTORY); setTurnSignals({ coverage: 0.85 }); setActive("practice"); }
+    if (demo === "practice") {
+      setSession(DEMO_SESSION); setTurn(DEMO_TURN); setTurnHistory(DEMO_TURN_HISTORY); setTurnSignals({ coverage: 0.85 }); setActive("practice");
+      // 데모에서도 카메라를 켜면 실시간 얼굴·자세 트래킹을 그대로 시연할 수 있어요 (거부해도 화면은 동작).
+      requestExerciseMedia().catch(() => {});
+    }
     else if (["result", "feedback", "compare"].includes(demo)) setActive(demo);
   }, []);
   useEffect(() => {

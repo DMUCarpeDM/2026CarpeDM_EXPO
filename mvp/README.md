@@ -33,10 +33,11 @@ bash scripts/setup_ai.sh
 
 ```bash
 npm install
+npm run setup-offline   # MediaPipe wasm/모델을 public/에 준비 (1회, poc에 있으면 복사·없으면 다운로드)
 npm run dev
 ```
 
-브라우저에서 `http://localhost:5173`을 열고 카메라와 마이크 권한을 허용하세요. Vite는 `/api` 요청을 `http://127.0.0.1:8001`의 PoC 서버로 프록시합니다. (8000은 carpedm-kiosk가 사용하므로 8001을 씁니다. 다른 포트가 필요하면 `MIRRORTING_API_TARGET` 환경변수로 프록시 대상을 바꿀 수 있습니다.)
+브라우저에서 `http://localhost:5173`을 열고 카메라와 마이크 권한을 허용하세요. 연습 화면의 실시간 얼굴·자세 트래킹은 `setup-offline`을 실행해 두면 인터넷 없이 동작하고, 실행하지 않았다면 CDN에서 모델을 내려받아 동작합니다. 백엔드 없이 화면만 보려면 `http://localhost:5173/?demo=practice`(연습)·`?demo=result`(리포트)·`?demo=compare`(비교)를 사용하세요. Vite는 `/api` 요청을 `http://127.0.0.1:8001`의 PoC 서버로 프록시합니다. (8000은 carpedm-kiosk가 사용하므로 8001을 씁니다. 다른 포트가 필요하면 `MIRRORTING_API_TARGET` 환경변수로 프록시 대상을 바꿀 수 있습니다.)
 
 ## 확인
 
