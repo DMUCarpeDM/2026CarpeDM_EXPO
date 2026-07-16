@@ -220,6 +220,9 @@
 .subtitle-wave i:nth-child(even) { animation-delay: 0.18s; height: 8px; }
 .subtitle-wave i:nth-child(3n) { animation-delay: 0.33s; }
 .subtitle-wave i:nth-child(5n) { animation-delay: 0.09s; }
+/* AI가 말하고 있지 않을 때는 파형을 낮게 잠재운다 */
+.subtitle-wave.idle i { animation: none; height: 4px; opacity: 0.4; }
+.speaking-chip.calm { background: rgba(37, 58, 94, 0.85); animation: none; box-shadow: none; }
 
 /* ---------- 사이드: 4-Fit + 대화 로그 ---------- */
 .practice-side { display: flex; flex-direction: column; gap: 14px; min-width: 0; min-height: 0; }
@@ -243,8 +246,9 @@
 .live-fit-caption { color: var(--color-muted); font-size: 11px; line-height: 1.35; }
 
 .ring-gauge { position: relative; display: grid; place-items: center; flex: none; }
-.ring-gauge svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
-.ring-gauge circle { fill: none; stroke-width: 5.5; stroke-linecap: round; }
+/* 직계 svg = 링 트랙/필. 중앙 글리프(.ring-icon 내부 svg)에 번지면 안 된다 */
+.ring-gauge > svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring-gauge > svg circle { fill: none; stroke-width: 5.5; stroke-linecap: round; }
 .ring-gauge .ring-track { stroke: #edf1f7; }
 .ring-gauge .ring-fill { transition: stroke-dashoffset 0.9s cubic-bezier(0.22, 1, 0.36, 1); }
 .ring-value { font-family: var(--font-display); font-size: 18px; font-weight: 760; letter-spacing: -0.02em; }
@@ -328,8 +332,13 @@
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .control-speak:focus-within { border-color: rgba(0, 100, 255, 0.35); box-shadow: 0 0 0 3px rgba(0, 100, 255, 0.08), var(--pl-card-shadow); }
-.control-speak-label { display: inline-flex; align-items: center; gap: 8px; color: var(--color-graphite); font-size: 14px; font-weight: 640; white-space: nowrap; }
+.control-speak-label { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; margin-left: -10px; border: 0; border-radius: 10px; background: transparent; color: var(--color-graphite); font-size: 14px; font-weight: 640; white-space: nowrap; }
 .control-speak-label svg { color: var(--color-blue); }
+.control-speak-label:hover:not(:disabled) { background: var(--color-fog); }
+.control-speak-label:disabled { opacity: 0.55; }
+.control-speak-label.listening { color: var(--color-blue); }
+.control-speak-label.listening svg { animation: mic-listen 1.6s ease-in-out infinite; }
+@keyframes mic-listen { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.55; transform: scale(0.9); } }
 .control-wave { display: inline-flex; align-items: center; gap: 3.5px; height: 20px; flex: 0 1 auto; overflow: hidden; }
 .control-wave i { flex: none; width: 3px; height: 3px; border-radius: 50%; background: #b9c3d4; animation: dot-blink 1.5s ease-in-out infinite; }
 .control-wave i:nth-child(even) { animation-delay: 0.25s; }
