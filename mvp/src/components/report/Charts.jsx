@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { IconGlyph } from "../ui/IconGlyph";
 
 const FIT_COLORS = { response: "#0064ff", voice: "#2f7cff", eye: "#0ea5e9", posture: "#ff8a00" };
@@ -98,10 +99,17 @@ export function LiveFitMeter({ icon, label, english, tone, percent, status, capt
   );
 }
 
-function RingGauge({ value, color, size = 74, children }) {
+function RingGauge({ value, color, size = 78, children }) {
+  // 마운트 직후 한 프레임 비운 뒤 목표값으로 채워 링이 차오르는 전환을 만들어요.
+  const [drawn, setDrawn] = useState(false);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setDrawn(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
   const r = 25;
   const c = 2 * Math.PI * r;
-  const offset = c - (Math.max(0, Math.min(100, value)) / 100) * c;
+  const target = drawn ? Math.max(0, Math.min(100, value)) : 0;
+  const offset = c - (target / 100) * c;
   return (
     <span className="ring-gauge" style={{ width: size, height: size }}>
       <svg viewBox="0 0 58 58" aria-hidden="true">
