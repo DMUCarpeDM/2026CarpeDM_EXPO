@@ -164,7 +164,12 @@ export default function App() {
         setSession(resumedSession);
         setTurn(resumed.current_turn);
         setTurnHistory(resumed.history || []);
-        if (resumed.status === "in_progress") setActive("practice");
+        if (resumed.status === "in_progress") {
+          setActive("practice");
+          // 복귀 세션은 시작 플로우를 건너뛰므로 여기서 카메라·마이크를 다시 잡아야
+          // 녹음이 재개된다 (권한이 이미 허용된 키오스크에서는 조용히 성공).
+          requestExerciseMedia().catch((error) => setApiError(error.message));
+        }
         if (["analyzing", "completed"].includes(resumed.status)) setActive("result");
       })
       .catch(() => localStorage.removeItem("mirrorting-active-session"));
@@ -286,7 +291,7 @@ export default function App() {
       {active === "difficulty" && <DifficultyPage scenarios={scenarioOptions} selectedScenarioId={selectedSetupScenario.id} onScenario={chooseSetupScenario} counterpartProfile={counterpartProfile} difficulty={difficulty} onPrev={() => go(-1)} onNext={() => navigate("setup")} />}
       {active === "setup" && <SetupPage scenario={selectedSetupScenario} goals={selectedSetupScenario.goalIds.map((goalId) => practiceGoals[goalId])} goal={selectedGoal} onGoal={chooseGoal} counterpartProfile={counterpartProfile} difficulty={difficulties.find((item) => item.id === difficulty)} onPrev={() => go(-1)} onNext={() => navigate("preview")} />}
       {active === "preview" && <PreviewPage onNext={startPractice} starting={starting} scenario={previewScenario} setupScenario={selectedSetupScenario} counterpartProfile={counterpartProfiles.find((item) => item.id === counterpartProfile) || counterpartProfiles[1]} goal={selectedGoal} difficulty={difficulties.find((item) => item.id === difficulty) || difficulties[0]} aiHealth={aiHealth} consented={consented} onConsent={setConsented} error={apiError} permissionState={permissionState} mode={mode} />}
-      {active === "practice" && <PracticePage onPrev={() => go(-1)} scenario={session?.scenario} aiHealth={aiHealth} turn={turn} history={turnHistory} turnSignals={turnSignals} onSubmit={sendAnswer} busy={submitting} error={apiError} mediaStream={mediaStream} />}
+      {active === "practice" && <PracticePage onPrev={() => go(-1)} scenario={session?.scenario} aiHealth={aiHealth} turn={turn} history={turnHistory} turnSignals={turnSignals} onSubmit={sendAnswer} busy={submitting} error={apiError} mediaStream={mediaStream} onReconnectMedia={() => requestExerciseMedia().catch((error) => setApiError(error.message))} />}
       {active === "result" && <ResultPage onPrev={() => go(-1)} onPractice={() => navigate("preview")} onNext={() => navigate("feedback")} onNavigate={navigate} report={report} progress={analysisProgress} error={apiError} />}
       {active === "feedback" && <FeedbackPage onPrev={() => go(-1)} onPractice={() => navigate("preview")} onNext={() => navigate("compare")} onNavigate={navigate} report={report} />}
       {active === "compare" && <ComparePage onPrev={() => go(-1)} onRestart={() => navigate("setup")} onShare={() => navigate("share")} onNavigate={navigate} history={history} report={report} />}

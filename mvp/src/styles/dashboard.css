@@ -451,6 +451,8 @@
 .practice-controls { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid var(--color-border); border-radius: 16px; background: rgba(255, 255, 255, 0.92); box-shadow: var(--shadow-light); }
 .control-note, .control-pause, .control-retry { display: inline-flex; align-items: center; gap: 7px; min-height: 46px; padding: 0 16px; border: 1px solid var(--color-border); border-radius: 12px; background: rgba(255, 255, 255, 0.8); color: var(--color-graphite); font-weight: 560; white-space: nowrap; }
 .control-note.active { border-color: rgba(0, 100, 255, 0.3); background: var(--color-blue-soft); color: var(--color-blue); }
+/* 복귀 세션 등에서 마이크가 끊겼을 때 — 실패한 전송 대신 명시적 복구 동선을 준다 */
+.control-media-reconnect { display: inline-flex; align-items: center; gap: 7px; min-height: 46px; padding: 0 16px; border: 1px solid rgba(0, 100, 255, 0.35); border-radius: 12px; background: var(--color-blue-soft); color: var(--color-blue); font-weight: 620; white-space: nowrap; }
 .control-speak { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; padding: 6px 8px 6px 16px; border-radius: 14px; background: var(--color-fog); }
 .control-speak-label { display: inline-flex; align-items: center; gap: 7px; color: var(--color-graphite); font-size: 13px; font-weight: 560; white-space: nowrap; }
 .control-wave { display: inline-flex; align-items: center; gap: 2px; height: 22px; flex: 0 0 auto; }

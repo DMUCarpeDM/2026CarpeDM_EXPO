@@ -20,7 +20,7 @@ function formatClock(totalSeconds) {
   return `${m}:${s}`;
 }
 
-export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSignals, onSubmit, busy, error, mediaStream }) {
+export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSignals, onSubmit, busy, error, mediaStream, onReconnectMedia }) {
   const [draft, setDraft] = useState("");
   const [captureError, setCaptureError] = useState("");
   const [elapsed, setElapsed] = useState(0);
@@ -165,7 +165,13 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
       <footer className="practice-controls">
         <button type="button" className={`control-note ${notesOpen ? "active" : ""}`} onClick={() => setNotesOpen((open) => !open)}><Notebook size={19} /> 나의 노트</button>
         <div className="control-speak">
+          {!mediaStream && onReconnectMedia ? (
+            <button type="button" className="control-media-reconnect" onClick={onReconnectMedia}>
+              <Mic size={18} /> 마이크·카메라 연결하기
+            </button>
+          ) : (
           <span className="control-speak-label"><Mic size={18} /> {busy ? "AI가 답을 준비하고 있어요" : "말하면서 답변을 입력해 주세요"}</span>
+          )}
           <span className="control-wave" aria-hidden="true">{Array.from({ length: 26 }, (_, i) => <i key={i} />)}</span>
           <input value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && draft.trim() && !busy && turn) submitDraft(); }} placeholder="메시지를 입력해 보세요" disabled={busy || !turn} />
           <time>{formatClock(recSeconds)}</time>
