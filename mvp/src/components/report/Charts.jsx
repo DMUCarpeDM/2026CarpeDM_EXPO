@@ -95,7 +95,7 @@ export function LiveFitMeter({ icon, label, english, tone, percent, caption, kin
   );
 }
 
-function RingGauge({ value, color, size = 58 }) {
+function RingGauge({ value, color, size = 48 }) {
   const r = 24;
   const c = 2 * Math.PI * r;
   const offset = c - (Math.max(0, Math.min(100, value)) / 100) * c;

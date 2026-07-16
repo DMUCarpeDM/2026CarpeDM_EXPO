@@ -341,7 +341,7 @@
 .ghost-outline { display: inline-flex; align-items: center; gap: 8px; min-height: 58px; padding: 0 20px; border: 1px solid var(--color-border-strong); border-radius: 10px; background: rgba(255, 255, 255, 0.8); color: var(--color-graphite); font-weight: 620; }
 
 /* ---------- Practice screen ---------- */
-.practice-screen { display: flex; flex-direction: column; gap: 14px; }
+.practice-screen { display: flex; flex-direction: column; gap: 14px; width: min(100% - 40px, 1840px); margin: 0 auto; }
 .practice-topbar {
   display: flex;
   align-items: center;
@@ -367,11 +367,13 @@
 .practice-end { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border: 1px solid rgba(229, 72, 77, 0.4); border-radius: 10px; background: rgba(229, 72, 77, 0.08); color: #e5484d; font-weight: 650; }
 .practice-settings { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid var(--color-border); border-radius: 10px; background: rgba(255, 255, 255, 0.8); color: var(--color-graphite); }
 
-.practice-stage { display: grid; grid-template-columns: minmax(0, 1fr) 384px; gap: 16px; align-items: start; }
+.practice-stage { display: grid; grid-template-columns: minmax(0, 1fr) 424px; gap: 16px; align-items: start; }
 .practice-camera {
   position: relative;
   aspect-ratio: 16 / 10;
   min-height: 460px;
+  /* 키오스크(1920×1080)에서 상단바·입력바까지 한 화면에 들어오도록 카메라 높이를 제한해요. */
+  max-height: calc(100vh - 250px);
   border-radius: 18px;
   overflow: hidden;
   background: #0f1524;
@@ -410,22 +412,23 @@
 .live-fit-head h2 { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-size: 16px; }
 .muted-info { color: var(--color-muted); }
 .text-link { display: inline-flex; align-items: center; gap: 2px; border: 0; background: transparent; color: var(--color-blue); font-size: 13px; font-weight: 600; }
-.live-fit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.live-fit-meter { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--color-border); border-radius: 14px; background: rgba(255, 255, 255, 0.6); }
-.live-fit-visual { flex: 0 0 auto; display: grid; place-items: center; width: 58px; height: 58px; }
+/* minmax(0,1fr): 콘텐츠 최소폭이 카드 밖으로 그리드를 밀어내지 못하게 해요. */
+.live-fit-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.live-fit-meter { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--color-border); border-radius: 14px; background: rgba(255, 255, 255, 0.6); }
+.live-fit-visual { flex: 0 0 auto; display: grid; place-items: center; width: 48px; height: 48px; }
 .ring-gauge { position: relative; display: grid; place-items: center; }
 .ring-gauge svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
 .ring-gauge circle { fill: none; stroke-width: 5; stroke-linecap: round; }
 .ring-gauge .ring-track { stroke: #e6edf8; }
-.ring-gauge b { font-family: var(--font-display); font-size: 16px; font-weight: 700; }
+.ring-gauge b { font-family: var(--font-display); font-size: 14px; font-weight: 700; }
 .ring-gauge b small { font-size: 10px; font-weight: 500; }
 .live-wave { display: inline-flex; align-items: center; gap: 2.5px; height: 34px; }
 .live-wave i { width: 3px; border-radius: 2px; height: 10px; animation: wave-bounce 1s ease-in-out infinite; }
 .live-wave i:nth-child(even) { animation-delay: 0.18s; }
 .live-wave i:nth-child(3n) { animation-delay: 0.32s; }
-.live-fit-icon { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 13px; background: rgba(25, 31, 40, 0.04); }
+.live-fit-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: rgba(25, 31, 40, 0.04); }
 .live-fit-copy { min-width: 0; }
-.live-fit-label { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 620; }
+.live-fit-label { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 5px; min-width: 0; font-size: 13px; font-weight: 620; }
 .live-fit-label em { color: var(--color-muted); font-style: normal; font-weight: 430; font-size: 11px; }
 .live-fit-meter strong { display: block; margin-top: 3px; color: var(--color-graphite); font-size: 12px; font-weight: 500; }
 .live-fit-meter.response .live-fit-label { color: var(--fit-response); }
