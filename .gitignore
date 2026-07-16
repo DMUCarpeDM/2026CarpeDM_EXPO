@@ -1,0 +1,6 @@
+# 로컬 전용 — 커밋하지 않음
+# poc/backend 의 로컬 실행 사본(SQLite mirroting.db 등)
+/backend/
+# Claude Code 세션·워크트리 설정(launch.json 등)
+/.claude/
+.DS_Store
