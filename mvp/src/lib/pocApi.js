@@ -70,17 +70,31 @@ export function createSession({ difficulty, mode, scenarioSlug, consent }) {
   });
 }
 
-export function submitResponse(session, turnId, input) {
-  const form = new FormData();
-  form.set("text", input.text);
-  form.set("stt_source", "browser_media");
-  form.set("duration_ms", String(input.durationMs));
-  form.set("nonverbal_metrics", JSON.stringify(input.nonverbalMetrics));
-  form.set("audio", input.audio, `turn-${turnId}.webm`);
+// poc 백엔드 계약: 오디오는 /audio(멀티파트 `file`)로 먼저 올리고,
+// 답변 본문은 /response(JSON)로 보낸다. 한 멀티파트에 섞으면 422/500이 난다.
+export async function submitResponse(session, turnId, input) {
+  if (input.audio && input.audio.size > 0) {
+    try {
+      const form = new FormData();
+      form.append("file", input.audio, `turn-${turnId}.wav`);
+      await request(`/sessions/${session.id}/turns/${turnId}/audio`, {
+        method: "POST",
+        token: session.access_token,
+        body: form,
+      });
+    } catch {
+      // 오디오 분석은 부가 기능 — 업로드가 실패해도 텍스트 기반 분석으로 진행한다.
+    }
+  }
   return request(`/sessions/${session.id}/turns/${turnId}/response`, {
     method: "POST",
     token: session.access_token,
-    body: form,
+    body: JSON.stringify({
+      text: input.text,
+      stt_source: input.sttSource || "text",
+      duration_ms: input.durationMs,
+      nonverbal: input.nonverbal || null,
+    }),
   });
 }
 

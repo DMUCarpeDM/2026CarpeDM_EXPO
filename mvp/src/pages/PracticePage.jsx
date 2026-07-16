@@ -17,6 +17,7 @@ import { User4 } from "reicon-react/icons/User4";
 import { motion } from "framer-motion";
 import { IconGlyph } from "../components/ui/IconGlyph";
 import { LiveFitMeter } from "../components/report/Charts";
+import { blobToWav } from "../lib/audioWav";
 import { useFaceTracking } from "../lib/useFaceTracking";
 import counterpartPortrait from "../assets/team-lead-portrait.webp";
 
@@ -57,6 +58,39 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
   // MediaPipe 실시간 얼굴·상체 트래킹 (영상 미전송 — 브라우저 안에서만 분석)
   const track = useFaceTracking(mediaStream, videoRef, overlayRef);
   const trackingLive = track.status === "ready" && track.tracking;
+
+  // ---- 턴 단위 비언어 집계: 라이브 트래킹 샘플을 모아 백엔드 NonverbalIn으로 보낸다 ----
+  // (poc의 정밀 집계 대비 경량판 — 정면 응시 비율·이탈 횟수·평균 어깨 기울기만)
+  const trackRef = useRef(track);
+  trackRef.current = track;
+  const nonverbalRef = useRef({ frames: 0, front: 0, offCount: 0, tiltSum: 0, lastFront: true });
+  useEffect(() => {
+    nonverbalRef.current = { frames: 0, front: 0, offCount: 0, tiltSum: 0, lastFront: true };
+  }, [turn?.id]);
+  useEffect(() => {
+    if (!trackingLive) return undefined;
+    const timer = window.setInterval(() => {
+      const sample = trackRef.current;
+      if (sample.status !== "ready" || !sample.tracking) return;
+      const acc = nonverbalRef.current;
+      acc.frames += 1;
+      if (sample.eyeFront) acc.front += 1;
+      else if (acc.lastFront) acc.offCount += 1;
+      acc.lastFront = sample.eyeFront;
+      acc.tiltSum += sample.tiltDeg;
+    }, 400);
+    return () => window.clearInterval(timer);
+  }, [trackingLive]);
+  const buildNonverbal = () => {
+    const acc = nonverbalRef.current;
+    if (!acc.frames) return null;
+    return {
+      front_gaze_ratio: acc.front / acc.frames,
+      gaze_off_count: acc.offCount,
+      avg_shoulder_tilt_deg: acc.tiltSum / acc.frames,
+      frames: acc.frames,
+    };
+  };
   const eyeMeter = trackingLive
     ? track.eyeFront
       ? { percent: 92, status: "Good", caption: "상대와 눈을 맞추고 있어요", muted: false, warn: false }
@@ -108,6 +142,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
   const [micEnabled, setMicEnabled] = useState(true);
   const recognitionRef = useRef(null);
   const sttActiveRef = useRef(false);
+  const sttUsedRef = useRef(false); // 이번 턴 답변에 음성 인식이 쓰였는지 (stt_source 판별)
   const sttSupported = Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
   useEffect(() => {
     const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -122,7 +157,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
         const transcript = event.results[i][0].transcript.trim();
         if (!transcript) continue;
-        if (event.results[i].isFinal) setDraft((prev) => `${prev} ${transcript}`.trim());
+        if (event.results[i].isFinal) { sttUsedRef.current = true; setDraft((prev) => `${prev} ${transcript}`.trim()); }
         else interimText += transcript;
       }
       setInterim(interimText);
@@ -209,22 +244,24 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
     else { recorder.requestData(); recorder.stop(); }
   });
 
-  const collectNonverbalMetrics = () => {
-    const videoTrack = mediaStream?.getVideoTracks()[0];
-    const settings = videoTrack?.getSettings?.() || {};
-    return { camera_width: videoRef.current?.videoWidth || settings.width || 0, camera_height: videoRef.current?.videoHeight || settings.height || 0, video_track_ready: videoTrack?.readyState === "live", facing_mode: settings.facingMode || "unknown" };
-  };
-
   const submitDraft = async () => {
     const text = inputValue.trim();
     if (!text || busy || !turn) return;
     try {
       sttActiveRef.current = false;
       try { recognitionRef.current?.stop(); } catch { /* 이미 종료됨 */ }
-      const audio = await stopTurnRecorder();
-      if (audio.size === 0) throw new Error("답변 음성이 녹음되지 않았어요. 마이크 권한을 확인해 주세요.");
+      // 녹음(webm)을 서버 음성 분석이 읽을 수 있는 WAV로 변환 — 실패해도 텍스트로 진행
+      const webm = await stopTurnRecorder().catch(() => null);
+      const audio = webm && webm.size > 0 ? await blobToWav(webm).catch(() => null) : null;
       stampsRef.current.set(`a-${turn.id}`, wallClock());
-      await onSubmit({ text, audio, durationMs: Math.round(performance.now() - recordingStartedAtRef.current), nonverbalMetrics: collectNonverbalMetrics() });
+      await onSubmit({
+        text,
+        audio,
+        durationMs: Math.round(performance.now() - recordingStartedAtRef.current),
+        sttSource: sttUsedRef.current ? "webspeech" : "text",
+        nonverbal: buildNonverbal(),
+      });
+      sttUsedRef.current = false;
       setDraft("");
       setInterim("");
       setCaptureError("");
