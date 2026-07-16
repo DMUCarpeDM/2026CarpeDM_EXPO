@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { counterpartProfiles, difficulties, practiceGoals, scenariosForRole } from "./data/setupCatalog";
 import { MobileMenuSheet, TopNav } from "./components/navigation/AppNavigation";
+import { GuidePage } from "./pages/GuidePage";
 import { HomePage } from "./pages/HomePage";
 import { PreviewPage } from "./pages/PreviewPage";
 import { PracticePage } from "./pages/PracticePage";
@@ -35,7 +36,7 @@ import {
 } from "./lib/pocApi";
 
 // 자체 크롬(사이드바/전용 상단바)을 가진 화면은 전역 상단 네비를 숨겨요.
-const CHROMELESS_VIEWS = new Set(["practice", "result", "feedback", "compare"]);
+const CHROMELESS_VIEWS = new Set(["practice", "result", "feedback", "compare", "share"]);
 
 // 백엔드 없이도 리포트/비교/연습 화면을 미리 볼 수 있게 하는 데모 데이터 (?demo=result 등).
 const DEMO_REPORT = {
@@ -86,6 +87,7 @@ const flow = [
   { id: "feedback", label: "자세히 보기" },
   { id: "compare", label: "다시 비교하기" },
   { id: "share", label: "저장하고 공유하기" },
+  { id: "guide", label: "이용 방법" },
 ];
 
 export default function App() {
@@ -280,11 +282,12 @@ export default function App() {
       {active === "difficulty" && <DifficultyPage scenarios={scenarioOptions} selectedScenarioId={selectedSetupScenario.id} onScenario={chooseSetupScenario} counterpartProfile={counterpartProfile} difficulty={difficulty} onPrev={() => go(-1)} onNext={() => navigate("setup")} />}
       {active === "setup" && <SetupPage scenario={selectedSetupScenario} goals={selectedSetupScenario.goalIds.map((goalId) => practiceGoals[goalId])} goal={selectedGoal} onGoal={chooseGoal} counterpartProfile={counterpartProfile} difficulty={difficulties.find((item) => item.id === difficulty)} onPrev={() => go(-1)} onNext={() => navigate("preview")} />}
       {active === "preview" && <PreviewPage onNext={startPractice} starting={starting} scenario={previewScenario} setupScenario={selectedSetupScenario} counterpartProfile={counterpartProfiles.find((item) => item.id === counterpartProfile) || counterpartProfiles[1]} goal={selectedGoal} difficulty={difficulties.find((item) => item.id === difficulty) || difficulties[0]} aiHealth={aiHealth} consented={consented} onConsent={setConsented} error={apiError} permissionState={permissionState} mode={mode} />}
-      {active === "practice" && <PracticePage onPrev={() => go(-1)} scenario={session?.scenario} aiHealth={aiHealth} turn={turn} history={turnHistory} turnSignals={turnSignals} onSubmit={sendAnswer} busy={submitting} error={apiError} mediaStream={mediaStream} />}
-      {active === "result" && <ResultPage onPrev={() => go(-1)} onPractice={() => navigate("preview")} onNext={() => navigate("feedback")} onNavigate={navigate} report={report} progress={analysisProgress} error={apiError} />}
+      {active === "practice" && <PracticePage onPrev={() => go(-1)} onExit={() => { clearActiveSession(localStorage); setSession(null); setTurn(null); setTurnHistory([]); navigate("home"); }} scenario={session?.scenario} aiHealth={aiHealth} turn={turn} history={turnHistory} turnSignals={turnSignals} onSubmit={sendAnswer} busy={submitting} error={apiError} mediaStream={mediaStream} />}
+      {active === "result" && <ResultPage onPrev={() => go(-1)} onPractice={() => navigate("preview")} onNext={() => navigate("feedback")} onNavigate={navigate} session={session} report={report} progress={analysisProgress} error={apiError} />}
       {active === "feedback" && <FeedbackPage onPrev={() => go(-1)} onPractice={() => navigate("preview")} onNext={() => navigate("compare")} onNavigate={navigate} report={report} />}
-      {active === "compare" && <ComparePage onPrev={() => go(-1)} onRestart={() => navigate("setup")} onShare={() => navigate("share")} onNavigate={navigate} history={history} report={report} />}
-      {active === "share" && <SharePage onHome={() => navigate("home")} onPractice={() => navigate("role")} report={report} onIssueCode={issueCode} />}
+      {active === "compare" && <ComparePage onPrev={() => go(-1)} onRestart={() => navigate("preview")} onShare={() => navigate("share")} onNavigate={navigate} history={history} report={report} />}
+      {active === "share" && <SharePage onHome={() => navigate("home")} onPractice={() => navigate("role")} onNavigate={navigate} report={report} onIssueCode={issueCode} />}
+      {active === "guide" && <GuidePage onStart={() => navigate("role")} />}
     </div>
     <span className="screen-reader-note" aria-live="polite">현재 화면: {current.label}</span>
   </main>;

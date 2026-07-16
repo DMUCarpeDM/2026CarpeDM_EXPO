@@ -28,15 +28,31 @@ function fitGrade(fit) {
   return "노력 필요";
 }
 
-export function ResultPage({ onPrev, onPractice, onNext, onNavigate, report, progress, error }) {
+export function ResultPage({ onPrev, onPractice, onNext, onNavigate, session, report, progress, error }) {
   const navigate = onNavigate || (() => {});
   const download = () => { if (typeof window !== "undefined") window.print(); };
+
+  // 진행 중인 세션 없이 들어오면(상단 메뉴로 바로 진입 등) 분석 스피너 대신 안내를 보여줘요.
+  if (!report && !session) {
+    return (
+      <ReportShell active="result" trail={TRAIL} onNavigate={navigate} onDownload={download}>
+        <Panel className="report-empty-card">
+          <span className="round-icon blue"><Bulb2 size={26} /></span>
+          <div>
+            <h2>아직 완료한 연습이 없어요</h2>
+            <p>연습을 마치면 이곳에서 4-Fit 점수와 맞춤 코칭을 확인할 수 있어요.</p>
+            <button type="button" className="primary-button" onClick={() => navigate("role")}>연습 시작하기 <ArrowRight size={20} /></button>
+          </div>
+        </Panel>
+      </ReportShell>
+    );
+  }
 
   if (!report) {
     return (
       <ReportShell active="result" trail={TRAIL} onNavigate={navigate} onDownload={download}>
         <PageToolbar onPrev={onPrev} leftLabel="역할극으로 돌아가기" />
-        <Panel className="loading-card"><span className="spinner" /><div><h3>분석 결과를 준비하고 있어요</h3><p>{error || `분석 중이에요 · ${progress?.pct ?? progress?.pct ?? 0}%`}</p></div></Panel>
+        <Panel className="loading-card"><span className="spinner" /><div><h3>분석 결과를 준비하고 있어요</h3><p>{error || `분석 중이에요 · ${progress?.pct ?? 0}%`}</p></div></Panel>
       </ReportShell>
     );
   }

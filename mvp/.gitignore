@@ -1,5 +1,7 @@
 node_modules/
 dist/
+# MediaPipe WASM·모델(약 42MB) — scripts/fetch-mediapipe.sh 로 준비
+public/mediapipe/
 artifacts/
 .omo/
 .ouroboros/

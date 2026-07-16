@@ -338,6 +338,25 @@
 .trend-legend i { width: 14px; height: 4px; border-radius: 2px; }
 
 .compare-share-group { display: inline-flex; gap: 12px; justify-content: flex-end; }
+
+/* 기록이 없을 때의 안내 카드 (비교 분석 · 성과 리포트 공용) */
+.compare-empty,
+.report-empty-card {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 40px 36px;
+  color: var(--color-blue);
+}
+.compare-empty h2,
+.report-empty-card h2 { margin: 0 0 8px; color: var(--color-ink); font-size: 21px; }
+.compare-empty p,
+.report-empty-card p { margin: 0 0 18px; color: var(--color-graphite); line-height: 1.6; }
+.compare-empty .primary-button,
+.report-empty-card .primary-button { min-height: 50px; }
+
+/* 연습 중에는 상세 분석이 아직 없으므로 링크 대신 안내 문구를 보여줘요. */
+.live-fit-after { color: var(--color-muted); font-size: 12px; font-weight: 560; }
 .ghost-outline { display: inline-flex; align-items: center; gap: 8px; min-height: 58px; padding: 0 20px; border: 1px solid var(--color-border-strong); border-radius: 10px; background: rgba(255, 255, 255, 0.8); color: var(--color-graphite); font-weight: 620; }
 
 /* ---------- Practice screen ---------- */
@@ -355,12 +374,16 @@
 }
 .practice-topbar-left { display: inline-flex; align-items: center; gap: 12px; min-width: 0; }
 .practice-brand { color: var(--color-blue); font-family: var(--font-display); font-size: 20px; font-weight: 700; }
-.practice-breadcrumb { display: inline-flex; align-items: center; gap: 6px; padding-left: 12px; margin-left: 4px; border-left: 1px solid var(--color-border); color: var(--color-muted); font-size: 13px; }
-.practice-breadcrumb .current { color: var(--color-ink); font-weight: 600; }
+.topbar-divider { width: 1px; height: 30px; background: var(--color-border); }
+.topbar-scenario small,
+.topbar-counterpart small { display: block; color: var(--color-muted); font-size: 11px; font-weight: 500; }
+.topbar-scenario strong,
+.topbar-counterpart strong { display: block; font-size: 14px; font-weight: 650; }
 .practice-topbar-right { display: inline-flex; align-items: center; gap: 12px; }
-.counterpart-chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border-radius: var(--radius-pill); background: var(--color-fog); font-weight: 600; }
-.counterpart-avatar { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: #fff; background: linear-gradient(135deg, #2f7cff, #0064ff); }
-.counterpart-chip b { padding: 2px 7px; border-radius: var(--radius-pill); background: var(--color-blue); color: #fff; font-size: 11px; }
+.topbar-counterpart { display: inline-flex; align-items: center; gap: 10px; padding: 6px 14px 6px 8px; border-radius: 14px; background: var(--color-fog); }
+.counterpart-avatar { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: #fff; background: linear-gradient(135deg, #2f7cff, #0064ff); }
+.ai-live-tag { display: inline-flex; align-items: center; gap: 5px; color: #12b76a; font-style: normal; font-size: 11px; font-weight: 800; }
+.ai-live-tag i { width: 6px; height: 6px; border-radius: 50%; background: #12b76a; animation: rec-pulse 1.8s ease-in-out infinite; }
 .practice-timer { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: var(--radius-pill); background: var(--color-fog); font-variant-numeric: tabular-nums; font-weight: 700; }
 .rec-dot { width: 10px; height: 10px; border-radius: 50%; background: #e5484d; animation: rec-pulse 1.4s ease-in-out infinite; }
 @keyframes rec-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
@@ -379,30 +402,72 @@
 .practice-camera .camera-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .camera-fallback { position: absolute; inset: 0; display: grid; place-items: center; color: rgba(255, 255, 255, 0.4); }
 
-.tracking-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.track-skeleton line { stroke: rgba(80, 240, 170, 0.85); stroke-width: 0.7; }
-.track-skeleton circle { fill: rgba(80, 240, 170, 0.95); }
-.track-face rect { fill: none; stroke: rgba(80, 240, 170, 0.7); stroke-width: 0.5; stroke-dasharray: 2 1.5; }
-.track-face circle { fill: rgba(120, 245, 190, 0.9); }
-.tracking-overlay { animation: track-breathe 2.6s ease-in-out infinite; }
-@keyframes track-breathe { 0%, 100% { opacity: 0.85; } 50% { opacity: 0.5; } }
+/* MediaPipe 실시간 추적 캔버스 — 실제 얼굴 메시·자세가 여기에 그려져요. */
+.tracking-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 
-.camera-badge { position: absolute; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--radius-pill); font-size: 12px; font-weight: 700; color: #fff; backdrop-filter: blur(6px); }
-.camera-badge.live { top: 16px; left: 16px; background: rgba(229, 72, 77, 0.9); }
-.camera-badge.live i { width: 8px; height: 8px; border-radius: 50%; background: #fff; animation: rec-pulse 1.4s ease-in-out infinite; }
-.camera-badge.ai-cam { top: 16px; right: 16px; background: rgba(15, 21, 36, 0.55); }
-.camera-eye-chip { position: absolute; top: 50%; right: 16px; transform: translateY(-50%); display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: var(--radius-pill); background: rgba(16, 185, 129, 0.85); color: #fff; font-size: 12px; font-weight: 600; backdrop-filter: blur(6px); }
-.camera-voicewave { position: absolute; left: 16px; bottom: 118px; display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--radius-pill); background: rgba(15, 21, 36, 0.5); color: rgba(255, 255, 255, 0.86); font-size: 12px; font-weight: 600; backdrop-filter: blur(6px); }
-.voicewave { display: inline-flex; align-items: center; gap: 2px; height: 18px; }
-.voicewave i { width: 2.5px; border-radius: 2px; background: #6ee7ff; animation: wave-bounce 1s ease-in-out infinite; }
-.voicewave i:nth-child(even) { animation-delay: 0.15s; }
-.voicewave i:nth-child(3n) { animation-delay: 0.3s; }
-@keyframes wave-bounce { 0%, 100% { height: 6px; } 50% { height: 17px; } }
+.tracking-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; animation: track-breathe 3s ease-in-out infinite; }
+@keyframes track-breathe { 0%, 100% { opacity: 0.95; } 50% { opacity: 0.62; } }
+.track-bracket path { fill: none; stroke: rgba(74, 233, 168, 0.95); stroke-width: 0.7; stroke-linecap: round; }
+.track-mesh line { stroke: rgba(74, 233, 168, 0.5); stroke-width: 0.35; }
+.track-mesh circle { fill: rgba(150, 248, 205, 0.95); }
+.track-skeleton line { stroke: rgba(52, 227, 154, 0.9); stroke-width: 0.9; stroke-linecap: round; }
+.track-skeleton .joint { fill: #fff; stroke: rgba(52, 227, 154, 0.95); stroke-width: 0.7; }
+.track-chest path { fill: none; stroke: rgba(90, 168, 255, 0.9); stroke-width: 0.8; stroke-linecap: round; }
+.track-chest circle { fill: #fff; stroke: rgba(90, 168, 255, 0.95); stroke-width: 0.6; }
 
-.camera-subtitle { position: absolute; left: 16px; right: 16px; bottom: 16px; padding: 14px 18px; border-radius: 14px; background: rgba(15, 21, 36, 0.66); color: #fff; backdrop-filter: blur(10px); }
-.camera-subtitle-head { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 13px; font-weight: 700; }
-.camera-subtitle-head em { padding: 2px 9px; border-radius: var(--radius-pill); background: rgba(0, 100, 255, 0.8); font-style: normal; font-size: 11px; }
-.camera-subtitle p { margin: 0; font-size: 16px; line-height: 1.5; }
+/* LIVE | AI 카메라 결합 필 (좌상단) */
+.camera-live-pill { position: absolute; top: 16px; left: 16px; display: inline-flex; overflow: hidden; border-radius: var(--radius-pill); font-size: 11px; font-weight: 800; color: #fff; backdrop-filter: blur(8px); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25); }
+.camera-live-pill .live-seg { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(229, 72, 77, 0.92); letter-spacing: 0.04em; }
+.camera-live-pill .live-seg i { width: 7px; height: 7px; border-radius: 50%; background: #fff; animation: rec-pulse 1.4s ease-in-out infinite; }
+.camera-live-pill .cam-seg { display: inline-flex; align-items: center; padding: 6px 12px; background: rgba(10, 16, 28, 0.6); font-weight: 650; }
+
+/* 연결 상태 (우상단): 지연시간 + 전체화면 */
+.camera-net { position: absolute; top: 16px; right: 16px; display: inline-flex; align-items: center; gap: 8px; }
+.net-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--radius-pill); background: rgba(10, 16, 28, 0.6); color: #fff; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; backdrop-filter: blur(8px); }
+.net-pill svg { color: #34e39a; }
+.net-expand { display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 10px; background: rgba(10, 16, 28, 0.6); color: #fff; backdrop-filter: blur(8px); }
+
+/* 카메라 위 분석 패널 공통 (다크 글래스) */
+.stage-panel { position: absolute; padding: 13px 16px; border: 1px solid rgba(255, 255, 255, 0.09); border-radius: 16px; background: rgba(10, 16, 28, 0.58); color: #fff; backdrop-filter: blur(12px); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28); }
+.stage-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 10px; font-size: 13px; font-weight: 650; }
+.stage-panel-head em { padding: 3px 10px; border-radius: var(--radius-pill); background: rgba(52, 227, 154, 0.2); color: #7df2bc; font-style: normal; font-size: 11px; font-weight: 750; }
+
+/* 음성 레벨 패널 (좌하단): 이퀄라이저 막대 */
+.voice-level-panel { left: 16px; bottom: 152px; }
+.eq-bars { display: inline-flex; align-items: flex-end; gap: 2.5px; height: 26px; }
+.eq-bars i { width: 3px; border-radius: 2px; background: linear-gradient(180deg, #8ef7c8, #2fd98a); height: 8px; animation: eq-bounce 0.9s ease-in-out infinite; }
+.eq-bars i:nth-child(2n) { animation-delay: 0.14s; }
+.eq-bars i:nth-child(3n) { animation-delay: 0.27s; }
+.eq-bars i:nth-child(5n) { animation-delay: 0.4s; height: 12px; }
+.eq-bars i:nth-child(7n) { animation-delay: 0.08s; height: 6px; }
+@keyframes eq-bounce { 0%, 100% { height: 7px; } 50% { height: 24px; } }
+/* 마이크 실측 모드: CSS 애니메이션을 끄고 실제 주파수 값으로 높이를 움직여요. */
+.eq-bars.is-live i { animation: none; transition: height 90ms ease; }
+
+/* 시선 유지 코칭 패널 (우하단) */
+.gaze-panel { right: 16px; bottom: 152px; max-width: 230px; }
+.gaze-head { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 8px; font-size: 13px; font-weight: 750; }
+.gaze-head svg { color: #ffd166; }
+.gaze-panel p { display: flex; align-items: flex-start; gap: 7px; margin: 0; color: rgba(255, 255, 255, 0.88); font-size: 12.5px; line-height: 1.5; }
+.gaze-panel p svg { flex: 0 0 auto; margin-top: 1px; color: #34e39a; }
+/* 얼굴 미감지·중앙 이탈 등 교정이 필요할 때는 주황 톤으로 안내해요. */
+.gaze-panel.warn .gaze-head svg,
+.gaze-panel.warn p svg { color: #ffb020; }
+
+/* AI 발화 자막 (하단): 아바타 + 이름 + 상태 필 + 따옴표 + 파형 */
+.camera-subtitle { position: absolute; left: 16px; right: 16px; bottom: 16px; padding: 15px 20px 13px; border: 1px solid rgba(255, 255, 255, 0.09); border-radius: 16px; background: rgba(10, 16, 28, 0.62); color: #fff; backdrop-filter: blur(12px); }
+.subtitle-head { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; font-size: 13px; }
+.subtitle-avatar { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; color: #fff; background: linear-gradient(135deg, #2f7cff, #0064ff); }
+.subtitle-head strong { font-weight: 700; }
+.ai-speaking { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; padding: 4px 11px; border-radius: var(--radius-pill); background: rgba(0, 100, 255, 0.78); font-style: normal; font-size: 11px; font-weight: 700; }
+.camera-subtitle p { margin: 0; font-size: 17px; line-height: 1.55; font-weight: 500; }
+.camera-subtitle .qmark { color: #8fb7ff; opacity: 0.85; vertical-align: -2px; }
+.subtitle-wave { display: flex; align-items: center; justify-content: space-between; height: 16px; margin-top: 11px; }
+.subtitle-wave i { flex: 0 0 auto; width: 2.5px; border-radius: 2px; background: linear-gradient(180deg, #7cc0ff, #2f7cff); height: 5px; animation: wave-bounce 1.05s ease-in-out infinite; }
+.subtitle-wave i:nth-child(2n) { animation-delay: 0.16s; }
+.subtitle-wave i:nth-child(3n) { animation-delay: 0.3s; height: 9px; }
+.subtitle-wave i:nth-child(5n) { animation-delay: 0.44s; }
+@keyframes wave-bounce { 0%, 100% { height: 6px; } 50% { height: 15px; } }
 
 .practice-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .live-fit-card { padding: 20px; }
@@ -450,15 +515,59 @@
 .control-note.active { border-color: rgba(0, 100, 255, 0.3); background: var(--color-blue-soft); color: var(--color-blue); }
 .control-speak { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; padding: 6px 8px 6px 16px; border-radius: 14px; background: var(--color-fog); }
 .control-speak-label { display: inline-flex; align-items: center; gap: 7px; color: var(--color-graphite); font-size: 13px; font-weight: 560; white-space: nowrap; }
-.control-wave { display: inline-flex; align-items: center; gap: 2px; height: 22px; flex: 0 0 auto; }
-.control-wave i { width: 2.5px; border-radius: 2px; background: var(--color-blue); height: 8px; animation: wave-bounce 1.1s ease-in-out infinite; opacity: 0.7; }
-.control-wave i:nth-child(even) { animation-delay: 0.2s; }
-.control-wave i:nth-child(3n) { animation-delay: 0.36s; }
+.control-wave { display: inline-flex; align-items: center; gap: 3.5px; height: 22px; flex: 0 0 auto; }
+.control-wave i { width: 2.5px; border-radius: 2px; background: #6fa5ec; height: 4px; animation: dot-wave 1.15s ease-in-out infinite; }
+.control-wave i:nth-child(2n) { animation-delay: 0.18s; }
+.control-wave i:nth-child(3n) { animation-delay: 0.34s; }
+.control-wave i:nth-child(5n) { animation-delay: 0.5s; }
+@keyframes dot-wave { 0%, 100% { height: 3px; opacity: 0.55; } 50% { height: 12px; opacity: 1; } }
 .control-speak input { flex: 1; min-width: 60px; border: 0; background: transparent; color: var(--color-ink); }
 .control-speak input:focus { outline: none; }
-.control-speak time { font-variant-numeric: tabular-nums; color: var(--color-muted); font-weight: 600; }
-.control-send { display: grid; place-items: center; width: 46px; height: 46px; border: 0; border-radius: 12px; color: #fff; background: var(--color-blue); flex: 0 0 auto; }
-.control-send:disabled { opacity: 0.5; }
+.speak-timer { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15; }
+.speak-timer b { font-variant-numeric: tabular-nums; color: var(--color-ink); font-size: 15px; font-weight: 750; }
+.speak-timer small { font-variant-numeric: tabular-nums; color: var(--color-muted); font-size: 11px; }
+/* 빨간 원형 '답변 마치기' 버튼 — 말하기를 끝내고 전송해요. */
+.control-send { display: grid; place-items: center; width: 48px; height: 48px; border: 0; border-radius: 50%; background: linear-gradient(160deg, #ff5c61, #e5484d); flex: 0 0 auto; box-shadow: 0 10px 22px rgba(229, 72, 77, 0.35); }
+.control-send .stop-square { width: 15px; height: 15px; border-radius: 4px; background: #fff; }
+.control-send:disabled { opacity: 0.45; box-shadow: none; }
+
+/* ---------- Guide page (이용 방법) ---------- */
+.guide-page { display: flex; flex-direction: column; gap: 26px; max-width: 1180px; margin: 0 auto; }
+.guide-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 0; padding: 0; list-style: none; counter-reset: none; }
+.guide-step-card { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 24px 20px; border-radius: 18px; }
+.guide-step-num { color: var(--color-blue); font-size: 12px; font-weight: 800; letter-spacing: 0.08em; }
+.guide-step-icon { display: grid; place-items: center; width: 54px; height: 54px; border-radius: 15px; color: var(--color-blue); background: var(--color-blue-soft); }
+.guide-step-card h2 { margin: 2px 0 0; font-size: 18px; }
+.guide-step-card p { margin: 0; color: var(--color-graphite); line-height: 1.55; }
+.guide-step-card small { color: var(--color-muted); }
+.guide-step-arrow { position: absolute; top: 50%; right: -18px; transform: translateY(-50%); z-index: 1; color: #c2cad6; }
+
+.guide-fit-section { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr); gap: 26px; align-items: center; padding: 26px; }
+.guide-fit-head h2 { margin: 0 0 10px; font-size: 21px; }
+.guide-fit-head p { margin: 0; color: var(--color-graphite); line-height: 1.6; }
+.guide-fit-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.guide-fit-item { display: flex; flex-direction: column; gap: 7px; padding: 16px 14px; border: 1px solid var(--color-border); border-radius: 14px; background: rgba(255, 255, 255, 0.65); }
+.guide-fit-item strong { color: var(--color-ink); }
+.guide-fit-item p { margin: 0; color: var(--color-graphite); font-size: 13px; line-height: 1.5; }
+.guide-fit-item.response > svg { color: var(--fit-response); }
+.guide-fit-item.voice > svg { color: var(--fit-voice); }
+.guide-fit-item.eye > svg { color: var(--fit-eye); }
+.guide-fit-item.posture > svg { color: var(--fit-posture); }
+
+.guide-notes { display: grid; gap: 8px; }
+.guide-notes p { display: flex; align-items: center; gap: 9px; margin: 0; color: var(--color-graphite); font-size: 14px; }
+.guide-notes svg { flex: 0 0 auto; color: var(--color-blue); }
+.guide-cta { display: grid; justify-items: center; padding: 6px 0 14px; }
+
+@media (max-width: 980px) {
+  .guide-steps { grid-template-columns: 1fr 1fr; }
+  .guide-step-arrow { display: none; }
+  .guide-fit-section { grid-template-columns: 1fr; }
+  .guide-fit-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 560px) {
+  .guide-steps { grid-template-columns: 1fr; }
+}
 
 /* ---------- Responsive ---------- */
 @media (max-width: 1080px) {
@@ -474,7 +583,8 @@
 }
 @media (max-width: 720px) {
   .practice-topbar { flex-wrap: wrap; }
-  .practice-breadcrumb { display: none; }
+  .topbar-scenario, .topbar-divider { display: none; }
+  .voice-level-panel, .gaze-panel { display: none; }
   .compare-versus { grid-template-columns: 1fr; }
   .versus-badge { justify-self: center; }
   .coaching-columns, .report-page-actions { grid-template-columns: 1fr; }

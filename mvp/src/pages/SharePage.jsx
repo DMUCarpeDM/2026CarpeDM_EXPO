@@ -8,8 +8,9 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { reportFits } from "../lib/reportFits";
 import { Chip, ExportCard, FitColumn, PageToolbar, Panel, PrimaryButton, ScoreRing } from "../components/report/ResultPrimitives";
+import { ReportShell } from "../components/report/DashboardShell";
 
-export function SharePage({ onHome, onPractice, report, onIssueCode }) {
+export function SharePage({ onHome, onPractice, onNavigate, report, onIssueCode }) {
   const [shareNotice, setShareNotice] = useState("체험 코드를 발급하면 다른 방문에서도 같은 익명 기록을 이어갈 수 있어요.");
   const [code, setCode] = useState("");
   const shareUrl = code ? `체험 코드: ${code}` : "체험 코드를 만들면 기록을 이어볼 수 있어요.";
@@ -17,7 +18,7 @@ export function SharePage({ onHome, onPractice, report, onIssueCode }) {
   const issueCode = async () => { try { const result = await onIssueCode(); setCode(result.code); setShareNotice("체험 코드를 만들었어요."); } catch (error) { setShareNotice(error.message); } };
   const fits = reportFits(report);
 
-  return <motion.section className="page share-page" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
+  return <ReportShell active="share" trail={["대시보드", "1:1 면담", "저장 및 공유"]} onNavigate={onNavigate || (() => {})} onDownload={() => { if (typeof window !== "undefined") window.print(); }}><motion.section className="page share-page" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
     <PageToolbar onPrev={onHome} leftLabel="홈으로 돌아가기" />
     <div className="complete-hero"><span className="success-mark"><Check size={58} /></span><h1>연습을 저장하고 공유해요</h1><p>연습을 마쳤어요. 기록을 남기고 필요한 사람에게 공유해 보세요.</p></div>
     <div className="share-layout">
@@ -34,7 +35,7 @@ export function SharePage({ onHome, onPractice, report, onIssueCode }) {
       </div>
       <section className="share-preview card" aria-label="공유 기록 미리보기"><h2>기록 미리보기</h2><p>이번 분석 결과를 한눈에 볼 수 있어요.</p><Panel className="mini-report"><h3>연습 리포트</h3><span>방금 마친 연습</span><div className="mini-report-body"><ScoreRing value={Math.round(report?.total_score || 0)} size="xs" label="점수" /><div className="preview-fit-grid">{fits.map((fit) => <FitColumn key={fit.key} fit={fit} compact />)}</div></div></Panel><h3>체험 코드</h3><p className="share-notice">{shareNotice}</p><div className="copy-field"><span>{shareUrl}</span><button type="button" onClick={code ? () => updateNotice("체험 코드를 복사했어요.", code) : issueCode}>{code ? "복사" : "발급"}</button></div></section>
     </div>
-  </motion.section>;
+  </motion.section></ReportShell>;
 }
 
 function ReportPreview({ report, fits }) {

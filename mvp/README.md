@@ -38,6 +38,17 @@ npm run dev
 
 브라우저에서 `http://localhost:5173`을 열고 카메라와 마이크 권한을 허용하세요. Vite는 `/api` 요청을 `http://127.0.0.1:8001`의 PoC 서버로 프록시합니다. (8000은 carpedm-kiosk가 사용하므로 8001을 씁니다. 다른 포트가 필요하면 `MIRRORTING_API_TARGET` 환경변수로 프록시 대상을 바꿀 수 있습니다.)
 
+### 실시간 얼굴·자세 추적 (MediaPipe)
+
+연습 화면의 얼굴 메시·자세 오버레이는 MediaPipe Tasks Vision(FaceLandmarker + PoseLandmarker)으로 실제 추적됩니다. WASM 런타임과 모델(약 42MB)은 git에 넣지 않으므로 최초 1회 아래 명령으로 `public/mediapipe/`에 준비하세요(오프라인 전시 PC는 미리 실행해 두면 인터넷 없이 동작).
+
+```bash
+npm install
+bash scripts/fetch-mediapipe.sh
+```
+
+같은 추적 파이프라인이 시각 오버레이와 **실측 비언어 지표(Eye-Fit·Posture-Fit: 정면 응시율·시선 이탈·자세 흔들림 등)를 함께 산출**해 답변 제출 시 PoC 백엔드로 보냅니다(집계 정의는 `src/lib/nonverbal.js`, 백엔드 밴드와 일치). 모델 로드에 실패하거나 카메라가 없으면 정적 오버레이 + 측정 제외로 자동 폴백합니다. 최종 4-Fit 점수 산출은 기존대로 PoC 백엔드가 담당합니다.
+
 ## 확인
 
 ```bash
