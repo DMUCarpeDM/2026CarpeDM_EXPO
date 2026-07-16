@@ -52,6 +52,16 @@ class Settings(BaseSettings):
     tremor_shimmer_floor: float = 8.0  # %
     tremor_penalty_cap: float = 18.0
 
+    # 퇴근 카드(감열 영수증) — 체험 종료 후 4-Fit 결과를 실물 카드로 출력.
+    # driver: file(기본, 프린터 없이 PNG/ESC-POS 바이트를 media/receipts에 저장 — 개발·미리보기)
+    #         serial(58mm 감열 프린터 모듈을 USB-TTL로 연결, poc/docs/receipt-printer.md 참고)
+    receipt_driver: str = "file"
+    receipt_serial_port: str = ""       # 예: /dev/tty.usbserial-0001 (macOS) · COM3 (Windows)
+    receipt_serial_baud: int = 9600     # 모듈 기본값 확인 (CSN-A2류는 9600 또는 19200)
+    # QR 대상 베이스 URL — 비우면 QR에 체험 코드 텍스트를 직접 담는다.
+    # 부스 LAN 주소를 넣으면 "{base}?code=XXXX"로 리포트 착지 (mirror-ux-plan §4.5)
+    receipt_qr_base_url: str = ""
+
     model_config = {"env_prefix": "MIRROTING_", "env_file": ".env"}
 
 

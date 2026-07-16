@@ -42,6 +42,30 @@ def _turn_breakdown(db: Session, session: RoleplaySession) -> list[dict]:
     return breakdown
 
 
+def visitor_percentile_top(
+    db: Session, session: RoleplaySession, report: Report
+) -> int | None:
+    """현장 체험자 상위 N% (표본 5건 이상일 때만) — 전시 경쟁 요소.
+
+    산식 버전이 다른 점수와 데모/리허설 세션(demo-*)은 표본에서 제외한다.
+    리포트 화면과 퇴근 카드(영수증)가 같은 수치를 쓰도록 공유 헬퍼로 뒀다."""
+    other_scores = [
+        row[0]
+        for row in db.query(Report.total_score)
+        .join(RoleplaySession, Report.session_id == RoleplaySession.id)
+        .filter(
+            Report.session_id != session.id,
+            Report.engine_version == report.engine_version,
+            ~RoleplaySession.client_key.like(f"{DEMO_CLIENT_KEY_PREFIX}%"),
+        )
+        .all()
+    ]
+    if len(other_scores) < 5:
+        return None
+    beaten = sum(1 for s in other_scores if s < report.total_score)
+    return max(1, 100 - round(beaten / len(other_scores) * 100))
+
+
 @router.get("/{session_id}/report", response_model=ReportOut)
 def get_report(
     session: RoleplaySession = Depends(require_session),
@@ -75,24 +99,7 @@ def get_report(
             },
         }
 
-    # 현장 체험자 백분위 (표본 5건 이상일 때만) — 전시 경쟁 요소.
-    # 산식 버전이 다른 점수는 비교 표본에서 제외 (engine_version 스냅샷).
-    # 데모/리허설 세션(demo-*)도 제외 — 리허설 시드가 방문자 백분위를 오염시키지 않도록.
-    percentile_top = None
-    other_scores = [
-        row[0]
-        for row in db.query(Report.total_score)
-        .join(RoleplaySession, Report.session_id == RoleplaySession.id)
-        .filter(
-            Report.session_id != session.id,
-            Report.engine_version == report.engine_version,
-            ~RoleplaySession.client_key.like(f"{DEMO_CLIENT_KEY_PREFIX}%"),
-        )
-        .all()
-    ]
-    if len(other_scores) >= 5:
-        beaten = sum(1 for s in other_scores if s < report.total_score)
-        percentile_top = max(1, 100 - round(beaten / len(other_scores) * 100))
+    percentile_top = visitor_percentile_top(db, session, report)
 
     # 심층 분석은 저장본에 조회 시점 정보를 더해 내려준다 (저장본은 불변):
     deep = dict(report.deep_analysis or {})

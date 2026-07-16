@@ -14,6 +14,9 @@ soundfile
 kiwipiepy
 vosk              # 서버 STT (오프라인 폴백) — 모델은 scripts/setup_offline_stt.py로 준비
 faster-whisper; python_version < "3.13"   # 서버 STT 1순위 — 한국어 CER 4.8%(small 실측). 3.13+는 ctranslate2 휠 부재로 제외
+pillow            # 퇴근 카드(감열 영수증) 비트맵 렌더링 — 한글을 이미지로 찍어 프린터 코드페이지 무관
+qrcode            # 퇴근 카드 QR (체험 코드/리포트 URL)
+pyserial          # 감열 프린터 모듈(TTL→USB 시리얼) 전송 — receipt_driver=serial일 때만 사용
 
 pytest
 httpx
