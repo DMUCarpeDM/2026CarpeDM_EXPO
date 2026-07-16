@@ -71,6 +71,88 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
     : track.status === "loading"
       ? { percent: 0, status: "…", caption: "분석 모델 준비 중", muted: true, warn: false }
       : { percent: 0, status: "–", caption: "측정 불가", muted: true, warn: false };
+  // 목소리 게이지 — 마이크가 켜져 있으면 실측 성량으로 구동 (VoiceLevelChip이 레벨을 올려줌)
+  const [voiceLevel, setVoiceLevel] = useState(null);
+  const voiceMeter = voiceLevel === null
+    ? { percent: 66, status: "텍스트 연습", caption: "또렷한 톤을 유지해 보세요", warn: false }
+    : voiceLevel > 0.42
+      ? { percent: 100, status: "너무 큼", caption: "조금만 낮춰볼까요", warn: true }
+      : voiceLevel > 0.1
+        ? { percent: Math.round(40 + Math.min(1, voiceLevel * 1.6) * 60), status: "적정", caption: "좋은 성량이에요!", warn: false }
+        : { percent: Math.max(12, Math.round(voiceLevel * 300)), status: "조용", caption: "조금 더 크게 말해보세요", warn: false };
+
+  // ---- AI 음성(TTS): 새 질문이 오면 AI 상대가 실제로 읽어준다 ----
+  const [aiSpeaking, setAiSpeaking] = useState(false);
+  useEffect(() => {
+    const text = turn?.question_text;
+    const synth = window.speechSynthesis;
+    if (!text || !synth || paused) return undefined;
+    let cancelled = false;
+    const utter = new SpeechSynthesisUtterance(text);
+    const voices = synth.getVoices();
+    utter.voice = voices.find((v) => v.lang?.startsWith("ko") && v.localService) || voices.find((v) => v.lang?.startsWith("ko")) || null;
+    utter.lang = "ko-KR";
+    utter.rate = 1.04;
+    utter.onstart = () => { if (!cancelled) setAiSpeaking(true); };
+    utter.onend = () => { if (!cancelled) setAiSpeaking(false); };
+    utter.onerror = () => { if (!cancelled) setAiSpeaking(false); };
+    synth.cancel();
+    synth.speak(utter);
+    return () => { cancelled = true; synth.cancel(); setAiSpeaking(false); };
+  }, [turn?.id, paused]);
+
+  // ---- 음성 답변(STT): 브라우저 음성 인식으로 말한 내용을 입력창에 받아 적는다 ----
+  // AI가 말하는 동안은 마이크를 쉬어 스피커 소리가 답변으로 새는 걸 막는다.
+  const [listening, setListening] = useState(false);
+  const [interim, setInterim] = useState("");
+  const [micEnabled, setMicEnabled] = useState(true);
+  const recognitionRef = useRef(null);
+  const sttActiveRef = useRef(false);
+  const sttSupported = Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+  useEffect(() => {
+    const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const shouldListen = Boolean(SpeechRecognitionImpl && micEnabled && mediaStream && turn && !busy && !paused && !aiSpeaking);
+    if (!shouldListen) return undefined;
+    const recognition = new SpeechRecognitionImpl();
+    recognition.lang = "ko-KR";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.onresult = (event) => {
+      let interimText = "";
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        const transcript = event.results[i][0].transcript.trim();
+        if (!transcript) continue;
+        if (event.results[i].isFinal) setDraft((prev) => `${prev} ${transcript}`.trim());
+        else interimText += transcript;
+      }
+      setInterim(interimText);
+    };
+    recognition.onstart = () => setListening(true);
+    recognition.onend = () => {
+      setListening(false);
+      setInterim("");
+      // 침묵으로 인식이 끊기면 다시 듣는다 (턴이 살아있는 동안)
+      if (sttActiveRef.current) { try { recognition.start(); } catch { /* 이미 시작됨 */ } }
+    };
+    recognition.onerror = (event) => {
+      // 권한 거부·오프라인이면 조용히 타이핑 모드로 폴백
+      if (["not-allowed", "service-not-allowed", "network"].includes(event.error)) {
+        sttActiveRef.current = false;
+        setMicEnabled(false);
+      }
+    };
+    recognitionRef.current = recognition;
+    sttActiveRef.current = true;
+    try { recognition.start(); } catch { /* 중복 시작 무시 */ }
+    return () => {
+      sttActiveRef.current = false;
+      recognition.onend = null;
+      try { recognition.stop(); } catch { /* 이미 종료됨 */ }
+      setListening(false);
+      setInterim("");
+    };
+  }, [micEnabled, mediaStream, turn?.id, busy, paused, aiSpeaking, turn]);
+  const inputValue = interim ? `${draft} ${interim}`.trim() : draft;
 
   // 메시지별 실제 시각 기록. 데모/재개 세션은 asked_at 필드나 턴 라벨로 폴백해요.
   const stampFor = (key, fallback) => stampsRef.current.get(key) || fallback;
@@ -134,13 +216,17 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
   };
 
   const submitDraft = async () => {
-    if (!draft.trim() || busy || !turn) return;
+    const text = inputValue.trim();
+    if (!text || busy || !turn) return;
     try {
+      sttActiveRef.current = false;
+      try { recognitionRef.current?.stop(); } catch { /* 이미 종료됨 */ }
       const audio = await stopTurnRecorder();
       if (audio.size === 0) throw new Error("답변 음성이 녹음되지 않았어요. 마이크 권한을 확인해 주세요.");
       stampsRef.current.set(`a-${turn.id}`, wallClock());
-      await onSubmit({ text: draft, audio, durationMs: Math.round(performance.now() - recordingStartedAtRef.current), nonverbalMetrics: collectNonverbalMetrics() });
+      await onSubmit({ text, audio, durationMs: Math.round(performance.now() - recordingStartedAtRef.current), nonverbalMetrics: collectNonverbalMetrics() });
       setDraft("");
+      setInterim("");
       setCaptureError("");
     } catch (err) { setCaptureError(err.message); }
   };
@@ -190,7 +276,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
               <Expand size={15} />
             </button>
           </div>
-          <VoiceLevelChip mediaStream={mediaStream} />
+          <VoiceLevelChip mediaStream={mediaStream} onLevel={setVoiceLevel} />
           <div className={`camera-eye-chip ${trackingLive && !track.eyeFront ? "warn" : ""}`}>
             <span className="eye-chip-title"><IconGlyph icon="coach" size={15} /> {trackingLive && !track.eyeFront ? "시선이 벗어났어요" : "시선 유지 좋음"}</span>
             <span className="eye-chip-sub"><CheckCircle size={14} /> {trackingLive && !track.eyeFront ? "화면 속 상대의 눈을 바라봐 주세요" : "상대의 눈을 바라보고 듣고 있어요!"}</span>
@@ -199,14 +285,14 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
             <div className="camera-subtitle-head">
               <span className="subtitle-avatar"><img src={counterpartPortrait} alt="" /></span>
               <strong>{characterName}</strong>
-              <em className="speaking-chip"><IconGlyph icon="response" size={13} /> {busy ? "답변 분석 중" : aiReady ? "AI가 말하는 중" : "질문 준비 중"}</em>
+              <em className={`speaking-chip ${aiSpeaking ? "" : "calm"}`}><IconGlyph icon="response" size={13} /> {busy ? "답변 분석 중" : aiSpeaking ? "AI가 말하는 중" : listening ? "듣고 있어요" : turn ? "당신 차례예요" : "질문 준비 중"}</em>
             </div>
             <p className="subtitle-quote">
               <span className="quote-mark" aria-hidden="true">“</span>
               {turn?.question_text || "다음 질문을 준비하고 있어요."}
               <span className="quote-mark close" aria-hidden="true">”</span>
             </p>
-            <span className="subtitle-wave" aria-hidden="true">{Array.from({ length: 52 }, (_, i) => <i key={i} />)}</span>
+            <span className={`subtitle-wave ${aiSpeaking ? "" : "idle"}`} aria-hidden="true">{Array.from({ length: 52 }, (_, i) => <i key={i} />)}</span>
           </div>
         </motion.section>
 
@@ -218,7 +304,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
             </div>
             <div className="live-fit-grid">
               <LiveFitMeter tone="response" label="응답" english="Response" kind="percent" percent={coverage} status={coverage === null ? "대기" : "Coverage"} caption={coverage === null ? "첫 답변 후 표시돼요" : coverage >= 70 ? "잘하고 있어요!" : "핵심을 더 채워보세요"} />
-              <LiveFitMeter tone="voice" label="목소리" english="Voice" kind="wave" percent={66} status="텍스트 연습" caption="또렷한 톤을 유지해 보세요" />
+              <LiveFitMeter tone="voice" label="목소리" english="Voice" kind="wave" percent={voiceMeter.percent} status={voiceMeter.status} caption={voiceMeter.caption} warn={voiceMeter.warn} />
               <LiveFitMeter tone="eye" label="시선" english="Eye" kind="icon" icon="eye" percent={eyeMeter.percent} status={eyeMeter.status} caption={eyeMeter.caption} muted={eyeMeter.muted} warn={eyeMeter.warn} />
               <LiveFitMeter tone="posture" label="자세" english="Posture" kind="icon" icon="posture" percent={postureMeter.percent} status={postureMeter.status} caption={postureMeter.caption} muted={postureMeter.muted} warn={postureMeter.warn} />
             </div>
@@ -256,11 +342,13 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
         <div className="controls-main">
           <button type="button" className={`control-note ${notesOpen ? "active" : ""}`} onClick={() => setNotesOpen((open) => !open)}><Notebook size={19} /> 나의 노트</button>
           <div className="control-speak">
-            <span className="control-speak-label"><Mic size={18} /> {busy ? "분석 중..." : "말하는 중..."}</span>
+            <button type="button" className={`control-speak-label ${listening ? "listening" : ""}`} onClick={() => setMicEnabled((value) => !value)} disabled={!sttSupported} title={sttSupported ? "음성 입력 켜기/끄기" : "이 브라우저는 음성 입력을 지원하지 않아요"}>
+              <Mic size={18} /> {busy ? "분석 중..." : listening ? "듣는 중..." : !sttSupported || !micEnabled ? "직접 입력" : "말하는 중..."}
+            </button>
             <span className="control-wave" aria-hidden="true">{Array.from({ length: 30 }, (_, i) => <i key={i} />)}</span>
-            <input value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && draft.trim() && !busy && turn) submitDraft(); }} placeholder="메시지를 입력해 보세요" disabled={busy || !turn} />
+            <input value={inputValue} onChange={(event) => { setDraft(event.target.value); setInterim(""); }} onKeyDown={(event) => { if (event.key === "Enter" && inputValue.trim() && !busy && turn) submitDraft(); }} placeholder="말하면 자동으로 받아 적어요 — 직접 입력도 돼요" disabled={busy || !turn} />
             <span className="control-clock"><time>{formatClock(recSeconds)}</time><small>{formatClock(elapsed)}</small></span>
-            <button type="button" className="control-send" aria-label="답변 보내기" onClick={submitDraft} disabled={busy || !draft.trim() || !turn}><span className="stop-square" aria-hidden="true" /></button>
+            <button type="button" className="control-send" aria-label="답변 보내기" onClick={submitDraft} disabled={busy || !inputValue.trim() || !turn}><span className="stop-square" aria-hidden="true" /></button>
           </div>
         </div>
         <div className="controls-side">
@@ -274,9 +362,11 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
 
 // 마이크 입력 레벨 칩. 스트림이 있으면 WebAudio 분석기로 막대·상태 태그를 실제 음량에 맞춰 움직여요.
 // 스트림이 없으면(데모) 잔잔한 대기 애니메이션과 "적정" 태그를 보여줘요.
-function VoiceLevelChip({ mediaStream }) {
+function VoiceLevelChip({ mediaStream, onLevel }) {
   const barsRef = useRef(null);
   const tagRef = useRef(null);
+  const onLevelRef = useRef(onLevel);
+  onLevelRef.current = onLevel;
   const hasAudio = Boolean(mediaStream?.getAudioTracks?.().length);
 
   useEffect(() => {
@@ -309,13 +399,14 @@ function VoiceLevelChip({ mediaStream }) {
             tagRef.current.dataset.state = state;
             tagRef.current.textContent = state === "loud" ? "너무 큼" : state === "ok" ? "적정" : "조용";
           }
+          onLevelRef.current?.(level); // 사이드 목소리 게이지도 같은 실측값으로 구동
           lastTagUpdate = now;
         }
       }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
-    return () => { cancelAnimationFrame(raf); audioContext.close().catch(() => {}); };
+    return () => { cancelAnimationFrame(raf); audioContext.close().catch(() => {}); onLevelRef.current?.(null); };
   }, [mediaStream, hasAudio]);
 
   return (

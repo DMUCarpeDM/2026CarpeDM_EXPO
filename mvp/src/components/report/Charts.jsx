@@ -78,8 +78,35 @@ export function TrendChart({ series, xLabels, height = 210, min = 40, max = 100 
 // kind: percent(링 중앙에 %), wave(파형 아이콘), icon(글리프 아이콘). muted면 회색 처리.
 const LIVE_FIT_COLORS = { response: "#0064ff", voice: "#2f7cff", eye: "#0ea5e9", posture: "#10b981" };
 
+// 링 중앙 전용 커스텀 글리프 — 기성 아이콘이 링 안에서 투박해 보여 얇은 스트로크로 직접 그림.
+function EyeGlyph({ size = 26 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2.8 12C5.1 7.4 8.4 5.1 12 5.1s6.9 2.3 9.2 6.9c-2.3 4.6-5.6 6.9-9.2 6.9S5.1 16.6 2.8 12Z" />
+      <circle cx="12" cy="12" r="2.9" />
+      <circle cx="13" cy="11" r="0.5" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function PostureGlyph({ size = 26 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12.6" cy="4.3" r="1.9" />
+      <path d="M12.3 7.1 11.7 13" />
+      <path d="M12.1 8.5 15.2 11.3" />
+      <path d="M12.1 8.5 9 10.6" />
+      <path d="M11.7 13 14.6 18.8" />
+      <path d="M11.7 13 8.8 18.4" />
+    </svg>
+  );
+}
+
+const RING_GLYPHS = { eye: EyeGlyph, posture: PostureGlyph };
+
 export function LiveFitMeter({ icon, label, english, tone, percent, status, caption, kind = "percent", muted = false, warn = false }) {
   const color = muted ? "#c3cad4" : warn ? "#f59e0b" : LIVE_FIT_COLORS[tone] || "#0064ff";
+  const RingGlyph = RING_GLYPHS[icon];
   return (
     <div className={`live-fit-meter ${tone} ${muted ? "muted" : ""}`}>
       <span className="live-fit-label">{label}</span>
@@ -90,7 +117,9 @@ export function LiveFitMeter({ icon, label, english, tone, percent, status, capt
         ) : kind === "wave" ? (
           <span className="ring-wave" aria-hidden="true">{Array.from({ length: 5 }, (_, i) => <i key={i} style={{ background: color }} />)}</span>
         ) : (
-          <span className="ring-icon" style={{ color }}><IconGlyph icon={icon} size={24} /></span>
+          <span className="ring-icon" style={{ color }}>
+            {RingGlyph ? <RingGlyph size={26} /> : <IconGlyph icon={icon} size={24} />}
+          </span>
         )}
       </RingGauge>
       <b className="live-fit-status" style={{ color: muted ? "#8b95a1" : color }}>{status}</b>
