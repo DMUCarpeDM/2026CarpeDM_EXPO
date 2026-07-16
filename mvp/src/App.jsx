@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { counterpartProfiles, difficulties, practiceGoals, scenariosForRole } from "./data/setupCatalog";
+import { AttractLoop } from "./components/AttractLoop";
 import { MobileMenuSheet, TopNav } from "./components/navigation/AppNavigation";
 import { HomePage } from "./pages/HomePage";
 import { PreviewPage } from "./pages/PreviewPage";
@@ -154,7 +155,7 @@ export default function App() {
       // 데모에서도 카메라를 켜면 실시간 얼굴·자세 트래킹을 그대로 시연할 수 있어요 (거부해도 화면은 동작).
       requestExerciseMedia().catch(() => {});
     }
-    else if (["result", "feedback", "compare"].includes(demo)) setActive(demo);
+    else if (["result", "feedback", "compare", "share"].includes(demo)) setActive(demo);
   }, []);
   useEffect(() => {
     const saved = loadActiveSession();
@@ -294,5 +295,6 @@ export default function App() {
       {active === "share" && <SharePage onHome={() => navigate("home")} onPractice={() => navigate("role")} report={report} onIssueCode={issueCode} />}
     </div>
     <span className="screen-reader-note" aria-live="polite">현재 화면: {current.label}</span>
+    <AttractLoop active={active === "home"} onStart={() => navigate("role")} />
   </main>;
 }

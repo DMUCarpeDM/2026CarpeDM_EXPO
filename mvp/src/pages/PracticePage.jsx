@@ -4,6 +4,7 @@ import { ChevronDown } from "reicon-react/icons/ChevronDown";
 import { ChevronRight } from "reicon-react/icons/ChevronRight";
 import { Expand } from "reicon-react/icons/Expand";
 import { InfoCircle } from "reicon-react/icons/InfoCircle";
+import { LockKeyhole } from "reicon-react/icons/LockKeyhole";
 import { Mic } from "reicon-react/icons/Mic";
 import { Notebook } from "reicon-react/icons/Notebook";
 import { Pause } from "reicon-react/icons/Pause";
@@ -181,6 +182,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
           {!trackingLive && <TrackingOverlay silhouette={!mediaStream} />}
           <div className="camera-topline left">
             <span className="camera-live-chip"><b><i aria-hidden="true" />LIVE</b>AI 카메라</span>
+            <span className="camera-privacy-chip"><LockKeyhole size={13} /> 영상은 이 기기 밖으로 나가지 않아요</span>
           </div>
           <div className="camera-topline right">
             <span className="camera-latency"><Signal size={14} /> {track.status === "ready" ? `${track.inferMs}ms` : "28ms"}</span>

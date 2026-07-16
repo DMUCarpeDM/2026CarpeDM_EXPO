@@ -12,6 +12,21 @@ import { resolveModel, resolveWasmUrl } from "./visionAssets";
 const SAMPLE_MS = 80;
 const LIVE_PUSH_MS = 300;
 
+// ---- 홍채 기반 시선 (poc nonverbalCore의 무보정 절대 임계 버전) ----
+// 시선 = 머리 자세 + 눈-머리(eye-in-head). 고개를 돌려도 눈이 카메라를 보면
+// 정면이고, 머리는 정면인데 눈동자만 옆·아래를 봐도 이탈이다.
+const IRIS_R = 468; // Face Landmarker 478점 중 홍채 중심
+const IRIS_L = 473;
+const EYE_R = { inner: 133, outer: 33 };
+const EYE_L = { inner: 362, outer: 263 };
+const YAW_ABS_THRESHOLD = 0.3; // 무보정 절대 요 임계 (poc YAW_ABS_THRESHOLD)
+const EYE_COMP_GAIN = 0.8; // 홍채가 머리 회전을 상쇄하는 보상 이득
+const EYE_COMP_CLAMP = 0.18; // 보상 상한 — 보상이 판정을 뒤집는 폭주 방지
+const EYE_ONLY_THRESHOLD = 0.25; // 머리는 정면인데 눈만 옆을 보는 이탈
+const EYE_VERT_BLEND = 0.55; // 눈동자 상/하 blendshape 임계 (대본 읽기 패턴)
+const OFF_STREAK = 3; // 이탈 판정 히스테리시스 (3샘플 ≈ 240ms)
+const FRONT_STREAK = 2;
+
 // 얼굴 메시 표시용 랜드마크 (Face Mesh 468점 중 표정을 잘 드러내는 서브셋)
 const FACE_DOTS = [
   10, 338, 297, 67, 109, // 이마 라인
@@ -55,6 +70,10 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
     let timer = 0;
     let lastPush = 0;
     let inferAvg = 0;
+    // 시선 히스테리시스 상태 — 단일 프레임 흔들림으로 게이지가 깜빡이지 않게
+    let offStreak = 0;
+    let frontStreak = 0;
+    let eyeFrontState = true;
     setLive((prev) => ({ ...prev, status: "loading" }));
 
     (async () => {
@@ -91,23 +110,56 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
 
             drawOverlay(canvasRef.current, video, lm, plm);
 
-            // ---- 라이브 신호 (기하 근사 — 관찰 전용, poc 정밀 판정의 경량판) ----
-            let eyeFront = false;
+            // ---- 라이브 신호 (관찰 전용): 홍채 기반 시선 + 눈선 기울기 ----
             let tiltDeg = 0;
+            let sampleFront = null; // null = 이 샘플은 판정 불가(깜빡임 등) → 이전 상태 유지
             if (lm) {
               const nose = lm[1];
               const cheekL = lm[234];
               const cheekR = lm[454];
               const eyeL = lm[33];
               const eyeR = lm[263];
-              const faceWidth = Math.abs(cheekR.x - cheekL.x) || 1e-6;
-              const yaw = Math.abs(nose.x - (cheekL.x + cheekR.x) / 2) / faceWidth;
               tiltDeg = Math.abs((Math.atan2(eyeR.y - eyeL.y, eyeR.x - eyeL.x) * 180) / Math.PI);
-              const blink = (faceResult.faceBlendshapes?.[0]?.categories ?? [])
-                .filter((c) => c.categoryName === "eyeBlinkLeft" || c.categoryName === "eyeBlinkRight")
-                .reduce((sum, c) => sum + c.score, 0) / 2 > 0.5;
-              eyeFront = yaw < 0.09 && !blink;
+
+              const shapes = {};
+              for (const c of faceResult.faceBlendshapes?.[0]?.categories ?? []) shapes[c.categoryName] = c.score;
+              const blink = ((shapes.eyeBlinkLeft ?? 0) + (shapes.eyeBlinkRight ?? 0)) / 2 > 0.5;
+              if (!blink) {
+                // 머리 요(yaw) 근사: 코 기준 좌우 볼 거리 비대칭
+                const dl = Math.abs(nose.x - cheekL.x);
+                const dr = Math.abs(cheekR.x - nose.x);
+                const asym = (dl - dr) / Math.max(dl + dr, 1e-6);
+                // 눈-머리(eye-in-head) 수평 시선: 각 눈의 홍채가 눈꼬리 사이 어디에
+                // 있는지를 양안 결합 — 머리 회전에 둔감하고 안구 회전에 민감하다.
+                let eyeX = null;
+                if (lm.length > 477) {
+                  const ratio = (iris, inner, outer) => (iris.x - inner.x) / ((outer.x - inner.x) || 1e-6);
+                  const rX = ratio(lm[IRIS_R], lm[EYE_R.inner], lm[EYE_R.outer]);
+                  const lX = ratio(lm[IRIS_L], lm[EYE_L.inner], lm[EYE_L.outer]);
+                  if (rX > -0.5 && rX < 1.5 && lX > -0.5 && lX < 1.5) eyeX = (rX - lX) / 2;
+                }
+                let off = false;
+                let gazeX = asym;
+                if (eyeX !== null) {
+                  // 고개를 돌려도 눈이 카메라를 보면 정면 — 홍채로 머리 회전을 상쇄
+                  const comp = Math.max(-EYE_COMP_CLAMP, Math.min(EYE_COMP_CLAMP, eyeX * EYE_COMP_GAIN));
+                  const compensated = asym - comp;
+                  if (Math.abs(compensated) < Math.abs(asym)) gazeX = compensated;
+                  // 머리는 정면인데 눈동자만 옆을 보는 이탈 (머리-단독 판정이 놓치는 축)
+                  if (Math.abs(asym) < YAW_ABS_THRESHOLD && Math.abs(eyeX) >= EYE_ONLY_THRESHOLD) off = true;
+                }
+                if (Math.abs(gazeX) >= YAW_ABS_THRESHOLD) off = true;
+                const eyeDown = ((shapes.eyeLookDownLeft ?? 0) + (shapes.eyeLookDownRight ?? 0)) / 2;
+                const eyeUp = ((shapes.eyeLookUpLeft ?? 0) + (shapes.eyeLookUpRight ?? 0)) / 2;
+                if (!off && (eyeDown > EYE_VERT_BLEND || eyeUp > EYE_VERT_BLEND)) off = true; // 대본 읽기·위 보기
+                sampleFront = !off;
+              }
             }
+            if (sampleFront === false) { offStreak += 1; frontStreak = 0; }
+            else if (sampleFront === true) { frontStreak += 1; offStreak = 0; }
+            if (offStreak >= OFF_STREAK) eyeFrontState = false;
+            if (frontStreak >= FRONT_STREAK) eyeFrontState = true;
+            const eyeFront = eyeFrontState;
             let postureLevel = false;
             let poseTracked = false;
             if (plm) {
