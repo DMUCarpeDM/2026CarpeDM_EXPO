@@ -22,6 +22,7 @@ const stylesheetFiles = [
   "../styles/fidelity-practice.css",
   "../styles/fidelity-responsive.css",
   "../styles/setup-flow.css",
+  "../styles/dashboard.css",
 ];
 const styles = stylesheetFiles.map((file) => readFileSync(new URL(file, import.meta.url), "utf8")).join("\n");
 const appSource = readFileSync(new URL("../App.jsx", import.meta.url), "utf8");
@@ -36,6 +37,8 @@ const componentSources = [
   readFileSync(new URL("../pages/SharePage.jsx", import.meta.url), "utf8"),
   readFileSync(new URL("../pages/ComparePage.jsx", import.meta.url), "utf8"),
   readFileSync(new URL("../components/report/ResultPrimitives.jsx", import.meta.url), "utf8"),
+  readFileSync(new URL("../components/report/DashboardShell.jsx", import.meta.url), "utf8"),
+  readFileSync(new URL("../components/report/Charts.jsx", import.meta.url), "utf8"),
   readFileSync(new URL("../data/setupCatalog.js", import.meta.url), "utf8"),
   readFileSync(new URL("../components/ui/IconGlyph.jsx", import.meta.url), "utf8"),
   readFileSync(new URL("../components/navigation/navigationConfig.js", import.meta.url), "utf8"),
@@ -73,7 +76,7 @@ test("kiosk 1920 layout reserves desktop canvas for supplied PC mockup views", (
   assert.match(styles, /\.share-layout\s*\{[^}]*max-width:\s*1484px/s);
 });
 
-test("MVP screens keep the shared component system and avoid sidebar UI", () => {
+test("Analysis views use the dashboard shell while keeping the shared component system", () => {
   for (const componentName of [
     "PageToolbar",
     "PrimaryButton",
@@ -81,22 +84,24 @@ test("MVP screens keep the shared component system and avoid sidebar UI", () => 
     "Panel",
     "DisclosurePanel",
     "Chip",
-    "StatusBadge",
     "ScoreRing",
     "ProgressMini",
+    "ReportShell",
+    "DashboardSidebar",
+    "RadarChart",
+    "TrendChart",
   ]) {
     assert.match(sourceBundle, new RegExp(`function ${componentName}\\(`));
   }
 
-  for (const routeName of [
-    "PracticePage",
-    "ResultPage",
-    "FeedbackPage",
-    "SharePage",
-    "ComparePage",
-  ]) {
-    assert.match(functionBody(routeName), /<PageToolbar\b/, `${routeName} uses the shared toolbar`);
+  // 분석 계열 화면(성과 리포트·비교 분석·상세 분석)은 좌측 사이드바 대시보드 셸을 사용해요.
+  for (const routeName of ["ResultPage", "FeedbackPage", "ComparePage"]) {
+    assert.match(functionBody(routeName), /<ReportShell\b/, `${routeName} uses the dashboard shell`);
   }
+  // 연습 화면은 전용 실시간 상단바를 사용해요.
+  assert.match(functionBody("PracticePage"), /practice-topbar/, "PracticePage uses its live top bar");
+  // 저장·공유 화면은 기존 공용 툴바를 유지해요.
+  assert.match(functionBody("SharePage"), /<PageToolbar\b/, "SharePage keeps the shared toolbar");
 
   const previewPage = functionBody("PreviewPage");
   assert.doesNotMatch(previewPage, /<PageToolbar\b/, "PreviewPage removes toolbar pill controls");
@@ -107,10 +112,9 @@ test("MVP screens keep the shared component system and avoid sidebar UI", () => 
     assert.match(functionBody(routeName), /<SetupSelectionSummary\b/, `${routeName} uses the shared selection summary`);
   }
 
-  assert.doesNotMatch(sourceBundle, /className="ai-status-badge"/);
-  assert.doesNotMatch(sourceBundle, /sidebar/i);
-  assert.doesNotMatch(styles, /sidebar/i);
-  assert.doesNotMatch(appSource, /<aside\b/i);
+  // 대시보드 사이드바 셸을 도입했어요(피그마 대시보드 디자인 반영).
+  assert.match(styles, /\.dashboard-sidebar/);
+  assert.match(sourceBundle, /<aside className="dashboard-sidebar"/);
 });
 
 test("home uses the radial four-Fit summary and concise, action-led writing", () => {

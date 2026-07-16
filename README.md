@@ -33,7 +33,7 @@ MVP는 분석 엔진을 중복 구현 하지 않았음. `poc/backend`를 로컬 
    ```bash
    cd poc/backend
    bash scripts/setup_ai.sh
-   .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+   .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8001
    ```
 
 2. 두 번째 터미널에서 MVP를 실행합니다.

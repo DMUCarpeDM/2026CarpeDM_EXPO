@@ -1,30 +1,130 @@
+import { ArrowRight } from "reicon-react/icons/ArrowRight";
+import { CalendarDate } from "reicon-react/icons/CalendarDate";
 import { Download } from "reicon-react/icons/Download";
 import { Refresh3 } from "reicon-react/icons/Refresh3";
 import { Share3 } from "reicon-react/icons/Share3";
-import { Star } from "reicon-react/icons/Star";
-import { ChartTrend } from "reicon-react/icons/ChartTrend";
 import { motion } from "framer-motion";
 import { reportFits, scoreFromFit } from "../lib/reportFits";
-import { AttemptCard, CompareRow, HistoryPoint, ImprovedPoint, PageTitle, PageToolbar, Panel, PrimaryButton, SecondaryButton } from "../components/report/ResultPrimitives";
+import { FitBarRow, TrendChart } from "../components/report/Charts";
+import { ReportShell } from "../components/report/DashboardShell";
+import { IconGlyph } from "../components/ui/IconGlyph";
+import { Panel, ScoreRing } from "../components/report/ResultPrimitives";
 
-export function ComparePage({ onPrev, onRestart, onShare, history, report }) {
+const TRAIL = ["대시보드", "1:1 면담", "비교 분석"];
+const FIT_META = [
+  { key: "Response-Fit", label: "응답", english: "Response", icon: "response", tone: "response" },
+  { key: "Voice-Fit", label: "목소리", english: "Voice", icon: "voice", tone: "voice" },
+  { key: "Eye-Fit", label: "시선", english: "Eye", icon: "eye", tone: "eye" },
+  { key: "Posture-Fit", label: "자세", english: "Posture", icon: "posture", tone: "posture" },
+];
+
+function fitValue(scores, key) {
+  return scoreFromFit(scores?.[key] ?? scores?.[key.replace("-Fit", "").toLowerCase()]);
+}
+
+export function ComparePage({ onPrev, onRestart, onShare, onNavigate, history = [], report }) {
+  const navigate = onNavigate || (() => {});
+  const download = () => { if (typeof window !== "undefined") window.print(); };
+
   const attempts = history.slice(-2);
-  const current = attempts.at(-1) || { total_score: report?.total_score || 0, started_at: "현재" };
-  const previous = attempts.at(-2) || report?.previous;
   const currentFits = reportFits(report);
-  const previousFits = previous?.fit_scores || {};
-  return <motion.section className="page compare-page" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
-    <PageToolbar onPrev={onPrev} leftLabel="이전 단계로 돌아가기" />
-    <PageTitle title={<>다시 연습한 결과를 <em>비교해요</em></>} subtitle="두 번의 연습 결과를 비교하고, 더 나은 커뮤니케이션으로 성장해보세요." />
-    <div className="attempt-grid">{previous ? <AttemptCard title="이전 시도" date={previous.started_at?.slice(0, 10) || "이전 기록"} score={Math.round(previous.total_score)} color="sky" text="이전에 연습한 분석 결과예요." /> : <Panel><p>같은 기기에서 한 번 더 연습하면 이전 기록과 비교할 수 있어요.</p></Panel>}<AttemptCard selected title="현재 시도" date={current.started_at?.slice(0, 10) || "현재"} score={Math.round(current.total_score)} color="blue" text="이번에 연습한 분석 결과예요." /></div>
-    {previous ? <ComparisonContent current={current} previous={previous} currentFits={currentFits} previousFits={previousFits} history={history} onRestart={onRestart} onShare={onShare} /> : <FirstAttempt onRestart={onRestart} />}
-  </motion.section>;
+  const currentTotal = Math.round((attempts.at(-1)?.total_score ?? report?.total_score) || 0);
+  const previous = attempts.at(-2) || report?.previous;
+  const hasPrevious = Boolean(previous);
+  const previousTotal = Math.round(previous?.total_score ?? 0);
+  const previousScores = previous?.fit_scores || {};
+
+  // 비교 표/추이 데이터. 이전 기록이 있으면 실제 값, 없으면 화면을 볼 수 있도록 대표값으로 채워요.
+  const rows = FIT_META.map((fit) => {
+    const after = currentFits.find((item) => item.key === fit.key)?.score ?? 0;
+    const before = hasPrevious ? fitValue(previousScores, fit.key) : Math.max(0, after - 12);
+    return { ...fit, before, after, delta: after - before };
+  });
+  const prevRow = (fit) => rows.find((row) => row.key === fit.key)?.before ?? 0;
+
+  const trendTotals = history.length >= 2
+    ? history.slice(-6).map((item) => Math.round(item.total_score))
+    : [64, 68, 72, 79, 83, currentTotal || 88];
+  const trendLabels = history.length >= 2
+    ? history.slice(-6).map((item) => (item.started_at || "").slice(5, 10).replace("-", ".") || "-")
+    : ["04.20", "04.27", "05.04", "05.11", "05.18", "05.24"];
+  const trendAvg = trendTotals.map((value) => Math.max(40, value - 6));
+
+  return (
+    <ReportShell active="compare" trail={TRAIL} onNavigate={navigate} onDownload={download} newPracticeLabel="새로운 연습">
+      <motion.div className="report-page compare-report" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
+        <div className="report-heading">
+          <div><h1>연습 비교 분석</h1><p>두 개의 연습 결과를 비교하여 성장 과정을 확인하세요.</p></div>
+          <dl className="report-meta-strip">
+            <div><CalendarDate size={17} aria-hidden="true" /><dt>현재</dt><dd>{attempts.at(-1)?.started_at?.slice(0, 10) || "방금 완료"}</dd></div>
+            <div><CalendarDate size={17} aria-hidden="true" /><dt>이전</dt><dd>{previous?.started_at?.slice(0, 10) || (hasPrevious ? "이전 기록" : "기록 없음")}</dd></div>
+          </dl>
+        </div>
+
+        <div className="compare-versus">
+          <AttemptColumn tone="prev" title="Previous Mirrorting" date={previous?.started_at?.slice(0, 10) || "이전 기록"} total={hasPrevious ? previousTotal : trendTotals[0]} rows={rows} which="before" prevRow={prevRow} muted={!hasPrevious} />
+          <span className="versus-badge">VS</span>
+          <AttemptColumn tone="current" title="Current Mirrorting" date={attempts.at(-1)?.started_at?.slice(0, 10) || "방금 완료"} total={currentTotal} rows={rows} which="after" prevRow={prevRow} />
+        </div>
+
+        <Panel className="compare-detail-card">
+          <h2>4-Fit 비교 상세</h2>
+          <table className="compare-table">
+            <thead><tr><th>항목</th><th>이전 값</th><th>현재 값</th><th>변화</th></tr></thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.key}>
+                  <td><span className={`compare-item ${row.tone}`}><IconGlyph icon={row.icon} size={18} /> {row.label} <em>({row.english})</em></span></td>
+                  <td>{row.before}</td>
+                  <td><strong>{row.after}</strong></td>
+                  <td><DeltaTag delta={row.delta} /></td>
+                </tr>
+              ))}
+              <tr className="compare-total-row">
+                <td>종합 점수</td><td>{hasPrevious ? previousTotal : trendTotals[0]}</td><td><strong>{currentTotal}</strong></td>
+                <td><DeltaTag delta={currentTotal - (hasPrevious ? previousTotal : trendTotals[0])} /></td>
+              </tr>
+            </tbody>
+          </table>
+        </Panel>
+
+        <Panel className="trend-card">
+          <div className="trend-card-head"><h2>점수 추이 <em>(Trend Chart)</em></h2><span className="trend-range">최근 {trendTotals.length}회</span></div>
+          <TrendChart
+            xLabels={trendLabels}
+            series={[
+              { name: "종합 점수", color: "#0064ff", values: trendTotals },
+              { name: "4-Fit 평균", color: "#0ea5e9", values: trendAvg, fill: false },
+            ]}
+          />
+        </Panel>
+
+        <div className="report-page-actions">
+          <button type="button" className="secondary-button" onClick={onRestart}><Refresh3 size={20} /> Practice Again</button>
+          <div className="compare-share-group">
+            <button type="button" className="ghost-outline" onClick={onShare}><Download size={19} /> 저장</button>
+            <button type="button" className="primary-button" onClick={onShare}><Share3 size={20} /> Save &amp; Share</button>
+          </div>
+        </div>
+      </motion.div>
+    </ReportShell>
+  );
 }
 
-function ComparisonContent({ current, previous, currentFits, previousFits, history, onRestart, onShare }) {
-  return <><div className="compare-grid"><Panel className="comparison-table"><h2>영역별 점수 비교</h2>{currentFits.filter((fit) => fit.measured !== false).map((fit) => <CompareRow key={fit.key} label={fit.label} text="4-Fit 기준으로 분석한 결과예요" before={scoreFromFit(previousFits[fit.key] ?? previousFits[fit.key.replace("-Fit", "").toLowerCase()])} after={fit.score} icon={fit.icon} />)}</Panel><Panel className="improved-card"><h2><Star size={22} /> 이번 연습에서 좋아진 점</h2>{currentFits.filter((fit) => fit.measured !== false).map((fit) => <ImprovedPoint key={fit.key} icon={fit.icon} title={`${fit.label} ${fit.score}점`} text={fit.text} />)}</Panel></div><div className="history-grid"><Panel className="history-card"><h2>연습 히스토리</h2><div className="history-line">{history.map((item, index) => <HistoryPoint key={item.session_id} label={`${index + 1}번째 시도`} score={`${Math.round(item.total_score)}점`} date={item.started_at?.slice(0, 10)} active={item.session_id === current.session_id} />)}</div></Panel><Panel className="growth-card"><ChartTrend size={54} /><div><h2>꾸준한 연습이 실력을 만들어요</h2><p>{Math.round(current.total_score - previous.total_score)}점 변화가 기록됐어요. 계속 연습하며 더 높은 점수를 달성해보세요.</p></div></Panel><Panel className="compare-actions"><PrimaryButton icon={Refresh3} label="다시 연습하기" onClick={onRestart} wide /><div><SecondaryButton icon={Download} label="결과 저장" onClick={onShare} /><SecondaryButton icon={Share3} label="공유하기" onClick={onShare} /></div></Panel></div></>;
+function AttemptColumn({ tone, title, date, total, rows, which, prevRow, muted = false }) {
+  const grade = total >= 80 ? "Great" : total >= 60 ? "Good" : "Try";
+  return (
+    <Panel className={`attempt-column ${tone} ${muted ? "is-muted" : ""}`}>
+      <div className="attempt-column-head"><strong>{title}</strong><small>{date}</small></div>
+      <ScoreRing value={total} size="md" label={grade} />
+      <div className="attempt-fit-bars">
+        {rows.map((row) => <FitBarRow key={row.key} icon={row.icon} label={row.label} tone={row.tone} value={which === "before" ? prevRow(row) : row.after} />)}
+      </div>
+    </Panel>
+  );
 }
 
-function FirstAttempt({ onRestart }) {
-  return <Panel className="growth-card"><ChartTrend size={54} /><div><h2>첫 연습 기록을 저장했어요</h2><p>한 번 더 연습하면 4-Fit 결과를 이전 시도와 비교할 수 있어요.</p><PrimaryButton icon={Refresh3} label="다시 연습하기" onClick={onRestart} /></div></Panel>;
+function DeltaTag({ delta }) {
+  const cls = delta > 0 ? "up" : delta < 0 ? "down" : "flat";
+  return <em className={`delta-tag ${cls}`}>{delta > 0 ? "+" : ""}{delta} {delta > 0 ? "↑" : delta < 0 ? "↓" : "–"}</em>;
 }

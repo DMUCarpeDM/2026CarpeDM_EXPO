@@ -22,7 +22,7 @@
 ```bash
 cd ../poc/backend
 bash scripts/setup_ai.sh
-.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8001
 ```
 
 `setup_ai.sh`는 로컬 STT와 Ollama 사용을 위한 환경을 준비합니다. 모델이 준비되지 않아도 PoC의 폴백 경로로 화면 흐름을 확인할 수 있습니다.
@@ -36,7 +36,7 @@ npm install
 npm run dev
 ```
 
-브라우저에서 `http://localhost:5173`을 열고 카메라와 마이크 권한을 허용하세요. Vite는 `/api` 요청을 `http://127.0.0.1:8000`의 PoC 서버로 프록시합니다.
+브라우저에서 `http://localhost:5173`을 열고 카메라와 마이크 권한을 허용하세요. Vite는 `/api` 요청을 `http://127.0.0.1:8001`의 PoC 서버로 프록시합니다. (8000은 carpedm-kiosk가 사용하므로 8001을 씁니다. 다른 포트가 필요하면 `MIRRORTING_API_TARGET` 환경변수로 프록시 대상을 바꿀 수 있습니다.)
 
 ## 확인
 

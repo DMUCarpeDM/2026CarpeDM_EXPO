@@ -34,6 +34,47 @@ import {
   submitResponse,
 } from "./lib/pocApi";
 
+// 자체 크롬(사이드바/전용 상단바)을 가진 화면은 전역 상단 네비를 숨겨요.
+const CHROMELESS_VIEWS = new Set(["practice", "result", "feedback", "compare"]);
+
+// 백엔드 없이도 리포트/비교/연습 화면을 미리 볼 수 있게 하는 데모 데이터 (?demo=result 등).
+const DEMO_REPORT = {
+  total_score: 88, percentile_top: 18, mode: 5, difficulty: "pressure",
+  finished_label: "2024.05.24 14:32", character_name: "팀장 김민수", scenario_title: "서버 장애 보고",
+  fit_scores: {
+    "Response-Fit": { score: 86, summary: "핵심부터 말해 전달이 또렷했어요." },
+    "Voice-Fit": { score: 82, summary: "안정적인 속도로 말했어요." },
+    "Eye-Fit": { score: 78, summary: "시선을 꾸준히 맞췄어요." },
+    "Posture-Fit": { score: 91, summary: "끝까지 바른 자세를 유지했어요." },
+  },
+  strengths: [
+    "결론을 먼저 말하고 근거를 덧붙이는 흐름이 좋았어요.",
+    "장애 영향 범위를 숫자로 구체화해 신뢰를 줬어요.",
+    "다음 대응 계획과 기한을 분명히 전달했어요.",
+    "끝까지 차분한 목소리를 유지했어요.",
+    "상대의 추가 질문에도 당황하지 않고 답했어요.",
+  ],
+  improvements: [
+    "첫 문장에서 핵심 결론을 조금 더 앞세워 보세요.",
+    "불확실한 부분은 '확인 후 공유'로 명확히 구분해 보세요.",
+    "중요한 수치는 한 번 더 강조해 보세요.",
+    "말끝을 흐리지 않고 문장을 끝맺어 보세요.",
+  ],
+  headline: { sentence: "결론을 먼저, 근거는 한 문장으로 요약하면 설득력이 더 올라가요." },
+  previous: { total_score: 72, started_at: "2024-05-20", fit_scores: { "Response-Fit": 72, "Voice-Fit": 68, "Eye-Fit": 78, "Posture-Fit": 82 } },
+  speech_stats: { turns: 5, measurement: { level: "표준" } },
+};
+const DEMO_HISTORY = [
+  { session_id: "d1", total_score: 61, started_at: "2024-04-20" },
+  { session_id: "d2", total_score: 66, started_at: "2024-04-27" },
+  { session_id: "d3", total_score: 71, started_at: "2024-05-04" },
+  { session_id: "d4", total_score: 76, started_at: "2024-05-11" },
+  { session_id: "d5", total_score: 72, started_at: "2024-05-20", fit_scores: { "Response-Fit": 72, "Voice-Fit": 68, "Eye-Fit": 78, "Posture-Fit": 82 } },
+  { session_id: "d6", total_score: 88, started_at: "2024-05-24", fit_scores: { "Response-Fit": 86, "Voice-Fit": 82, "Eye-Fit": 78, "Posture-Fit": 91 } },
+];
+const DEMO_SESSION = { id: "demo", mode: 5, scenario: { title: "서버 장애 보고", characters: [{ id: "c1", name: "팀장 김민수", role: "상사 / 관리자", personality: "직설적이고 바쁘다. 결론부터 듣고 싶어 한다." }] } };
+const DEMO_TURN = { id: "t1", order: 1, character_id: "c1", question_text: "이번 프로젝트 진행 상황을 간단히 요약해주시고, 현재 가장 어려운 부분은 무엇인지 설명해 주세요." };
+
 const flow = [
   { id: "home", label: "메인" },
   { id: "role", label: "기본 설정" },
@@ -100,6 +141,14 @@ export default function App() {
       .catch(() => setApiError("서버를 실행하면 연습을 시작할 수 있어요."));
   }, []);
   useEffect(() => { getHealth().then(setAiHealth).catch(() => setAiHealth(null)); }, []);
+  useEffect(() => {
+    const demo = new URLSearchParams(window.location.search).get("demo");
+    if (!demo) return;
+    setReport(DEMO_REPORT);
+    setHistory(DEMO_HISTORY);
+    if (demo === "practice") { setSession(DEMO_SESSION); setTurn(DEMO_TURN); setActive("practice"); }
+    else if (["result", "feedback", "compare"].includes(demo)) setActive(demo);
+  }, []);
   useEffect(() => {
     const saved = loadActiveSession();
     if (!saved) return;
@@ -220,8 +269,10 @@ export default function App() {
     } catch (error) { setApiError(error.message); } finally { setSubmitting(false); }
   };
 
-  return <main className="app-shell">
-    <TopNav active={active} scenarioTitle={session?.scenario?.title || selectedSetupScenario?.title} sessionMode={session?.mode || mode} menuOpen={menuOpen} onMenuOpen={setMenuOpen} onNavigate={navigate} scenarios={apiScenarios} onScenarioSelect={(slug) => { const selected = apiScenarios.find((item) => item.slug === slug); setPocScenarioSlug(slug); setCounterpart(selected?.characters?.[0]?.id || ""); navigate("role"); }} />
+  const chromeless = CHROMELESS_VIEWS.has(active);
+
+  return <main className={`app-shell ${chromeless ? "chromeless" : ""}`}>
+    {!chromeless && <TopNav active={active} scenarioTitle={session?.scenario?.title || selectedSetupScenario?.title} sessionMode={session?.mode || mode} menuOpen={menuOpen} onMenuOpen={setMenuOpen} onNavigate={navigate} scenarios={apiScenarios} onScenarioSelect={(slug) => { const selected = apiScenarios.find((item) => item.slug === slug); setPocScenarioSlug(slug); setCounterpart(selected?.characters?.[0]?.id || ""); navigate("role"); }} />}
     <MobileMenuSheet open={menuOpen} active={active} onClose={() => setMenuOpen(false)} onNavigate={navigate} />
     <div className="screen-frame">
       {active === "home" && <HomePage onNext={() => navigate("role")} />}
@@ -230,9 +281,9 @@ export default function App() {
       {active === "setup" && <SetupPage scenario={selectedSetupScenario} goals={selectedSetupScenario.goalIds.map((goalId) => practiceGoals[goalId])} goal={selectedGoal} onGoal={chooseGoal} counterpartProfile={counterpartProfile} difficulty={difficulties.find((item) => item.id === difficulty)} onPrev={() => go(-1)} onNext={() => navigate("preview")} />}
       {active === "preview" && <PreviewPage onNext={startPractice} starting={starting} scenario={previewScenario} setupScenario={selectedSetupScenario} counterpartProfile={counterpartProfiles.find((item) => item.id === counterpartProfile) || counterpartProfiles[1]} goal={selectedGoal} difficulty={difficulties.find((item) => item.id === difficulty) || difficulties[0]} aiHealth={aiHealth} consented={consented} onConsent={setConsented} error={apiError} permissionState={permissionState} mode={mode} />}
       {active === "practice" && <PracticePage onPrev={() => go(-1)} scenario={session?.scenario} aiHealth={aiHealth} turn={turn} history={turnHistory} turnSignals={turnSignals} onSubmit={sendAnswer} busy={submitting} error={apiError} mediaStream={mediaStream} />}
-      {active === "result" && <ResultPage onPrev={() => go(-1)} onPractice={() => navigate("preview")} onNext={() => navigate("feedback")} report={report} progress={analysisProgress} error={apiError} />}
-      {active === "feedback" && <FeedbackPage onPrev={() => go(-1)} onPractice={() => navigate("preview")} onNext={() => navigate("compare")} report={report} />}
-      {active === "compare" && <ComparePage onPrev={() => go(-1)} onRestart={() => navigate("setup")} onShare={() => navigate("share")} history={history} report={report} />}
+      {active === "result" && <ResultPage onPrev={() => go(-1)} onPractice={() => navigate("preview")} onNext={() => navigate("feedback")} onNavigate={navigate} report={report} progress={analysisProgress} error={apiError} />}
+      {active === "feedback" && <FeedbackPage onPrev={() => go(-1)} onPractice={() => navigate("preview")} onNext={() => navigate("compare")} onNavigate={navigate} report={report} />}
+      {active === "compare" && <ComparePage onPrev={() => go(-1)} onRestart={() => navigate("setup")} onShare={() => navigate("share")} onNavigate={navigate} history={history} report={report} />}
       {active === "share" && <SharePage onHome={() => navigate("home")} onPractice={() => navigate("role")} report={report} onIssueCode={issueCode} />}
     </div>
     <span className="screen-reader-note" aria-live="polite">현재 화면: {current.label}</span>

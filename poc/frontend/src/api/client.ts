@@ -11,7 +11,7 @@ import type {
 } from './types';
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api',
+  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8001/api',
   // 응답 없는 요청은 제한 시간 후 실패시켜 재시도 UI로 넘긴다 — 무한 대기는
   // submitting 잠금과 겹쳐 키오스크 전체를 굳게 만든다 (전시 생존성)
   timeout: 10_000,
