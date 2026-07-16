@@ -72,8 +72,11 @@ const DEMO_HISTORY = [
   { session_id: "d5", total_score: 72, started_at: "2024-05-20", fit_scores: { "Response-Fit": 72, "Voice-Fit": 68, "Eye-Fit": 78, "Posture-Fit": 82 } },
   { session_id: "d6", total_score: 88, started_at: "2024-05-24", fit_scores: { "Response-Fit": 86, "Voice-Fit": 82, "Eye-Fit": 78, "Posture-Fit": 91 } },
 ];
-const DEMO_SESSION = { id: "demo", mode: 5, scenario: { title: "서버 장애 보고", characters: [{ id: "c1", name: "팀장 김민수", role: "상사 / 관리자", personality: "직설적이고 바쁘다. 결론부터 듣고 싶어 한다." }] } };
-const DEMO_TURN = { id: "t1", order: 1, character_id: "c1", question_text: "이번 프로젝트 진행 상황을 간단히 요약해주시고, 현재 가장 어려운 부분은 무엇인지 설명해 주세요." };
+const DEMO_SESSION = { id: "demo", mode: 5, scenario: { title: "업무 보고 및 피드백 논의", characters: [{ id: "c1", name: "팀장 김민수", role: "상사 / 관리자", personality: "직설적이고 바쁘다. 결론부터 듣고 싶어 한다." }] } };
+const DEMO_TURN = { id: "t2", order: 2, character_id: "c1", question_text: "흠, 70%라면 일정보다 살짝 늦는 것 같은데요. 구체적으로 어떤 부분이 지연되고 있나요?" };
+const DEMO_TURN_HISTORY = [
+  { id: "t1", order: 1, character_id: "c1", question_text: "이번 프로젝트 진행 상황을 간단히 요약해주시고, 현재 가장 어려운 부분은 무엇인지 설명해 주세요.", response_text: "현재 디자인 시스템은 거의 마무리 단계이고, 프론트엔드 구현도 70% 정도 완료되었습니다..." },
+];
 
 const flow = [
   { id: "home", label: "메인" },
@@ -146,7 +149,7 @@ export default function App() {
     if (!demo) return;
     setReport(DEMO_REPORT);
     setHistory(DEMO_HISTORY);
-    if (demo === "practice") { setSession(DEMO_SESSION); setTurn(DEMO_TURN); setActive("practice"); }
+    if (demo === "practice") { setSession(DEMO_SESSION); setTurn(DEMO_TURN); setTurnHistory(DEMO_TURN_HISTORY); setTurnSignals({ coverage: 0.85 }); setActive("practice"); }
     else if (["result", "feedback", "compare"].includes(demo)) setActive(demo);
   }, []);
   useEffect(() => {
@@ -271,7 +274,7 @@ export default function App() {
 
   const chromeless = CHROMELESS_VIEWS.has(active);
 
-  return <main className={`app-shell ${chromeless ? "chromeless" : ""}`}>
+  return <main className={`app-shell ${chromeless ? "chromeless" : ""} ${active === "practice" ? "practice-mode" : ""}`}>
     {!chromeless && <TopNav active={active} scenarioTitle={session?.scenario?.title || selectedSetupScenario?.title} sessionMode={session?.mode || mode} menuOpen={menuOpen} onMenuOpen={setMenuOpen} onNavigate={navigate} scenarios={apiScenarios} onScenarioSelect={(slug) => { const selected = apiScenarios.find((item) => item.slug === slug); setPocScenarioSlug(slug); setCounterpart(selected?.characters?.[0]?.id || ""); navigate("role"); }} />}
     <MobileMenuSheet open={menuOpen} active={active} onClose={() => setMenuOpen(false)} onNavigate={navigate} />
     <div className="screen-frame">

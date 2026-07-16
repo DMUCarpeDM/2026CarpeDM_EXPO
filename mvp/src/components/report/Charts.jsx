@@ -73,39 +73,42 @@ export function TrendChart({ series, xLabels, height = 210, min = 40, max = 100 
   );
 }
 
-// 연습 화면 우측의 실시간 4-Fit 게이지. percent가 있으면 원형 게이지, 아니면 파형/상태 표시.
-export function LiveFitMeter({ icon, label, english, tone, percent, caption, kind = "ring" }) {
-  const color = FIT_COLORS[tone] || "#0064ff";
+// 연습 화면 우측의 실시간 4-Fit 게이지 (피그마: 라벨 → 링 → 상태 → 캡션 세로 구성).
+// kind: percent(링 중앙에 %), wave(파형 아이콘), icon(글리프 아이콘). muted면 회색 처리.
+const LIVE_FIT_COLORS = { response: "#0064ff", voice: "#2f7cff", eye: "#0ea5e9", posture: "#10b981" };
+
+export function LiveFitMeter({ icon, label, english, tone, percent, status, caption, kind = "percent", muted = false }) {
+  const color = muted ? "#c3cad4" : LIVE_FIT_COLORS[tone] || "#0064ff";
   return (
-    <div className={`live-fit-meter ${tone}`}>
-      <div className="live-fit-visual">
-        {kind === "ring" && typeof percent === "number" ? (
-          <RingGauge value={percent} color={color} />
+    <div className={`live-fit-meter ${tone} ${muted ? "muted" : ""}`}>
+      <span className="live-fit-label">{label}</span>
+      <em className="live-fit-english">({english})</em>
+      <RingGauge value={percent ?? 0} color={color}>
+        {kind === "percent" ? (
+          <b className="ring-value">{percent ?? "–"}<small>%</small></b>
         ) : kind === "wave" ? (
-          <span className="live-wave" aria-hidden="true">{Array.from({ length: 7 }, (_, i) => <i key={i} style={{ background: color }} />)}</span>
+          <span className="ring-wave" aria-hidden="true">{Array.from({ length: 5 }, (_, i) => <i key={i} style={{ background: color }} />)}</span>
         ) : (
-          <span className="live-fit-icon" style={{ color }}><IconGlyph icon={icon} size={26} /></span>
+          <span className="ring-icon" style={{ color }}><IconGlyph icon={icon} size={24} /></span>
         )}
-      </div>
-      <div className="live-fit-copy">
-        <span className="live-fit-label"><IconGlyph icon={icon} size={16} /> {label}<em>{english}</em></span>
-        <strong>{caption}</strong>
-      </div>
+      </RingGauge>
+      <b className="live-fit-status" style={{ color: muted ? "#8b95a1" : color }}>{status}</b>
+      <small className="live-fit-caption">{caption}</small>
     </div>
   );
 }
 
-function RingGauge({ value, color, size = 58 }) {
-  const r = 24;
+function RingGauge({ value, color, size = 74, children }) {
+  const r = 25;
   const c = 2 * Math.PI * r;
   const offset = c - (Math.max(0, Math.min(100, value)) / 100) * c;
   return (
     <span className="ring-gauge" style={{ width: size, height: size }}>
       <svg viewBox="0 0 58 58" aria-hidden="true">
         <circle className="ring-track" cx="29" cy="29" r={r} />
-        <circle className="ring-fill" cx="29" cy="29" r={r} stroke={color} strokeDasharray={c} strokeDashoffset={offset} />
+        {value > 0 && <circle className="ring-fill" cx="29" cy="29" r={r} stroke={color} strokeDasharray={c} strokeDashoffset={offset} />}
       </svg>
-      <b>{value}<small>%</small></b>
+      {children}
     </span>
   );
 }
