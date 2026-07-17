@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { ArrowRight } from "reicon-react/icons/ArrowRight";
-import { Bell } from "reicon-react/icons/Bell";
 import { ChevronDown } from "reicon-react/icons/ChevronDown";
 import { Clock3 } from "reicon-react/icons/Clock3";
 import { Menu4 } from "reicon-react/icons/Menu4";
@@ -11,39 +10,19 @@ import { describeHealth } from "../../lib/serverStatus";
 import { navMap } from "./navigationConfig";
 
 export function TopNav({ active, scenarioTitle, sessionMode, aiHealth, menuOpen, onMenuOpen, onNavigate, scenarios = [], onScenarioSelect }) {
-  const [bellOpen, setBellOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
   const [scenarioOpen, setScenarioOpen] = useState(false);
 
   useEffect(() => {
     const handleOutsideClick = () => {
-      setBellOpen(false);
-      setProfileOpen(false);
       setScenarioOpen(false);
     };
     document.addEventListener("click", handleOutsideClick);
     return () => document.removeEventListener("click", handleOutsideClick);
   }, []);
 
-  const toggleBell = (event) => {
-    event.stopPropagation();
-    setBellOpen(!bellOpen);
-    setProfileOpen(false);
-    setScenarioOpen(false);
-  };
-
-  const toggleProfile = (event) => {
-    event.stopPropagation();
-    setProfileOpen(!profileOpen);
-    setBellOpen(false);
-    setScenarioOpen(false);
-  };
-
   const toggleScenario = (event) => {
     event.stopPropagation();
     setScenarioOpen(!scenarioOpen);
-    setBellOpen(false);
-    setProfileOpen(false);
   };
 
   return (
@@ -63,15 +42,6 @@ export function TopNav({ active, scenarioTitle, sessionMode, aiHealth, menuOpen,
         )}
         <ServerStatusPill aiHealth={aiHealth} />
         <span className="timer-pill"><Clock3 size={17} /> {sessionMode ? `${sessionMode}분 모드` : "연습 준비"}</span>
-        <span className="divider" />
-        <div className="nav-dropdown-wrapper">
-          <button className={`bell-button ${bellOpen ? "active" : ""}`} type="button" aria-label="알림" onClick={toggleBell}><Bell size={20} /><b>3</b></button>
-          {bellOpen && <div className="nav-dropdown bell-dropdown glass-panel" onClick={(event) => event.stopPropagation()}><h3>최신 알림</h3><ul><li onClick={() => { onNavigate("compare"); setBellOpen(false); }}><strong>[기록 비교]</strong> 첫 출근 연습 기록의 성장 추이를 확인해 보세요.</li><li onClick={() => { onNavigate("feedback"); setBellOpen(false); }}><strong>[코칭 안내]</strong> 새로운 난이도 [압박 질문]에 대한 대응 팁이 추가되었습니다.</li><li onClick={() => { onNavigate("result"); setBellOpen(false); }}><strong>[분석 완료]</strong> ㈜클라우드밋 신입 백엔드 개발자 시뮬레이션 분석 완료!</li></ul></div>}
-        </div>
-        <div className="nav-dropdown-wrapper">
-          <button className={`profile-button ${profileOpen ? "active" : ""}`} type="button" onClick={toggleProfile}><Avatar size="sm" /><strong>체험자</strong><ChevronDown size={16} /></button>
-          {profileOpen && <div className="nav-dropdown profile-dropdown glass-panel" onClick={(event) => event.stopPropagation()}><div className="user-info"><strong>체험자님</strong><span>mirroting-user@kiosk</span></div><hr /><ul><li onClick={() => { onNavigate("compare"); setProfileOpen(false); }}>나의 기록 비교</li><li onClick={() => { onNavigate("setup"); setProfileOpen(false); }}>새 연습 시작</li><li onClick={() => { window.location.href = "/admin"; setProfileOpen(false); }}>운영 대시보드</li></ul></div>}
-        </div>
         <button className="mobile-menu-button" type="button" aria-label="메뉴 열기" aria-expanded={menuOpen} onClick={() => onMenuOpen(true)}><Menu4 size={22} /></button>
       </div>
     </header>
@@ -89,10 +59,6 @@ export function MobileMenuSheet({ open, active, onClose, onNavigate }) {
       </motion.section>
     </motion.div>
   );
-}
-
-function Avatar({ size = "md" }) {
-  return <span className={`avatar profile-avatar ${size} blue`} aria-hidden="true">M</span>;
 }
 
 // 분석 서버 연결 상태 칩 — 운영자가 어느 화면에서든 백엔드 상태를 바로 확인할 수 있어요.

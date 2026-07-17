@@ -10,10 +10,10 @@
 .hero-actions .primary-button { position: relative; justify-content: center; min-width: 288px; min-height: 58px; padding: 0; font-size: 16px; }
 .hero-actions .primary-button.wide { margin: 0; }
 .hero-actions .primary-button svg { position: absolute; right: 28px; margin: 0; }
-.hero-social-proof { display: flex; align-items: center; gap: 0; margin-top: 32px; color: #5c6c84; font-size: 14px; line-height: 1.55; }
-.hero-social-proof .avatar { width: 48px; height: 48px; margin-right: -11px; border: 2px solid #fff; font-size: 11px; }
-.hero-social-proof > span { margin-left: 21px; }
-.hero-social-proof b { color: var(--blue-strong); }
+/* 사실 기반 신뢰 문구 — 로컬 분석·외부 전송 없음 (가짜 소셜 프루프 대체) */
+.hero-privacy-note { display: flex; align-items: center; gap: 14px; margin-top: 32px; color: #5c6c84; font-size: 14px; line-height: 1.55; }
+.hero-privacy-note > svg { flex: 0 0 auto; color: var(--color-blue); }
+.hero-privacy-note b { color: var(--blue-strong); }
 
 .hero-glow { position: absolute; inset: 28px 72px 35px; border-radius: 48% 52% 43% 57%; background: radial-gradient(circle at 50% 34%, #d9e9ff, #f3f8ff 48%, transparent 69%); }
 .coach-device { position: absolute; z-index: 2; top: 12px; left: 50%; display: grid; gap: 14px; width: min(360px, 70%); min-height: 440px; padding: 42px 30px 31px; transform: translateX(-50%) rotate(8deg); border: 5px solid rgba(255,255,255,.78); border-radius: 48px; background: linear-gradient(145deg, rgba(86, 128, 177, .94), rgba(188, 208, 234, .88) 57%, rgba(89, 113, 160, .9)); box-shadow: -18px 22px 36px rgba(30, 60, 109, .18), inset 3px 3px 3px rgba(255,255,255,.72), inset -4px -8px 20px rgba(16, 38, 73, .24); color: #fff; overflow: hidden; }
@@ -36,7 +36,11 @@
 .home-fit-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .home-fit-card { display: grid; align-content: start; gap: 13px; min-height: 344px; padding: 29px 22px; border-right: 1px solid var(--line-cool); }
 .home-fit-card > span { display: flex; gap: 8px; align-items: center; color: #2f3e55; font-size: 16px; font-weight: 600; }
-.home-fit-card > span img { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; mix-blend-mode: multiply; }
+.home-fit-glyph { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; }
+.home-fit-glyph.response { color: var(--fit-response); background: rgba(0, 100, 255, 0.1); }
+.home-fit-glyph.voice { color: var(--fit-voice); background: rgba(47, 124, 255, 0.1); }
+.home-fit-glyph.eye { color: var(--fit-eye); background: rgba(14, 165, 233, 0.12); }
+.home-fit-glyph.posture { color: var(--fit-posture); background: rgba(255, 138, 0, 0.12); }
 .home-fit-card > span b,.home-fit-card > span small { white-space: nowrap; }
 .home-fit-card > span small { font: inherit; }
 .home-fit-card > strong { color: #17243b; font-size: 43px; font-weight: 540; line-height: 1; }
@@ -62,22 +66,6 @@
 .compact-home-recommend .home-recommend-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: none; }
 .compact-home-recommend .recommend-card { min-height: 164px; }
 .home-page .product-benefits { display: none; }
-
-.profile-avatar {
-  display: inline-grid;
-  place-items: center;
-  overflow: hidden;
-  background: linear-gradient(135deg, #155ff2, #8dbdff);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: -.3px;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 2px 6px rgba(24,71,138,.18);
-}
-
-.profile-avatar.violet { background: linear-gradient(135deg, #6859d8, #b4a9ff); }
-.profile-avatar.mint { background: linear-gradient(135deg, #119f93, #8ce1d7); }
-.profile-avatar.sm { font-size: 8px; }
 
 .mini-line-chart {
   display: block;

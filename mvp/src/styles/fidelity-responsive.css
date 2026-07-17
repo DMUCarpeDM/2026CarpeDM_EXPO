@@ -52,7 +52,7 @@
   .home-hero { min-height: 655px; grid-template-columns: 1fr; align-items: start; margin-bottom: 56px; padding: 0 0 315px; background-position: 72% bottom; background-size: auto 340px; }
   .hero-copy h1 { font-size: 46px; letter-spacing: -0.075em; word-spacing: -0.13em; }
   .hero-actions .primary-button { min-width: 0; }
-  .hero-social-proof .avatar { width: 42px; height: 42px; }
+  .hero-privacy-note { font-size: 13px; }
   .coach-device { min-height: 350px; width: 275px; padding: 28px 22px; border-radius: 37px; }
   .coach-device p { margin-top: 22px; font-size: 19px; }
   .coach-device > span:not(.coach-device-mark) { padding: 9px 11px; font-size: 10px; }
@@ -62,7 +62,7 @@
   .home-fit-card { min-height: 220px; padding: 18px; border-bottom: 1px solid var(--line-cool); }
   .home-fit-card > strong { font-size: 33px; }
   .home-fit-card > span { gap: 5px; font-size: 12px; white-space: nowrap; }
-  .home-fit-card > span img { width: 46px; height: 46px; }
+  .home-fit-glyph { width: 40px; height: 40px; }
   .home-fit-card > span small { display: none; }
   .home-radar-card { grid-template-columns: 1fr; }
   .home-radar-chart { width: 174px; height: 174px; }

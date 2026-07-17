@@ -1,7 +1,9 @@
 import React from "react";
 import { ArrowRight } from "reicon-react/icons/ArrowRight";
+import { Shield } from "reicon-react/icons/Shield";
 import { Sparkles } from "reicon-react/icons/Sparkles";
 import { FIT_COLORS } from "../components/report/Charts";
+import { IconGlyph } from "../components/ui/IconGlyph";
 import { homeAdvantages, homeFitSnapshot } from "../data/homeContent";
 
 export function HomePage({ onNext }) {
@@ -15,11 +17,9 @@ export function HomePage({ onNext }) {
           <div className="hero-actions">
             <PrimaryButton icon={ArrowRight} label="연습 시작하기" onClick={onNext} wide leadingIcon={false} />
           </div>
-          <div className="hero-social-proof" aria-label="이용자 사회적 증거">
-            <ProfileAvatar initials="JH" tone="blue" />
-            <ProfileAvatar initials="SK" tone="violet" />
-            <ProfileAvatar initials="YR" tone="mint" />
-            <span><b>20,000+</b>명이<br />대화를 연습하고 있어요.</span>
+          <div className="hero-privacy-note" aria-label="개인정보 처리 안내">
+            <Shield size={22} aria-hidden="true" />
+            <span>카메라·음성은 <b>이 PC 안에서만</b> 분석되고<br />외부로 전송되지 않아요.</span>
           </div>
         </div>
       </div>
@@ -53,10 +53,6 @@ export function HomePage({ onNext }) {
   );
 }
 
-function ProfileAvatar({ initials, tone = "blue" }) {
-  return <span className={`profile-avatar ${tone} md`} aria-hidden="true">{initials}</span>;
-}
-
 function PrimaryButton({ icon: Icon, label, onClick, wide = false, leadingIcon = true }) {
   return (
     <button className={`primary-button ${wide ? "wide" : ""}`} type="button" onClick={onClick}>
@@ -67,8 +63,9 @@ function PrimaryButton({ icon: Icon, label, onClick, wide = false, leadingIcon =
   );
 }
 
-function HomeFitCard({ image, label, short, score, tone, text }) {
-  return <article className={`home-fit-card ${tone}`}><span aria-label={label}><img src={image} alt="" aria-hidden="true" /><b>{short}</b><small>({label.split("(")[1]}</small></span><strong>{score}<small>/100</small></strong><b>{score >= 80 ? "좋아요" : "보통이에요"}</b><MiniLineChart tone={tone} /><p>{text}</p></article>;
+function HomeFitCard({ label, short, score, tone, text }) {
+  // 기능 아이콘은 리포트 화면과 같은 라인 아이콘(IconGlyph) 한 가지 언어로 통일해요.
+  return <article className={`home-fit-card ${tone}`}><span aria-label={label}><i className={`home-fit-glyph ${tone}`} aria-hidden="true"><IconGlyph icon={tone} size={26} /></i><b>{short}</b><small>({label.split("(")[1]}</small></span><strong>{score}<small>/100</small></strong><b>{score >= 80 ? "좋아요" : "보통이에요"}</b><MiniLineChart tone={tone} /><p>{text}</p></article>;
 }
 
 function MiniLineChart({ tone }) {
