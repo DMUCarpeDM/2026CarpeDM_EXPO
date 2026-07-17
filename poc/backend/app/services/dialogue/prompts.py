@@ -19,6 +19,35 @@
 - 프롬프트는 성공률을 올리는 장치일 뿐, 출력 보장은 personalize_question/
   personalize_reaction의 형식 검증 + 템플릿 폴백이 담당한다 (이중 안전장치 유지).
 """
+import re
+
+# 소형 모델 출력의 상습 오염 — 마크다운 강조·헤딩 문자 (하네스 실측: "**재발 방지…")
+_MARKDOWN_NOISE = re.compile(r"[*_`#]+")
+
+
+def clean_generated_line(text: str, names: tuple[str, ...] = ()) -> str:
+    """LLM 한 줄 출력에서 화자 라벨·따옴표·마크다운을 벗겨낸다.
+
+    하네스 실측 오염 3종의 코드 레벨 방어 — 프롬프트 규칙을 늘리는 것보다 확실하고
+    프리필 비용이 없다:
+    - '김태호 팀장: "…"' 자기 라벨 (TTS가 이름표를 그대로 읽는 사고 방지)
+    - 문장 전체를 감싼 따옴표
+    - 마크다운 강조(**…**) 누출
+    """
+    text = text.strip().strip('"').strip()
+    labels = []
+    for name in names:
+        name = (name or "").strip()
+        if name:
+            labels += [name, name.split()[0]]  # "김태호 팀장" + "김태호"
+    for label in labels:
+        if text.startswith(label):
+            rest = text[len(label):].lstrip()
+            if rest[:1] in (":", "—", "-", ")"):
+                text = rest[1:].lstrip().lstrip('"').lstrip()
+                break
+    return _MARKDOWN_NOISE.sub("", text).strip()
+
 
 # 캐릭터 정보를 찾지 못했을 때의 범용 폴백 — 기존 동작 그대로 보존
 GENERIC_SYSTEM_PROMPT = """당신은 직장 역할극 시뮬레이션의 등장인물입니다.
@@ -38,10 +67,11 @@ GENERIC_REACTION_SYSTEM_PROMPT = """당신은 직장 역할극의 등장인물�
 
 # 질문 유형별 지시 — QuestionSpec.question_type과 키가 일치해야 한다.
 # (initial은 항상 템플릿 대본이라 LLM에 도달하지 않는다)
+# 문구는 하네스 폴백률에 직결된다(프리필 지연) — 늘리기 전에 반드시 재측정.
 QUESTION_TYPE_RULES = {
-    "followup": "이번 질문은 '교정'입니다. 사용자의 답변에서 빠진 요소를 정확히 짚어 다시 묻습니다.",
-    "pressure": "이번 질문은 '압박'입니다. 답변의 가장 약한 고리를 파고들어 한 번 더 몰아붙입니다. 단, 인신공격·비하는 금지.",
-    "deepening": "이번 질문은 '심화'입니다. 잘한 답변을 인정하는 전제 위에서, 장면을 한 단계 전개하는 다음 과제를 묻습니다.",
+    "followup": "이번 질문은 '교정' — 답변에서 빠진 요소를 짚어 다시 묻습니다.",
+    "pressure": "이번 질문은 '압박' — 가장 약한 고리를 파고듭니다. 짧을수록 날카롭습니다. 인신공격 금지.",
+    "deepening": "이번 질문은 '심화' — 잘한 답을 전제로 장면을 한 단계 전개하는 과제를 묻습니다.",
 }
 
 # 반응 케이스별 지시 — reactions.classify()가 돌려주는 case와 키가 일치해야 한다.
@@ -55,9 +85,12 @@ REACTION_CASE_RULES = {
 }
 
 # 난이도 톤 수정자 — RoleplaySession.difficulty와 키가 일치해야 한다. 질문·반응 공용.
+# 압박 문구가 "짧게"를 강조하는 이유: 압박 난이도는 프리필이 한 줄 늘어나는 것만으로
+# 7초 타임아웃 폴백이 급증했다(하네스 실측 basic 30% vs pressure 64%+). 출력이 짧아야
+# 디코드가 빨라져 상쇄되고, 실제로도 짧고 단호한 질문이 더 압박답다.
 DIFFICULTY_RULES = {
     "basic": "",  # 기본 모드는 추가 지시 없음
-    "pressure": "지금은 압박 모드입니다. 시간 압박과 높은 기대치를 어조에 담되, 감정적 비난은 하지 않습니다.",
+    "pressure": "압박 모드 — 어조에 시간 압박과 높은 기대치를 싣되, 짧게 몰아붙입니다. 감정적 비난 금지.",
 }
 
 
@@ -102,12 +135,13 @@ def build_character_system_prompt(
 
     name = character["name"]
     sections = _persona_block(
-        character, world, "당신은 직장 역할극의 등장인물 '{name}'입니다. 끝까지 이 인물로만 말합니다.",
+        character, world,
+        "당신은 직장 역할극의 등장인물 '{name}'입니다. 끝까지 이 인물로만 말하고, 상대(신입)의 대사를 대신 만들지 않습니다.",
     )
 
     sections.append(
         "[규칙]\n"
-        f"1. '{name}'의 말투로 한국어 질문 딱 한 문장 — 짧고 간결하게(40자 안팎, 최대 60자),\n"
+        f"1. '{name}'의 말투로 한국어 존댓말 질문 딱 한 문장 — 짧고 간결하게(40자 안팎, 최대 60자),\n"
         "   쉼표로 여러 절을 잇지 말고 물음표 하나로 끝낸다.\n"
         "2. 질문은 하나만. 사용자의 직전 답변 속 단어를 하나 집어 '확인할 요소'를 파고든다.\n"
         "3. 훈계·설명·인사말·역할극 밖의 말(AI/프롬프트 언급) 금지.\n"
@@ -117,7 +151,9 @@ def build_character_system_prompt(
     task_lines = []
     if type_rule := QUESTION_TYPE_RULES.get(question_type, ""):
         task_lines.append(f"- {type_rule}")
-    if difficulty_rule := DIFFICULTY_RULES.get(difficulty, ""):
+    # 압박 유형 × 압박 난이도는 같은 지시의 중복 — 한 줄이면 충분하고,
+    # 프리필 한 줄이 폴백률에 직결되는 환경이라 겹칠 때는 유형 지시만 남긴다.
+    if (difficulty_rule := DIFFICULTY_RULES.get(difficulty, "")) and difficulty != question_type:
         task_lines.append(f"- {difficulty_rule}")
     if task_lines:
         sections.append("[이번 질문]\n" + "\n".join(task_lines))
@@ -143,12 +179,12 @@ def build_reaction_system_prompt(
     name = character["name"]
     sections = _persona_block(
         character, world,
-        "당신은 직장 역할극의 등장인물 '{name}'입니다. 신입의 직전 답변에 대한 짧은 반응 한 문장을 만듭니다.",
+        "당신은 직장 역할극의 등장인물 '{name}'입니다. 신입의 직전 답변에 대한 짧은 반응 한 문장을 만듭니다. 신입의 입장에서 대답하지 않습니다.",
     )
 
     sections.append(
         "[규칙]\n"
-        f"1. '{name}'의 말투로 한국어 반응 딱 한 문장 — 짧고 간결하게(40자 안팎, 최대 80자),\n"
+        f"1. '{name}'의 말투로 한국어 존댓말 반응 딱 한 문장 — 짧고 간결하게(40자 안팎, 최대 80자),\n"
         "   쉼표로 여러 절을 잇지 말고 마침표로 끝낸다. 질문 금지(물음표로 끝내지 않음).\n"
         "2. 사용자의 직전 답변 속 단어나 구절을 하나 직접 언급한다.\n"
         "3. 훈계 장문·인사말·역할극 밖의 말(AI/프롬프트 언급) 금지.\n"

@@ -23,6 +23,7 @@ DEFAULT_REACTION)으로 폴백한다.
 목표선: 폴백률 20% 이하 (실패 사례는 speech_examples/규칙에 반영해서 회귀).
 """
 import argparse
+import os
 import statistics
 import sys
 import time
@@ -187,7 +188,11 @@ def run_live(
     if target == "reaction":
         settings.dialogue_provider = "ollama"
     label = "범용(기준선)" if generic else "캐릭터별"
+    # 부하평균 기록 — 연속 벤치마킹이 CPU 포화로 후반 측정을 악화시킨 전례(실측 83%→
+    # 냉각 후 64%). 수치를 비교하려면 측정 시점의 부하가 결과에 남아 있어야 한다.
+    load1, load5, _ = os.getloadavg()
     print(f"model={settings.ollama_model}  runs/조합={runs}  target={target}  프롬프트={label}  "
+          f"load={load1:.1f}/{load5:.1f}\n"
           f"(성공=형식 검증 통과 → 개인화 채택, 실패=템플릿 폴백)\n")
 
     runner = run_live_question if target == "question" else run_live_reaction

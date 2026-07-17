@@ -11,6 +11,7 @@
   선택적으로 로컬 LLM(Ollama)이 답변을 직접 언급하는 문장으로 다듬는다(실패 시 폴백).
 """
 import random
+import re
 
 import httpx
 
@@ -18,7 +19,13 @@ from app.ai.response_fit import analyze_response
 from app.core.config import settings
 from app.models import RoleplaySession
 from app.seed.seed_data import ENDINGS, REACTIONS
-from app.services.dialogue.prompts import build_reaction_system_prompt
+from app.services.dialogue.prompts import build_reaction_system_prompt, clean_generated_line
+
+# 장문 생성 구제 — 완결된 첫 평서문(…다./…요. 등)만 살린다.
+# 질문 경로(ollama_provider)의 '첫 질문 추출'과 동형: 소형 모델이 사족을 붙여도
+# 앞문장이 온전하면 폴백 대신 채택한다 (하네스 실측: 90자 초과 탈락이 리액션
+# 폴백의 주요 원인 중 하나).
+_FIRST_SENTENCE = re.compile(r"(.{8,88}?(?:다|요|죠|네)[.!])")
 
 # 케이스별 수행도 델타. covered를 0.5로 눌러 "무난한 답만으로는 high가 안 되게" 설계 —
 # high 결말은 excellent가 섞여야 나온다 (분기가 체감되도록).
@@ -127,11 +134,17 @@ def personalize_reaction(
             timeout=settings.ollama_timeout_sec,
         )
         resp.raise_for_status()
-        text = resp.json()["message"]["content"].strip().strip('"')
+        text = clean_generated_line(
+            resp.json()["message"]["content"], (character.get("name", ""),),
+        )
     except Exception:
         return reaction  # 연결 실패/타임아웃 → 템플릿 폴백
+    if "\n" in text:
+        text = text.split("\n", 1)[0].strip()  # 사족 줄바꿈 구제 — 첫 줄만
+    if len(text) > 90 and (m := _FIRST_SENTENCE.match(text)):
+        text = m.group(1).strip()
     # 형식 검증: 한 문장, 적정 길이, 질문 아님 — 어긋나면 폴백
-    if not text or len(text) > 90 or "\n" in text or text.endswith("?"):
+    if not text or len(text) > 90 or text.endswith("?"):
         return reaction
     return text
 

@@ -16,7 +16,7 @@ import httpx
 from app.core.config import settings
 from app.models import Episode, RoleplaySession, Turn
 from app.services.dialogue.base import QuestionSpec
-from app.services.dialogue.prompts import build_character_system_prompt
+from app.services.dialogue.prompts import build_character_system_prompt, clean_generated_line
 from app.services.dialogue.template_provider import TemplateDialogueProvider
 
 
@@ -105,7 +105,10 @@ class OllamaDialogueProvider:
                 timeout=settings.ollama_timeout_sec,
             )
             resp.raise_for_status()
-            text = resp.json()["message"]["content"].strip().strip('"')
+            text = clean_generated_line(
+                resp.json()["message"]["content"],
+                ((character or {}).get("name", ""), spec.character_id),
+            )
         except Exception:
             return None  # 연결 실패/타임아웃 → 템플릿 폴백
 

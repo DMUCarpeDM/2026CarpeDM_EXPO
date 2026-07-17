@@ -11,8 +11,9 @@ from app.services.dialogue.prompts import (
     REACTION_CASE_RULES,
     build_character_system_prompt,
     build_reaction_system_prompt,
+    clean_generated_line,
 )
-from app.services.dialogue.reactions import personalize_reaction
+from app.services.dialogue.reactions import _FIRST_SENTENCE, personalize_reaction
 
 KIM = next(c for c in CHARACTERS if c["id"] == "kim_teamlead")
 
@@ -38,8 +39,8 @@ def test_character_prompt_contains_persona_world_and_examples():
 
 
 def test_question_type_and_difficulty_blocks():
-    pressured = build_character_system_prompt(KIM, WORLD_SETTING, "pressure", "pressure")
-    assert QUESTION_TYPE_RULES["pressure"] in pressured
+    pressured = build_character_system_prompt(KIM, WORLD_SETTING, "followup", "pressure")
+    assert QUESTION_TYPE_RULES["followup"] in pressured
     assert "압박 모드" in pressured
 
     basic = build_character_system_prompt(KIM, WORLD_SETTING, "followup", "basic")
@@ -48,6 +49,16 @@ def test_question_type_and_difficulty_blocks():
     # 미지의 유형/난이도는 조용히 생략 — 프롬프트가 깨지지 않는다
     unknown = build_character_system_prompt(KIM, WORLD_SETTING, "initial", "unknown")
     assert "[이번 질문]" not in unknown
+
+
+def test_pressure_type_with_pressure_difficulty_dedupes():
+    """압박 유형 × 압박 난이도는 같은 지시의 중복 — 유형 지시 한 줄만 남는다.
+
+    프리필 한 줄이 폴백률에 직결되는 환경(하네스 실측)이라 겹칠 때는 생략이 계약이다.
+    """
+    doubled = build_character_system_prompt(KIM, WORLD_SETTING, "pressure", "pressure")
+    assert QUESTION_TYPE_RULES["pressure"] in doubled
+    assert "압박 모드" not in doubled
 
 
 def test_all_seed_characters_assemble_with_examples():
@@ -124,3 +135,31 @@ def test_personalize_reaction_accepts_case_and_falls_back(monkeypatch):
         case="missing", world=WORLD_SETTING, difficulty="pressure",
     )
     assert result == "기본 반응."
+
+
+# ---- 출력 새니타이저 + 장문 구제 — 하네스 실측 오염 사례의 회귀 방지 ----
+
+
+def test_clean_generated_line_strips_speaker_labels():
+    """'김태호 팀장: "…"' 자기 라벨 — TTS가 이름표를 읽는 사고의 실측 사례."""
+    cleaned = clean_generated_line(
+        '김태호 팀장: "이름은 뭐고, 오늘 목표가 뭡니까?"', (KIM["name"],),
+    )
+    assert cleaned == "이름은 뭐고, 오늘 목표가 뭡니까?"
+    # 성 없이 짧은 라벨도, 전체 감싼 따옴표도
+    assert clean_generated_line("김태호: 다음 액션이 뭡니까?", (KIM["name"],)) == "다음 액션이 뭡니까?"
+    assert clean_generated_line('"한 줄로 정리하면요?"') == "한 줄로 정리하면요?"
+
+
+def test_clean_generated_line_strips_markdown_and_keeps_normal_text():
+    assert clean_generated_line("**재발 방지** 계획은 무엇인가요?") == "재발 방지 계획은 무엇인가요?"
+    # 라벨 조건(콜론 등)이 없으면 이름으로 시작하는 정상 문장은 보존
+    assert clean_generated_line("김태호 팀장입니다. 이름이 뭡니까?", (KIM["name"],)) \
+        == "김태호 팀장입니다. 이름이 뭡니까?"
+
+
+def test_reaction_first_sentence_rescue_pattern():
+    """90자 초과 장문에서 완결된 첫 평서문만 살리는 구제 — 리액션 폴백 주요 원인 대응."""
+    long_text = "서버 문제라는 추측은 좋지만 좀 더 구체적인 로그가 필요해 보여요. " + "덧붙이자면 " * 20
+    m = _FIRST_SENTENCE.match(long_text)
+    assert m and m.group(1) == "서버 문제라는 추측은 좋지만 좀 더 구체적인 로그가 필요해 보여요."
