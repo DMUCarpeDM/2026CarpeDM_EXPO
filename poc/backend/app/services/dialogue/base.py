@@ -12,7 +12,7 @@ from app.models import Episode, RoleplaySession, Turn
 @dataclass
 class QuestionSpec:
     episode_id: int
-    question_type: str  # initial | followup | pressure
+    question_type: str  # initial | followup | pressure | deepening
     question_text: str
     character_id: str
     intent: str = ""
@@ -38,10 +38,18 @@ class DialogueProvider(Protocol):
         ...
 
     def personalize_question(
-        self, spec: QuestionSpec, situation: str, last_response: str
+        self,
+        spec: QuestionSpec,
+        situation: str,
+        last_response: str,
+        character: dict | None = None,
+        world: dict | None = None,
+        difficulty: str = "basic",
     ) -> str | None:
         """spec 질문을 직전 답변 맥락으로 다듬는다 (실패·비활성 시 None).
 
-        평문 인자만 받으므로 스레드에서 안전하다 (ORM 객체 전달 금지).
+        character/world는 시드 페르소나·세계관의 평문 dict — 캐릭터별 시스템
+        프롬프트 조립 재료다 (없으면 범용 프롬프트). 평문 인자만 받으므로
+        스레드에서 안전하다 (ORM 객체 전달 금지).
         """
         ...

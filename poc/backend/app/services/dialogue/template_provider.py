@@ -155,7 +155,13 @@ class TemplateDialogueProvider:
         return self.next_question(session, episodes, turns)
 
     def personalize_question(
-        self, spec: QuestionSpec, situation: str, last_response: str
+        self,
+        spec: QuestionSpec,
+        situation: str,
+        last_response: str,
+        character: dict | None = None,
+        world: dict | None = None,
+        difficulty: str = "basic",
     ) -> str | None:
         return None  # 템플릿 엔진은 개인화 없음 — 대본 그대로
 

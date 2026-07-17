@@ -236,13 +236,24 @@ def submit_response(
     response_text = turn.response_text
     personalize_q = spec.question_type != "initial"
     situation = ""
+    q_character = None
     if personalize_q:
         ep = db.get(Episode, spec.episode_id)
         situation = ep.situation if ep else ""
+        # 질문하는 인물의 페르소나 — 캐릭터별 시스템 프롬프트 재료.
+        # (reaction용 character와 다를 수 있다: 에피소드가 넘어가면 화자가 바뀐다)
+        q_character = next(
+            (c for c in session.scenario.characters if c["id"] == spec.character_id), None,
+        )
     if settings.dialogue_provider == "ollama" and (personalize_q or reaction):
+        world_setting = session.scenario.world_setting or {}
+        difficulty = session.difficulty or "basic"
         with ThreadPoolExecutor(max_workers=2) as pool:
             q_future = (
-                pool.submit(provider.personalize_question, spec, situation, response_text)
+                pool.submit(
+                    provider.personalize_question, spec, situation, response_text,
+                    q_character, world_setting, difficulty,
+                )
                 if personalize_q else None
             )
             r_future = (
