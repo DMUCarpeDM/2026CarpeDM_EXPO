@@ -7,7 +7,10 @@
     "dev": "vite --host 0.0.0.0",
     "test": "node --test src/lib/*.test.js",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "sync-vision": "node scripts/sync-vision-assets.mjs",
+    "predev": "node scripts/sync-vision-assets.mjs",
+    "prebuild": "node scripts/sync-vision-assets.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.4",
@@ -15,7 +18,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "reicon-react": "^1.1.2",
-    "vite": "^6.0.7"
+    "vite": "^6.0.7",
+    "@mediapipe/tasks-vision": "^0.10.35"
   },
   "devDependencies": {
     "playwright": "^1.61.1"

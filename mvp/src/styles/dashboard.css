@@ -413,6 +413,9 @@
 .camera-badge.live i { width: 8px; height: 8px; border-radius: 50%; background: #fff; animation: rec-pulse 1.4s ease-in-out infinite; }
 .camera-badge.ai-cam { top: 16px; right: 16px; background: rgba(15, 21, 36, 0.55); }
 .camera-eye-chip { position: absolute; top: 50%; right: 16px; transform: translateY(-50%); display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: var(--radius-pill); background: rgba(16, 185, 129, 0.85); color: #fff; font-size: 12px; font-weight: 600; backdrop-filter: blur(6px); }
+.camera-eye-chip.off { background: rgba(255, 138, 0, 0.85); }
+/* 실시간 코칭 토스트 (세션당 최대 3회, 4초 자동 소멸) — useNonverbal.maybeCoach */
+.camera-coach-tip { position: absolute; left: 50%; bottom: 118px; transform: translateX(-50%); max-width: min(520px, 80%); padding: 10px 18px; border-radius: var(--radius-pill); background: rgba(0, 100, 255, 0.82); color: #fff; font-size: 14px; font-weight: 600; text-align: center; backdrop-filter: blur(8px); animation: page-in 0.25s ease both; }
 .camera-voicewave { position: absolute; left: 16px; bottom: 118px; display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--radius-pill); background: rgba(15, 21, 36, 0.5); color: rgba(255, 255, 255, 0.86); font-size: 12px; font-weight: 600; backdrop-filter: blur(6px); }
 .voicewave { display: inline-flex; align-items: center; gap: 2px; height: 18px; }
 .voicewave i { width: 2.5px; border-radius: 2px; background: #6ee7ff; animation: wave-bounce 1s ease-in-out infinite; }

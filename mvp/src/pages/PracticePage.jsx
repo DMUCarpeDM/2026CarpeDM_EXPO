@@ -13,6 +13,7 @@ import { User4 } from "reicon-react/icons/User4";
 import { motion } from "framer-motion";
 import { IconGlyph } from "../components/ui/IconGlyph";
 import { LiveFitMeter } from "../components/report/Charts";
+import { useNonverbal } from "../lib/nonverbal/useNonverbal";
 
 function formatClock(totalSeconds) {
   const m = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
@@ -29,9 +30,13 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
   const [notesOpen, setNotesOpen] = useState(false);
   const [notes, setNotes] = useState("");
   const videoRef = useRef(null);
+  const overlayRef = useRef(null);
   const recorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const recordingStartedAtRef = useRef(0);
+  // 시선·자세 실측정 (MediaPipe — 원본 영상은 브라우저 밖으로 나가지 않아요).
+  // 훅이 자체 카메라 스트림·랜드마커 수명주기를 관리하고, 턴 단위 집계 지표를 돌려줘요.
+  const { cameraReady, visionStatus, tip, live, startTurn, endTurn, setGazePhase, startCalibration, finishCalibration } = useNonverbal(videoRef, overlayRef);
   const character = scenario?.characters?.find((item) => item.id === turn?.character_id) || scenario?.characters?.[0];
   const characterName = character?.name || "AI 상대";
   const characterRole = character?.role || scenario?.title || "AI 역할극";
@@ -54,9 +59,27 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
     return () => window.clearInterval(timer);
   }, [turn?.id, paused]);
 
+  // 비전 훅이 카메라를 못 열었을 때만 앱 스트림으로 미리보기를 대신해요.
   useEffect(() => {
-    if (videoRef.current && mediaStream) videoRef.current.srcObject = mediaStream;
-  }, [mediaStream]);
+    if (videoRef.current && mediaStream && !cameraReady && visionStatus !== "loading") {
+      videoRef.current.srcObject = mediaStream;
+    }
+  }, [mediaStream, cameraReady, visionStatus]);
+
+  // 측정 기준(정면 시선·어깨 기울기)은 첫 질문을 듣는 몇 초 동안 조용히 잡아요.
+  useEffect(() => {
+    if (!cameraReady) return undefined;
+    startCalibration();
+    const timer = window.setTimeout(finishCalibration, 4000);
+    return () => window.clearTimeout(timer);
+  }, [cameraReady, startCalibration, finishCalibration]);
+
+  // 턴이 바뀌면 비언어 집계를 새로 시작 — 질문을 듣는 구간은 'listening' 시선으로 기록해요.
+  useEffect(() => {
+    if (!turn) return;
+    startTurn();
+    setGazePhase("listening");
+  }, [turn?.id, startTurn, setGazePhase]);
 
   useEffect(() => {
     if (!mediaStream || !turn) return undefined;
@@ -82,18 +105,14 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
     else { recorder.requestData(); recorder.stop(); }
   });
 
-  const collectNonverbalMetrics = () => {
-    const videoTrack = mediaStream?.getVideoTracks()[0];
-    const settings = videoTrack?.getSettings?.() || {};
-    return { camera_width: videoRef.current?.videoWidth || settings.width || 0, camera_height: videoRef.current?.videoHeight || settings.height || 0, video_track_ready: videoTrack?.readyState === "live", facing_mode: settings.facingMode || "unknown" };
-  };
-
   const submitDraft = async () => {
     if (!draft.trim() || busy || !turn) return;
     try {
       const audio = await stopTurnRecorder();
       if (audio.size === 0) throw new Error("답변 음성이 녹음되지 않았어요. 마이크 권한을 확인해 주세요.");
-      await onSubmit({ text: draft, audio, durationMs: Math.round(performance.now() - recordingStartedAtRef.current), nonverbalMetrics: collectNonverbalMetrics() });
+      // 이 턴의 실측 비언어 지표(시선·자세·표정) — 카메라가 없으면 null로 보내요(측정 제외).
+      const nonverbal = endTurn();
+      await onSubmit({ text: draft, audio, durationMs: Math.round(performance.now() - recordingStartedAtRef.current), nonverbalMetrics: nonverbal });
       setDraft("");
       setCaptureError("");
     } catch (err) { setCaptureError(err.message); }
@@ -117,13 +136,18 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
 
       <div className="practice-stage">
         <section className="practice-camera" aria-label="연습 카메라">
-          <video ref={videoRef} className={`camera-video ${mediaStream ? "is-live" : ""}`} autoPlay muted playsInline aria-label="내 카메라 미리보기" />
-          {!mediaStream && <span className="camera-fallback"><User4 size={96} /></span>}
-          <TrackingOverlay />
+          <video ref={videoRef} className={`camera-video ${cameraReady || mediaStream ? "is-live" : ""}`} autoPlay muted playsInline aria-label="내 카메라 미리보기" />
+          {!cameraReady && !mediaStream && <span className="camera-fallback"><User4 size={96} /></span>}
+          {/* 실측 랜드마크 오버레이 — useNonverbal이 매 샘플 얼굴·상체 골격을 그려요 (시각화 전용, 영상 미전송) */}
+          <canvas ref={overlayRef} className="tracking-overlay" width={640} height={480} aria-hidden="true" />
           <span className="camera-badge live"><i />LIVE</span>
           <span className="camera-badge ai-cam">AI 카메라</span>
-          <span className="camera-eye-chip"><IconGlyph icon="eye" size={16} /> 시선 유지 좋음</span>
-          <div className="camera-voicewave" aria-hidden="true"><span>응답 배열</span><span className="voicewave">{Array.from({ length: 22 }, (_, i) => <i key={i} />)}</span></div>
+          {cameraReady && live.calibrated && (
+            <span className={`camera-eye-chip ${live.tracking && live.front ? "" : "off"}`}>
+              <IconGlyph icon="eye" size={16} /> {live.tracking ? (live.front ? "시선 유지 좋음" : "시선이 벗어났어요") : "얼굴을 찾는 중"}
+            </span>
+          )}
+          {tip && <div className="camera-coach-tip" role="status">{tip.text}</div>}
           <div className="camera-subtitle">
             <span className="camera-subtitle-head"><IconGlyph icon="coach" size={18} /> {characterName}<em>{aiReady ? "AI가 말하는 중" : "질문 준비 중"}</em></span>
             <p>{turn?.question_text || "다음 질문을 준비하고 있어요."}</p>
@@ -134,10 +158,10 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
           <section className="card live-fit-card">
             <div className="live-fit-head"><h2><IconGlyph icon="fit" size={19} /> 실시간 4-Fit 피드백 <InfoCircle size={16} className="muted-info" /></h2><button type="button" className="text-link" onClick={onPrev}>자세히 보기 <ChevronRight size={14} /></button></div>
             <div className="live-fit-grid">
-              <LiveFitMeter icon="response" label="응답" english="Response" tone="response" kind="ring" percent={coverage ?? 85} caption="답변 커버리지" />
-              <LiveFitMeter icon="voice" label="목소리" english="Voice" tone="voice" kind="wave" caption="목소리 변동 측정" />
-              <LiveFitMeter icon="eye" label="시선" english="Eye" tone="eye" kind="icon" caption="카메라로 측정 중" />
-              <LiveFitMeter icon="posture" label="자세" english="Posture" tone="posture" kind="icon" caption="자세 안정적" />
+              <LiveFitMeter icon="response" label="응답" english="Response" tone="response" kind="ring" percent={coverage} caption={coverage === null ? "첫 답변 후 측정" : "답변 커버리지"} />
+              <LiveFitMeter icon="voice" label="목소리" english="Voice" tone="voice" kind="wave" caption={cameraReady ? (live.micLevel > 0.06 ? "목소리 감지 중" : "말소리를 기다려요") : "답변 음성으로 분석"} />
+              <LiveFitMeter icon="eye" label="시선" english="Eye" tone="eye" kind="icon" caption={eyeCaption(visionStatus, live)} />
+              <LiveFitMeter icon="posture" label="자세" english="Posture" tone="posture" kind="icon" caption={postureCaption(visionStatus, live)} />
             </div>
             <p className="live-fit-note"><IconGlyph icon="coach" size={18} /> AI 상태 {aiState}. 핵심 행동과 기한을 한 문장으로 먼저 정리해 답변해 보세요.</p>
           </section>
@@ -173,7 +197,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
           <span className="control-speak-label"><Mic size={18} /> {busy ? "AI가 답을 준비하고 있어요" : "말하면서 답변을 입력해 주세요"}</span>
           )}
           <span className="control-wave" aria-hidden="true">{Array.from({ length: 26 }, (_, i) => <i key={i} />)}</span>
-          <input value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && draft.trim() && !busy && turn) submitDraft(); }} placeholder="메시지를 입력해 보세요" disabled={busy || !turn} />
+          <input value={draft} onChange={(event) => { if (!draft && event.target.value) setGazePhase("answering"); setDraft(event.target.value); }} onKeyDown={(event) => { if (event.key === "Enter" && draft.trim() && !busy && turn) submitDraft(); }} placeholder="메시지를 입력해 보세요" disabled={busy || !turn} />
           <time>{formatClock(recSeconds)}</time>
           <button type="button" className="control-send" aria-label="답변 보내기" onClick={submitDraft} disabled={busy || !draft.trim() || !turn}><Send size={22} /></button>
         </div>
@@ -184,30 +208,21 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
   );
 }
 
-// 얼굴·자세 트래킹 오버레이. 실시간 측정 중임을 보여주는 시각 효과예요.
-function TrackingOverlay() {
-  const facePoints = [
-    [50, 30], [46, 33], [54, 33], [42, 37], [58, 37], [44, 42], [50, 42], [56, 42],
-    [46, 47], [54, 47], [48, 51], [52, 51], [50, 55], [43, 34], [57, 34], [40, 45], [60, 45],
-  ];
-  return (
-    <svg className="tracking-overlay" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <g className="track-skeleton">
-        <line x1="35" y1="72" x2="65" y2="72" />
-        <line x1="50" y1="56" x2="50" y2="82" />
-        <line x1="35" y1="72" x2="27" y2="92" />
-        <line x1="65" y1="72" x2="73" y2="92" />
-        <line x1="50" y1="56" x2="35" y2="72" />
-        <line x1="50" y1="56" x2="65" y2="72" />
-        <circle cx="35" cy="72" r="1.6" /><circle cx="65" cy="72" r="1.6" />
-        <circle cx="50" cy="56" r="1.6" /><circle cx="27" cy="92" r="1.6" /><circle cx="73" cy="92" r="1.6" />
-      </g>
-      <g className="track-face">
-        <rect x="38" y="24" width="24" height="34" rx="12" />
-        {facePoints.map(([x, y], index) => <circle key={index} cx={x} cy={y} r="0.8" />)}
-      </g>
-    </svg>
-  );
+// 라이브 패널 문구 — 실측 상태만 말해요. 측정이 안 되면 '안 된다'를 그대로 보여줍니다.
+function eyeCaption(visionStatus, live) {
+  if (visionStatus === "loading") return "측정 준비 중";
+  if (visionStatus !== "ready") return "카메라 없음 — 측정 제외";
+  if (!live.tracking) return "얼굴을 찾는 중";
+  if (!live.calibrated) return "정면 기준 잡는 중";
+  return live.front ? "정면 응시 중" : "시선이 벗어났어요";
+}
+
+function postureCaption(visionStatus, live) {
+  if (visionStatus === "loading") return "측정 준비 중";
+  if (visionStatus !== "ready") return "카메라 없음 — 측정 제외";
+  if (!live.tracking) return "상체를 찾는 중";
+  if (live.headDown) return "고개가 숙여졌어요";
+  return Math.abs(live.tiltDeg) > 6 ? "어깨가 기울었어요" : "자세 안정적";
 }
 
 function ChatBubble({ children, ai = false, mine = false, time }) {

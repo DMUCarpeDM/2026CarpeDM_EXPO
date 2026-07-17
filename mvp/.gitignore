@@ -5,3 +5,7 @@ artifacts/
 .ouroboros/
 tmp/
 .DS_Store
+
+# MediaPipe 자산은 poc/frontend/public에서 sync-vision-assets.mjs가 복사 (git 중복 방지)
+public/mediapipe-wasm/
+public/models/
