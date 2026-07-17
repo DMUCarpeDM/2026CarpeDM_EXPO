@@ -55,7 +55,7 @@ function openAudioDb() {
 }
 
 export async function retainTurnAudio(sessionId, turnId, audio) {
-  if (!globalThis.indexedDB) return null;
+  if (!audio || !globalThis.indexedDB) return null;
   const db = await openAudioDb();
   const reference = retainedAudioReference(sessionId, turnId);
   await new Promise((resolve, reject) => {

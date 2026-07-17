@@ -1,0 +1,101 @@
+/* 전시 어트랙트 루프 — 유휴 시 가치 제안 슬라이드를 순환하는 전체 화면 오버레이 */
+
+.attract-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+  padding: 40px;
+  background:
+    radial-gradient(85% 60% at 50% 8%, rgba(64, 108, 180, 0.4) 0%, transparent 60%),
+    radial-gradient(110% 90% at 50% 115%, rgba(0, 100, 255, 0.24) 0%, transparent 55%),
+    linear-gradient(180deg, #16233c 0%, #0d1830 56%, #0a1222 100%);
+  color: #fff;
+  cursor: pointer;
+  user-select: none;
+}
+.attract-glow {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(140, 170, 220, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(140, 170, 220, 0.05) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(75% 65% at 50% 45%, rgba(0, 0, 0, 0.9), transparent 100%);
+  pointer-events: none;
+}
+
+.attract-brand { position: absolute; top: 34px; left: 40px; display: inline-flex; align-items: center; gap: 10px; }
+.attract-brand strong { font-family: var(--font-display); font-size: 21px; font-weight: 750; letter-spacing: -0.015em; color: #fff; }
+
+.attract-slide { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.attract-icon {
+  display: grid; place-items: center;
+  width: 96px; height: 96px;
+  margin-bottom: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #7ab5ff;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 18px 44px rgba(0, 40, 110, 0.35);
+}
+.attract-fits { display: flex; gap: 14px; margin-bottom: 18px; }
+.attract-fit {
+  display: grid; place-items: center;
+  width: 74px; height: 74px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(8px);
+  animation: attract-float 2.8s ease-in-out infinite;
+}
+.attract-fit:nth-child(2) { animation-delay: 0.35s; }
+.attract-fit:nth-child(3) { animation-delay: 0.7s; }
+.attract-fit:nth-child(4) { animation-delay: 1.05s; }
+.attract-fit.response { color: #7ab5ff; }
+.attract-fit.voice { color: #8ecbff; }
+.attract-fit.eye { color: #6ee7ff; }
+.attract-fit.posture { color: #5eeaa2; }
+@keyframes attract-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+
+.attract-slide h2 {
+  display: flex; flex-direction: column; gap: 4px;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(34px, 4.2vw, 58px);
+  font-weight: 780;
+  line-height: 1.24;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+.attract-slide p { margin: 14px 0 0; color: rgba(255, 255, 255, 0.72); font-size: clamp(15px, 1.4vw, 19px); }
+
+.attract-dots { display: flex; gap: 8px; margin-top: 6px; }
+.attract-dots i { width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, 0.25); transition: background-color 0.3s ease, transform 0.3s ease; }
+.attract-dots i.on { background: #fff; transform: scale(1.25); }
+
+.attract-cta {
+  margin-top: 20px;
+  padding: 16px 34px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 680;
+  backdrop-filter: blur(10px);
+  animation: attract-pulse 2.2s ease-in-out infinite;
+}
+@keyframes attract-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(122, 181, 255, 0.35); }
+  50% { box-shadow: 0 0 0 14px rgba(122, 181, 255, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .attract-fit, .attract-cta { animation: none; }
+}

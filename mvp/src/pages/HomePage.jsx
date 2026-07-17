@@ -1,7 +1,19 @@
 import React from "react";
 import { ArrowRight } from "reicon-react/icons/ArrowRight";
+import { Bolt } from "reicon-react/icons/Bolt";
+import { Coins } from "reicon-react/icons/Coins";
+import { LockKeyhole } from "reicon-react/icons/LockKeyhole";
+import { ShieldCheck } from "reicon-react/icons/ShieldCheck";
 import { Sparkles } from "reicon-react/icons/Sparkles";
 import { homeAdvantages, homeFitSnapshot } from "../data/homeContent";
+
+// 로컬 AI 서사 — 제약이 아니라 대표 강점: 프라이버시·비용·오프라인
+const trustBadges = [
+  { icon: ShieldCheck, label: "100% 온디바이스 AI 분석" },
+  { icon: LockKeyhole, label: "영상·음성 서버 미전송" },
+  { icon: Coins, label: "API 비용 0원" },
+  { icon: Bolt, label: "인터넷 없이도 동작" },
+];
 
 export function HomePage({ onNext }) {
   return (
@@ -19,6 +31,11 @@ export function HomePage({ onNext }) {
             <ProfileAvatar initials="SK" tone="violet" />
             <ProfileAvatar initials="YR" tone="mint" />
             <span><b>20,000+</b>명이<br />대화를 연습하고 있어요.</span>
+          </div>
+          <div className="home-trust-strip" aria-label="프라이버시와 접근성 약속">
+            {trustBadges.map(({ icon: Icon, label }) => (
+              <span className="trust-badge" key={label}><Icon size={15} /> {label}</span>
+            ))}
           </div>
         </div>
       </div>

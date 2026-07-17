@@ -134,3 +134,16 @@
 .home-advantage-card small { display: block; color: #7a889c; font-size: 12px; line-height: 1.65; }
 
 
+
+/* 신뢰 스트립 — 로컬 AI(프라이버시·비용·오프라인)를 첫 화면에서 선언 */
+.home-trust-strip { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 26px; }
+.trust-badge {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 14px;
+  border: 1px solid rgba(0, 100, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(234, 242, 255, 0.55);
+  color: #2c4a75;
+  font-size: 12.5px; font-weight: 620;
+}
+.trust-badge svg { color: #0064ff; }
