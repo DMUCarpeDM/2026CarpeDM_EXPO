@@ -9,8 +9,8 @@ personalize_reaction — 프롬프트 조립 → 생성 → 형식 검증)를 N�
   - 샘플: 채택된 문장 — 말투 유지 여부는 사람이 훑어본다
 
 재료는 시드(CHARACTERS/WORLD_SETTING/EPISODES/REACTIONS)에서 그대로 가져온다 —
-DB 불필요. 에피소드에 아직 캐스팅되지 않은 예비 캐릭터(임원/외부 고객)는 공용
-샘플 상황을 쓴다.
+DB 불필요. 캐스팅된 에피소드가 없는 캐릭터가 생기면 공용 샘플 상황(DEFAULT_SAMPLE/
+DEFAULT_REACTION)으로 폴백한다.
 
 실행:  (backend/ 에서)
   python -m scripts.prompt_harness --dump                    # 오프라인: 질문 프롬프트만 출력
