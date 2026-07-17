@@ -604,6 +604,17 @@ export function useNonverbal(videoRef, overlayRef) {
     };
 }
 /** 분석 중임을 보여주는 스켈레톤 오버레이 — 시각화 전용 (영상 미전송 원칙 유지) */
+// MVP 전시 룩 (poc 원본과 의도적 표현 차이): 피그마 목업의 점묘 메시 + 점선 타원을
+// 실측 랜드마크로 재현해요 — 어제까지의 '연출용' 메시와 같은 인상, 이제는 진짜로 따라다님.
+const FACE_FEATURE_POINTS = [
+    // 눈썹
+    70, 63, 105, 66, 107, 336, 296, 334, 293, 300,
+    // 눈 (양끝·위/아래 눈꺼풀)
+    33, 133, 159, 145, 362, 263, 386, 374,
+    // 콧대·코끝, 입 (양끝·위/아래), 볼·턱·이마
+    1, 4, 197, 61, 291, 0, 17, 50, 280, 152, 10,
+];
+
 function drawOverlay(canvas, faceLm, poseLm) {
     if (!canvas)
         return;
@@ -613,7 +624,7 @@ function drawOverlay(canvas, faceLm, poseLm) {
     const { width: w, height: h } = canvas;
     ctx.clearRect(0, 0, w, h);
     if (poseLm) {
-        ctx.strokeStyle = 'rgba(91, 124, 250, 0.9)';
+        ctx.strokeStyle = 'rgba(80, 240, 170, 0.85)';
         ctx.lineWidth = 3;
         for (const [a, b] of POSE_LINKS) {
             const pa = poseLm[a];
@@ -625,8 +636,8 @@ function drawOverlay(canvas, faceLm, poseLm) {
             ctx.lineTo(pb.x * w, pb.y * h);
             ctx.stroke();
         }
-        ctx.fillStyle = '#5b7cfa';
-        for (const idx of [0, 11, 12]) {
+        ctx.fillStyle = 'rgba(80, 240, 170, 0.95)';
+        for (const idx of [0, 11, 12, 13, 14, 23, 24]) {
             const p = poseLm[idx];
             if (!p)
                 continue;
@@ -636,13 +647,31 @@ function drawOverlay(canvas, faceLm, poseLm) {
         }
     }
     if (faceLm) {
-        ctx.fillStyle = 'rgba(62, 207, 142, 0.9)';
-        for (const idx of FACE_POINTS) {
+        // 얼굴 경계 점선 타원 — 윤곽 극점(상 10 · 하 152 · 좌 234 · 우 454)에서 계산
+        const top = faceLm[10];
+        const bottom = faceLm[152];
+        const left = faceLm[234];
+        const right = faceLm[454];
+        if (top && bottom && left && right) {
+            const cx = ((left.x + right.x) / 2) * w;
+            const cy = ((top.y + bottom.y) / 2) * h;
+            const rx = (Math.abs(right.x - left.x) / 2) * w * 1.25;
+            const ry = (Math.abs(bottom.y - top.y) / 2) * h * 1.18;
+            ctx.strokeStyle = 'rgba(80, 240, 170, 0.7)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([7, 6]);
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        ctx.fillStyle = 'rgba(120, 245, 190, 0.9)';
+        for (const idx of FACE_FEATURE_POINTS) {
             const p = faceLm[idx];
             if (!p)
                 continue;
             ctx.beginPath();
-            ctx.arc(p.x * w, p.y * h, 2.5, 0, Math.PI * 2);
+            ctx.arc(p.x * w, p.y * h, 3, 0, Math.PI * 2);
             ctx.fill();
         }
     }
