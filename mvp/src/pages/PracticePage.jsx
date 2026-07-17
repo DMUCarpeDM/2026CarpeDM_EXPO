@@ -92,9 +92,11 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
     };
   };
   const eyeMeter = trackingLive
-    ? track.eyeFront
-      ? { percent: 92, status: "Good", caption: "상대와 눈을 맞추고 있어요", muted: false, warn: false }
-      : { percent: 45, status: "주의", caption: "화면 속 상대를 바라봐 주세요", muted: false, warn: true }
+    ? track.calibrating
+      ? { percent: 30, status: "보정 중", caption: "잠시 화면을 바라봐 주세요", muted: true, warn: false }
+      : track.eyeFront
+        ? { percent: 92, status: "Good", caption: "상대와 눈을 맞추고 있어요", muted: false, warn: false }
+        : { percent: 45, status: "주의", caption: "화면 속 상대를 바라봐 주세요", muted: false, warn: true }
     : track.status === "loading"
       ? { percent: 0, status: "…", caption: "분석 모델 준비 중", muted: true, warn: false }
       : { percent: 0, status: "–", caption: "측정 불가", muted: true, warn: false };

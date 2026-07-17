@@ -19,13 +19,26 @@ const IRIS_R = 468; // Face Landmarker 478점 중 홍채 중심
 const IRIS_L = 473;
 const EYE_R = { inner: 133, outer: 33 };
 const EYE_L = { inner: 362, outer: 263 };
-const YAW_ABS_THRESHOLD = 0.3; // 무보정 절대 요 임계 (poc YAW_ABS_THRESHOLD)
+const YAW_DELTA_THRESHOLD = 0.22; // 개인 기준 대비 변화량 임계 (poc YAW_DELTA_THRESHOLD)
 const EYE_COMP_GAIN = 0.8; // 홍채가 머리 회전을 상쇄하는 보상 이득
 const EYE_COMP_CLAMP = 0.18; // 보상 상한 — 보상이 판정을 뒤집는 폭주 방지
 const EYE_ONLY_THRESHOLD = 0.25; // 머리는 정면인데 눈만 옆을 보는 이탈
-const EYE_VERT_BLEND = 0.55; // 눈동자 상/하 blendshape 임계 (대본 읽기 패턴)
-const OFF_STREAK = 3; // 이탈 판정 히스테리시스 (3샘플 ≈ 240ms)
+const EYE_VERT_DELTA = 0.3; // 보정 후: 눈동자 상/하 blendshape의 기준 대비 변화 임계
+const OFF_STREAK = 5; // 이탈 판정 히스테리시스 (5샘플 ≈ 400ms — 짧은 곁눈질은 봐준다)
 const FRONT_STREAK = 2;
+
+// ---- 자동 캘리브레이션 ----
+// 카메라 각도·앉은 키는 사람마다 달라 절대 임계는 상시 오판을 만든다 (poc 교훈).
+// 얼굴이 잡힌 첫 ~2초의 중앙값을 개인 기준으로 삼고, 이후 "기준 대비 변화량"으로만
+// 판정한다. 얼굴을 오래 놓치면(관람객 교대) 기준을 다시 수집한다.
+const CALIB_SAMPLES = 24; // 80ms × 24 ≈ 2초
+const CALIB_YAW_GATE = 0.45; // 기준 수집 중 옆모습 수준의 샘플은 배제
+const TRACK_LOST_RESET_MS = 3000;
+
+const median = (values) => {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)];
+};
 
 // 얼굴 메시 표시용 랜드마크 (Face Mesh 468점 중 표정을 잘 드러내는 서브셋)
 const FACE_DOTS = [
@@ -57,7 +70,7 @@ const POSE_LINKS = [
 ];
 
 export function useFaceTracking(mediaStream, videoRef, canvasRef) {
-  const [live, setLive] = useState({ status: "idle", tracking: false, eyeFront: false, tiltDeg: 0, postureLevel: false, poseTracked: false, inferMs: 0 });
+  const [live, setLive] = useState({ status: "idle", tracking: false, calibrating: false, eyeFront: false, tiltDeg: 0, postureLevel: false, poseTracked: false, inferMs: 0 });
   const liveRef = useRef(live);
 
   useEffect(() => {
@@ -74,6 +87,10 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
     let offStreak = 0;
     let frontStreak = 0;
     let eyeFrontState = true;
+    // 개인 기준(캘리브레이션) 상태
+    let base = null; // { asym, eyeX, eyeDown, eyeUp }
+    let calib = { asym: [], eyeX: [], eyeDown: [], eyeUp: [] };
+    let lastFaceAt = 0;
     setLive((prev) => ({ ...prev, status: "loading" }));
 
     (async () => {
@@ -121,6 +138,16 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
               const eyeR = lm[263];
               tiltDeg = Math.abs((Math.atan2(eyeR.y - eyeL.y, eyeR.x - eyeL.x) * 180) / Math.PI);
 
+              // 얼굴을 한동안 놓쳤다 다시 잡으면 다른 관람객일 수 있다 — 기준 재수집
+              if (lastFaceAt && ts - lastFaceAt > TRACK_LOST_RESET_MS) {
+                base = null;
+                calib = { asym: [], eyeX: [], eyeDown: [], eyeUp: [] };
+                eyeFrontState = true;
+                offStreak = 0;
+                frontStreak = 0;
+              }
+              lastFaceAt = ts;
+
               const shapes = {};
               for (const c of faceResult.faceBlendshapes?.[0]?.categories ?? []) shapes[c.categoryName] = c.score;
               const blink = ((shapes.eyeBlinkLeft ?? 0) + (shapes.eyeBlinkRight ?? 0)) / 2 > 0.5;
@@ -138,21 +165,45 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
                   const lX = ratio(lm[IRIS_L], lm[EYE_L.inner], lm[EYE_L.outer]);
                   if (rX > -0.5 && rX < 1.5 && lX > -0.5 && lX < 1.5) eyeX = (rX - lX) / 2;
                 }
-                let off = false;
-                let gazeX = asym;
-                if (eyeX !== null) {
-                  // 고개를 돌려도 눈이 카메라를 보면 정면 — 홍채로 머리 회전을 상쇄
-                  const comp = Math.max(-EYE_COMP_CLAMP, Math.min(EYE_COMP_CLAMP, eyeX * EYE_COMP_GAIN));
-                  const compensated = asym - comp;
-                  if (Math.abs(compensated) < Math.abs(asym)) gazeX = compensated;
-                  // 머리는 정면인데 눈동자만 옆을 보는 이탈 (머리-단독 판정이 놓치는 축)
-                  if (Math.abs(asym) < YAW_ABS_THRESHOLD && Math.abs(eyeX) >= EYE_ONLY_THRESHOLD) off = true;
-                }
-                if (Math.abs(gazeX) >= YAW_ABS_THRESHOLD) off = true;
                 const eyeDown = ((shapes.eyeLookDownLeft ?? 0) + (shapes.eyeLookDownRight ?? 0)) / 2;
                 const eyeUp = ((shapes.eyeLookUpLeft ?? 0) + (shapes.eyeLookUpRight ?? 0)) / 2;
-                if (!off && (eyeDown > EYE_VERT_BLEND || eyeUp > EYE_VERT_BLEND)) off = true; // 대본 읽기·위 보기
-                sampleFront = !off;
+
+                if (base === null) {
+                  // ---- 기준 수집 중: 정면에 가까운 샘플만 모으고, 판정은 보류(정면 취급) ----
+                  if (Math.abs(asym) < CALIB_YAW_GATE) {
+                    calib.asym.push(asym);
+                    calib.eyeX.push(eyeX ?? 0);
+                    calib.eyeDown.push(eyeDown);
+                    calib.eyeUp.push(eyeUp);
+                    if (calib.asym.length >= CALIB_SAMPLES) {
+                      base = {
+                        asym: median(calib.asym),
+                        eyeX: median(calib.eyeX),
+                        eyeDown: median(calib.eyeDown),
+                        eyeUp: median(calib.eyeUp),
+                      };
+                    }
+                  }
+                  sampleFront = true;
+                } else {
+                  // ---- 보정 후: 모든 축을 개인 기준 대비 변화량으로 판정 ----
+                  let off = false;
+                  const asymDelta = asym - base.asym;
+                  let gazeX = asymDelta;
+                  if (eyeX !== null) {
+                    // 고개를 돌려도 눈이 카메라를 보면 정면 — 홍채로 머리 회전을 상쇄
+                    const eyeDelta = eyeX - base.eyeX;
+                    const comp = Math.max(-EYE_COMP_CLAMP, Math.min(EYE_COMP_CLAMP, eyeDelta * EYE_COMP_GAIN));
+                    const compensated = asymDelta - comp;
+                    if (Math.abs(compensated) < Math.abs(asymDelta)) gazeX = compensated;
+                    // 머리는 정면인데 눈동자만 옆을 보는 이탈 (머리-단독 판정이 놓치는 축)
+                    if (Math.abs(asymDelta) < YAW_DELTA_THRESHOLD && Math.abs(eyeDelta) >= EYE_ONLY_THRESHOLD) off = true;
+                  }
+                  if (Math.abs(gazeX) >= YAW_DELTA_THRESHOLD) off = true;
+                  // 대본 읽기(아래)·딴청(위) — 화면을 보는 평소 눈높이는 기준에 흡수돼 있다
+                  if (!off && (eyeDown - base.eyeDown > EYE_VERT_DELTA || eyeUp - base.eyeUp > EYE_VERT_DELTA)) off = true;
+                  sampleFront = !off;
+                }
               }
             }
             if (sampleFront === false) { offStreak += 1; frontStreak = 0; }
@@ -174,9 +225,9 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
 
             if (ts - lastPush > LIVE_PUSH_MS) {
               lastPush = ts;
-              const next = { status: "ready", tracking: Boolean(lm), eyeFront, tiltDeg: Math.round(tiltDeg), postureLevel, poseTracked, inferMs: Math.max(1, Math.round(inferAvg)) };
+              const next = { status: "ready", tracking: Boolean(lm), calibrating: base === null, eyeFront, tiltDeg: Math.round(tiltDeg), postureLevel, poseTracked, inferMs: Math.max(1, Math.round(inferAvg)) };
               const prev = liveRef.current;
-              if (next.status !== prev.status || next.tracking !== prev.tracking || next.eyeFront !== prev.eyeFront || next.postureLevel !== prev.postureLevel || next.poseTracked !== prev.poseTracked || Math.abs(next.inferMs - prev.inferMs) > 4) {
+              if (next.status !== prev.status || next.tracking !== prev.tracking || next.calibrating !== prev.calibrating || next.eyeFront !== prev.eyeFront || next.postureLevel !== prev.postureLevel || next.poseTracked !== prev.poseTracked || Math.abs(next.inferMs - prev.inferMs) > 4) {
                 liveRef.current = next;
                 setLive(next);
               }
