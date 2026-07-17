@@ -20,7 +20,7 @@ function formatClock(totalSeconds) {
   return `${m}:${s}`;
 }
 
-export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSignals, onSubmit, busy, error, mediaStream, onReconnectMedia }) {
+export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSignals, onSubmit, busy, error, mediaStream, onReconnectMedia, onEnd }) {
   const [draft, setDraft] = useState("");
   const [captureError, setCaptureError] = useState("");
   const [elapsed, setElapsed] = useState(0);
@@ -110,7 +110,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
         <div className="practice-topbar-right">
           <span className="counterpart-chip"><span className="counterpart-avatar" aria-hidden="true"><User4 size={18} /></span>{characterName}<b>+AI</b></span>
           <span className="practice-timer"><i className="rec-dot" aria-hidden="true" />{formatClock(elapsed)}</span>
-          <button type="button" className="practice-end" onClick={onPrev}><Record size={16} /> 연습 종료</button>
+          <button type="button" className="practice-end" onClick={onEnd || onPrev}><Record size={16} /> 연습 종료</button>
           <button type="button" className="practice-settings" aria-label="설정"><Settings size={20} /></button>
         </div>
       </header>

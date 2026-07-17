@@ -33,10 +33,24 @@ export function ResultPage({ onPrev, onPractice, onNext, onNavigate, report, pro
   const download = () => { if (typeof window !== "undefined") window.print(); };
 
   if (!report) {
+    // progress가 아직 없다 = 분석 중인 세션 자체가 없다 (분석 중이면 폴링이 바로 채워요).
+    const analyzing = Boolean(progress) || Boolean(error);
     return (
       <ReportShell active="result" trail={TRAIL} onNavigate={navigate} onDownload={download}>
-        <PageToolbar onPrev={onPrev} leftLabel="역할극으로 돌아가기" />
-        <Panel className="loading-card"><span className="spinner" /><div><h3>분석 결과를 준비하고 있어요</h3><p>{error || `분석 중이에요 · ${progress?.pct ?? progress?.pct ?? 0}%`}</p></div></Panel>
+        {analyzing ? (
+          <>
+            <PageToolbar onPrev={onPrev} leftLabel="역할극으로 돌아가기" />
+            <Panel className="loading-card"><span className="spinner" /><div><h3>분석 결과를 준비하고 있어요</h3><p>{error || `분석 중이에요 · ${progress?.pct ?? 0}%`}</p></div></Panel>
+          </>
+        ) : (
+          <Panel className="loading-card report-empty-card">
+            <div>
+              <h3>아직 완료된 연습이 없어요</h3>
+              <p>연습을 마치면 4-Fit 분석 결과가 여기에 나타나요.</p>
+              <button type="button" className="primary-button" onClick={onPractice}>연습 시작하기</button>
+            </div>
+          </Panel>
+        )}
       </ReportShell>
     );
   }
@@ -44,9 +58,10 @@ export function ResultPage({ onPrev, onPractice, onNext, onNavigate, report, pro
   const fits = reportFits(report);
   const total = Math.round(report.total_score ?? 0);
   const grade = total >= 80 ? "Great" : total >= 60 ? "Good" : "Try";
-  const percentile = report.percentile_top ? `상위 ${report.percentile_top}%` : total >= 80 ? "상위 18%" : "상위 40%";
-  const strengths = report.strengths?.length ? report.strengths : ["답변의 핵심을 먼저 정리하려는 흐름이 잘 보였어요.", "상대에게 다음 행동을 분명히 알렸어요.", "끝까지 차분한 목소리를 유지했어요."];
-  const improvements = report.improvements?.length ? report.improvements : ["결론과 기한을 한 문장으로 먼저 말해 보세요.", "근거를 한 가지 덧붙이면 설득력이 높아져요."];
+  // 백분위·코칭은 실제 분석값만 보여줘요 — 대표값으로 꾸미면 심사·전시에서 신뢰를 잃어요.
+  const percentile = report.percentile_top ? `상위 ${report.percentile_top}%` : "";
+  const strengths = report.strengths?.length ? report.strengths : ["이번 연습에서는 충분한 발화가 없어 잘한 점을 찾지 못했어요. 한 번 더 연습해 보세요."];
+  const improvements = report.improvements?.length ? report.improvements : ["질문마다 한두 문장이라도 소리 내어 답해 보면 코칭이 만들어져요."];
   const insight = report.headline?.sentence || improvements[0];
   const pressure = report.difficulty === "pressure";
   const meta = [
@@ -63,7 +78,7 @@ export function ResultPage({ onPrev, onPractice, onNext, onNavigate, report, pro
             <Panel className="overall-score-card">
               <h2>종합 점수</h2>
               <ScoreRing value={total} label={grade} />
-              <span className="percentile-badge">{percentile}</span>
+              {percentile && <span className="percentile-badge">{percentile}</span>}
               <p className="score-note">종합 점수는 4-Fit 신호를 함께 반영한 결과예요. 아래 핵심 지표에서 영역별 흐름을 확인해 보세요.</p>
             </Panel>
             <Panel className="fit-key-card">

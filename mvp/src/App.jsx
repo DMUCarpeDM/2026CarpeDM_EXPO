@@ -147,6 +147,12 @@ export default function App() {
     const timer = window.setInterval(check, 15000);
     return () => window.clearInterval(timer);
   }, []);
+  // 결과·비교 화면에 상단 메뉴로 바로 들어와도 이 기기의 지난 기록이 보이도록 부팅 시 로드해요.
+  // (?demo= 모드는 아래 데모 효과가 데모 기록으로 덮어써요)
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("demo")) return;
+    getHistory().then((data) => setHistory(data.items || [])).catch(() => {});
+  }, []);
   useEffect(() => {
     const demo = new URLSearchParams(window.location.search).get("demo");
     if (!demo) return;
@@ -279,6 +285,23 @@ export default function App() {
       if (result.finished) { await finishSession(session); setTurn(null); navigate("result"); } else setTurn(result.next_turn);
     } catch (error) { setApiError(error.message); } finally { setSubmitting(false); }
   };
+  // 연습 종료: 답변이 하나라도 있으면 분석으로 마무리하고, 없으면 세션을 정리하고 홈으로.
+  // (이전에는 이전 화면으로만 이동해 in_progress 세션이 남아 재방문 때마다 복귀되는 혼란이 있었어요)
+  const endPractice = async () => {
+    if (session && turnHistory.length > 0) {
+      try {
+        await finishSession(session);
+        setTurn(null);
+        navigate("result");
+        return;
+      } catch (error) { setApiError(error.message); }
+    }
+    clearActiveSession(localStorage);
+    setSession(null);
+    setTurn(null);
+    setTurnHistory([]);
+    navigate("home");
+  };
 
   const chromeless = CHROMELESS_VIEWS.has(active);
 
@@ -291,7 +314,7 @@ export default function App() {
       {active === "difficulty" && <DifficultyPage scenarios={scenarioOptions} selectedScenarioId={selectedSetupScenario.id} onScenario={chooseSetupScenario} counterpartProfile={counterpartProfile} difficulty={difficulty} onPrev={() => go(-1)} onNext={() => navigate("setup")} />}
       {active === "setup" && <SetupPage scenario={selectedSetupScenario} goals={selectedSetupScenario.goalIds.map((goalId) => practiceGoals[goalId])} goal={selectedGoal} onGoal={chooseGoal} counterpartProfile={counterpartProfile} difficulty={difficulties.find((item) => item.id === difficulty)} onPrev={() => go(-1)} onNext={() => navigate("preview")} />}
       {active === "preview" && <PreviewPage onNext={startPractice} starting={starting} scenario={previewScenario} setupScenario={selectedSetupScenario} counterpartProfile={counterpartProfiles.find((item) => item.id === counterpartProfile) || counterpartProfiles[1]} goal={selectedGoal} difficulty={difficulties.find((item) => item.id === difficulty) || difficulties[0]} aiHealth={aiHealth} consented={consented} onConsent={setConsented} error={apiError} permissionState={permissionState} mode={mode} />}
-      {active === "practice" && <PracticePage onPrev={() => go(-1)} scenario={session?.scenario} aiHealth={aiHealth} turn={turn} history={turnHistory} turnSignals={turnSignals} onSubmit={sendAnswer} busy={submitting} error={apiError} mediaStream={mediaStream} onReconnectMedia={() => requestExerciseMedia().catch((error) => setApiError(error.message))} />}
+      {active === "practice" && <PracticePage onPrev={() => go(-1)} scenario={session?.scenario} aiHealth={aiHealth} turn={turn} history={turnHistory} turnSignals={turnSignals} onSubmit={sendAnswer} busy={submitting} error={apiError} mediaStream={mediaStream} onReconnectMedia={() => requestExerciseMedia().catch((error) => setApiError(error.message))} onEnd={endPractice} />}
       {active === "result" && <ResultPage onPrev={() => go(-1)} onPractice={() => navigate("preview")} onNext={() => navigate("feedback")} onNavigate={navigate} report={report} progress={analysisProgress} error={apiError} />}
       {active === "feedback" && <FeedbackPage onPrev={() => go(-1)} onPractice={() => navigate("preview")} onNext={() => navigate("compare")} onNavigate={navigate} report={report} />}
       {active === "compare" && <ComparePage onPrev={() => go(-1)} onRestart={() => navigate("setup")} onShare={() => navigate("share")} onNavigate={navigate} history={history} report={report} />}
