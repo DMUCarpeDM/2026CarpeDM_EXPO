@@ -1,49 +1,34 @@
-import { Briefcase4 } from "reicon-react/icons/Briefcase4";
 import { ChartTrend } from "reicon-react/icons/ChartTrend";
 import { ChevronRight } from "reicon-react/icons/ChevronRight";
 import { DocumentText2 } from "reicon-react/icons/DocumentText2";
 import { Download } from "reicon-react/icons/Download";
 import { GraphUp } from "reicon-react/icons/GraphUp";
-import { InfoCircle } from "reicon-react/icons/InfoCircle";
-import { Settings } from "reicon-react/icons/Settings";
+import { Share3 } from "reicon-react/icons/Share3";
 import { Target } from "reicon-react/icons/Target";
-import { User } from "reicon-react/icons/User";
-import { UserCircle } from "reicon-react/icons/UserCircle";
 import { Widget } from "reicon-react/icons/Widget";
 
 // 좌측 사이드바 대시보드 골격. 성과 리포트/비교 분석 화면을 감싸는 공용 셸이에요.
-// 피그마의 대시보드 레이아웃(사이드바 + 상단 브레드크럼)을 그대로 옮겼습니다.
+// 모든 항목은 실제로 이동 가능한 화면만 담아요 — 눌러도 반응 없는 장식 메뉴는 전시 신뢰를 깎습니다.
 const NAV_GROUPS = [
   {
     label: "연습",
     items: [
-      { id: "home", label: "대시보드", Icon: Widget },
-      { id: "role", label: "연습 목표", Icon: Target },
-      { id: "role", label: "시나리오", Icon: Briefcase4, key: "scenario" },
-      { id: "role", label: "맞춤 캐릭터", Icon: UserCircle, key: "character" },
+      { id: "home", label: "홈", Icon: Widget },
+      { id: "role", label: "새 연습 설정", Icon: Target },
     ],
   },
   {
     label: "분석",
     items: [
       { id: "result", label: "성과 리포트", Icon: DocumentText2 },
+      { id: "feedback", label: "상세 분석", Icon: GraphUp },
       { id: "compare", label: "비교 분석", Icon: ChartTrend },
-      { id: "compare", label: "성장 인사이트", Icon: GraphUp, key: "insight" },
-    ],
-  },
-  {
-    label: "일반",
-    items: [
-      { id: "home", label: "프로필", Icon: User, key: "profile" },
-      { id: "home", label: "설정", Icon: Settings, key: "settings" },
+      { id: "share", label: "저장·공유", Icon: Share3 },
     ],
   },
 ];
 
-// 사이드바에서 어떤 항목이 활성 상태인지 결정해요. feedback(자세히 보기)은 성과 리포트에 속합니다.
 function isActive(item, active) {
-  if (item.key) return false;
-  if (item.id === "result") return active === "result" || active === "feedback";
   return item.id === active;
 }
 
@@ -73,13 +58,7 @@ export function DashboardSidebar({ active, onNavigate }) {
           </div>
         ))}
       </nav>
-      <div className="sidebar-user">
-        <span className="sidebar-avatar" aria-hidden="true">체</span>
-        <div>
-          <strong>체험자</strong>
-          <small>Pro 플랜</small>
-        </div>
-      </div>
+      <p className="sidebar-footnote">4-Fit Mirrorting<br />동양미래EXPO 2026 · CarpeDM</p>
     </aside>
   );
 }
@@ -102,9 +81,6 @@ export function ReportTopBar({ trail, onNavigate, onDownload, newPracticeLabel =
     <header className="report-topbar">
       <Breadcrumb trail={trail} />
       <div className="report-topbar-actions">
-        <button type="button" className="topbar-ghost" onClick={() => onNavigate("home")}>
-          <InfoCircle size={18} aria-hidden="true" /> 도움말
-        </button>
         <button type="button" className="topbar-ghost" onClick={onDownload}>
           <Download size={18} aria-hidden="true" /> 리포트 다운로드
         </button>

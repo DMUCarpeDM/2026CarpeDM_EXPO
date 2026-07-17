@@ -333,7 +333,7 @@ svg {
   border: 0;
   border-radius: 22px;
   color: #fff;
-  background: linear-gradient(135deg, #0064ff 0%, #0052d9 100%);
+  background: linear-gradient(135deg, var(--color-blue) 0%, var(--color-blue-deep) 100%);
   box-shadow: 0 12px 26px rgba(0, 100, 255, 0.24);
   font-size: 19px;
   font-weight: 600;

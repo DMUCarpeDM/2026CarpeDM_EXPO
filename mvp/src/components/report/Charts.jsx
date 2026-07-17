@@ -1,6 +1,7 @@
 import { IconGlyph } from "../ui/IconGlyph";
 
-const FIT_COLORS = { response: "#0064ff", voice: "#2f7cff", eye: "#0ea5e9", posture: "#ff8a00" };
+// 4-Fit 데이터 색의 단일 출처 — DESIGN.md 색 테이블(--fit-*)과 항상 일치해야 해요.
+export const FIT_COLORS = { response: "#0064ff", voice: "#2f7cff", eye: "#0ea5e9", posture: "#ff8a00" };
 
 // 4-Fit 종합 점수를 보여주는 레이더(다이아몬드) 차트. 응답(위)·목소리(오른쪽)·시선(아래)·자세(왼쪽).
 export function RadarChart({ fits, average = [72, 70, 74, 72], showLegend = true }) {

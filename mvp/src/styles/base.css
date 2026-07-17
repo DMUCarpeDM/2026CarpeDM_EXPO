@@ -14,6 +14,7 @@
   --color-fog: #f4f6f8;
   --color-snow: #ffffff;
   --color-blue: #0064ff;
+  --color-blue-deep: #0052d9; /* 프라이머리 그라디언트의 어두운 쪽 — CTA 외 용도 금지 */
   --color-blue-soft: #eaf2ff;
   --color-sky: #0ea5e9;
   --color-sky-soft: #e8f7ff;

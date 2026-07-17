@@ -171,4 +171,11 @@ def get_report(
         mode=session.mode,
         difficulty=session.difficulty,
         previous=previous,
+        # 화면 표기용 메타 — 브레드크럼·'AI 상대'가 실제 연습 내용을 보여주도록
+        scenario_title=session.scenario.title if session.scenario else "",
+        character_name=(
+            (session.scenario.characters or [{}])[0].get("name", "")
+            if session.scenario else ""
+        ),
+        finished_label=report.created_at.strftime("%Y.%m.%d %H:%M") if report.created_at else "",
     )

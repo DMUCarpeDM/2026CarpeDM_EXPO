@@ -208,6 +208,9 @@ class ReportOut(BaseModel):
     mode: int
     difficulty: str
     previous: dict | None = None  # 직전 세션 비교 {total_score, fit_scores}
+    scenario_title: str = ""  # 화면 표기용 — 브레드크럼·리포트 메타
+    character_name: str = ""  # AI 상대 이름 (시나리오 첫 캐릭터)
+    finished_label: str = ""  # "2026.10.14 14:32" — 리포트 생성 시각
 
 
 # ---- admin ----

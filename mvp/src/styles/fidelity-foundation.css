@@ -8,7 +8,7 @@
   --surface-canvas: #fbfcff;
   --surface-blue: #f2f7ff;
   --line-cool: #e6edf7;
-  --blue-strong: #0969f7;
+  --blue-strong: var(--color-blue); /* 프라이머리 블루 단일화 — 별도 색 금지 */
   --shadow-exhibition: 0 14px 38px rgba(24, 73, 134, 0.07);
 }
 
@@ -130,7 +130,7 @@ body {
 .primary-button,
 .primary-bar {
   border-radius: 11px;
-  background: linear-gradient(135deg, #0d78ff, #005ae8);
+  background: linear-gradient(135deg, var(--color-blue), var(--color-blue-deep));
   box-shadow: 0 12px 24px rgba(0, 96, 255, 0.18);
 }
 

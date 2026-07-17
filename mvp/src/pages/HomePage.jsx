@@ -1,6 +1,7 @@
 import React from "react";
 import { ArrowRight } from "reicon-react/icons/ArrowRight";
 import { Sparkles } from "reicon-react/icons/Sparkles";
+import { FIT_COLORS } from "../components/report/Charts";
 import { homeAdvantages, homeFitSnapshot } from "../data/homeContent";
 
 export function HomePage({ onNext }) {
@@ -77,7 +78,8 @@ function MiniLineChart({ tone }) {
     eye: "M3 42 L18 36 L35 24 L52 31 L69 26 L86 12 L107 12 L128 4",
     posture: "M3 44 L20 34 L36 23 L52 31 L69 25 L87 18 L106 6 L128 4",
   };
-  const colors = { response: "#0969f7", voice: "#6a4df5", eye: "#0ea5e9", posture: "#ff8a00" };
+  // 색은 리포트와 같은 단일 출처(FIT_COLORS)를 써요 — 홈만 보라색이던 목소리 지표 통일.
+  const colors = FIT_COLORS;
   const endY = tone === "voice" ? 7 : tone === "response" ? 5 : 4;
   return <svg className="mini-line-chart" viewBox="0 0 132 52" role="img" aria-label={`${tone} 점수 추이`}><defs><linearGradient id={`mini-line-fill-${tone}`} x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor={colors[tone]} stopOpacity=".36" /><stop offset="100%" stopColor={colors[tone]} stopOpacity="0" /></linearGradient></defs><path d="M3 48H129" className="mini-line-baseline" /><path d={`${paths[tone]} L128 48 L3 48 Z`} className="mini-line-area" fill={`url(#mini-line-fill-${tone})`} /><path d={paths[tone]} className="mini-line-path" /><circle cx="128" cy={endY} r="2.7" /></svg>;
 }

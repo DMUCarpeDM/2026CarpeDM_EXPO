@@ -15,7 +15,8 @@ import { ReportShell } from "../components/report/DashboardShell";
 import { IconGlyph } from "../components/ui/IconGlyph";
 import { PageToolbar, Panel, ScoreRing } from "../components/report/ResultPrimitives";
 
-const TRAIL = ["대시보드", "1:1 면담", "성과 리포트 분석"];
+// 브레드크럼은 실제 연습한 시나리오 제목을 보여줘요 (없으면 일반 라벨).
+const trailFor = (report) => ["홈", report?.scenario_title || "연습 리포트", "성과 리포트"];
 // 4-Fit 키를 한글 이름으로 표시해요 (핵심 지표 행: 응답 (Response) 형태).
 const FIT_KOREAN = { "Response-Fit": "응답", "Voice-Fit": "목소리", "Eye-Fit": "시선", "Posture-Fit": "자세" };
 
@@ -28,7 +29,7 @@ function fitGrade(fit) {
   return "노력 필요";
 }
 
-export function ResultPage({ onPrev, onPractice, onNext, onNavigate, report, progress, error }) {
+export function ResultPage({ onPrev, onPractice, onNext, onNavigate, report, progress, error, hasHistory = false }) {
   const navigate = onNavigate || (() => {});
   const download = () => { if (typeof window !== "undefined") window.print(); };
 
@@ -36,7 +37,7 @@ export function ResultPage({ onPrev, onPractice, onNext, onNavigate, report, pro
     // progress가 아직 없다 = 분석 중인 세션 자체가 없다 (분석 중이면 폴링이 바로 채워요).
     const analyzing = Boolean(progress) || Boolean(error);
     return (
-      <ReportShell active="result" trail={TRAIL} onNavigate={navigate} onDownload={download}>
+      <ReportShell active="result" trail={trailFor(report)} onNavigate={navigate} onDownload={download}>
         {analyzing ? (
           <>
             <PageToolbar onPrev={onPrev} leftLabel="역할극으로 돌아가기" />
@@ -45,9 +46,10 @@ export function ResultPage({ onPrev, onPractice, onNext, onNavigate, report, pro
         ) : (
           <Panel className="loading-card report-empty-card">
             <div>
-              <h3>아직 완료된 연습이 없어요</h3>
-              <p>연습을 마치면 4-Fit 분석 결과가 여기에 나타나요.</p>
+              <h3>{hasHistory ? "이번 방문에 완료한 연습이 아직 없어요" : "아직 완료된 연습이 없어요"}</h3>
+              <p>{hasHistory ? "지난 기록은 비교 분석에서 볼 수 있고, 새 연습을 마치면 결과가 여기에 나타나요." : "연습을 마치면 4-Fit 분석 결과가 여기에 나타나요."}</p>
               <button type="button" className="primary-button" onClick={onPractice}>연습 시작하기</button>
+              {hasHistory && <button type="button" className="secondary-button" onClick={() => navigate("compare")}>지난 기록 보기</button>}
             </div>
           </Panel>
         )}
@@ -71,7 +73,7 @@ export function ResultPage({ onPrev, onPractice, onNext, onNavigate, report, pro
   ];
 
   return (
-    <ReportShell active="result" trail={TRAIL} onNavigate={navigate} onDownload={download}>
+    <ReportShell active="result" trail={trailFor(report)} onNavigate={navigate} onDownload={download}>
       <motion.div className="report-page" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
         <div className="report-grid-2col">
           <aside className="report-side-col">

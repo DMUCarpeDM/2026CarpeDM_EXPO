@@ -10,7 +10,7 @@ import { ReportShell } from "../components/report/DashboardShell";
 import { IconGlyph } from "../components/ui/IconGlyph";
 import { Panel, ScoreRing } from "../components/report/ResultPrimitives";
 
-const TRAIL = ["대시보드", "1:1 면담", "비교 분석"];
+const trailFor = (report) => ["홈", report?.scenario_title || "연습 기록", "비교 분석"];
 const FIT_META = [
   { key: "Response-Fit", label: "응답", english: "Response", icon: "response", tone: "response" },
   { key: "Voice-Fit", label: "목소리", english: "Voice", icon: "voice", tone: "voice" },
@@ -53,7 +53,7 @@ export function ComparePage({ onPrev, onRestart, onShare, onNavigate, history = 
   const hasTrend = trendTotals.length >= 2;
 
   return (
-    <ReportShell active="compare" trail={TRAIL} onNavigate={navigate} onDownload={download} newPracticeLabel="새로운 연습">
+    <ReportShell active="compare" trail={trailFor(report)} onNavigate={navigate} onDownload={download} newPracticeLabel="새로운 연습">
       <motion.div className="report-page compare-report" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
         <div className="report-heading">
           <div><h1>연습 비교 분석</h1><p>두 개의 연습 결과를 비교하여 성장 과정을 확인하세요.</p></div>

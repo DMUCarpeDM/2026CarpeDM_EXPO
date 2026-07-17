@@ -98,11 +98,12 @@
   height: 40px;
   border-radius: 12px;
   color: #fff;
-  background: linear-gradient(135deg, #2f7cff, #0064ff);
+  background: linear-gradient(135deg, var(--fit-voice), var(--color-blue));
   font-weight: 700;
 }
 .sidebar-user strong { display: block; font-size: 15px; }
 .sidebar-user small { color: var(--color-muted); font-size: 12px; }
+.sidebar-footnote { margin: auto 6px 4px; color: var(--color-muted); font-size: 12px; line-height: 1.55; }
 
 .report-main { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
 
@@ -291,7 +292,7 @@
 
 /* ---------- Compare page ---------- */
 .compare-versus { display: grid; grid-template-columns: 1fr auto 1fr; gap: 18px; align-items: center; }
-.versus-badge { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; color: #fff; background: linear-gradient(135deg, #2f7cff, #0064ff); font-weight: 800; font-size: 15px; box-shadow: 0 10px 22px rgba(0, 100, 255, 0.24); }
+.versus-badge { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; color: #fff; background: linear-gradient(135deg, var(--fit-voice), var(--color-blue)); font-weight: 800; font-size: 15px; box-shadow: 0 10px 22px rgba(0, 100, 255, 0.24); }
 .attempt-column { display: grid; justify-items: center; gap: 16px; padding: 24px; text-align: center; }
 .attempt-column.current { border-color: rgba(0, 100, 255, 0.35); box-shadow: 0 0 0 1px rgba(0, 100, 255, 0.28), var(--shadow-card); }
 .attempt-column.is-muted { opacity: 0.9; }
@@ -377,7 +378,7 @@
 .practice-breadcrumb .current { color: var(--color-ink); font-weight: 600; }
 .practice-topbar-right { display: inline-flex; align-items: center; gap: 12px; }
 .counterpart-chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border-radius: var(--radius-pill); background: var(--color-fog); font-weight: 600; }
-.counterpart-avatar { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: #fff; background: linear-gradient(135deg, #2f7cff, #0064ff); }
+.counterpart-avatar { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: #fff; background: linear-gradient(135deg, var(--fit-voice), var(--color-blue)); }
 .counterpart-chip b { padding: 2px 7px; border-radius: var(--radius-pill); background: var(--color-blue); color: #fff; font-size: 11px; }
 .practice-timer { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: var(--radius-pill); background: var(--color-fog); font-variant-numeric: tabular-nums; font-weight: 700; }
 .rec-dot { width: 10px; height: 10px; border-radius: 50%; background: #e5484d; animation: rec-pulse 1.4s ease-in-out infinite; }

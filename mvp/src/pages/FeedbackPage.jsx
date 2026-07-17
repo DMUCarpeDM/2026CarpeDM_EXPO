@@ -26,7 +26,7 @@ export function FeedbackPage({ onPrev, onPractice, onNext, onNavigate, report })
     ? { evidence: strengthEvidence, title: strengths[0], intro: "이번 분석에서 특히 좋았던 소통 방식을 정리했어요.", badge: "우수", tone: "blue", action: "유지", detailLabel: "상세 근거 보기", fallback: "좋은 신호가 관찰되었습니다." }
     : { evidence: improvementEvidence, title: improvements[0], intro: "이번 분석을 바탕으로 다음 연습에서 바로 해볼 행동을 정리했어요.", badge: "중요", tone: "accent", action: "개선", detailLabel: "왜 중요한지 보기", fallback: "관찰 근거를 준비하고 있어요." };
 
-  return <ReportShell active="result" trail={["대시보드", "1:1 면담", "상세 분석"]} onNavigate={onNavigate || (() => {})} onDownload={() => { if (typeof window !== "undefined") window.print(); }}><motion.section className="page feedback-page" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
+  return <ReportShell active="feedback" trail={["홈", report?.scenario_title || "연습 리포트", "상세 분석"]} onNavigate={onNavigate || (() => {})} onDownload={() => { if (typeof window !== "undefined") window.print(); }}><motion.section className="page feedback-page" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
     <PageToolbar onPrev={onPrev} leftLabel="분석 리포트로 돌아가기" />
     <div className="feedback-layout">
       <div>
