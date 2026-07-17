@@ -40,6 +40,19 @@ const median = (values) => {
   return sorted[Math.floor(sorted.length / 2)];
 };
 
+// ---- 턴 단위 비언어 집계 ----
+// 서버 NonverbalIn의 관찰 지표(깜빡임·미소·긴장 신호·응시 스트릭 등)를 실데이터로
+// 채우기 위한 누적기. blendshape은 훅 내부에서만 접근 가능해서 여기서 집계한다.
+const makeTurnAcc = () => ({
+  frames: 0, front: 0, offCount: 0, lastFront: true,
+  offStreakMs: 0, longestOffMs: 0, frontStreakMs: 0, longestFrontMs: 0,
+  shoulderDevSum: 0, shoulderN: 0, rollSum: 0,
+  headDown: 0, blinks: 0, blinkOn: false,
+  smile: 0, mouthPress: 0, browDown: 0,
+  irisFrames: 0, calibratedFrames: 0,
+  offDirs: { down: 0, up: 0, left: 0, right: 0 },
+});
+
 // 얼굴 메시 표시용 랜드마크 (Face Mesh 468점 중 표정을 잘 드러내는 서브셋)
 const FACE_DOTS = [
   10, 338, 297, 67, 109, // 이마 라인
@@ -72,6 +85,32 @@ const POSE_LINKS = [
 export function useFaceTracking(mediaStream, videoRef, canvasRef) {
   const [live, setLive] = useState({ status: "idle", tracking: false, calibrating: false, eyeFront: false, tiltDeg: 0, postureLevel: false, poseTracked: false, inferMs: 0 });
   const liveRef = useRef(live);
+  const turnAccRef = useRef(makeTurnAcc());
+  // 지난 수집 시점 이후의 집계를 NonverbalIn 모양으로 돌려주고 리셋 (턴 제출 시 호출)
+  const collectTurnStats = useRef(() => {
+    const acc = turnAccRef.current;
+    turnAccRef.current = makeTurnAcc();
+    if (!acc.frames) return null;
+    const minutes = (acc.frames * SAMPLE_MS) / 60000;
+    const dominantOff = Object.entries(acc.offDirs).sort((a, b) => b[1] - a[1])[0];
+    return {
+      frames: acc.frames,
+      front_gaze_ratio: acc.front / acc.frames,
+      gaze_off_count: acc.offCount,
+      avg_shoulder_tilt_deg: acc.shoulderN ? acc.shoulderDevSum / acc.shoulderN : 0,
+      head_down_ratio: acc.headDown / acc.frames,
+      longest_off_sec: acc.longestOffMs / 1000,
+      blink_per_min: minutes > 0 ? acc.blinks / minutes : 0,
+      smile_ratio: acc.smile / acc.frames,
+      head_roll_deg: acc.rollSum / acc.frames,
+      mouth_press_ratio: acc.mouthPress / acc.frames,
+      brow_down_ratio: acc.browDown / acc.frames,
+      contact_streak_max_sec: acc.longestFrontMs / 1000,
+      gaze_dirs: acc.offDirs,
+      gaze_off_dir: dominantOff && dominantOff[1] > 0 ? dominantOff[0] : null,
+      iris_ratio: acc.irisFrames / acc.frames,
+    };
+  }).current;
 
   useEffect(() => {
     const hasVideo = Boolean(mediaStream?.getVideoTracks?.().some((track) => track.readyState === "live"));
@@ -130,6 +169,7 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
             // ---- 라이브 신호 (관찰 전용): 홍채 기반 시선 + 눈선 기울기 ----
             let tiltDeg = 0;
             let sampleFront = null; // null = 이 샘플은 판정 불가(깜빡임 등) → 이전 상태 유지
+            let sampleMeta = null; // 턴 집계용 표정·시선 부가 신호 (얼굴이 잡힌 샘플만)
             if (lm) {
               const nose = lm[1];
               const cheekL = lm[234];
@@ -151,6 +191,16 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
               const shapes = {};
               for (const c of faceResult.faceBlendshapes?.[0]?.categories ?? []) shapes[c.categoryName] = c.score;
               const blink = ((shapes.eyeBlinkLeft ?? 0) + (shapes.eyeBlinkRight ?? 0)) / 2 > 0.5;
+              // 관찰 지표용 표정 신호 (poc 임계값): 미소·입술 압축·찡그림·눈동자 하향
+              sampleMeta = {
+                blink,
+                smile: ((shapes.mouthSmileLeft ?? 0) + (shapes.mouthSmileRight ?? 0)) / 2 > 0.35,
+                press: ((shapes.mouthPressLeft ?? 0) + (shapes.mouthPressRight ?? 0)) / 2 > 0.45,
+                brow: ((shapes.browDownLeft ?? 0) + (shapes.browDownRight ?? 0)) / 2 > 0.5,
+                eyeDownRaw: ((shapes.eyeLookDownLeft ?? 0) + (shapes.eyeLookDownRight ?? 0)) / 2 > 0.55,
+                iris: false,
+                offDir: null,
+              };
               if (!blink) {
                 // 머리 요(yaw) 근사: 코 기준 좌우 볼 거리 비대칭
                 const dl = Math.abs(nose.x - cheekL.x);
@@ -167,6 +217,7 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
                 }
                 const eyeDown = ((shapes.eyeLookDownLeft ?? 0) + (shapes.eyeLookDownRight ?? 0)) / 2;
                 const eyeUp = ((shapes.eyeLookUpLeft ?? 0) + (shapes.eyeLookUpRight ?? 0)) / 2;
+                sampleMeta.iris = eyeX !== null;
 
                 if (base === null) {
                   // ---- 기준 수집 중: 정면에 가까운 샘플만 모으고, 판정은 보류(정면 취급) ----
@@ -197,11 +248,12 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
                     const compensated = asymDelta - comp;
                     if (Math.abs(compensated) < Math.abs(asymDelta)) gazeX = compensated;
                     // 머리는 정면인데 눈동자만 옆을 보는 이탈 (머리-단독 판정이 놓치는 축)
-                    if (Math.abs(asymDelta) < YAW_DELTA_THRESHOLD && Math.abs(eyeDelta) >= EYE_ONLY_THRESHOLD) off = true;
+                    if (Math.abs(asymDelta) < YAW_DELTA_THRESHOLD && Math.abs(eyeDelta) >= EYE_ONLY_THRESHOLD) { off = true; sampleMeta.offDir = eyeDelta > 0 ? "left" : "right"; }
                   }
-                  if (Math.abs(gazeX) >= YAW_DELTA_THRESHOLD) off = true;
+                  if (Math.abs(gazeX) >= YAW_DELTA_THRESHOLD) { off = true; sampleMeta.offDir = sampleMeta.offDir || (gazeX > 0 ? "right" : "left"); }
                   // 대본 읽기(아래)·딴청(위) — 화면을 보는 평소 눈높이는 기준에 흡수돼 있다
-                  if (!off && (eyeDown - base.eyeDown > EYE_VERT_DELTA || eyeUp - base.eyeUp > EYE_VERT_DELTA)) off = true;
+                  if (!off && eyeDown - base.eyeDown > EYE_VERT_DELTA) { off = true; sampleMeta.offDir = "down"; }
+                  if (!off && eyeUp - base.eyeUp > EYE_VERT_DELTA) { off = true; sampleMeta.offDir = "up"; }
                   sampleFront = !off;
                 }
               }
@@ -213,14 +265,47 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
             const eyeFront = eyeFrontState;
             let postureLevel = false;
             let poseTracked = false;
+            let shoulderDev = 0;
             if (plm) {
               const shoulderL = plm[11];
               const shoulderR = plm[12];
               poseTracked = (shoulderL?.visibility ?? 1) > 0.5 && (shoulderR?.visibility ?? 1) > 0.5;
               if (poseTracked) {
                 const shoulderDeg = Math.abs((Math.atan2(shoulderR.y - shoulderL.y, shoulderR.x - shoulderL.x) * 180) / Math.PI);
-                postureLevel = Math.abs(shoulderDeg - 180) < 7 || shoulderDeg < 7;
+                shoulderDev = Math.min(shoulderDeg, Math.abs(180 - shoulderDeg));
+                postureLevel = shoulderDev < 7;
               }
+            }
+
+            // ---- 턴 단위 집계 (얼굴이 잡힌 샘플만) — 제출 시 collectTurnStats()로 회수 ----
+            if (sampleMeta) {
+              const acc = turnAccRef.current;
+              acc.frames += 1;
+              if (eyeFront) {
+                acc.front += 1;
+                acc.frontStreakMs += SAMPLE_MS;
+                acc.offStreakMs = 0;
+                if (acc.frontStreakMs > acc.longestFrontMs) acc.longestFrontMs = acc.frontStreakMs;
+              } else {
+                if (acc.lastFront) {
+                  acc.offCount += 1;
+                  if (sampleMeta.offDir) acc.offDirs[sampleMeta.offDir] += 1;
+                }
+                acc.offStreakMs += SAMPLE_MS;
+                acc.frontStreakMs = 0;
+                if (acc.offStreakMs > acc.longestOffMs) acc.longestOffMs = acc.offStreakMs;
+              }
+              acc.lastFront = eyeFront;
+              if (sampleMeta.blink && !acc.blinkOn) acc.blinks += 1;
+              acc.blinkOn = sampleMeta.blink;
+              if (sampleMeta.smile) acc.smile += 1;
+              if (sampleMeta.press) acc.mouthPress += 1;
+              if (sampleMeta.brow) acc.browDown += 1;
+              if (sampleMeta.eyeDownRaw) acc.headDown += 1;
+              if (sampleMeta.iris) acc.irisFrames += 1;
+              if (base !== null) acc.calibratedFrames += 1;
+              acc.rollSum += tiltDeg;
+              if (poseTracked) { acc.shoulderDevSum += shoulderDev; acc.shoulderN += 1; }
             }
 
             if (ts - lastPush > LIVE_PUSH_MS) {
@@ -252,7 +337,7 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
     };
   }, [mediaStream, videoRef, canvasRef]);
 
-  return live;
+  return { ...live, collectTurnStats };
 }
 
 /** 분석 시각화 오버레이 — 영상은 canvas에 그리지 않고 랜드마크만 그린다.

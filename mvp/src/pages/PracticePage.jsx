@@ -35,6 +35,15 @@ const rise = (delay) => ({
   transition: { delay, duration: 0.38, ease: [0.16, 1, 0.3, 1] },
 });
 
+// 직전 답변의 즉시 신호(turn_signals.case) → 응답 게이지 코칭 문구
+const RESPONSE_CASE_FEEDBACK = {
+  excellent: "핵심을 정확히 짚었어요!",
+  covered: "좋아요, 핵심을 다뤘어요",
+  missing: "질문의 핵심을 더 짚어보세요",
+  short: "조금 더 자세히 말해보세요",
+  risky: "표현을 한번 다듬어보세요",
+};
+
 export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSignals, onSubmit, busy, error, mediaStream }) {
   const [draft, setDraft] = useState("");
   const [captureError, setCaptureError] = useState("");
@@ -59,38 +68,14 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
   const track = useFaceTracking(mediaStream, videoRef, overlayRef);
   const trackingLive = track.status === "ready" && track.tracking;
 
-  // ---- 턴 단위 비언어 집계: 라이브 트래킹 샘플을 모아 백엔드 NonverbalIn으로 보낸다 ----
-  // (poc의 정밀 집계 대비 경량판 — 정면 응시 비율·이탈 횟수·평균 어깨 기울기만)
-  const trackRef = useRef(track);
-  trackRef.current = track;
-  const nonverbalRef = useRef({ frames: 0, front: 0, offCount: 0, tiltSum: 0, lastFront: true });
+  // ---- 턴 단위 비언어 집계: 훅 내부(blendshape 접근 가능)에서 샘플 단위로 모은
+  // 리치 지표(깜빡임·미소·긴장 신호·응시 스트릭·시선 방향 분포)를 제출 시 회수한다.
+  // 턴이 바뀌면 이전 턴 잔여 집계를 버려 창을 정렬한다.
   useEffect(() => {
-    nonverbalRef.current = { frames: 0, front: 0, offCount: 0, tiltSum: 0, lastFront: true };
+    track.collectTurnStats?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [turn?.id]);
-  useEffect(() => {
-    if (!trackingLive) return undefined;
-    const timer = window.setInterval(() => {
-      const sample = trackRef.current;
-      if (sample.status !== "ready" || !sample.tracking) return;
-      const acc = nonverbalRef.current;
-      acc.frames += 1;
-      if (sample.eyeFront) acc.front += 1;
-      else if (acc.lastFront) acc.offCount += 1;
-      acc.lastFront = sample.eyeFront;
-      acc.tiltSum += sample.tiltDeg;
-    }, 400);
-    return () => window.clearInterval(timer);
-  }, [trackingLive]);
-  const buildNonverbal = () => {
-    const acc = nonverbalRef.current;
-    if (!acc.frames) return null;
-    return {
-      front_gaze_ratio: acc.front / acc.frames,
-      gaze_off_count: acc.offCount,
-      avg_shoulder_tilt_deg: acc.tiltSum / acc.frames,
-      frames: acc.frames,
-    };
-  };
+  const buildNonverbal = () => track.collectTurnStats?.() || null;
   const eyeMeter = trackingLive
     ? track.calibrating
       ? { percent: 30, status: "보정 중", caption: "잠시 화면을 바라봐 주세요", muted: true, warn: false }
@@ -342,7 +327,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
               <button type="button" className="text-link" onClick={onPrev}>자세히 보기 <ChevronRight size={14} /></button>
             </div>
             <div className="live-fit-grid">
-              <LiveFitMeter tone="response" label="응답" english="Response" kind="percent" percent={coverage} status={coverage === null ? "대기" : "Coverage"} caption={coverage === null ? "첫 답변 후 표시돼요" : coverage >= 70 ? "잘하고 있어요!" : "핵심을 더 채워보세요"} />
+              <LiveFitMeter tone="response" label="응답" english="Response" kind="percent" percent={coverage} status={coverage === null ? "대기" : "Coverage"} caption={coverage === null ? "첫 답변 후 표시돼요" : RESPONSE_CASE_FEEDBACK[turnSignals?.case] || (coverage >= 70 ? "잘하고 있어요!" : "핵심을 더 채워보세요")} warn={coverage !== null && ["missing", "short", "risky"].includes(turnSignals?.case)} />
               <LiveFitMeter tone="voice" label="목소리" english="Voice" kind="wave" percent={voiceMeter.percent} status={voiceMeter.status} caption={voiceMeter.caption} warn={voiceMeter.warn} />
               <LiveFitMeter tone="eye" label="시선" english="Eye" kind="icon" icon="eye" percent={eyeMeter.percent} status={eyeMeter.status} caption={eyeMeter.caption} muted={eyeMeter.muted} warn={eyeMeter.warn} />
               <LiveFitMeter tone="posture" label="자세" english="Posture" kind="icon" icon="posture" percent={postureMeter.percent} status={postureMeter.status} caption={postureMeter.caption} muted={postureMeter.muted} warn={postureMeter.warn} />
