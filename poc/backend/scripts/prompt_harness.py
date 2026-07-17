@@ -1,19 +1,22 @@
 """캐릭터 프롬프트 검증 하네스 — 조합별 개인화 성공률(=비폴백률)을 측정한다.
 
-시스템 프롬프트 튜닝을 감이 아니라 수치로 하기 위한 도구. 캐릭터 × 질문 유형 ×
-난이도 조합마다 실제 운영 경로(OllamaDialogueProvider.personalize_question —
-프롬프트 조립 → 생성 → 형식 검증)를 N회 돌려서:
+시스템 프롬프트 튜닝을 감이 아니라 수치로 하기 위한 도구. 캐릭터 × (질문 유형 |
+반응 케이스) × 난이도 조합마다 실제 운영 경로(personalize_question/
+personalize_reaction — 프롬프트 조립 → 생성 → 형식 검증)를 N회 돌려서:
 
   - 성공률: 형식 검증을 통과해 개인화가 채택된 비율 (실패 = 템플릿 폴백)
   - 지연: 생성 왕복 시간 (전시 체감 대기의 재료)
   - 샘플: 채택된 문장 — 말투 유지 여부는 사람이 훑어본다
 
-재료는 시드(CHARACTERS/WORLD_SETTING/EPISODES)에서 그대로 가져온다 — DB 불필요.
-에피소드에 아직 캐스팅되지 않은 예비 캐릭터(임원/외부 고객)는 공용 샘플 상황을 쓴다.
+재료는 시드(CHARACTERS/WORLD_SETTING/EPISODES/REACTIONS)에서 그대로 가져온다 —
+DB 불필요. 에피소드에 아직 캐스팅되지 않은 예비 캐릭터(임원/외부 고객)는 공용
+샘플 상황을 쓴다.
 
 실행:  (backend/ 에서)
-  python -m scripts.prompt_harness --dump            # 오프라인: 조립된 프롬프트만 출력
-  python -m scripts.prompt_harness                   # 라이브: Ollama 필요, 조합별 3회
+  python -m scripts.prompt_harness --dump                    # 오프라인: 질문 프롬프트만 출력
+  python -m scripts.prompt_harness --target reaction --dump  # 오프라인: 반응 프롬프트만 출력
+  python -m scripts.prompt_harness                           # 라이브: Ollama 필요, 조합별 3회
+  python -m scripts.prompt_harness --target reaction --runs 5
   python -m scripts.prompt_harness --runs 5 --difficulties basic,pressure
   python -m scripts.prompt_harness --chars kang_executive,choi_client
 
@@ -27,10 +30,16 @@ import time
 import httpx
 
 from app.core.config import settings
-from app.seed.seed_data import CHARACTERS, EPISODES, WORLD_SETTING
+from app.seed.seed_data import CHARACTERS, EPISODES, REACTIONS, WORLD_SETTING
 from app.services.dialogue.base import QuestionSpec
 from app.services.dialogue.ollama_provider import OllamaDialogueProvider
-from app.services.dialogue.prompts import QUESTION_TYPE_RULES, build_character_system_prompt
+from app.services.dialogue.prompts import (
+    QUESTION_TYPE_RULES,
+    REACTION_CASE_RULES,
+    build_character_system_prompt,
+    build_reaction_system_prompt,
+)
+from app.services.dialogue.reactions import personalize_reaction
 
 # 좋은 답/약한 답을 번갈아 넣는다 — 실제 체험자 답변의 양극단을 흉내낸 고정 재료.
 SAMPLE_ANSWERS = [
@@ -44,6 +53,15 @@ DEFAULT_SAMPLE = {
     "followup": {"text": "지금 상황을 한 문장으로 정리하면요?", "intent": "누락 요소 확인: 핵심 상황 요약"},
     "pressure": {"text": "이게 처음이 아니라는 게 문제예요. 뭐가 다를 거죠?", "intent": "압박 상황 대응 확인"},
     "deepening": {"text": "좋아요. 그럼 재발 방지는 어떻게 하실 거예요?", "intent": "장면 심화 전개"},
+}
+
+# REACTIONS에 없는 캐릭터(예비 캐릭터)용 공용 기본 반응 — 케이스별 중립 문장
+DEFAULT_REACTION = {
+    "excellent": "좋아요, 정확히 짚었네요.",
+    "covered": "네, 대체로 맞아요.",
+    "missing": "그걸로는 부족한데요.",
+    "short": "그게 다예요?",
+    "risky": "방금 그 표현은 다시 생각해봐요.",
 }
 
 
@@ -68,6 +86,12 @@ def sample_for(character_id: str, question_type: str) -> dict:
     return {"situation": ep["situation"], **base}
 
 
+def reaction_sample_for(character_id: str, case: str) -> str:
+    """시드 REACTIONS 풀에서 캐릭터×케이스 기준 반응 문장을 뽑는다 (없으면 공용 문장)."""
+    pool = REACTIONS.get(character_id, {}).get(case, [])
+    return pool[0] if pool else DEFAULT_REACTION[case]
+
+
 def make_spec(character_id: str, question_type: str, sample: dict) -> QuestionSpec:
     return QuestionSpec(
         episode_id=0, question_type=question_type, question_text=sample["text"],
@@ -83,30 +107,23 @@ def check_ollama() -> bool:
         return False
 
 
-def dump(characters: list[dict], types: list[str], difficulties: list[str]) -> None:
+def dump(characters: list[dict], types: list[str], difficulties: list[str], target: str) -> None:
     """오프라인 모드 — 조립된 시스템 프롬프트를 눈으로 검수한다."""
+    builder = build_character_system_prompt if target == "question" else build_reaction_system_prompt
     for ch in characters:
         for qt in types:
             for diff in difficulties:
                 print("=" * 72)
-                print(f"◆ {ch['name']} ({ch['id']}) × {qt} × {diff}")
+                print(f"◆ [{target}] {ch['name']} ({ch['id']}) × {qt} × {diff}")
                 print("=" * 72)
-                print(build_character_system_prompt(ch, WORLD_SETTING, qt, diff))
+                print(builder(ch, WORLD_SETTING, qt, diff))
                 print()
 
 
-def run_live(
+def run_live_question(
     characters: list[dict], types: list[str], difficulties: list[str],
-    runs: int, generic: bool = False,
-) -> int:
-    if not check_ollama():
-        print(f"!! Ollama에 연결할 수 없습니다 ({settings.ollama_base_url}) — "
-              f"`ollama serve` 후 재시도하거나 --dump로 프롬프트만 검수하세요.")
-        return 1
-    label = "범용(기준선)" if generic else "캐릭터별"
-    print(f"model={settings.ollama_model}  runs/조합={runs}  프롬프트={label}  "
-          f"(성공=형식 검증 통과 → 개인화 채택, 실패=템플릿 폴백)\n")
-
+    runs: int, generic: bool,
+) -> tuple[list[tuple], int, int]:
     provider = OllamaDialogueProvider()
     rows, total_ok, total_n = [], 0, 0
     for ch in characters:
@@ -129,11 +146,58 @@ def run_live(
                         outputs.append(text)
                 total_ok, total_n = total_ok + ok, total_n + runs
                 rows.append((ch, qt, diff, ok, runs, latencies, outputs))
-                mean_ms = statistics.mean(latencies) * 1000
-                print(f"  {ch['name']:8s} × {qt:9s} × {diff:8s}  "
-                      f"{ok}/{runs} 성공  평균 {mean_ms:5.0f}ms")
-                for out in outputs[:2]:
-                    print(f"      └ {out}")
+    return rows, total_ok, total_n
+
+
+def run_live_reaction(
+    characters: list[dict], cases: list[str], difficulties: list[str],
+    runs: int, generic: bool,
+) -> tuple[list[tuple], int, int]:
+    rows, total_ok, total_n = [], 0, 0
+    for ch in characters:
+        for case in cases:
+            base_reaction = reaction_sample_for(ch["id"], case)
+            for diff in difficulties:
+                ok, latencies, outputs = 0, [], []
+                for i in range(runs):
+                    answer = SAMPLE_ANSWERS[i % len(SAMPLE_ANSWERS)]
+                    t0 = time.perf_counter()
+                    text = personalize_reaction(
+                        base_reaction, {} if generic else ch, answer,
+                        case=case, world=WORLD_SETTING, difficulty=diff,
+                    )
+                    latencies.append(time.perf_counter() - t0)
+                    if text and text != base_reaction:
+                        ok += 1
+                        outputs.append(text)
+                total_ok, total_n = total_ok + ok, total_n + runs
+                rows.append((ch, case, diff, ok, runs, latencies, outputs))
+    return rows, total_ok, total_n
+
+
+def run_live(
+    characters: list[dict], types: list[str], difficulties: list[str],
+    runs: int, generic: bool = False, target: str = "question",
+) -> int:
+    if not check_ollama():
+        print(f"!! Ollama에 연결할 수 없습니다 ({settings.ollama_base_url}) — "
+              f"`ollama serve` 후 재시도하거나 --dump로 프롬프트만 검수하세요.")
+        return 1
+    # 리액션 경로는 dialogue_provider가 ollama일 때만 개인화를 시도한다 (reactions.personalize_reaction 계약)
+    if target == "reaction":
+        settings.dialogue_provider = "ollama"
+    label = "범용(기준선)" if generic else "캐릭터별"
+    print(f"model={settings.ollama_model}  runs/조합={runs}  target={target}  프롬프트={label}  "
+          f"(성공=형식 검증 통과 → 개인화 채택, 실패=템플릿 폴백)\n")
+
+    runner = run_live_question if target == "question" else run_live_reaction
+    rows, total_ok, total_n = runner(characters, types, difficulties, runs, generic)
+    for ch, key, diff, ok, n, latencies, outputs in rows:
+        mean_ms = statistics.mean(latencies) * 1000
+        print(f"  {ch['name']:8s} × {key:9s} × {diff:8s}  "
+              f"{ok}/{n} 성공  평균 {mean_ms:5.0f}ms")
+        for out in outputs[:2]:
+            print(f"      └ {out}")
 
     fallback_rate = 100 * (1 - total_ok / total_n) if total_n else 0.0
     print("\n" + "-" * 72)
@@ -141,19 +205,21 @@ def run_live(
     worst = sorted(rows, key=lambda r: r[3] / r[4])[:3]
     if any(r[3] < r[4] for r in worst):
         print("우선 튜닝 대상(성공률 낮은 순):")
-        for ch, qt, diff, ok, n, _, _ in worst:
+        for ch, key, diff, ok, n, _, _ in worst:
             if ok < n:
-                print(f"  - {ch['id']} × {qt} × {diff}: {ok}/{n}")
+                print(f"  - {ch['id']} × {key} × {diff}: {ok}/{n}")
     return 0 if fallback_rate <= 20 else 2
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--target", choices=["question", "reaction"], default="question",
+                    help="측정 대상: 질문 개인화(question, 기본) | 반응 개인화(reaction)")
     ap.add_argument("--dump", action="store_true", help="프롬프트 조립 결과만 출력 (Ollama 불필요)")
     ap.add_argument("--runs", type=int, default=3, help="조합별 생성 횟수 (기본 3)")
     ap.add_argument("--chars", default="", help="캐릭터 id 콤마 목록 (기본 전원)")
-    ap.add_argument("--types", default=",".join(QUESTION_TYPE_RULES),
-                    help="질문 유형 콤마 목록 (기본 followup,pressure,deepening)")
+    ap.add_argument("--types", default="",
+                    help="질문 유형/반응 케이스 콤마 목록 (기본: target에 맞는 전체)")
     ap.add_argument("--difficulties", default="basic", help="난이도 콤마 목록 (기본 basic)")
     ap.add_argument("--generic", action="store_true",
                     help="범용 프롬프트로 측정 (캐릭터별 프롬프트와의 A/B 기준선)")
@@ -165,13 +231,16 @@ def main() -> int:
         print(f"!! 캐릭터를 찾을 수 없습니다: {args.chars} "
               f"(가능: {', '.join(c['id'] for c in CHARACTERS)})")
         return 1
-    types = [t for t in args.types.split(",") if t in QUESTION_TYPE_RULES]
+
+    valid_keys = QUESTION_TYPE_RULES if args.target == "question" else REACTION_CASE_RULES
+    requested = [t for t in args.types.split(",") if t] or list(valid_keys)
+    types = [t for t in requested if t in valid_keys]
     difficulties = [d for d in args.difficulties.split(",") if d]
 
     if args.dump:
-        dump(characters, types, difficulties)
+        dump(characters, types, difficulties, args.target)
         return 0
-    return run_live(characters, types, difficulties, args.runs, generic=args.generic)
+    return run_live(characters, types, difficulties, args.runs, generic=args.generic, target=args.target)
 
 
 if __name__ == "__main__":

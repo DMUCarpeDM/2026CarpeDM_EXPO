@@ -257,7 +257,10 @@ def submit_response(
                 if personalize_q else None
             )
             r_future = (
-                pool.submit(reactions.personalize_reaction, reaction, character, response_text)
+                pool.submit(
+                    reactions.personalize_reaction, reaction, character, response_text,
+                    signals["case"], world_setting, difficulty,
+                )
                 if reaction else None
             )
             if q_future is not None and (personalized := q_future.result()):

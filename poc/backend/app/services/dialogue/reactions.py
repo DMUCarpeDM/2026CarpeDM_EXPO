@@ -18,6 +18,7 @@ from app.ai.response_fit import analyze_response
 from app.core.config import settings
 from app.models import RoleplaySession
 from app.seed.seed_data import ENDINGS, REACTIONS
+from app.services.dialogue.prompts import build_reaction_system_prompt
 
 # 케이스별 수행도 델타. covered를 0.5로 눌러 "무난한 답만으로는 high가 안 되게" 설계 —
 # high 결말은 excellent가 섞여야 나온다 (분기가 체감되도록).
@@ -31,15 +32,6 @@ LOW_THRESHOLD = -0.25
 EXCELLENT_COVERAGE = 0.75
 MISSING_COVERAGE = 0.4
 SHORT_SYLLABLES = 12
-
-REACTION_SYSTEM_PROMPT = """당신은 직장 역할극의 등장인물입니다. 신입의 직전 답변에 대한
-짧은 반응 한 문장을 만듭니다.
-규칙:
-- 한국어 한 문장, 60자 이내. 질문 금지(물음표로 끝내지 않음).
-- 신입의 답변 내용 중 한 단어/구절을 직접 언급하면 좋습니다.
-- 지시된 캐릭터 말투를 유지합니다. 훈계 장문 금지, 인사말 금지.
-- 반응 문장 외에 아무것도 출력하지 않습니다."""
-
 
 def classify(response_text: str, checklist: list[dict]) -> dict:
     """답변을 리액션 케이스로 판정. 우선순위: risky > short > excellent > covered > missing."""
@@ -99,12 +91,23 @@ def pick_reaction(session: RoleplaySession, character_id: str, case: str) -> str
     return reaction
 
 
-def personalize_reaction(reaction: str, character: dict, response_text: str) -> str:
-    """로컬 LLM(Ollama)로 답변을 직접 언급하는 리액션으로 다듬는다. 실패 시 템플릿 유지."""
+def personalize_reaction(
+    reaction: str,
+    character: dict,
+    response_text: str,
+    case: str = "",
+    world: dict | None = None,
+    difficulty: str = "basic",
+) -> str:
+    """로컬 LLM(Ollama)로 답변을 직접 언급하는 리액션으로 다듬는다. 실패 시 템플릿 유지.
+
+    case/world/difficulty는 build_reaction_system_prompt의 캐릭터별 시스템 프롬프트
+    재료 — 없으면 범용 프롬프트로 동작한다(평문 인자만 받아 스레드에서 안전).
+    """
     if settings.dialogue_provider != "ollama":
         return reaction
+    system_prompt = build_reaction_system_prompt(character, world, case=case, difficulty=difficulty)
     prompt = (
-        f"[캐릭터] {character.get('name', '')} — {character.get('speech_style', '')}\n"
         f"[신입의 직전 답변] {response_text[:300]}\n"
         f"[참고용 기본 반응] {reaction}\n"
         "위 답변에 대한 이 캐릭터의 반응 한 문장을 만드세요."
@@ -115,11 +118,11 @@ def personalize_reaction(reaction: str, character: dict, response_text: str) -> 
             json={
                 "model": settings.ollama_model,
                 "messages": [
-                    {"role": "system", "content": REACTION_SYSTEM_PROMPT},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},
                 ],
                 "stream": False,
-                "options": {"num_predict": 60, "temperature": 0.5},
+                "options": {"num_predict": 48, "temperature": 0.5},
             },
             timeout=settings.ollama_timeout_sec,
         )
