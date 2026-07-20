@@ -19,7 +19,13 @@ import { IconGlyph } from "../components/ui/IconGlyph";
 import { LiveFitMeter } from "../components/report/Charts";
 import { blobToWav } from "../lib/audioWav";
 import { useFaceTracking } from "../lib/useFaceTracking";
-import counterpartPortrait from "../assets/team-lead-portrait.webp";
+import { CharacterAvatar } from "../components/ui/CharacterAvatar";
+
+// 모드별 전체 턴 예산 (백엔드 template_provider.TURN_BUDGET과 일치) — 진행률 표시용
+const TURN_BUDGET = { 5: 6, 10: 11 };
+// 실시간 분석 리드아웃 라벨
+const GAZE_LABEL = { left: "왼쪽", right: "오른쪽", up: "위", down: "아래" };
+const EXPRESSION_LABEL = { smile: "미소", tense: "긴장", neutral: "중립", none: "—" };
 
 function formatClock(totalSeconds) {
   const m = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
@@ -44,7 +50,7 @@ const RESPONSE_CASE_FEEDBACK = {
   risky: "표현을 한번 다듬어보세요",
 };
 
-export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSignals, onSubmit, busy, error, mediaStream }) {
+export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSignals, onSubmit, busy, error, mediaStream, mode = 5 }) {
   const [draft, setDraft] = useState("");
   const [captureError, setCaptureError] = useState("");
   const [elapsed, setElapsed] = useState(0);
@@ -60,9 +66,15 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
   const audioChunksRef = useRef([]);
   const recordingStartedAtRef = useRef(0);
   const stampsRef = useRef(new Map());
-  const character = scenario?.characters?.find((item) => item.id === turn?.character_id) || scenario?.characters?.[0];
+  const charById = (id) => scenario?.characters?.find((item) => item.id === id);
+  const character = charById(turn?.character_id) || scenario?.characters?.[0];
   const characterName = character?.name || "AI 상대";
   const coverage = turnSignals ? Math.round(turnSignals.coverage * 100) : null;
+  // 진행률 — 완료 턴 수(history) 대비 모드별 턴 예산 + 경과/제한 시간
+  const turnBudget = TURN_BUDGET[mode] || TURN_BUDGET[5];
+  const turnsDone = history.length;
+  const turnProgress = Math.min(100, Math.round((turnsDone / turnBudget) * 100));
+  const timeBudgetSec = mode * 60;
   const aiReady = aiHealth?.dialogue_provider === "ollama" && aiHealth?.ollama?.dialogue;
   // MediaPipe 실시간 얼굴·상체 트래킹 (영상 미전송 — 브라우저 안에서만 분석)
   const track = useFaceTracking(mediaStream, videoRef, overlayRef);
@@ -113,7 +125,12 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
     const voices = synth.getVoices();
     utter.voice = voices.find((v) => v.lang?.startsWith("ko") && v.localService) || voices.find((v) => v.lang?.startsWith("ko")) || null;
     utter.lang = "ko-KR";
-    utter.rate = 1.04;
+    // 캐릭터별 목소리 — 시드 character.tts(rate/pitch)로 6명을 다르게 들리게 한다
+    // (김태호 낮고 빠름, 이준영 높고 밝음 등). 단일 브라우저 음성 위에서 rate·pitch만
+    // 바꾸므로 성별까지는 아니어도 인물별 리듬·톤 차이가 생긴다.
+    const tts = character?.tts || {};
+    utter.rate = tts.rate ?? 1.04;
+    utter.pitch = tts.pitch ?? 1.0;
     utter.onstart = () => { if (!cancelled) setAiSpeaking(true); };
     utter.onend = () => { if (!cancelled) setAiSpeaking(false); };
     utter.onerror = () => { if (!cancelled) setAiSpeaking(false); };
@@ -271,7 +288,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
             <button type="button" className="topbar-scenario">{scenario?.title || "업무 보고 및 피드백 논의"} <ChevronDown size={15} /></button>
           </div>
           <div className="topbar-item counterpart">
-            <span className="counterpart-avatar"><img src={counterpartPortrait} alt="" /></span>
+            <span className="counterpart-avatar"><CharacterAvatar character={character} size={34} /></span>
             <span className="counterpart-meta">
               <span className="topbar-item-label">상대</span>
               <strong>{characterName} <i className="presence-dot" aria-hidden="true" /><em className="ai-tag">AI</em></strong>
@@ -279,7 +296,11 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
           </div>
         </div>
         <div className="practice-topbar-right">
-          <span className="practice-timer"><i className="rec-dot" aria-hidden="true" />{formatClock(elapsed)}</span>
+          <div className="practice-progress" aria-label={`진행 턴 ${turnsDone} / ${turnBudget}`}>
+            <span className="progress-turns"><b>턴 {turnsDone}</b><span>/ {turnBudget}</span></span>
+            <span className="progress-bar" aria-hidden="true"><i style={{ width: `${turnProgress}%` }} /></span>
+          </div>
+          <span className="practice-timer"><i className="rec-dot" aria-hidden="true" />{formatClock(elapsed)}<small>/ {formatClock(timeBudgetSec)}</small></span>
           <button type="button" className="practice-end" onClick={onPrev}><Power size={16} /> 연습 종료</button>
           <button type="button" className="practice-settings" aria-label="설정"><Settings size={20} /></button>
         </div>
@@ -300,6 +321,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
               <Expand size={15} />
             </button>
           </div>
+          <AnalysisReadout track={track} />
           <VoiceLevelChip mediaStream={mediaStream} onLevel={setVoiceLevel} />
           <div className={`camera-eye-chip ${trackingLive && !track.eyeFront ? "warn" : ""}`}>
             <span className="eye-chip-title"><IconGlyph icon="coach" size={15} /> {trackingLive && !track.eyeFront ? "시선이 벗어났어요" : "시선 유지 좋음"}</span>
@@ -307,7 +329,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
           </div>
           <div className="camera-subtitle">
             <div className="camera-subtitle-head">
-              <span className="subtitle-avatar"><img src={counterpartPortrait} alt="" /></span>
+              <span className="subtitle-avatar"><CharacterAvatar character={character} size={28} /></span>
               <strong>{characterName}</strong>
               <em className={`speaking-chip ${aiSpeaking ? "" : "calm"}`}><IconGlyph icon="response" size={13} /> {busy ? "답변 분석 중" : aiSpeaking ? "AI가 말하는 중" : listening ? "듣고 있어요" : turn ? "당신 차례예요" : "질문 준비 중"}</em>
             </div>
@@ -341,14 +363,17 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
               <button type="button" className="text-link">전체 보기 <ChevronRight size={14} /></button>
             </div>
             <div className="chat-log-body" ref={chatBodyRef}>
-              {history.map((item) => (
-                <React.Fragment key={item.id}>
-                  <ChatBubble ai name={characterName} time={item.asked_at || stampFor(`q-${item.id}`, `턴 ${item.order}`)}>{item.question_text}</ChatBubble>
-                  <ChatBubble mine time={item.answered_at || stampFor(`a-${item.id}`, `턴 ${item.order}`)}>{item.response_text}</ChatBubble>
-                </React.Fragment>
-              ))}
-              {turn?.reaction_text && <ChatBubble ai name={characterName} time="AI 반응">{turn.reaction_text}</ChatBubble>}
-              {turn && <ChatBubble ai name={characterName} time={turn.asked_at || stampFor(`q-${turn.id}`, `턴 ${turn.order}`)}>{turn.question_text}</ChatBubble>}
+              {history.map((item) => {
+                const itemChar = charById(item.character_id) || character;
+                return (
+                  <React.Fragment key={item.id}>
+                    <ChatBubble ai character={itemChar} name={itemChar?.name || characterName} time={item.asked_at || stampFor(`q-${item.id}`, `턴 ${item.order}`)}>{item.question_text}</ChatBubble>
+                    <ChatBubble mine time={item.answered_at || stampFor(`a-${item.id}`, `턴 ${item.order}`)}>{item.response_text}</ChatBubble>
+                  </React.Fragment>
+                );
+              })}
+              {turn?.reaction_text && <ChatBubble ai character={character} name={characterName} time="AI 반응">{turn.reaction_text}</ChatBubble>}
+              {turn && <ChatBubble ai character={character} name={characterName} time={turn.asked_at || stampFor(`q-${turn.id}`, `턴 ${turn.order}`)}>{turn.question_text}</ChatBubble>}
               <div className={`typing-bubble ${busy ? "busy" : ""}`} aria-label={busy ? "AI가 답을 준비하고 있어요" : "답변을 기다리고 있어요"}><i /><i /><i /></div>
               {(error || captureError) && <p className="practice-error">{error || captureError}</p>}
             </div>
@@ -381,6 +406,47 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
         </div>
       </motion.footer>
     </motion.section>
+  );
+}
+
+// 실시간 AI 분석 리드아웃 — MediaPipe가 프레임마다 뽑아내는 신호를 그대로 보여줘
+// "AI가 지금 무엇을 보고 있는지"를 드러낸다. 값은 useFaceTracking의 live에서 온다.
+function AnalysisReadout({ track }) {
+  const { status, tracking, calibrating, eyeFront, gazeDir, expression, shoulderTiltDeg, poseTracked, inferMs } = track;
+  let state = "live";
+  let headline = "AI 실시간 분석";
+  if (status === "idle" || status === "failed") { state = "off"; headline = "카메라 연결 시 분석"; }
+  else if (status === "loading") { state = "loading"; headline = "분석 모델 준비 중"; }
+  else if (calibrating) { state = "calibrating"; headline = "시선 보정 중"; }
+
+  const rows = state === "live" ? [
+    { key: "face", label: "얼굴", value: tracking ? "인식됨" : "탐색 중", warn: !tracking },
+    { key: "gaze", label: "시선", value: eyeFront ? "정면 유지" : `${GAZE_LABEL[gazeDir] || "이탈"} 이탈`, warn: !eyeFront },
+    { key: "expr", label: "표정", value: EXPRESSION_LABEL[expression] || "—", warn: expression === "tense" },
+    { key: "pose", label: "어깨", value: poseTracked ? `${shoulderTiltDeg}° ${shoulderTiltDeg < 7 ? "수평" : "기욺"}` : "미검출", warn: poseTracked && shoulderTiltDeg >= 7 },
+  ] : [];
+
+  return (
+    <div className={`analysis-readout ${state}`} aria-label="실시간 분석 상태">
+      <div className="analysis-head">
+        <span className="analysis-pulse" aria-hidden="true" />
+        <b>{headline}</b>
+        {state === "live" && <em className="analysis-latency"><IconGlyph icon="fit" size={12} /> {inferMs}ms</em>}
+      </div>
+      {state === "live" && (
+        <ul className="analysis-rows">
+          {rows.map((row) => (
+            <li key={row.key} className={row.warn ? "warn" : ""}>
+              <span className="analysis-dot" aria-hidden="true" />
+              <span className="analysis-label">{row.label}</span>
+              <span className="analysis-value">{row.value}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {state === "calibrating" && <p className="analysis-hint">잠시 화면 속 상대를 바라봐 주세요</p>}
+      {state === "loading" && <p className="analysis-hint">얼굴·자세 인식 모델을 불러오는 중…</p>}
+    </div>
   );
 }
 
@@ -505,7 +571,7 @@ function TrackingOverlay({ silhouette = false }) {
   );
 }
 
-function ChatBubble({ children, ai = false, mine = false, name, time }) {
+function ChatBubble({ children, ai = false, mine = false, character, name, time }) {
   if (mine) {
     return (
       <div className="chat-message mine">
@@ -520,7 +586,7 @@ function ChatBubble({ children, ai = false, mine = false, name, time }) {
   }
   return (
     <div className={`chat-message ${ai ? "ai" : ""}`}>
-      <span className="chat-avatar" aria-hidden="true"><img src={counterpartPortrait} alt="" /></span>
+      <span className="chat-avatar"><CharacterAvatar character={character} size={30} /></span>
       <div className="chat-content">
         <span className="chat-meta">{name} · {time}</span>
         <div className="chat-bubble"><p>{children}</p></div>

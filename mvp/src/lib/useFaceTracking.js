@@ -3,7 +3,11 @@
  * 원본 영상은 어디에도 저장·전송하지 않고, 브라우저 안에서 프레임을 분석해
  * 오버레이(얼굴 메시·상체 스켈레톤)와 라이브 신호(시선·자세·추론 시간)만 만든다.
  *
- * 반환 live: { status, tracking, eyeFront, tiltDeg, postureLevel, poseTracked, inferMs }
+ * 반환 live: { status, tracking, calibrating, eyeFront, gazeDir, expression,
+ *              tiltDeg, postureLevel, poseTracked, shoulderTiltDeg, inferMs }
+ *   gazeDir: 시선 이탈 방향 "left|right|up|down" (정면이면 null)
+ *   expression: "smile|tense|neutral|none"  (none = 얼굴 미검출)
+ *   shoulderTiltDeg: 실시간 어깨 기울기(도)
  * status: idle(카메라 없음) | loading | ready | failed
  */
 import { useEffect, useRef, useState } from "react";
@@ -83,7 +87,7 @@ const POSE_LINKS = [
 ];
 
 export function useFaceTracking(mediaStream, videoRef, canvasRef) {
-  const [live, setLive] = useState({ status: "idle", tracking: false, calibrating: false, eyeFront: false, tiltDeg: 0, postureLevel: false, poseTracked: false, inferMs: 0 });
+  const [live, setLive] = useState({ status: "idle", tracking: false, calibrating: false, eyeFront: false, gazeDir: null, expression: "none", tiltDeg: 0, postureLevel: false, poseTracked: false, shoulderTiltDeg: 0, inferMs: 0 });
   const liveRef = useRef(live);
   const turnAccRef = useRef(makeTurnAcc());
   // 지난 수집 시점 이후의 집계를 NonverbalIn 모양으로 돌려주고 리셋 (턴 제출 시 호출)
@@ -126,6 +130,7 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
     let offStreak = 0;
     let frontStreak = 0;
     let eyeFrontState = true;
+    let lastOffDir = null; // 실시간 리드아웃용: 마지막으로 감지된 시선 이탈 방향
     // 개인 기준(캘리브레이션) 상태
     let base = null; // { asym, eyeX, eyeDown, eyeUp }
     let calib = { asym: [], eyeX: [], eyeDown: [], eyeUp: [] };
@@ -308,11 +313,20 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
               if (poseTracked) { acc.shoulderDevSum += shoulderDev; acc.shoulderN += 1; }
             }
 
+            // 실시간 리드아웃 신호 — 프레임별로 계산되던 표정·시선방향을 live로 노출한다
+            // (관찰 전용, 서버 미전송). 얼굴이 잡힌 샘플만 갱신하고 아니면 직전값 유지.
+            if (sampleMeta?.offDir) lastOffDir = sampleMeta.offDir;
+            const gazeDir = eyeFront ? null : lastOffDir;
+            const expression = !sampleMeta ? "none"
+              : sampleMeta.smile ? "smile"
+                : (sampleMeta.press || sampleMeta.brow) ? "tense"
+                  : "neutral";
+
             if (ts - lastPush > LIVE_PUSH_MS) {
               lastPush = ts;
-              const next = { status: "ready", tracking: Boolean(lm), calibrating: base === null, eyeFront, tiltDeg: Math.round(tiltDeg), postureLevel, poseTracked, inferMs: Math.max(1, Math.round(inferAvg)) };
+              const next = { status: "ready", tracking: Boolean(lm), calibrating: base === null, eyeFront, gazeDir, expression, tiltDeg: Math.round(tiltDeg), postureLevel, poseTracked, shoulderTiltDeg: Math.round(shoulderDev), inferMs: Math.max(1, Math.round(inferAvg)) };
               const prev = liveRef.current;
-              if (next.status !== prev.status || next.tracking !== prev.tracking || next.calibrating !== prev.calibrating || next.eyeFront !== prev.eyeFront || next.postureLevel !== prev.postureLevel || next.poseTracked !== prev.poseTracked || Math.abs(next.inferMs - prev.inferMs) > 4) {
+              if (next.status !== prev.status || next.tracking !== prev.tracking || next.calibrating !== prev.calibrating || next.eyeFront !== prev.eyeFront || next.gazeDir !== prev.gazeDir || next.expression !== prev.expression || next.postureLevel !== prev.postureLevel || next.poseTracked !== prev.poseTracked || Math.abs(next.shoulderTiltDeg - prev.shoulderTiltDeg) > 2 || Math.abs(next.inferMs - prev.inferMs) > 4) {
                 liveRef.current = next;
                 setLive(next);
               }

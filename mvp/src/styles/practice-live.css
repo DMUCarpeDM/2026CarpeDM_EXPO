@@ -385,3 +385,36 @@
   .camera-eye-chip, .camera-voicelevel { display: none; }
   .camera-subtitle { width: 92%; }
 }
+
+/* ── 캐릭터 스타일 아바타 (사진 대신 색+이니셜로 6명 구분) ── */
+.character-avatar { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; color: #fff; font-weight: 700; line-height: 1; letter-spacing: -0.01em; }
+/* 래퍼 그라디언트를 걷어내 캐릭터 고유색이 그대로 보이게 (링·그림자는 유지) */
+.counterpart-avatar, .subtitle-avatar, .practice-screen .chat-message.ai .chat-avatar { background: none; }
+
+/* ── 턴/시간 진행 표시 ── */
+.practice-progress { display: inline-flex; flex-direction: column; gap: 5px; padding: 7px 13px; border-radius: 14px; background: var(--color-fog); min-width: 92px; }
+.progress-turns { display: inline-flex; align-items: baseline; gap: 5px; font-size: 12px; color: var(--color-text-soft); font-variant-numeric: tabular-nums; }
+.progress-turns b { font-size: 14px; font-weight: 720; color: var(--color-text); }
+.progress-bar { height: 4px; border-radius: 3px; background: rgba(16, 24, 40, 0.1); overflow: hidden; }
+.progress-bar i { display: block; height: 100%; border-radius: 3px; background: var(--color-primary, #357ef3); transition: width 0.4s ease; }
+.practice-timer small { margin-left: 5px; font-size: 12px; font-weight: 600; color: var(--color-text-soft); }
+
+/* ── 실시간 AI 분석 리드아웃 (좌상단, LIVE 칩 아래) ── */
+.analysis-readout { position: absolute; left: 18px; top: 64px; width: 178px; padding: 11px 13px; border: 1px solid rgba(255, 255, 255, 0.09); border-radius: 14px; background: var(--pl-overlay-bg); backdrop-filter: blur(10px); color: #fff; z-index: 3; }
+.analysis-readout.off { opacity: 0.72; }
+.analysis-head { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; color: #fff; }
+.analysis-head b { font-weight: 700; }
+.analysis-pulse { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.6); animation: analysis-pulse 1.6s ease-out infinite; }
+.analysis-readout.loading .analysis-pulse, .analysis-readout.calibrating .analysis-pulse { background: #fbbf24; }
+.analysis-readout.off .analysis-pulse { background: #94a3b8; animation: none; }
+@keyframes analysis-pulse { 0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.5); } 70% { box-shadow: 0 0 0 7px rgba(74, 222, 128, 0); } 100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); } }
+.analysis-latency { margin-left: auto; display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 650; color: rgba(255, 255, 255, 0.72); font-style: normal; }
+.analysis-rows { list-style: none; margin: 9px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.analysis-rows li { display: grid; grid-template-columns: 10px 34px 1fr; align-items: center; gap: 7px; font-size: 12px; }
+.analysis-dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; }
+.analysis-rows li.warn .analysis-dot { background: #fbbf24; }
+.analysis-label { color: rgba(255, 255, 255, 0.66); }
+.analysis-value { color: #fff; font-weight: 650; text-align: right; font-variant-numeric: tabular-nums; }
+.analysis-rows li.warn .analysis-value { color: #fbbf24; }
+.analysis-hint { margin: 8px 0 0; font-size: 11px; line-height: 1.45; color: rgba(255, 255, 255, 0.78); }
+@media (prefers-reduced-motion: reduce) { .analysis-pulse { animation: none; } }
