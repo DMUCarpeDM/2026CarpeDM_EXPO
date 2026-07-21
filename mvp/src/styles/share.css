@@ -313,3 +313,8 @@
   background: #fff;
 }
 
+
+/* 체험 코드 QR — 관람객이 결과를 가져가는 마지막 접점 */
+.share-qr { display: flex; align-items: center; gap: 16px; margin: 14px 0 0; padding: 14px; border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-snow); }
+.share-qr img { width: 108px; height: 108px; border-radius: 8px; }
+.share-qr figcaption { color: var(--color-graphite); font-size: 13px; line-height: 1.55; }

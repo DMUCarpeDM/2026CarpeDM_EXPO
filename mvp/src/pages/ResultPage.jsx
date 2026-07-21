@@ -10,7 +10,8 @@ import { Refresh3 } from "reicon-react/icons/Refresh3";
 import { User } from "reicon-react/icons/User";
 import { motion } from "framer-motion";
 import { reportFits } from "../lib/reportFits";
-import { RadarChart } from "../components/report/Charts";
+import { RadarChart, TrendChart } from "../components/report/Charts";
+import counterpartPortrait from "../assets/team-lead-portrait.webp";
 import { ReportShell } from "../components/report/DashboardShell";
 import { IconGlyph } from "../components/ui/IconGlyph";
 import { PageToolbar, Panel, ScoreRing } from "../components/report/ResultPrimitives";
@@ -49,6 +50,18 @@ export function ResultPage({ onPrev, onPractice, onNext, onNavigate, report, pro
   const improvements = report.improvements?.length ? report.improvements : ["결론과 기한을 한 문장으로 먼저 말해 보세요.", "근거를 한 가지 덧붙이면 설득력이 높아져요."];
   const insight = report.headline?.sentence || improvements[0];
   const pressure = report.difficulty === "pressure";
+  const stats = report.speech_stats || {};
+  const adaptation = report.deep_analysis?.adaptation;
+  const dayEnding = report.day_ending;
+  // 실측 요약 스트립 — "측정했다"는 증거를 숫자로 먼저 보여줘요.
+  const statItems = [
+    stats.turns ? { label: "답변", value: `${stats.turns}턴` } : null,
+    stats.total_syllables ? { label: "총 발화", value: `${stats.total_syllables}음절` } : null,
+    stats.avg_speech_rate ? { label: "말속도", value: `${stats.avg_speech_rate}음절/초` } : null,
+    typeof stats.formal_pct === "number" ? { label: "격식 표현", value: `${stats.formal_pct}%` } : null,
+    stats.measurement?.frames ? { label: "영상 분석", value: `${stats.measurement.frames}프레임` } : null,
+    stats.measurement?.audio_sec ? { label: "음성 분석", value: `${Math.round(stats.measurement.audio_sec)}초` } : null,
+  ].filter(Boolean);
   const meta = [
     { Icon: Clock3, label: "연습 시간", value: `${report.mode ?? 5}분` },
     { Icon: CalendarDate, label: "연습 날짜", value: report.finished_label || "방금 완료" },
@@ -98,12 +111,35 @@ export function ResultPage({ onPrev, onPractice, onNext, onNavigate, report, pro
               </dl>
             </div>
 
+            {statItems.length > 0 && (
+              <dl className="speech-stats-strip" aria-label="이번 연습 실측 요약">
+                {statItems.map((item) => <div key={item.label}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}
+              </dl>
+            )}
+
             <Panel className="coaching-overview">
               <div className="coaching-columns">
                 <CoachingList tone="good" title="잘한 점 (Strengths)" items={strengths} />
                 <CoachingList tone="improve" title="개선 포인트 (Areas to Improve)" items={improvements} />
               </div>
             </Panel>
+
+            {adaptation?.points?.length >= 2 && (
+              <Panel className="adaptation-card">
+                <div className="deep-panel-head">
+                  <h2>{adaptation.title || "적응 곡선"} <span className={`trend-chip ${adaptation.trend || "flat"}`}>{adaptation.trend === "up" ? "상승" : adaptation.trend === "down" ? "하강" : "유지"}</span></h2>
+                  {adaptation.confidence && <span className="confidence-chip">{adaptation.confidence.level} · {adaptation.confidence.n}턴 근거</span>}
+                </div>
+                <TrendChart
+                  height={170}
+                  min={Math.max(0, Math.floor(Math.min(...adaptation.points.map((p) => p.score)) / 10) * 10 - 10)}
+                  max={100}
+                  series={[{ name: "턴별 점수", color: "#0064ff", values: adaptation.points.map((p) => Math.round(p.score)) }]}
+                  xLabels={adaptation.points.map((p) => `${p.turn_order}턴`)}
+                />
+                {adaptation.comment && <p className="deep-panel-comment">{adaptation.comment}</p>}
+              </Panel>
+            )}
 
             <Panel className="insight-radar-card">
               <div className="insight-radar-copy">
@@ -112,6 +148,17 @@ export function ResultPage({ onPrev, onPractice, onNext, onNavigate, report, pro
               </div>
               <RadarChart fits={fits} />
             </Panel>
+
+            {dayEnding?.text && (
+              <Panel className="day-ending-card">
+                <span className="day-ending-avatar"><img src={counterpartPortrait} alt="" /></span>
+                <div>
+                  <h2>하루의 결말 {dayEnding.label && <em className="day-ending-chip">{dayEnding.label}</em>}</h2>
+                  <p>“{dayEnding.text}”</p>
+                  <small>{report.character_name || "AI 상대"}의 마무리 — 답변 수행도에 따라 결말이 달라져요</small>
+                </div>
+              </Panel>
+            )}
 
             <button className="report-detail-row" type="button" onClick={onNext}>
               <ChartBarTrendUp size={22} />

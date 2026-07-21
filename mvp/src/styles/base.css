@@ -35,8 +35,8 @@
   --space-20: 80px;
   --shadow-card: 0 14px 34px rgba(25, 31, 40, 0.06), 0 2px 8px rgba(25, 31, 40, 0.04);
   --shadow-light: 0 8px 22px rgba(25, 31, 40, 0.05);
-  --font-display: "SF Pro Display", "Inter", "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  --font-text: "SF Pro Text", "Inter", "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-display: "Pretendard Variable", "Pretendard", "SF Pro Display", "Inter", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", system-ui, sans-serif;
+  --font-text: "Pretendard Variable", "Pretendard", "SF Pro Text", "Inter", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", system-ui, sans-serif;
 }
 
 * {

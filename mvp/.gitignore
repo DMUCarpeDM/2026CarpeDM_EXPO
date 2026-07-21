@@ -5,3 +5,5 @@ artifacts/
 .ouroboros/
 tmp/
 .DS_Store
+public/mediapipe-wasm/
+public/models/

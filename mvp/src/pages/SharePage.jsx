@@ -5,14 +5,23 @@ import { Download } from "reicon-react/icons/Download";
 import { Gallery } from "reicon-react/icons/Gallery";
 import { Home3 } from "reicon-react/icons/Home3";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import QRCode from "qrcode";
 import { reportFits } from "../lib/reportFits";
 import { Chip, ExportCard, FitColumn, PageToolbar, Panel, PrimaryButton, ScoreRing } from "../components/report/ResultPrimitives";
 
 export function SharePage({ onHome, onPractice, report, onIssueCode }) {
   const [shareNotice, setShareNotice] = useState("체험 코드를 발급하면 다른 방문에서도 같은 익명 기록을 이어갈 수 있어요.");
   const [code, setCode] = useState("");
+  const [qrDataUrl, setQrDataUrl] = useState("");
   const shareUrl = code ? `체험 코드: ${code}` : "체험 코드를 만들면 기록을 이어볼 수 있어요.";
+  // 체험 코드를 QR로 — 관람객이 휴대폰 카메라로 찍어 코드를 가져간다 (로컬 생성, 네트워크 불필요)
+  useEffect(() => {
+    if (!code) { setQrDataUrl(""); return; }
+    QRCode.toDataURL(code, { width: 240, margin: 1, color: { dark: "#12203a", light: "#ffffff" } })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(""));
+  }, [code]);
   const updateNotice = async (message, copyText) => { try { if (copyText && navigator.clipboard?.writeText) await navigator.clipboard.writeText(copyText); } catch {} setShareNotice(message); };
   const issueCode = async () => { try { const result = await onIssueCode(); setCode(result.code); setShareNotice("체험 코드를 만들었어요."); } catch (error) { setShareNotice(error.message); } };
   const fits = reportFits(report);
@@ -32,7 +41,7 @@ export function SharePage({ onHome, onPractice, report, onIssueCode }) {
         <PrimaryButton icon={Home3} label="홈으로 돌아가기" onClick={onHome} wide />
         <button className="link-button" type="button" onClick={onPractice}>다른 연습하기 <ArrowRight size={16} /></button>
       </div>
-      <section className="share-preview card" aria-label="공유 기록 미리보기"><h2>기록 미리보기</h2><p>이번 분석 결과를 한눈에 볼 수 있어요.</p><Panel className="mini-report"><h3>연습 리포트</h3><span>방금 마친 연습</span><div className="mini-report-body"><ScoreRing value={Math.round(report?.total_score || 0)} size="xs" label="점수" /><div className="preview-fit-grid">{fits.map((fit) => <FitColumn key={fit.key} fit={fit} compact />)}</div></div></Panel><h3>체험 코드</h3><p className="share-notice">{shareNotice}</p><div className="copy-field"><span>{shareUrl}</span><button type="button" onClick={code ? () => updateNotice("체험 코드를 복사했어요.", code) : issueCode}>{code ? "복사" : "발급"}</button></div></section>
+      <section className="share-preview card" aria-label="공유 기록 미리보기"><h2>기록 미리보기</h2><p>이번 분석 결과를 한눈에 볼 수 있어요.</p><Panel className="mini-report"><h3>연습 리포트</h3><span>방금 마친 연습</span><div className="mini-report-body"><ScoreRing value={Math.round(report?.total_score || 0)} size="xs" label="점수" /><div className="preview-fit-grid">{fits.map((fit) => <FitColumn key={fit.key} fit={fit} compact />)}</div></div></Panel><h3>체험 코드</h3><p className="share-notice">{shareNotice}</p><div className="copy-field"><span>{shareUrl}</span><button type="button" onClick={code ? () => updateNotice("체험 코드를 복사했어요.", code) : issueCode}>{code ? "복사" : "발급"}</button></div>{qrDataUrl && <figure className="share-qr"><img src={qrDataUrl} alt={`체험 코드 ${code} QR`} /><figcaption>휴대폰 카메라로 찍어<br />코드를 가져가세요</figcaption></figure>}</section>
     </div>
   </motion.section>;
 }

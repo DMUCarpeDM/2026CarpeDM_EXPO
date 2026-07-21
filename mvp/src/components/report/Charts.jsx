@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { IconGlyph } from "../ui/IconGlyph";
 
 const FIT_COLORS = { response: "#0064ff", voice: "#2f7cff", eye: "#0ea5e9", posture: "#ff8a00" };
@@ -73,39 +74,78 @@ export function TrendChart({ series, xLabels, height = 210, min = 40, max = 100 
   );
 }
 
-// 연습 화면 우측의 실시간 4-Fit 게이지. percent가 있으면 원형 게이지, 아니면 파형/상태 표시.
-export function LiveFitMeter({ icon, label, english, tone, percent, caption, kind = "ring" }) {
-  const color = FIT_COLORS[tone] || "#0064ff";
+// 연습 화면 우측의 실시간 4-Fit 게이지 (피그마: 라벨 → 링 → 상태 → 캡션 세로 구성).
+// kind: percent(링 중앙에 %), wave(파형 아이콘), icon(글리프 아이콘). muted면 회색 처리.
+const LIVE_FIT_COLORS = { response: "#0064ff", voice: "#2f7cff", eye: "#0ea5e9", posture: "#10b981" };
+
+// 링 중앙 전용 커스텀 글리프 — 기성 아이콘이 링 안에서 투박해 보여 얇은 스트로크로 직접 그림.
+function EyeGlyph({ size = 26 }) {
   return (
-    <div className={`live-fit-meter ${tone}`}>
-      <div className="live-fit-visual">
-        {kind === "ring" && typeof percent === "number" ? (
-          <RingGauge value={percent} color={color} />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2.8 12C5.1 7.4 8.4 5.1 12 5.1s6.9 2.3 9.2 6.9c-2.3 4.6-5.6 6.9-9.2 6.9S5.1 16.6 2.8 12Z" />
+      <circle cx="12" cy="12" r="2.9" />
+      <circle cx="13" cy="11" r="0.5" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function PostureGlyph({ size = 26 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12.6" cy="4.3" r="1.9" />
+      <path d="M12.3 7.1 11.7 13" />
+      <path d="M12.1 8.5 15.2 11.3" />
+      <path d="M12.1 8.5 9 10.6" />
+      <path d="M11.7 13 14.6 18.8" />
+      <path d="M11.7 13 8.8 18.4" />
+    </svg>
+  );
+}
+
+const RING_GLYPHS = { eye: EyeGlyph, posture: PostureGlyph };
+
+export function LiveFitMeter({ icon, label, english, tone, percent, status, caption, kind = "percent", muted = false, warn = false }) {
+  const color = muted ? "#c3cad4" : warn ? "#f59e0b" : LIVE_FIT_COLORS[tone] || "#0064ff";
+  const RingGlyph = RING_GLYPHS[icon];
+  return (
+    <div className={`live-fit-meter ${tone} ${muted ? "muted" : ""}`}>
+      <span className="live-fit-label">{label}</span>
+      <em className="live-fit-english">({english})</em>
+      <RingGauge value={percent ?? 0} color={color}>
+        {kind === "percent" ? (
+          <b className="ring-value">{percent ?? "–"}<small>%</small></b>
         ) : kind === "wave" ? (
-          <span className="live-wave" aria-hidden="true">{Array.from({ length: 7 }, (_, i) => <i key={i} style={{ background: color }} />)}</span>
+          <span className="ring-wave" aria-hidden="true">{Array.from({ length: 5 }, (_, i) => <i key={i} style={{ background: color }} />)}</span>
         ) : (
-          <span className="live-fit-icon" style={{ color }}><IconGlyph icon={icon} size={26} /></span>
+          <span className="ring-icon" style={{ color }}>
+            {RingGlyph ? <RingGlyph size={26} /> : <IconGlyph icon={icon} size={24} />}
+          </span>
         )}
-      </div>
-      <div className="live-fit-copy">
-        <span className="live-fit-label"><IconGlyph icon={icon} size={16} /> {label}<em>{english}</em></span>
-        <strong>{caption}</strong>
-      </div>
+      </RingGauge>
+      <b className="live-fit-status" style={{ color: muted ? "#8b95a1" : color }}>{status}</b>
+      <small className="live-fit-caption">{caption}</small>
     </div>
   );
 }
 
-function RingGauge({ value, color, size = 58 }) {
-  const r = 24;
+function RingGauge({ value, color, size = 78, children }) {
+  // 마운트 직후 한 프레임 비운 뒤 목표값으로 채워 링이 차오르는 전환을 만들어요.
+  const [drawn, setDrawn] = useState(false);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setDrawn(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  const r = 25;
   const c = 2 * Math.PI * r;
-  const offset = c - (Math.max(0, Math.min(100, value)) / 100) * c;
+  const target = drawn ? Math.max(0, Math.min(100, value)) : 0;
+  const offset = c - (target / 100) * c;
   return (
     <span className="ring-gauge" style={{ width: size, height: size }}>
       <svg viewBox="0 0 58 58" aria-hidden="true">
         <circle className="ring-track" cx="29" cy="29" r={r} />
-        <circle className="ring-fill" cx="29" cy="29" r={r} stroke={color} strokeDasharray={c} strokeDashoffset={offset} />
+        {value > 0 && <circle className="ring-fill" cx="29" cy="29" r={r} stroke={color} strokeDasharray={c} strokeDashoffset={offset} />}
       </svg>
-      <b>{value}<small>%</small></b>
+      {children}
     </span>
   );
 }
