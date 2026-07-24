@@ -181,6 +181,7 @@
 .fit-key-row.response .fit-key-icon { background: rgba(0, 100, 255, 0.1); }
 .fit-key-row.voice .fit-key-icon { background: rgba(47, 124, 255, 0.1); }
 .fit-key-row.eye .fit-key-icon { background: rgba(14, 165, 233, 0.12); }
+.fit-key-row.expression .fit-key-icon { background: rgba(124, 58, 237, 0.12); }
 .fit-key-row.posture .fit-key-icon { background: rgba(255, 138, 0, 0.12); }
 .fit-key-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .fit-key-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
@@ -193,11 +194,13 @@
 .fit-key-row.response .fit-key-bar span { background: var(--fit-response); }
 .fit-key-row.voice .fit-key-bar span { background: var(--fit-voice); }
 .fit-key-row.eye .fit-key-bar span { background: var(--fit-eye); }
+.fit-key-row.expression .fit-key-bar span { background: var(--fit-expression); }
 .fit-key-row.posture .fit-key-bar span { background: var(--fit-posture); }
 .fit-key-grade { font-style: normal; font-size: 12px; font-weight: 650; }
 .fit-key-row.response .fit-key-grade { color: var(--fit-response); }
 .fit-key-row.voice .fit-key-grade { color: var(--fit-voice); }
 .fit-key-row.eye .fit-key-grade { color: var(--fit-eye); }
+.fit-key-row.expression .fit-key-grade { color: var(--fit-expression); }
 .fit-key-row.posture .fit-key-grade { color: var(--fit-posture); }
 .fit-key-row > svg { color: var(--color-muted); }
 

@@ -107,11 +107,11 @@ class NonverbalIn(BaseModel):
     gaze_off_dir: str | None = None  # down | up | left | right
     tilt_drift_deg: float = 0.0  # 후반-전반 어깨 기울기 변화
     front_drift_pct: float = 0.0  # 후반-전반 정면 응시 변화 (%p)
-    smile_ratio: float = 0.0  # 미소 표현 비율 (관찰 지표)
-    smile_duchenne_ratio: float | None = None  # 미소 중 눈 참여(진정성 미소 근사) — 표본 부족 시 null
-    expr_recover_sec: float = 0.0  # 긴장 표정 에피소드 평균 지속 초 (표정 복구 — 교차 분석 재료)
+    smile_ratio: float = 0.0  # 미소 표현 비율 (Expression-Fit 신호 + 관찰)
+    smile_duchenne_ratio: float | None = None  # 미소 중 눈 참여(진정성 미소 근사, Expression-Fit) — 표본 부족 시 null
+    expr_recover_sec: float = 0.0  # 긴장 표정 평균 지속 초 (표정 복구, Expression-Fit 신호)
     head_roll_deg: float = 0.0  # 고개 갸웃 평균 편차
-    mouth_press_ratio: float = 0.0  # 입술 압축(긴장) 비율 — 관찰 지표, 감점 없음
+    mouth_press_ratio: float = 0.0  # 입술 압축(긴장) 비율 — Expression-Fit 신호
     brow_down_ratio: float = 0.0  # 찡그림 비율 — 관찰 지표
     hand_face_sec: float = 0.0  # 손-얼굴 터치 누적 초 (무의식 습관)
     arm_cross_ratio: float = 0.0  # 팔짱 자세 비율 (무의식 습관)
@@ -145,8 +145,8 @@ class NonverbalIn(BaseModel):
     sample_ms: int = 200  # 측정 샘플링 주기 — 프레임 수를 시간으로 해석할 때의 기준
     answer_offset_sec: float | None = None  # 턴 시작→답변 녹음 시작 초 (moments 시계 정합)
     calibrated: bool = False  # 정면 기준 캘리브레이션 적용 여부
-    # ---- 표현 동작 확장 ⑤: 표정 생동감·제스처 크기/양손·머리 흔들림 (관찰 지표 — 감점 없음) ----
-    brow_raise_ratio: float = 0.0  # 눈썹 올림(browInnerUp/OuterUp) 프레임 비율 — 표정 생동감
+    # ---- 표현 동작 확장 ⑤: 표정 생동감(Expression-Fit 신호)·제스처 크기/양손·머리 흔들림 ----
+    brow_raise_ratio: float = 0.0  # 눈썹 올림(browInnerUp/OuterUp) 프레임 비율 — 표정 생동감(Expression-Fit)
     gesture_amplitude: float | None = None  # 손목-어깨중심 평균 거리(cm, 월드) — 제스처 크기, 표본 부족 시 null
     gesture_two_handed_ratio: float | None = None  # 양손 동시 활동 비율 — 양손 강조, 표본 부족 시 null
     head_motion: float | None = None  # 말할 때 코 위치 표준편차(어깨너비 정규화) — 머리 흔들림, 표본 부족 시 null

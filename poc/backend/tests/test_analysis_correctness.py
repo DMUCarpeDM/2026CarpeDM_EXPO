@@ -6,7 +6,7 @@ C1. 쉼 없는 유창한 발화가 pause 축에서 0점 절벽으로 떨어지�
 D. 빈 체크리스트(깨진 에피소드 참조)가 좋은 답변을 감점시키지 않는다.
 """
 from app.ai.response_fit import analyze_response, score_response
-from app.ai.scoring import band_score
+from app.ai.scoring import SCORED_FIT_WEIGHTS, band_score, weighted_mean
 from app.ai.voice_fit import PAUSE_RATIO_BANDS
 from app.core.database import SessionLocal
 from app.models import Consent, RoleplaySession, Scenario, SessionStatus, Turn
@@ -137,3 +137,63 @@ def test_empty_checklist_does_not_tank_good_answer():
     m = analyze_response(text, [], use_semantic=False)  # 깨진 에피소드 = 빈 체크리스트
     assert m["has_checklist"] is False
     assert score_response(m) >= 50, "빈 체크리스트가 좋은 답변을 0점 근처로 만들면 안 된다"
+
+
+# ---- E: 시선→표정 축 교체 (배선 회귀) ----
+
+def _make_session_with_nonverbal(db, nv: dict) -> int:
+    scenario = db.query(Scenario).first()
+    episode = scenario.episodes[0]
+    session = RoleplaySession(scenario_id=scenario.id, status=SessionStatus.analyzing)
+    db.add(session)
+    db.flush()
+    db.add(Consent(session_id=session.id, storage_policy="anonymous", agreed=True))
+    db.add(Turn(
+        session_id=session.id, episode_id=episode.id, order=1,
+        question_type="initial", question_text=episode.initial_question,
+        character_id=episode.character_id, stt_source="text",
+        response_text="안녕하세요. 결론부터 말씀드리면 로그를 먼저 확인하고 바로 보고드리겠습니다.",
+        nonverbal_metrics=nv,
+    ))
+    db.commit()
+    return session.id
+
+
+def test_expression_scored_gaze_observation_and_weighted_total():
+    """표정은 4-Fit 점수 축(참고용)으로, 시선은 관찰 신호로 리포트에 흐르고
+    총점은 점수 축의 가중 평균(시선 제외)이다."""
+    seed()
+    nv = {
+        "frames": 120, "blink_per_min": 16,
+        # 표정(점수 축) 신호 — 생동·낮은 긴장·빠른 복구·진정성 미소
+        "brow_raise_ratio": 0.25, "mouth_press_ratio": 0.03,
+        "expr_recover_sec": 0.2, "smile_ratio": 0.2, "smile_duchenne_ratio": 0.7,
+        # 시선(관찰) 신호
+        "front_gaze_ratio": 0.82, "gaze_off_count": 2, "longest_off_sec": 1.2,
+    }
+    db = SessionLocal()
+    try:
+        sid = _make_session_with_nonverbal(db, nv)
+    finally:
+        db.close()
+    run_analysis(sid)
+    db = SessionLocal()
+    try:
+        fits = db.get(RoleplaySession, sid).report.fit_scores
+        total = db.get(RoleplaySession, sid).report.total_score
+
+        # 표정 = 점수 축, α 검증 전 참고용 플래그
+        assert fits["expression"]["score"] is not None
+        assert fits["expression"].get("provisional") is True
+        # 시선 = 관찰 신호 (점수 있으나 관찰 플래그, 4-Fit 아님)
+        assert fits["eye"].get("observation") is True
+        assert fits["eye"]["score"] is not None
+        # 총점 = 점수 축(response·voice·expression·posture)의 가중 평균 — 시선 제외
+        scored = [
+            (fits[k]["score"], SCORED_FIT_WEIGHTS[k])
+            for k in ("response", "voice", "expression", "posture")
+            if fits.get(k, {}).get("score") is not None
+        ]
+        assert total == round(weighted_mean(scored), 1)
+    finally:
+        db.close()

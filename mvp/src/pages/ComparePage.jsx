@@ -14,7 +14,7 @@ const TRAIL = ["대시보드", "1:1 면담", "비교 분석"];
 const FIT_META = [
   { key: "Response-Fit", label: "응답", english: "Response", icon: "response", tone: "response" },
   { key: "Voice-Fit", label: "목소리", english: "Voice", icon: "voice", tone: "voice" },
-  { key: "Eye-Fit", label: "시선", english: "Eye", icon: "eye", tone: "eye" },
+  { key: "Expression-Fit", label: "표정", english: "Expression", icon: "expression", tone: "expression" },
   { key: "Posture-Fit", label: "자세", english: "Posture", icon: "posture", tone: "posture" },
 ];
 

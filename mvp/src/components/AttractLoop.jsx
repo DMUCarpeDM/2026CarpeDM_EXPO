@@ -25,7 +25,7 @@ const SLIDES = [
   {
     key: "fit",
     fits: true,
-    title: "응답·목소리·시선·자세\n4-Fit 실시간 분석",
+    title: "응답·목소리·표정·자세\n4-Fit 실시간 분석",
     sub: "카메라와 마이크 신호를 이 기기 안에서 바로 분석해요",
   },
   {
@@ -83,7 +83,7 @@ export function AttractLoop({ active, onStart }) {
             <motion.div key={current.key} className="attract-slide" initial={{ opacity: 0, y: 26 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}>
               {current.fits ? (
                 <div className="attract-fits" aria-hidden="true">
-                  {["response", "voice", "eye", "posture"].map((fit) => (
+                  {["response", "voice", "expression", "posture"].map((fit) => (
                     <span key={fit} className={`attract-fit ${fit}`}><IconGlyph icon={fit} size={27} /></span>
                   ))}
                 </div>

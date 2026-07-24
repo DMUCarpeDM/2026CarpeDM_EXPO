@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { IconGlyph } from "../ui/IconGlyph";
 
-const FIT_COLORS = { response: "#0064ff", voice: "#2f7cff", eye: "#0ea5e9", posture: "#ff8a00" };
+const FIT_COLORS = { response: "#0064ff", voice: "#2f7cff", expression: "#7c3aed", posture: "#ff8a00" };
 
-// 4-Fit 종합 점수를 보여주는 레이더(다이아몬드) 차트. 응답(위)·목소리(오른쪽)·시선(아래)·자세(왼쪽).
+// 4-Fit 종합 점수를 보여주는 레이더(다이아몬드) 차트. 응답(위)·목소리(오른쪽)·표정(아래)·자세(왼쪽).
 export function RadarChart({ fits, average = [72, 70, 74, 72], showLegend = true }) {
   const axes = [[100, 20], [180, 100], [100, 180], [20, 100]];
-  const labels = [[100, 10, "응답", "middle"], [192, 104, "목소리", "start"], [100, 197, "시선", "middle"], [8, 104, "자세", "end"]];
+  const labels = [[100, 10, "응답", "middle"], [192, 104, "목소리", "start"], [100, 197, "표정", "middle"], [8, 104, "자세", "end"]];
   const pointAt = (index, score) => {
     const [x, y] = axes[index];
     const scale = Math.max(0, Math.min(100, score)) / 100;
@@ -18,7 +18,7 @@ export function RadarChart({ fits, average = [72, 70, 74, 72], showLegend = true
 
   return (
     <div className="radar-wrap">
-      <svg className="radar-chart" viewBox="0 0 200 210" role="img" aria-label={`응답 ${scores[0]}점, 목소리 ${scores[1]}점, 시선 ${scores[2]}점, 자세 ${scores[3]}점`}>
+      <svg className="radar-chart" viewBox="0 0 200 210" role="img" aria-label={`응답 ${scores[0]}점, 목소리 ${scores[1]}점, 표정 ${scores[2]}점, 자세 ${scores[3]}점`}>
         {[100, 75, 50, 25].map((scale) => (
           <polygon key={scale} className="radar-grid" points={axes.map(([x, y]) => `${100 + (x - 100) * scale / 100},${100 + (y - 100) * scale / 100}`).join(" ")} />
         ))}

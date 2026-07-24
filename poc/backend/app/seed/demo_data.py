@@ -13,6 +13,7 @@ import random
 import sys
 from datetime import timedelta
 
+from app.ai.scoring import SCORED_FIT_WEIGHTS, weighted_mean
 from app.core.database import Base, SessionLocal, engine
 from app.models import (
     DEMO_CLIENT_KEY_PREFIX,
@@ -29,7 +30,7 @@ from app.models import (
 FIT_LABELS = {
     "response": "Response-Fit (응답 적절성)",
     "voice": "Voice-Fit (발화 안정성)",
-    "eye": "Eye-Fit (시선 유지)",
+    "expression": "Expression-Fit (표정 표현력)",
     "posture": "Posture-Fit (자세 안정)",
 }
 
@@ -38,18 +39,18 @@ def _make_results(db, session: RoleplaySession, base: float, rng: random.Random)
     """리포트(화면용 문서) + 세션 레벨 분석 결과(집계용 단일 진실)를 함께 생성 —
     실제 분석 파이프라인과 동일한 이중 구조를 유지해야 대시보드 SQL 집계가 데모에서도 동작한다."""
     fits = {}
-    scores = []
+    weighted = []
     for fit in FIT_LABELS:
         score = round(max(20, min(98, rng.gauss(base, 9))), 1)
         fits[fit] = {"score": score, "label": FIT_LABELS[fit], "summary": ""}
-        scores.append(score)
+        weighted.append((score, SCORED_FIT_WEIGHTS[fit]))
         db.add(AnalysisResult(
             session_id=session.id, turn_id=None, fit_type=FitType(fit),
             raw_metrics={}, score=score,
         ))
     db.add(Report(
         session_id=session.id,
-        total_score=round(sum(scores) / len(scores), 1),
+        total_score=round(weighted_mean(weighted), 1),
         fit_scores=fits,
         strengths=[],
         improvements=[],

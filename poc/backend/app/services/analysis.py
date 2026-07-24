@@ -163,9 +163,9 @@ def run_analysis(session_id: int) -> None:
             # 신뢰도가 낮다 — 실측 오디오 턴을 가리지 않도록 세션 평균에서 하향 가중.
             voice_scores.append((score, 0.35 if metrics.get("estimated") else 1.0))
 
-        # 4) Eye/Posture-Fit (클라이언트 MediaPipe 집계 지표)
+        # 4) Expression/Posture-Fit 점수 + Eye(시선) 보조 관찰 신호 (클라이언트 MediaPipe 집계)
         _set_progress(db, session, "nonverbal", 65)
-        eye_scores: list[tuple[float, float]] = []
+        expression_scores: list[tuple[float, float]] = []
         posture_scores: list[tuple[float, float]] = []
         for t in turns:
             nv = t.nonverbal_metrics or {}
@@ -173,16 +173,24 @@ def run_analysis(session_id: int) -> None:
             # 턴 단위 격리: 예상 밖 지표 페이로드는 그 턴만 건너뛴다
             try:
                 eye = nonverbal.score_eye(nv, duration)
+                expression = nonverbal.score_expression(nv)
                 posture = nonverbal.score_posture(nv)
             except Exception:
                 traceback.print_exc()
                 continue
+            # 시선(eye)은 점수 축이 아니라 보조 관찰 — 턴 행만 남겨 리포트 관찰(gaze_map·
+            # 깜빡임)·관측성(iris)에 쓰고, session_scores(총점)에는 넣지 않는다.
             if eye is not None:
                 db.add(AnalysisResult(
                     session_id=session.id, turn_id=t.id,
                     fit_type=FitType.eye, raw_metrics=nv, score=eye, engine_version=ENGINE_VERSION,
                 ))
-                eye_scores.append((eye, 1.0))
+            if expression is not None:
+                db.add(AnalysisResult(
+                    session_id=session.id, turn_id=t.id,
+                    fit_type=FitType.expression, raw_metrics=nv, score=expression, engine_version=ENGINE_VERSION,
+                ))
+                expression_scores.append((expression, 1.0))
             if posture is not None:
                 db.add(AnalysisResult(
                     session_id=session.id, turn_id=t.id,
@@ -193,10 +201,11 @@ def run_analysis(session_id: int) -> None:
 
         # 5) 세션 레벨 점수 통합
         _set_progress(db, session, "scoring", 80)
+        # 점수 축 = 응답·음성·표정·자세 (시선은 관찰 신호이므로 총점 제외)
         session_scores: dict[FitType, float | None] = {
             FitType.response: weighted_mean(response_scores) if response_scores else None,
             FitType.voice: weighted_mean(voice_scores) if voice_scores else None,
-            FitType.eye: weighted_mean(eye_scores) if eye_scores else None,
+            FitType.expression: weighted_mean(expression_scores) if expression_scores else None,
             FitType.posture: weighted_mean(posture_scores) if posture_scores else None,
         }
         for fit, score in session_scores.items():

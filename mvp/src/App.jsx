@@ -45,7 +45,7 @@ const DEMO_REPORT = {
   fit_scores: {
     "Response-Fit": { score: 86, summary: "핵심부터 말해 전달이 또렷했어요." },
     "Voice-Fit": { score: 82, summary: "안정적인 속도로 말했어요." },
-    "Eye-Fit": { score: 78, summary: "시선을 꾸준히 맞췄어요." },
+    "Expression-Fit": { score: 84, summary: "상황에 맞게 표정으로 잘 반응했어요.", provisional: true, note: "표정 점수는 아직 검증 중인 참고 지표예요 (α 검증 전)." },
     "Posture-Fit": { score: 91, summary: "끝까지 바른 자세를 유지했어요." },
   },
   strengths: [
@@ -62,7 +62,7 @@ const DEMO_REPORT = {
     "말끝을 흐리지 않고 문장을 끝맺어 보세요.",
   ],
   headline: { sentence: "결론을 먼저, 근거는 한 문장으로 요약하면 설득력이 더 올라가요." },
-  previous: { total_score: 72, started_at: "2024-05-20", fit_scores: { "Response-Fit": 72, "Voice-Fit": 68, "Eye-Fit": 78, "Posture-Fit": 82 } },
+  previous: { total_score: 72, started_at: "2024-05-20", fit_scores: { "Response-Fit": 72, "Voice-Fit": 68, "Expression-Fit": 78, "Posture-Fit": 82 } },
   speech_stats: { turns: 5, total_syllables: 412, avg_speech_rate: 4.9, formal_pct: 88, measurement: { level: "표준", frames: 512, audio_sec: 163.2 } },
   deep_analysis: {
     delivery: {
@@ -123,8 +123,8 @@ const DEMO_HISTORY = [
   { session_id: "d2", total_score: 66, started_at: "2024-04-27" },
   { session_id: "d3", total_score: 71, started_at: "2024-05-04" },
   { session_id: "d4", total_score: 76, started_at: "2024-05-11" },
-  { session_id: "d5", total_score: 72, started_at: "2024-05-20", fit_scores: { "Response-Fit": 72, "Voice-Fit": 68, "Eye-Fit": 78, "Posture-Fit": 82 } },
-  { session_id: "d6", total_score: 88, started_at: "2024-05-24", fit_scores: { "Response-Fit": 86, "Voice-Fit": 82, "Eye-Fit": 78, "Posture-Fit": 91 } },
+  { session_id: "d5", total_score: 72, started_at: "2024-05-20", fit_scores: { "Response-Fit": 72, "Voice-Fit": 68, "Expression-Fit": 78, "Posture-Fit": 82 } },
+  { session_id: "d6", total_score: 88, started_at: "2024-05-24", fit_scores: { "Response-Fit": 86, "Voice-Fit": 82, "Expression-Fit": 84, "Posture-Fit": 91 } },
 ];
 const DEMO_SESSION = { id: "demo", mode: 5, scenario: { title: "업무 보고 및 피드백 논의", characters: [{ id: "c1", name: "팀장 김민수", role: "상사 / 관리자", personality: "직설적이고 바쁘다. 결론부터 듣고 싶어 한다." }] } };
 const DEMO_TURN = { id: "t2", order: 2, character_id: "c1", asked_at: "02:35", question_text: "흠, 70%라면 일정보다 살짝 늦는 것 같은데요. 구체적으로 어떤 부분이 지연되고 있나요?" };

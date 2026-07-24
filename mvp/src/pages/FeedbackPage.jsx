@@ -67,7 +67,7 @@ export function FeedbackPage({ onPrev, onPractice, onNext, onNavigate, report })
         </DisclosurePanel>
         <DisclosurePanel className="coach-note" title="AI 코치 한마디" icon={Bulb2} defaultOpen={false}><p>{headline.sentence || improvements[0]}</p></DisclosurePanel>
         <DisclosurePanel className="course-card" title="무엇을 살펴봤나요?" icon={InfoCircle} defaultOpen={false}><div><Portrait /><p><strong>{report?.speech_stats?.turns || 0}개 답변을 분석했어요</strong><br />{report?.speech_stats?.measurement?.level === "제한적"
-  ? "텍스트로 연습해서 음성·시선·자세는 측정하지 않았어요."
+  ? "텍스트로 연습해서 음성·표정·자세는 측정하지 않았어요."
   : report?.speech_stats?.measurement?.frames
     ? `영상 ${report.speech_stats.measurement.frames}프레임 · 음성 ${Math.round(report.speech_stats.measurement.audio_sec || 0)}초를 함께 분석했어요.`
     : "대화 중 확인한 신호를 바탕으로 분석했어요."}</p></div></DisclosurePanel>

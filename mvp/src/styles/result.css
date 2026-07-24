@@ -305,6 +305,10 @@
 .fit-card.eye span,
 .fit-column.eye,
 .mini-score-row.eye { color: var(--fit-eye); }
+.expression,
+.fit-card.expression span,
+.fit-column.expression,
+.mini-score-row.expression { color: var(--fit-expression); }
 .posture,
 .fit-card.posture span,
 .fit-column.posture,
@@ -338,6 +342,7 @@
 .chip.response { color: var(--fit-response); background: #eaf2ff; }
 .chip.voice { color: var(--fit-voice); background: var(--color-blue-soft); }
 .chip.eye { color: var(--fit-eye); background: var(--color-sky-soft); }
+.chip.expression { color: var(--fit-expression); background: #f2ecfe; }
 .chip.posture { color: var(--fit-posture); background: var(--accent-warm-soft); }
 
 .success-banner {
