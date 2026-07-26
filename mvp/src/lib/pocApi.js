@@ -57,13 +57,14 @@ export function getHealth() {
   return request("/health");
 }
 
-export function createSession({ difficulty, mode, scenarioSlug, consent }) {
+export function createSession({ difficulty, mode, scenarioSlug, selectedEpisodeId, consent }) {
   return request("/sessions", {
     method: "POST",
     body: JSON.stringify({
       difficulty,
       mode,
       scenario_slug: scenarioSlug,
+      ...(selectedEpisodeId ? { selected_episode_id: selectedEpisodeId } : {}),
       client_key: getClientKey(),
       consent: { agreed: consent, storage_policy: "none" },
     }),

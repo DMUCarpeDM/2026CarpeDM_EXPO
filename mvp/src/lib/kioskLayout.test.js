@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 
 const stylesheetFiles = [
@@ -26,6 +26,16 @@ const stylesheetFiles = [
 ];
 const styles = stylesheetFiles.map((file) => readFileSync(new URL(file, import.meta.url), "utf8")).join("\n");
 const appSource = readFileSync(new URL("../App.jsx", import.meta.url), "utf8");
+const setupCatalogSource = readFileSync(new URL("../data/setupCatalog.js", import.meta.url), "utf8");
+const setupAssetFiles = [
+  "setup-role-colleague-realistic.png",
+  "setup-role-manager-realistic.png",
+  "setup-role-executive-realistic.png",
+  "setup-role-partner-realistic.png",
+  "setup-difficulty-basic.webp",
+  "setup-difficulty-pressure.webp",
+  "setup-difficulty-ultra-pressure.png",
+];
 const componentSources = [
   appSource,
   readFileSync(new URL("../data/homeContent.js", import.meta.url), "utf8"),
@@ -39,14 +49,14 @@ const componentSources = [
   readFileSync(new URL("../components/report/ResultPrimitives.jsx", import.meta.url), "utf8"),
   readFileSync(new URL("../components/report/DashboardShell.jsx", import.meta.url), "utf8"),
   readFileSync(new URL("../components/report/Charts.jsx", import.meta.url), "utf8"),
-  readFileSync(new URL("../data/setupCatalog.js", import.meta.url), "utf8"),
+  setupCatalogSource,
   readFileSync(new URL("../components/ui/IconGlyph.jsx", import.meta.url), "utf8"),
   readFileSync(new URL("../components/navigation/navigationConfig.js", import.meta.url), "utf8"),
   readFileSync(new URL("../components/navigation/AppNavigation.jsx", import.meta.url), "utf8"),
   readFileSync(new URL("../components/setup/SetupComponents.jsx", import.meta.url), "utf8"),
   readFileSync(new URL("../pages/setup/RoleSelectPage.jsx", import.meta.url), "utf8"),
+  readFileSync(new URL("../pages/setup/ScenarioSelectPage.jsx", import.meta.url), "utf8"),
   readFileSync(new URL("../pages/setup/DifficultyPage.jsx", import.meta.url), "utf8"),
-  readFileSync(new URL("../pages/setup/SetupPage.jsx", import.meta.url), "utf8"),
 ];
 const sourceBundle = componentSources.join("\n");
 
@@ -76,7 +86,7 @@ test("kiosk 1920 layout reserves desktop canvas for supplied PC mockup views", (
   assert.match(styles, /\.share-layout\s*\{[^}]*max-width:\s*1484px/s);
 });
 
-test("Analysis views use the dashboard shell while keeping the shared component system", () => {
+test("Analysis views reuse the app navigation and shared component system", () => {
   for (const componentName of [
     "PageToolbar",
     "PrimaryButton",
@@ -86,20 +96,19 @@ test("Analysis views use the dashboard shell while keeping the shared component 
     "Chip",
     "ScoreRing",
     "ProgressMini",
-    "ReportShell",
-    "DashboardSidebar",
     "RadarChart",
     "TrendChart",
   ]) {
     assert.match(sourceBundle, new RegExp(`function ${componentName}\\(`));
   }
 
-  // 분석 계열 화면(성과 리포트·비교 분석·상세 분석)은 좌측 사이드바 대시보드 셸을 사용해요.
+  // 분석 계열 화면은 설정 화면과 같은 전역 상단 네비게이션을 사용하고, 전용 사이드바는 쓰지 않아요.
   for (const routeName of ["ResultPage", "FeedbackPage", "ComparePage"]) {
-    assert.match(functionBody(routeName), /<ReportShell\b/, `${routeName} uses the dashboard shell`);
+    assert.doesNotMatch(functionBody(routeName), /<ReportShell\b/, `${routeName} avoids the dashboard shell`);
+    assert.match(functionBody(routeName), /<PageToolbar\b/, `${routeName} uses the shared page toolbar`);
   }
-  // 연습 화면은 전용 실시간 상단바를 사용해요.
-  assert.match(functionBody("PracticePage"), /practice-topbar/, "PracticePage uses its live top bar");
+  assert.match(sourceBundle, /const CHROMELESS_VIEWS = new Set\(\);/, "all pages keep the shared TopNav");
+  assert.match(functionBody("PracticePage"), /practice-contextbar/, "PracticePage keeps only its live context controls");
   // 저장·공유 화면은 기존 공용 툴바를 유지해요.
   assert.match(functionBody("SharePage"), /<PageToolbar\b/, "SharePage keeps the shared toolbar");
 
@@ -107,12 +116,12 @@ test("Analysis views use the dashboard shell while keeping the shared component 
   assert.doesNotMatch(previewPage, /<PageToolbar\b/, "PreviewPage removes toolbar pill controls");
   assert.match(previewPage, /preview-scenario-panel/, "PreviewPage uses the readiness board");
 
-  for (const routeName of ["RoleSelectPage", "DifficultyPage", "SetupPage"]) {
+  for (const routeName of ["RoleSelectPage", "ScenarioSelectPage", "DifficultyPage"]) {
     assert.match(functionBody(routeName), /<SetupFlowActions\b/, `${routeName} uses the shared setup actions`);
     assert.match(functionBody(routeName), /<SetupSelectionSummary\b/, `${routeName} uses the shared selection summary`);
   }
 
-  // 대시보드 사이드바 셸을 도입했어요(피그마 대시보드 디자인 반영).
+  // 대시보드 셸 코드는 남아 있어도 현재 전시 흐름에서는 렌더하지 않아요.
   assert.match(styles, /\.dashboard-sidebar/);
   assert.match(sourceBundle, /<aside className="dashboard-sidebar"/);
 });
@@ -132,34 +141,11 @@ test("home uses the radial four-Fit summary and concise, action-led writing", ()
   assert.match(styles, /\.top-nav:hover/);
 });
 
-test("simulator setup follows the three-step, two-column supplied mockup contract", () => {
-  assert.match(sourceBundle, /const setupSteps = \[\["1", "기본 설정"\], \["2", "상황 선택"\], \["3", "목표 선택"\]\]/);
-  assert.match(sourceBundle, /setup-role-colleague\.webp/);
-  assert.match(sourceBundle, /setup-role-manager\.webp/);
-  assert.match(sourceBundle, /setup-role-executive\.webp/);
-  assert.match(sourceBundle, /setup-role-partner\.webp/);
-  assert.match(sourceBundle, /setup-difficulty-basic\.webp/);
-  assert.match(sourceBundle, /setup-difficulty-pressure\.webp/);
-  assert.match(sourceBundle, /const scenarioCatalogByRole =/);
-  assert.match(sourceBundle, /const practiceGoals =/);
-  assert.match(sourceBundle, /const scenariosForRole =/);
-  assert.match(sourceBundle, /setup-scenario-server\.webp/);
-  assert.match(sourceBundle, /setup-goal-prep\.webp/);
-  assert.match(functionBody("RoleSelectPage"), /variant="portrait"/);
-  assert.match(functionBody("RoleSelectPage"), /variant="difficulty"/);
-  assert.match(functionBody("DifficultyPage"), /variant="scenario-catalog"/);
-  assert.match(functionBody("DifficultyPage"), /columns="four"/);
-  assert.match(functionBody("SetupPage"), /variant="goal-catalog"/);
-  assert.match(functionBody("SetupPage"), /columns="five"/);
-  assert.match(styles, /\.setup-flow-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) minmax\(390px, 0\.56fr\)/s);
-  assert.match(styles, /\.choice-card\.portrait\s*\{[^}]*flex-direction:\s*column/s);
-  assert.match(styles, /\.setup-summary-panel\s*\{[^}]*position:\s*sticky/s);
-  assert.match(styles, /\.home-hero\s*\{[^}]*background:\s*#FFF\s+url\("\/src\/assets\/hero-device-background\.png"\)/s);
-  assert.match(styles, /\.choice-card\.scenario strong\s*\{[^}]*overflow-wrap:\s*anywhere/s);
-  assert.match(styles, /\.choice-card\.scenario-catalog,\s*\.choice-card\.goal-catalog\s*\{[^}]*flex-direction:\s*column/s);
-  assert.match(styles, /\.goal-choice-section \.choice-grid\.five \{ grid-template-columns:\s*1fr;/);
-  assert.match(functionBody("SetupSelectionSummary"), /summary-asset/);
-  assert.match(sourceBundle, /loading="lazy"/);
+test("setup catalog keeps every rendered role and difficulty image available", () => {
+  for (const assetName of setupAssetFiles) {
+    assert.match(setupCatalogSource, new RegExp(assetName.replace(".", "\\.")), `${assetName} is imported by the catalog`);
+    assert.ok(existsSync(new URL(`../assets/${assetName}`, import.meta.url)), `${assetName} exists for Vite to bundle`);
+  }
 });
 
 test("home keeps one primary practice action and centers the benefit explanation", () => {

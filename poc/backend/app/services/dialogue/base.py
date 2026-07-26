@@ -38,7 +38,8 @@ class DialogueProvider(Protocol):
         ...
 
     def personalize_question(
-        self, spec: QuestionSpec, situation: str, last_response: str
+        self, spec: QuestionSpec, situation: str, last_response: str,
+        character: dict | None = None, difficulty: str = "basic",
     ) -> str | None:
         """spec 질문을 직전 답변 맥락으로 다듬는다 (실패·비활성 시 None).
 

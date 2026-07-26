@@ -6,6 +6,7 @@
 """
 from datetime import timedelta
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
@@ -18,6 +19,8 @@ from app.services import moments
 from app.services.analysis import strip_turn_verbatim
 
 client = TestClient(app)
+
+pytestmark = pytest.mark.usefixtures("ready_ollama")
 
 CONSENT = {"agreed": True, "storage_policy": "none"}
 

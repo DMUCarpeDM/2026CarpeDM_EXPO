@@ -100,9 +100,8 @@ def test_model_answer_ep1_gets_deepening():
     assert spec.episode_id == eps[0].id
 
 
-def test_model_answer_ep2_gets_basic_pressure_then_advances():
-    """모범 장애 대응(EP2는 basic 압박 보유) → 세션 첫 압박이 나가고(composure 재료),
-    압박까지 답하면 다음 에피소드로 넘어간다 — '상황당 1답변 증발' 방지 + 압박 내성 성립."""
+def test_model_answer_ep2_gets_deepening_then_advances():
+    """기본 모드의 모범 장애 대응은 압박 대신 심화 질문으로 이어진다."""
     eps = seed_episodes()
     session = RoleplaySession(id=1, scenario_id=1, mode=5, difficulty="basic")
     ep2 = next(e for e in eps if e.order == 2)
@@ -117,10 +116,10 @@ def test_model_answer_ep2_gets_basic_pressure_then_advances():
     ]
     spec = provider.next_question(session, eps, turns)
     assert spec is not None
-    assert spec.question_type == "pressure"  # basic 난이도에도 세션당 1회 압박
+    assert spec.question_type == "deepening"
     assert spec.episode_id == ep2.id
 
-    turns.append(make_turn(3, ep2.id, 3, "10분 안에 1차 원인만이라도 정리해 보고드리겠습니다.", qtype="pressure"))
+    turns.append(make_turn(3, ep2.id, 3, "고객사에는 15분 안에 1차 결과를 다시 안내하겠습니다.", qtype="deepening"))
     spec2 = provider.next_question(session, eps, turns)
     assert spec2 is not None
     assert spec2.episode_id == ep3.id and spec2.question_type == "initial"

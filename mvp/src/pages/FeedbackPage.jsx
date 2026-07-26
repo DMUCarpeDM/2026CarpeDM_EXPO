@@ -10,9 +10,8 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { reportFits } from "../lib/reportFits";
 import { Chip, DisclosurePanel, FeedbackBox, InsightStep, MiniScoreRow, PageTitle, PageToolbar, Panel, PrimaryButton, ScoreRing, SecondaryButton, SegmentedTabs } from "../components/report/ResultPrimitives";
-import { ReportShell } from "../components/report/DashboardShell";
 
-export function FeedbackPage({ onPrev, onPractice, onNext, onNavigate, report }) {
+export function FeedbackPage({ onPrev, onPractice, onNext, report }) {
   const [activeTab, setActiveTab] = useState("개선 필요");
   const [whyOpen, setWhyOpen] = useState(false);
   const fits = reportFits(report);
@@ -28,7 +27,7 @@ export function FeedbackPage({ onPrev, onPractice, onNext, onNavigate, report })
     ? { evidence: strengthEvidence, title: strengths[0], intro: "이번 분석에서 특히 좋았던 소통 방식을 정리했어요.", badge: "우수", tone: "blue", action: "유지", detailLabel: "상세 근거 보기", fallback: "좋은 신호가 관찰되었습니다." }
     : { evidence: improvementEvidence, title: improvements[0], intro: "이번 분석을 바탕으로 다음 연습에서 바로 해볼 행동을 정리했어요.", badge: "중요", tone: "accent", action: "개선", detailLabel: "왜 중요한지 보기", fallback: "관찰 근거를 준비하고 있어요." };
 
-  return <ReportShell active="result" trail={["대시보드", "1:1 면담", "상세 분석"]} onNavigate={onNavigate || (() => {})} onDownload={() => { if (typeof window !== "undefined") window.print(); }}><motion.section className="page feedback-page" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
+  return <motion.section className="page feedback-page" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
     <PageToolbar onPrev={onPrev} leftLabel="분석 리포트로 돌아가기" />
     <div className="feedback-layout">
       <div>
@@ -74,7 +73,7 @@ export function FeedbackPage({ onPrev, onPractice, onNext, onNavigate, report })
       </section>
     </div>
     <div className="bottom-actions compact-actions"><SecondaryButton icon={Refresh3} label="다시 연습하기" onClick={onPractice} /><PrimaryButton icon={ChartTrend} label="재연습 결과 비교하기" onClick={onNext} /></div>
-  </motion.section></ReportShell>;
+  </motion.section>;
 }
 
 function InsightCard({ insight, headline, whyOpen, onToggle }) {

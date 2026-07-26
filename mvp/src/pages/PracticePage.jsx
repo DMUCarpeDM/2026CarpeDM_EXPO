@@ -1,25 +1,19 @@
 import React, { useEffect, useRef, useState } from "react";
-import { CheckCircle } from "reicon-react/icons/CheckCircle";
 import { ChevronDown } from "reicon-react/icons/ChevronDown";
 import { ChevronRight } from "reicon-react/icons/ChevronRight";
 import { Expand } from "reicon-react/icons/Expand";
-import { InfoCircle } from "reicon-react/icons/InfoCircle";
-import { LockKeyhole } from "reicon-react/icons/LockKeyhole";
 import { Mic } from "reicon-react/icons/Mic";
-import { Notebook } from "reicon-react/icons/Notebook";
 import { Pause } from "reicon-react/icons/Pause";
 import { Play } from "reicon-react/icons/Play";
 import { Power } from "reicon-react/icons/Power";
 import { Refresh3 } from "reicon-react/icons/Refresh3";
-import { Settings } from "reicon-react/icons/Settings";
-import { Signal } from "reicon-react/icons/Signal";
-import { User4 } from "reicon-react/icons/User4";
 import { motion } from "framer-motion";
 import { IconGlyph } from "../components/ui/IconGlyph";
-import { LiveFitMeter } from "../components/report/Charts";
+import { TeamLeadVideo } from "../components/practice/TeamLeadVideo";
 import { blobToWav } from "../lib/audioWav";
+import { shouldScheduleAutoSubmit } from "../lib/sttAutoSubmit";
 import { useFaceTracking } from "../lib/useFaceTracking";
-import counterpartPortrait from "../assets/team-lead-portrait.webp";
+import counterpartPortrait from "../assets/team-lead-video-portrait.png";
 
 function formatClock(totalSeconds) {
   const m = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
@@ -35,24 +29,13 @@ const rise = (delay) => ({
   transition: { delay, duration: 0.38, ease: [0.16, 1, 0.3, 1] },
 });
 
-// 직전 답변의 즉시 신호(turn_signals.case) → 응답 게이지 코칭 문구
-const RESPONSE_CASE_FEEDBACK = {
-  excellent: "핵심을 정확히 짚었어요!",
-  covered: "좋아요, 핵심을 다뤘어요",
-  missing: "질문의 핵심을 더 짚어보세요",
-  short: "조금 더 자세히 말해보세요",
-  risky: "표현을 한번 다듬어보세요",
-};
-
 export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSignals, onSubmit, busy, error, mediaStream }) {
   const [draft, setDraft] = useState("");
   const [captureError, setCaptureError] = useState("");
   const [elapsed, setElapsed] = useState(0);
   const [paused, setPaused] = useState(false);
   const [recSeconds, setRecSeconds] = useState(0);
-  const [notesOpen, setNotesOpen] = useState(false);
-  const [notes, setNotes] = useState("");
-  const videoRef = useRef(null);
+  const analysisVideoRef = useRef(null);
   const overlayRef = useRef(null);
   const cameraRef = useRef(null);
   const chatBodyRef = useRef(null);
@@ -60,12 +43,14 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
   const audioChunksRef = useRef([]);
   const recordingStartedAtRef = useRef(0);
   const stampsRef = useRef(new Map());
+  const autoSubmitTimerRef = useRef(null);
+  const submitDraftRef = useRef(null);
   const character = scenario?.characters?.find((item) => item.id === turn?.character_id) || scenario?.characters?.[0];
   const characterName = character?.name || "AI 상대";
-  const coverage = turnSignals ? Math.round(turnSignals.coverage * 100) : null;
+  const isTeamLead = character?.id === "kim_teamlead";
   const aiReady = aiHealth?.dialogue_provider === "ollama" && aiHealth?.ollama?.dialogue;
   // MediaPipe 실시간 얼굴·상체 트래킹 (영상 미전송 — 브라우저 안에서만 분석)
-  const track = useFaceTracking(mediaStream, videoRef, overlayRef);
+  const track = useFaceTracking(mediaStream, analysisVideoRef, overlayRef);
   const trackingLive = track.status === "ready" && track.tracking;
 
   // ---- 턴 단위 비언어 집계: 훅 내부(blendshape 접근 가능)에서 샘플 단위로 모은
@@ -76,50 +61,53 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [turn?.id]);
   const buildNonverbal = () => track.collectTurnStats?.() || null;
-  const eyeMeter = trackingLive
-    ? track.calibrating
-      ? { percent: 30, status: "보정 중", caption: "잠시 화면을 바라봐 주세요", muted: true, warn: false }
-      : track.eyeFront
-        ? { percent: 92, status: "Good", caption: "상대와 눈을 맞추고 있어요", muted: false, warn: false }
-        : { percent: 45, status: "주의", caption: "화면 속 상대를 바라봐 주세요", muted: false, warn: true }
-    : track.status === "loading"
-      ? { percent: 0, status: "…", caption: "분석 모델 준비 중", muted: true, warn: false }
-      : { percent: 0, status: "–", caption: "측정 불가", muted: true, warn: false };
-  const postureMeter = track.status === "ready" && track.poseTracked
-    ? track.postureLevel
-      ? { percent: 100, status: "Good", caption: "좋은 자세예요!", muted: false, warn: false }
-      : { percent: 55, status: "주의", caption: "어깨 수평을 맞춰보세요", muted: false, warn: true }
-    : track.status === "loading"
-      ? { percent: 0, status: "…", caption: "분석 모델 준비 중", muted: true, warn: false }
-      : { percent: 0, status: "–", caption: "측정 불가", muted: true, warn: false };
-  // 목소리 게이지 — 마이크가 켜져 있으면 실측 성량으로 구동 (VoiceLevelChip이 레벨을 올려줌)
-  const [voiceLevel, setVoiceLevel] = useState(null);
-  const voiceMeter = voiceLevel === null
-    ? { percent: 66, status: "텍스트 연습", caption: "또렷한 톤을 유지해 보세요", warn: false }
-    : voiceLevel > 0.42
-      ? { percent: 100, status: "너무 큼", caption: "조금만 낮춰볼까요", warn: true }
-      : voiceLevel > 0.1
-        ? { percent: Math.round(40 + Math.min(1, voiceLevel * 1.6) * 60), status: "적정", caption: "좋은 성량이에요!", warn: false }
-        : { percent: Math.max(12, Math.round(voiceLevel * 300)), status: "조용", caption: "조금 더 크게 말해보세요", warn: false };
 
   // ---- AI 음성(TTS): 새 질문이 오면 AI 상대가 실제로 읽어준다 ----
   const [aiSpeaking, setAiSpeaking] = useState(false);
+  const [teamLeadReaction, setTeamLeadReaction] = useState("");
+  const teamLeadVideoState = aiSpeaking ? "speaking" : teamLeadReaction || "listening";
+  useEffect(() => {
+    if (!isTeamLead || !turnSignals?.case) return undefined;
+    if (["excellent", "covered"].includes(turnSignals.case)) {
+      setTeamLeadReaction("positive");
+    } else if (turnSignals.case === "risky") {
+      setTeamLeadReaction("negative");
+    } else {
+      setTeamLeadReaction("");
+    }
+  }, [isTeamLead, turnSignals]);
   useEffect(() => {
     const text = turn?.question_text;
     const synth = window.speechSynthesis;
-    if (!text || !synth || paused) return undefined;
+    if (!text || paused) return undefined;
     let cancelled = false;
+    const finishSpeaking = () => {
+      if (!cancelled) setAiSpeaking(false);
+    };
+    // 음성 합성 시작 이벤트가 지연되는 브라우저에서도 질문과 동시에 준비된 발화 영상이 보이게 한다.
+    setAiSpeaking(true);
+    const fallbackTimer = window.setTimeout(finishSpeaking, Math.min(12000, Math.max(3000, text.length * 150)));
+    if (!synth) return () => {
+      cancelled = true;
+      window.clearTimeout(fallbackTimer);
+      setAiSpeaking(false);
+    };
     const utter = new SpeechSynthesisUtterance(text);
     const voices = synth.getVoices();
     utter.voice = voices.find((v) => v.lang?.startsWith("ko") && v.localService) || voices.find((v) => v.lang?.startsWith("ko")) || null;
     utter.lang = "ko-KR";
     utter.rate = 1.04;
     utter.onstart = () => { if (!cancelled) setAiSpeaking(true); };
-    utter.onend = () => { if (!cancelled) setAiSpeaking(false); };
-    utter.onerror = () => { if (!cancelled) setAiSpeaking(false); };
+    utter.onend = finishSpeaking;
+    utter.onerror = finishSpeaking;
     synth.cancel();
     synth.speak(utter);
-    return () => { cancelled = true; synth.cancel(); setAiSpeaking(false); };
+    return () => {
+      cancelled = true;
+      window.clearTimeout(fallbackTimer);
+      synth.cancel();
+      setAiSpeaking(false);
+    };
   }, [turn?.id, paused]);
 
   // ---- 음성 답변(STT): 브라우저 음성 인식으로 말한 내용을 입력창에 받아 적는다 ----
@@ -131,6 +119,30 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
   const sttActiveRef = useRef(false);
   const sttUsedRef = useRef(false); // 이번 턴 답변에 음성 인식이 쓰였는지 (stt_source 판별)
   const sttSupported = Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+  const hasCamera = Boolean(mediaStream?.getVideoTracks?.().some((item) => item.readyState === "live"));
+  const hasMicrophone = Boolean(mediaStream?.getAudioTracks?.().some((item) => item.readyState === "live"));
+  const analysisTools = [
+    { label: "대화 AI", detail: "Ollama", ready: aiReady },
+    { label: "음성 인식", detail: "STT", ready: sttSupported && micEnabled && hasMicrophone },
+    { label: "카메라 분석", detail: "MediaPipe", ready: hasCamera && track.status === "ready" },
+    { label: "마이크", detail: "입력", ready: hasMicrophone },
+  ];
+  const clearAutoSubmit = () => {
+    if (autoSubmitTimerRef.current) window.clearTimeout(autoSubmitTimerRef.current);
+    autoSubmitTimerRef.current = null;
+  };
+  const scheduleAutoSubmit = () => {
+    clearAutoSubmit();
+    autoSubmitTimerRef.current = window.setTimeout(() => {
+      autoSubmitTimerRef.current = null;
+      submitDraftRef.current?.();
+    }, 3000);
+  };
+  useEffect(() => () => clearAutoSubmit(), []);
+  useEffect(() => {
+    if (paused || busy || aiSpeaking) clearAutoSubmit();
+  }, [paused, busy, aiSpeaking]);
+
   useEffect(() => {
     const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
     const shouldListen = Boolean(SpeechRecognitionImpl && micEnabled && mediaStream && turn && !busy && !paused && !aiSpeaking);
@@ -141,13 +153,20 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
     recognition.interimResults = true;
     recognition.onresult = (event) => {
       let interimText = "";
+      let receivedFinal = false;
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
         const transcript = event.results[i][0].transcript.trim();
         if (!transcript) continue;
-        if (event.results[i].isFinal) { sttUsedRef.current = true; setDraft((prev) => `${prev} ${transcript}`.trim()); }
+        if (event.results[i].isFinal) {
+          receivedFinal = true;
+          sttUsedRef.current = true;
+          setDraft((prev) => `${prev} ${transcript}`.trim());
+        }
         else interimText += transcript;
       }
       setInterim(interimText);
+      if (shouldScheduleAutoSubmit({ receivedFinal, interimText })) scheduleAutoSubmit();
+      else if (interimText) clearAutoSubmit();
     };
     recognition.onstart = () => setListening(true);
     recognition.onend = () => {
@@ -198,7 +217,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
   }, [turn?.id, paused]);
 
   useEffect(() => {
-    if (videoRef.current && mediaStream) videoRef.current.srcObject = mediaStream;
+    if (analysisVideoRef.current && mediaStream) analysisVideoRef.current.srcObject = mediaStream;
   }, [mediaStream]);
 
   // 새 메시지가 쌓이면 대화 로그를 맨 아래로 내려요.
@@ -235,6 +254,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
     const text = inputValue.trim();
     if (!text || busy || !turn) return;
     try {
+      clearAutoSubmit();
       sttActiveRef.current = false;
       try { recognitionRef.current?.stop(); } catch { /* 이미 종료됨 */ }
       // 녹음(webm)을 서버 음성 분석이 읽을 수 있는 WAV로 변환 — 실패해도 텍스트로 진행
@@ -254,6 +274,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
       setCaptureError("");
     } catch (err) { setCaptureError(err.message); }
   };
+  submitDraftRef.current = submitDraft;
 
   const toggleCameraFullscreen = () => {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -261,11 +282,9 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
   };
 
   return (
-    <motion.section className="practice-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
-      <motion.header className="practice-topbar" {...rise(0)}>
-        <div className="practice-topbar-left">
-          <span className="brand-mark" aria-hidden="true">M</span>
-          <strong className="practice-brand">Mirrorting</strong>
+    <motion.section className={`practice-screen ${paused ? "is-paused" : ""}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
+      <motion.div className="practice-contextbar" {...rise(0)}>
+        <div className="practice-contextbar-left">
           <div className="topbar-item">
             <span className="topbar-item-label">시나리오</span>
             <button type="button" className="topbar-scenario">{scenario?.title || "업무 보고 및 피드백 논의"} <ChevronDown size={15} /></button>
@@ -278,61 +297,51 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
             </span>
           </div>
         </div>
-        <div className="practice-topbar-right">
+        <div className="practice-contextbar-right">
           <span className="practice-timer"><i className="rec-dot" aria-hidden="true" />{formatClock(elapsed)}</span>
+          <button type="button" className="practice-utility" onClick={() => setPaused((value) => !value)}>{paused ? <><Play size={16} /> 다시 시작</> : <><Pause size={16} /> 일시정지</>}</button>
+          <button type="button" className="practice-utility" onClick={() => { clearAutoSubmit(); setDraft(""); setInterim(""); setCaptureError(""); }}><Refresh3 size={16} /> 재시도</button>
           <button type="button" className="practice-end" onClick={onPrev}><Power size={16} /> 연습 종료</button>
-          <button type="button" className="practice-settings" aria-label="설정"><Settings size={20} /></button>
         </div>
-      </motion.header>
+      </motion.div>
 
       <div className="practice-stage">
-        <motion.section className="practice-camera" aria-label="연습 카메라" ref={cameraRef} {...rise(0.06)}>
-          <video ref={videoRef} className={`camera-video ${mediaStream ? "is-live" : ""}`} autoPlay muted playsInline aria-label="내 카메라 미리보기" />
-          <canvas ref={overlayRef} className="tracking-canvas" aria-hidden="true" />
-          {!trackingLive && <TrackingOverlay silhouette={!mediaStream} />}
+        <motion.section className="practice-camera" aria-label={isTeamLead ? "팀장 반응 영상" : "연습 카메라"} ref={cameraRef} {...rise(0.06)}>
+          {isTeamLead ? <TeamLeadVideo state={teamLeadVideoState} name={characterName} paused={paused} onReactionComplete={() => setTeamLeadReaction("")} /> : <><video ref={analysisVideoRef} className={`camera-video ${mediaStream ? "is-live" : ""}`} autoPlay muted playsInline aria-label="내 카메라 미리보기" /><canvas ref={overlayRef} className="tracking-canvas" aria-hidden="true" />{!trackingLive && <TrackingOverlay silhouette={!mediaStream} />}</>}
+          {isTeamLead && <><video ref={analysisVideoRef} className="analysis-video" autoPlay muted playsInline aria-hidden="true" /><canvas ref={overlayRef} className="analysis-canvas" aria-hidden="true" /></>}
           <div className="camera-topline left">
-            <span className="camera-live-chip"><b><i aria-hidden="true" />LIVE</b>AI 카메라</span>
-            <span className="camera-privacy-chip"><LockKeyhole size={13} /> 영상은 이 기기 밖으로 나가지 않아요</span>
+            <span className="camera-live-chip"><b><i aria-hidden="true" />LIVE</b>{isTeamLead ? "AI 상대" : "AI 카메라"}</span>
           </div>
           <div className="camera-topline right">
-            <span className="camera-latency"><Signal size={14} /> {track.status === "ready" ? `${track.inferMs}ms` : "28ms"}</span>
             <button type="button" className="camera-expand" onClick={toggleCameraFullscreen} aria-label="카메라 전체 화면">
               <Expand size={15} />
             </button>
           </div>
-          <VoiceLevelChip mediaStream={mediaStream} onLevel={setVoiceLevel} />
-          <div className={`camera-eye-chip ${trackingLive && !track.eyeFront ? "warn" : ""}`}>
-            <span className="eye-chip-title"><IconGlyph icon="coach" size={15} /> {trackingLive && !track.eyeFront ? "시선이 벗어났어요" : "시선 유지 좋음"}</span>
-            <span className="eye-chip-sub"><CheckCircle size={14} /> {trackingLive && !track.eyeFront ? "화면 속 상대의 눈을 바라봐 주세요" : "상대의 눈을 바라보고 듣고 있어요!"}</span>
-          </div>
-          <div className="camera-subtitle">
-            <div className="camera-subtitle-head">
-              <span className="subtitle-avatar"><img src={counterpartPortrait} alt="" /></span>
-              <strong>{characterName}</strong>
-              <em className={`speaking-chip ${aiSpeaking ? "" : "calm"}`}><IconGlyph icon="response" size={13} /> {busy ? "답변 분석 중" : aiSpeaking ? "AI가 말하는 중" : listening ? "듣고 있어요" : turn ? "당신 차례예요" : "질문 준비 중"}</em>
+          {turn && <div className="camera-dialogue">
+            <AiPromptOverlay name={characterName} speaking={aiSpeaking} text={turn.question_text} />
+            <div className="control-speak">
+              <button type="button" className={`control-speak-label ${listening ? "listening" : ""}`} onClick={() => setMicEnabled((value) => !value)} disabled={!sttSupported} title={sttSupported ? "음성 입력 켜기/끄기" : "이 브라우저는 음성 입력을 지원하지 않아요"}>
+                <Mic size={18} /> {busy ? "분석 중..." : listening ? "듣는 중..." : !sttSupported || !micEnabled || !hasMicrophone ? "직접 입력" : "말하는 중..."}
+              </button>
+              <span className={`control-wave ${listening ? "is-listening" : ""}`} aria-hidden="true">{Array.from({ length: 30 }, (_, i) => <i key={i} />)}</span>
+              <input value={inputValue} onChange={(event) => { clearAutoSubmit(); setDraft(event.target.value); setInterim(""); }} onKeyDown={(event) => { if (event.key === "Enter" && inputValue.trim() && !busy && turn) submitDraft(); }} placeholder="말 끝나면 전송" aria-label="말을 마치면 3초 뒤 자동으로 전달해요" disabled={busy || !turn} />
+              <span className="control-clock"><time>{formatClock(recSeconds)}</time><small>{formatClock(elapsed)}</small></span>
+              <button type="button" className="control-send" onClick={submitDraft} disabled={busy || !inputValue.trim() || !turn}><span>전송</span><ChevronRight size={16} aria-hidden="true" /></button>
             </div>
-            <p className="subtitle-quote">
-              <span className="quote-mark" aria-hidden="true">“</span>
-              {turn?.question_text || "다음 질문을 준비하고 있어요."}
-              <span className="quote-mark close" aria-hidden="true">”</span>
-            </p>
-            <span className={`subtitle-wave ${aiSpeaking ? "" : "idle"}`} aria-hidden="true">{Array.from({ length: 52 }, (_, i) => <i key={i} />)}</span>
-          </div>
+          </div>}
         </motion.section>
 
         <aside className="practice-side">
-          <motion.section className="card live-fit-card" {...rise(0.12)}>
-            <div className="live-fit-head">
-              <h2><IconGlyph icon="fit" size={18} /> 실시간 4-Fit 피드백 <InfoCircle size={15} className="muted-info" /></h2>
-              <button type="button" className="text-link" onClick={onPrev}>자세히 보기 <ChevronRight size={14} /></button>
+          <motion.section className="card tool-status-card" {...rise(0.12)}>
+            <div className="tool-status-head">
+              <div><h2>분석 도구 연결 상태</h2><p>현재 연습에 사용할 도구예요.</p></div>
             </div>
-            <div className="live-fit-grid">
-              <LiveFitMeter tone="response" label="응답" english="Response" kind="percent" percent={coverage} status={coverage === null ? "대기" : "Coverage"} caption={coverage === null ? "첫 답변 후 표시돼요" : RESPONSE_CASE_FEEDBACK[turnSignals?.case] || (coverage >= 70 ? "잘하고 있어요!" : "핵심을 더 채워보세요")} warn={coverage !== null && ["missing", "short", "risky"].includes(turnSignals?.case)} />
-              <LiveFitMeter tone="voice" label="목소리" english="Voice" kind="wave" percent={voiceMeter.percent} status={voiceMeter.status} caption={voiceMeter.caption} warn={voiceMeter.warn} />
-              <LiveFitMeter tone="eye" label="시선" english="Eye" kind="icon" icon="eye" percent={eyeMeter.percent} status={eyeMeter.status} caption={eyeMeter.caption} muted={eyeMeter.muted} warn={eyeMeter.warn} />
-              <LiveFitMeter tone="posture" label="자세" english="Posture" kind="icon" icon="posture" percent={postureMeter.percent} status={postureMeter.status} caption={postureMeter.caption} muted={postureMeter.muted} warn={postureMeter.warn} />
+            <div className="tool-status-list">
+              {analysisTools.map((tool) => <div className={`tool-status-row ${tool.ready ? "ready" : "waiting"}`} key={tool.label}>
+                <span className="tool-status-copy"><strong>{tool.label}</strong><small>{tool.detail}</small></span>
+                <span className="tool-status-state" aria-label={`${tool.label} ${tool.ready ? "켜짐" : "꺼짐"}`}><i aria-hidden="true" /><b>{tool.ready ? "ON" : "OFF"}</b></span>
+              </div>)}
             </div>
-            {!aiReady && <p className="live-fit-note"><IconGlyph icon="coach" size={16} /> 기본 질문 모드로 진행 중 — Ollama 연결 시 개인화 질문이 활성화돼요.</p>}
           </motion.section>
 
           <motion.section className="card chat-log-card" {...rise(0.18)}>
@@ -347,7 +356,6 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
                   <ChatBubble mine time={item.answered_at || stampFor(`a-${item.id}`, `턴 ${item.order}`)}>{item.response_text}</ChatBubble>
                 </React.Fragment>
               ))}
-              {turn?.reaction_text && <ChatBubble ai name={characterName} time="AI 반응">{turn.reaction_text}</ChatBubble>}
               {turn && <ChatBubble ai name={characterName} time={turn.asked_at || stampFor(`q-${turn.id}`, `턴 ${turn.order}`)}>{turn.question_text}</ChatBubble>}
               <div className={`typing-bubble ${busy ? "busy" : ""}`} aria-label={busy ? "AI가 답을 준비하고 있어요" : "답변을 기다리고 있어요"}><i /><i /><i /></div>
               {(error || captureError) && <p className="practice-error">{error || captureError}</p>}
@@ -356,88 +364,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
         </aside>
       </div>
 
-      {notesOpen && (
-        <div className="practice-notes-pop">
-          <textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="연습 중 떠오른 메모를 남겨보세요. (전송되지 않아요)" />
-        </div>
-      )}
-
-      <motion.footer className="practice-controls" {...rise(0.24)}>
-        <div className="controls-main">
-          <button type="button" className={`control-note ${notesOpen ? "active" : ""}`} onClick={() => setNotesOpen((open) => !open)}><Notebook size={19} /> 나의 노트</button>
-          <div className="control-speak">
-            <button type="button" className={`control-speak-label ${listening ? "listening" : ""}`} onClick={() => setMicEnabled((value) => !value)} disabled={!sttSupported} title={sttSupported ? "음성 입력 켜기/끄기" : "이 브라우저는 음성 입력을 지원하지 않아요"}>
-              <Mic size={18} /> {busy ? "분석 중..." : listening ? "듣는 중..." : !sttSupported || !micEnabled ? "직접 입력" : "말하는 중..."}
-            </button>
-            <span className="control-wave" aria-hidden="true">{Array.from({ length: 30 }, (_, i) => <i key={i} />)}</span>
-            <input value={inputValue} onChange={(event) => { setDraft(event.target.value); setInterim(""); }} onKeyDown={(event) => { if (event.key === "Enter" && inputValue.trim() && !busy && turn) submitDraft(); }} placeholder="말하면 자동으로 받아 적어요 — 직접 입력도 돼요" disabled={busy || !turn} />
-            <span className="control-clock"><time>{formatClock(recSeconds)}</time><small>{formatClock(elapsed)}</small></span>
-            <button type="button" className="control-send" aria-label="답변 보내기" onClick={submitDraft} disabled={busy || !inputValue.trim() || !turn}><span className="stop-square" aria-hidden="true" /></button>
-          </div>
-        </div>
-        <div className="controls-side">
-          <button type="button" className="control-pause" onClick={() => setPaused((value) => !value)}>{paused ? <><Play size={18} /> 다시 시작</> : <><Pause size={18} /> 일시정지</>}</button>
-          <button type="button" className="control-retry" onClick={() => { setDraft(""); setCaptureError(""); }}><Refresh3 size={18} /> 재시도</button>
-        </div>
-      </motion.footer>
     </motion.section>
-  );
-}
-
-// 마이크 입력 레벨 칩. 스트림이 있으면 WebAudio 분석기로 막대·상태 태그를 실제 음량에 맞춰 움직여요.
-// 스트림이 없으면(데모) 잔잔한 대기 애니메이션과 "적정" 태그를 보여줘요.
-function VoiceLevelChip({ mediaStream, onLevel }) {
-  const barsRef = useRef(null);
-  const tagRef = useRef(null);
-  const onLevelRef = useRef(onLevel);
-  onLevelRef.current = onLevel;
-  const hasAudio = Boolean(mediaStream?.getAudioTracks?.().length);
-
-  useEffect(() => {
-    if (!hasAudio) return undefined;
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextClass) return undefined;
-    const audioContext = new AudioContextClass();
-    const analyser = audioContext.createAnalyser();
-    analyser.fftSize = 128;
-    analyser.smoothingTimeConstant = 0.72;
-    audioContext.createMediaStreamSource(mediaStream).connect(analyser);
-    const spectrum = new Uint8Array(analyser.frequencyBinCount);
-    let raf = 0;
-    let lastTagUpdate = 0;
-    const tick = (now) => {
-      analyser.getByteFrequencyData(spectrum);
-      const bars = barsRef.current?.children;
-      if (bars) {
-        let sum = 0;
-        for (let i = 0; i < bars.length; i += 1) {
-          // 사람 목소리 대역(저·중역) 위주로 샘플링해요.
-          const value = spectrum[2 + Math.floor((i / bars.length) * 42)] / 255;
-          sum += value;
-          bars[i].style.height = `${4 + value * 14}px`;
-        }
-        const level = sum / bars.length;
-        if (tagRef.current && now - lastTagUpdate > 350) {
-          const state = level > 0.42 ? "loud" : level > 0.1 ? "ok" : "quiet";
-          if (tagRef.current.dataset.state !== state) {
-            tagRef.current.dataset.state = state;
-            tagRef.current.textContent = state === "loud" ? "너무 큼" : state === "ok" ? "적정" : "조용";
-          }
-          onLevelRef.current?.(level); // 사이드 목소리 게이지도 같은 실측값으로 구동
-          lastTagUpdate = now;
-        }
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => { cancelAnimationFrame(raf); audioContext.close().catch(() => {}); onLevelRef.current?.(null); };
-  }, [mediaStream, hasAudio]);
-
-  return (
-    <div className="camera-voicelevel">
-      <span className="voicelevel-head">음성 레벨 <b ref={tagRef} data-state={hasAudio ? "quiet" : "ok"}>{hasAudio ? "조용" : "적정"}</b></span>
-      <span className={`voicewave ${hasAudio ? "live" : ""}`} ref={barsRef} aria-hidden="true">{Array.from({ length: 17 }, (_, i) => <i key={i} />)}</span>
-    </div>
   );
 }
 
@@ -527,4 +454,16 @@ function ChatBubble({ children, ai = false, mine = false, name, time }) {
       </div>
     </div>
   );
+}
+
+function AiPromptOverlay({ name, speaking, text }) {
+  return <section className={`ai-prompt-overlay ${speaking ? "is-speaking" : ""}`} aria-label={`${name}의 질문`}>
+    <div className="ai-prompt-meta">
+      <span className="ai-prompt-avatar" aria-hidden="true"><img src={counterpartPortrait} alt="" /></span>
+      <strong>{name}</strong>
+      <em>{speaking ? "AI가 말하는 중" : "AI 질문"}</em>
+    </div>
+    <p><b aria-hidden="true">“</b>{text}<b aria-hidden="true">”</b></p>
+    <span className="ai-prompt-wave" aria-hidden="true">{Array.from({ length: 48 }, (_, index) => <i key={index} />)}</span>
+  </section>;
 }

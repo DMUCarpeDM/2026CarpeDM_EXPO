@@ -82,9 +82,21 @@ def test_pressure_mode_asks_pressure_question_when_covered():
     assert spec.question_type == "pressure"
 
 
-def test_basic_difficulty_gets_one_pressure_for_composure():
-    # 압박 내성 렌즈(composure)는 압박 턴이 있어야 성립 — basic 난이도에도
-    # basic 플래그가 붙은 압박 질문이 세션당 1회 나가야 한다
+def test_ultra_pressure_mode_adds_time_constraint():
+    eps = [
+        make_episode(1, 1, checklist=CHECKLIST, max_turns=3,
+                     pressure_questions=[{"text": "압박 질문", "trigger": "any"}]),
+        make_episode(2, 2),
+    ]
+    turns = [make_turn(1, 1, 1, "보고드리고 확인하겠습니다")]
+    spec = provider.next_question(session(difficulty="ultra_pressure"), eps, turns)
+    assert spec is not None
+    assert spec.question_type == "pressure"
+    assert "15초 안에" in spec.question_text
+
+
+def test_basic_difficulty_does_not_add_pressure_question():
+    # 기본 모드는 편안한 대화 흐름을 유지한다. 압박 질문은 추가하지 않는다.
     eps = [
         make_episode(1, 1, checklist=CHECKLIST, max_turns=3,
                      pressure_questions=[{"text": "basic 압박!", "trigger": "any", "basic": True}]),
@@ -93,11 +105,11 @@ def test_basic_difficulty_gets_one_pressure_for_composure():
     turns = [make_turn(1, 1, 1, "보고드리고 확인하겠습니다")]  # 전부 커버
     spec = provider.next_question(session(difficulty="basic"), eps, turns)
     assert spec is not None
-    assert spec.question_type == "pressure"
+    assert spec.question_type != "pressure"
 
 
-def test_basic_pressure_only_once_per_session():
-    # 세션당 1회 — 이미 압박을 받았으면 다음 에피소드에서는 안 나간다
+def test_basic_difficulty_never_adds_pressure_question():
+    # 여러 장면을 거쳐도 기본 모드에 압박 질문은 나오지 않는다.
     eps = [
         make_episode(1, 1, checklist=CHECKLIST, max_turns=3,
                      pressure_questions=[{"text": "P1", "trigger": "any", "basic": True}]),
@@ -112,7 +124,7 @@ def test_basic_pressure_only_once_per_session():
     ]
     spec = provider.next_question(session(difficulty="basic"), eps, turns)
     assert spec is not None
-    assert spec.question_type != "pressure"  # 두 번째 에피소드에서는 압박 없음
+    assert spec.question_type != "pressure"
 
 
 def test_basic_pressure_skips_non_basic_questions():
@@ -136,6 +148,24 @@ def test_ends_after_last_episode():
         make_turn(2, 1, 2, "확인했습니다", qtype="followup"),
     ]
     assert provider.next_question(session(), eps, turns) is None
+
+
+def test_selected_episode_runs_at_least_five_turns():
+    """선택한 단일 시나리오는 원래 max_turns가 2여도 데모 중 바로 끝나지 않는다."""
+    eps = [make_episode(1, 1, checklist=CHECKLIST, max_turns=2, deepening_questions=DEEPENING)]
+    selected = RoleplaySession(
+        id=1,
+        scenario_id=1,
+        mode=5,
+        difficulty="basic",
+        selected_episode_id=1,
+    )
+    turns = []
+    for order in range(1, 5):
+        turns.append(
+            make_turn(order, 1, order, "바로 보고드리고 확인하겠습니다", "deepening" if order > 1 else "initial")
+        )
+        assert provider.next_question(selected, eps, turns) is not None
 
 
 def test_budget_reserves_turns_for_remaining_episodes():

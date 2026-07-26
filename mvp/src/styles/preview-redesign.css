@@ -52,8 +52,6 @@
 
 .preview-duration dt,
 .preview-duration dd,
-.preview-context-block dt,
-.preview-context-block dd,
 .preview-role-details dt,
 .preview-role-details dd {
   margin: 0;
@@ -155,7 +153,6 @@
 
 .preview-facts small,
 .preview-facts em,
-.preview-context-block dt,
 .preview-role-details dt {
   display: block;
   color: var(--color-muted);
@@ -176,7 +173,6 @@
   line-height: 1.45;
 }
 
-.preview-context-block,
 .preview-objectives {
   border-top: 1px solid var(--color-selection-border);
   padding-top: var(--space-6);
@@ -190,26 +186,8 @@
   font-size: 17px;
 }
 
-.preview-context-block dl {
-  display: grid;
-  gap: var(--space-3);
-  margin: var(--space-5) 0 0;
-}
-
-.preview-context-block dl > div {
-  display: grid;
-  grid-template-columns: 104px minmax(0, 1fr);
-  gap: var(--space-4);
-}
-
-.preview-context-block dd {
-  color: var(--color-graphite);
-  font-size: 15px;
-  line-height: 1.55;
-}
-
 .preview-objectives {
-  margin-top: var(--space-6);
+  margin-top: var(--space-8);
 }
 
 .preview-objectives > p {
@@ -369,6 +347,12 @@
   margin: 0;
 }
 
+.preview-start-area .primary-bar:disabled {
+  cursor: not-allowed;
+  background: var(--color-muted);
+  box-shadow: none;
+}
+
 .preview-error {
   margin: 0 0 var(--space-3);
   color: var(--danger);
@@ -392,7 +376,7 @@
   .preview-side { grid-template-columns: 1fr; }
   .preview-counterpart { grid-template-columns: 104px minmax(0, 1fr); }
   .preview-counterpart-image { width: 104px; height: 128px; }
-  .preview-context-block dl > div, .preview-role-details > div { grid-template-columns: 72px minmax(0, 1fr); }
+  .preview-role-details > div { grid-template-columns: 72px minmax(0, 1fr); }
   .preview-objectives li { grid-template-columns: 28px minmax(0, 1fr); }
   .preview-objectives li em { grid-column: 2; }
 }

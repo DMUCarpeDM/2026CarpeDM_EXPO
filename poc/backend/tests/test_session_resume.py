@@ -1,10 +1,13 @@
 """세션 복구 API — 새로고침·크래시 후 진행 상태와 턴 이력을 되돌려준다."""
 from fastapi.testclient import TestClient
+import pytest
 
 from app.main import app
 from app.seed.run import seed
 
 client = TestClient(app)
+
+pytestmark = pytest.mark.usefixtures("ready_ollama")
 
 
 def _create_session() -> dict:

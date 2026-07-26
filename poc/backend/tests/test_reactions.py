@@ -35,6 +35,11 @@ def test_classify_risky_overrides_coverage():
     assert result["risk_hits"] >= 1
 
 
+def test_classify_risky_for_banmal_or_chat_shorthand():
+    assert reactions.classify("ㅇㅇ", CHECKLIST)["case"] == "risky"
+    assert reactions.classify("그냥 알아서 해", CHECKLIST)["case"] == "risky"
+
+
 def test_classify_missing_core():
     result = reactions.classify("오늘 날씨가 참 좋네요 그렇지 않습니까 여러분", CHECKLIST)
     assert result["case"] == "missing"

@@ -84,6 +84,8 @@
 .choice-section-heading p { margin: 5px 0 0; color: var(--color-graphite); font-size: 14px; line-height: 1.5; }
 .choice-grid { gap: var(--space-4); }
 .choice-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.choice-grid.one { grid-template-columns: minmax(0, 1fr); }
+.choice-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .choice-grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .choice-grid.five { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 
@@ -110,63 +112,42 @@
 .choice-card.portrait .choice-asset { width: 94px; height: 94px; border-radius: 50%; object-fit: cover; background: var(--color-blue-soft); }
 .choice-card.portrait .choice-copy { display: grid; gap: 4px; }
 
-.choice-card.difficulty { grid-template-columns: 100px minmax(0, 1fr); gap: var(--space-4); min-height: 182px; padding: var(--space-5); align-items: center; }
-.choice-card.difficulty .choice-asset { width: 92px; height: 92px; border-radius: 50%; object-fit: cover; }
-.choice-card.difficulty .choice-copy { display: grid; gap: 6px; align-content: center; }
+.difficulty-choice-section .choice-card.difficulty { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); min-height: 264px; padding: var(--space-6) var(--space-4); text-align: center; }
+.difficulty-choice-section .choice-card.difficulty .choice-asset { width: 84px; height: 84px; border-radius: 50%; object-fit: cover; }
+.difficulty-choice-section .choice-card.difficulty .choice-copy { display: grid; gap: 6px; align-content: start; justify-items: center; }
+.difficulty-choice-section .choice-card.difficulty small { max-width: 210px; }
+.difficulty-choice-section .choice-card.difficulty em { margin-top: 2px; }
 .choice-badge { display: inline-flex; align-items: center; min-height: 23px; margin-left: 8px; padding: 0 8px; border-radius: var(--radius-pill); vertical-align: 2px; font-size: 11px; font-style: normal; font-weight: 700; }
 .choice-badge.blue { color: var(--color-blue); background: var(--color-blue-soft); }
 .choice-badge.accent { color: var(--accent-warm); background: var(--accent-warm-soft); }
 
-.choice-card.scenario { min-height: 164px; padding: var(--space-5); }
-.choice-card.scenario .choice-copy { padding-right: 34px; }
-.choice-card.scenario strong { overflow-wrap: anywhere; }
-.choice-card.scenario .choice-icon,
-.choice-card.goal .choice-icon { width: 62px; height: 62px; border-radius: 50%; }
-.choice-card.goal { min-height: 178px; padding: var(--space-5); }
-
-.choice-card.scenario-catalog,
-.choice-card.goal-catalog {
-  display: flex;
-  flex-direction: column;
+.choice-card.scenario-catalog {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
   align-items: center;
-  justify-content: flex-start;
-  gap: 10px;
-  text-align: center;
+  gap: var(--space-4);
+  min-height: 178px;
+  padding: var(--space-5);
+  text-align: left;
 }
-
-.choice-card.scenario-catalog { min-height: 224px; padding: 20px 14px 16px; }
-.choice-card.goal-catalog { min-height: 178px; padding: 15px 10px 12px; gap: 8px; }
-.choice-card.scenario-catalog .choice-asset { width: 72px; height: 72px; object-fit: contain; }
-.choice-card.goal-catalog .choice-asset { width: 58px; height: 58px; object-fit: contain; }
-.choice-card.scenario-catalog .choice-copy,
-.choice-card.goal-catalog .choice-copy { display: grid; justify-items: center; gap: 5px; }
-.choice-card.scenario-catalog strong { font-size: 16px; }
-.choice-card.goal-catalog strong { font-size: 14px; line-height: 1.3; }
-.choice-card.scenario-catalog small { font-size: 12px; line-height: 1.45; }
-.choice-card.goal-catalog small { display: none; }
-.choice-card.scenario-catalog em,
-.choice-card.goal-catalog em {
-  display: inline-flex;
-  align-items: center;
-  min-height: 22px;
-  margin-top: 5px;
-  padding: 0 8px;
-  border-radius: var(--radius-pill);
-  color: var(--color-blue);
+.choice-card.scenario-catalog .choice-asset {
+  width: 58px;
+  height: 58px;
+  border-radius: 16px;
+  object-fit: cover;
   background: var(--color-blue-soft);
-  font-size: 11px;
-  font-weight: 700;
 }
-.choice-card.goal-catalog em { color: #5c45d8; background: #f0ecff; }
 
-.setup-ready-card { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-3); align-items: start; margin: -8px 0 8px; padding: var(--space-5); border: 1px solid var(--color-selection-border); border-radius: 16px; color: var(--color-blue); background: var(--color-selection-wash); }
-.setup-ready-card strong { display: block; color: var(--color-ink); font-size: 17px; }
-.setup-ready-card p { margin: 6px 0 0; color: var(--color-graphite); font-size: 14px; line-height: 1.55; }
+.choice-card.scenario-catalog .choice-icon { width: 58px; height: 58px; border-radius: 50%; }
+.choice-card.scenario-catalog .choice-copy { display: grid; gap: 6px; padding-right: 42px; }
+.choice-card.scenario-catalog strong { word-break: keep-all; }
+.scenario-empty { grid-column: 1 / -1; margin: 0; padding: var(--space-5); border: 1px dashed var(--color-selection-border); border-radius: 16px; color: var(--color-graphite); line-height: 1.6; }
 
 .setup-flow-actions { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); margin-top: 6px; }
 .setup-back-button { min-width: 84px; min-height: 54px; padding: 0 var(--space-5); border: 1px solid var(--color-selection-border); border-radius: 12px; color: var(--color-ink); background: var(--color-snow); font-weight: 650; }
 .setup-next-button.primary-bar { width: auto; min-width: 214px; min-height: 54px; margin: 0; padding: 0 54px 0 28px; border-radius: 12px; font-size: 16px; }
 .setup-next-button.primary-bar > svg { right: 23px; width: 21px; }
+.setup-next-button.primary-bar:disabled { cursor: not-allowed; background: #b6c0d0; box-shadow: none; }
 
 .setup-summary-panel { position: sticky; top: 100px; display: block; min-height: 786px; padding: 38px; border-radius: 28px; background: linear-gradient(145deg, #f0f5ff, var(--color-snow) 62%); box-shadow: inset 0 0 0 1px rgba(220, 230, 244, 0.9), 0 20px 46px rgba(52, 94, 153, 0.09); }
 .setup-summary-panel h2 { color: var(--color-ink); font-size: 22px; }
@@ -175,7 +156,7 @@
 .setup-summary-panel .summary-item .choice-icon { width: 52px; height: 52px; border-radius: 50%; }
 .setup-summary-panel .summary-asset { width: 52px; height: 52px; border-radius: 50%; object-fit: contain; background: var(--color-blue-soft); }
 .setup-summary-panel .summary-item small { font-size: 13px; }
-.setup-summary-panel .summary-item strong { margin-top: 5px; font-size: 17px; }
+.setup-summary-panel .summary-item strong { margin-top: 5px; font-size: 17px; white-space: pre-line; word-break: keep-all; }
 .setup-summary-time { grid-template-columns: auto 1fr; align-items: start; margin-top: 30px; padding: 24px 0 0; border: 0; border-top: 1px solid var(--color-selection-border); border-radius: 0; color: var(--color-graphite); background: transparent; }
 .setup-summary-time > div { display: grid; gap: 5px; }
 .setup-summary-time strong { color: var(--color-ink); font-size: 22px; }
@@ -184,13 +165,16 @@
 .setup-summary-tip { margin-top: 28px; padding: var(--space-4); border-color: #b8d3ff; background: linear-gradient(135deg, var(--color-blue-soft), var(--color-snow)); }
 .setup-summary-note { display: flex; align-items: center; gap: 8px; margin: 28px 0 0 !important; padding-top: var(--space-4); border-top: 1px solid var(--color-selection-border); color: var(--color-graphite) !important; font-size: 13px !important; line-height: 1.55; }
 
+@media (max-width: 1320px) {
+  .role-choice-section .choice-grid.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 @media (max-width: 1040px) {
   .setup-flow-page { width: min(100% - 48px, 100%); }
-  .setup-flow-layout { grid-template-columns: minmax(0, 1fr) 360px; gap: var(--space-8); }
-  .setup-summary-panel { padding: var(--space-6); }
+  .setup-flow-layout { grid-template-columns: minmax(0, 1fr); gap: var(--space-6); }
+  .setup-summary-panel { position: static; min-height: auto; padding: var(--space-6); }
   .choice-card.portrait { min-height: 208px; padding: var(--space-4); }
-  .scenario-choice-section .choice-grid.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .goal-choice-section .choice-grid.five { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .scenario-choice-section .choice-grid.two { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 760px) {
@@ -217,21 +201,16 @@
   .setup-flow-main .page-title { margin-bottom: 32px; }
   .setup-flow-main .page-title h1 { font-size: 38px; letter-spacing: -2px; }
   .choice-grid.four,.choice-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .choice-grid.three { grid-template-columns: 1fr; }
   .difficulty-choice-section .choice-grid.two,
-  .scenario-choice-section .choice-grid.four,
-  .goal-choice-section .choice-grid.five { grid-template-columns: 1fr; }
+  .scenario-choice-section .choice-grid.two { grid-template-columns: 1fr; }
   .choice-card.portrait { min-height: 196px; padding: var(--space-4); }
   .choice-card.portrait .choice-asset { width: 76px; height: 76px; }
   .choice-card.portrait strong { font-size: 15px; }
   .choice-card.portrait small { font-size: 12px; }
-  .choice-card.difficulty { grid-template-columns: 68px minmax(0, 1fr); min-height: 152px; padding: var(--space-4); }
-  .choice-card.difficulty .choice-asset { width: 64px; height: 64px; }
-  .choice-card.scenario-catalog { min-height: 188px; box-sizing: border-box; flex-direction: row; justify-content: flex-start; padding: var(--space-4); text-align: left; }
-  .choice-card.scenario-catalog .choice-asset { width: 72px; height: 72px; flex: 0 0 auto; }
-  .choice-card.scenario-catalog .choice-copy { justify-items: start; text-align: left; }
-  .choice-card.goal-catalog { min-height: 136px; box-sizing: border-box; flex-direction: row; justify-content: flex-start; padding: var(--space-4); text-align: left; }
-  .choice-card.goal-catalog .choice-asset { width: 58px; height: 58px; flex: 0 0 auto; }
-  .choice-card.goal-catalog .choice-copy { justify-items: start; text-align: left; }
+  .difficulty-choice-section .choice-card.difficulty { min-height: 188px; padding: var(--space-4); }
+  .difficulty-choice-section .choice-card.difficulty .choice-asset { width: 64px; height: 64px; }
+  .choice-card.scenario-catalog { grid-template-columns: 58px minmax(0, 1fr); min-height: 136px; padding: var(--space-4); }
   .setup-flow-actions { margin-top: 0; }
   .setup-next-button.primary-bar { min-width: 0; padding-right: 46px; }
   .setup-summary-panel { position: static; min-height: auto; padding: var(--space-6); }

@@ -42,6 +42,36 @@ test("createSession preserves the PoC setup payload", async () => {
   });
 });
 
+test("createSession preserves ultra pressure for the persona prompt", async () => {
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    return new Response(JSON.stringify({ id: "session-2" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  await createSession({ difficulty: "ultra_pressure", mode: 10, scenarioSlug: "release-schedule-alignment", consent: true });
+
+  assert.equal(JSON.parse(calls[0].options.body).difficulty, "ultra_pressure");
+});
+
+test("createSession sends the selected backend episode", async () => {
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    return new Response(JSON.stringify({ id: "session-3" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  await createSession({ difficulty: "basic", mode: 5, scenarioSlug: "release-schedule-alignment", selectedEpisodeId: 42, consent: true });
+
+  assert.equal(JSON.parse(calls[0].options.body).selected_episode_id, 42);
+});
+
 // 백엔드 계약(poc/backend sessions.py): 오디오는 /audio(멀티파트 `file`)로 먼저,
 // 답변 본문은 /response(JSON ResponseIn)로 — 한 멀티파트에 섞으면 422가 난다.
 test("submitResponse uploads audio to /audio first then posts JSON to /response", async () => {

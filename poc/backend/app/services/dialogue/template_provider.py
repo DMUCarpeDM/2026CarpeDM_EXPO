@@ -20,6 +20,14 @@ from app.services.dialogue.reactions import rapport_level
 
 # 세션 전체 턴 예산 (모드별) — 프론트 타이머와 함께 이중 안전장치
 TURN_BUDGET = {5: 6, 10: 11}
+# 사용자가 고른 단일 시나리오는 원본 장면의 짧은 max_turns와 무관하게
+# 최소 다섯 번 답할 수 있어야 전시 체험이 너무 빨리 끝나지 않는다.
+SELECTED_EPISODE_MIN_TURNS = 5
+SELECTED_EPISODE_CONTINUATIONS = (
+    "좋습니다. 그 상황에서 바로 할 다음 조치도 설명해 주세요.",
+    "상대에게 어떻게 알릴지까지 이어서 말해 주세요.",
+    "마무리 전에 확인할 점을 한 가지 더 짚어 주세요.",
+)
 
 
 class TemplateDialogueProvider:
@@ -62,9 +70,17 @@ class TemplateDialogueProvider:
             return None
 
         ep_turns = [t for t in turns if t.episode_id == current_ep.id]
+        is_selected_single_episode = (
+            session.selected_episode_id == current_ep.id and not remaining_eps
+        )
+        episode_turn_limit = (
+            max(current_ep.max_turns, SELECTED_EPISODE_MIN_TURNS)
+            if is_selected_single_episode
+            else current_ep.max_turns
+        )
         # 남은 에피소드가 각각 최소 1턴(초기 질문)을 가질 수 있을 때만 현 에피소드에서 추가 질문
         can_extend = (
-            len(ep_turns) < current_ep.max_turns
+            len(ep_turns) < episode_turn_limit
             and budget_left > len(remaining_eps)
         )
 
@@ -89,36 +105,20 @@ class TemplateDialogueProvider:
                 )
             # 발전 턴은 에피소드당 1개 (압박 또는 심화 택일). 이미 있으면 다음 장면으로.
             if not ep_has_development:
-                # 우선순위: 압박(난이도) → 기본 난이도 세션당 1회 압박 → 심화 전개
-                if session.difficulty == "pressure" and current_ep.pressure_questions:
+                # 우선순위: 압박 난이도 → 심화 전개. 기본 모드는 압박 질문을 사용하지 않는다.
+                if session.difficulty in ("pressure", "ultra_pressure") and current_ep.pressure_questions:
                     pq = current_ep.pressure_questions[0]
+                    question_text = pq["text"]
+                    if session.difficulty == "ultra_pressure":
+                        question_text = f"{question_text} 핵심만 15초 안에 답해 주세요."
                     return QuestionSpec(
                         episode_id=current_ep.id,
                         question_type="pressure",
-                        question_text=pq["text"],
+                        question_text=question_text,
                         character_id=current_ep.character_id,
-                        intent="압박 상황 대응 확인",
+                        intent="초압박 상황 대응 확인" if session.difficulty == "ultra_pressure" else "압박 상황 대응 확인",
                         virtual_time=current_ep.virtual_time or "",
                     )
-                # 기본 난이도 압박 1회 (세션당): 압박 내성 렌즈(composure)는 압박 턴이
-                # 있어야 성립하는데, 기본 난이도에는 압박이 없어 심층 분석의 간판
-                # 카드가 비어 있었다. 어떤 답 뒤에도 성립하는(basic 플래그) 압박
-                # 질문만 골라 세션에서 딱 한 번 던진다 — 잘한 답 뒤의 에스컬레이션.
-                if session.difficulty == "basic" \
-                        and not any(t.question_type == "pressure" for t in turns):
-                    basic_pq = next(
-                        (q for q in (current_ep.pressure_questions or []) if q.get("basic")),
-                        None,
-                    )
-                    if basic_pq is not None:
-                        return QuestionSpec(
-                            episode_id=current_ep.id,
-                            question_type="pressure",
-                            question_text=basic_pq["text"],
-                            character_id=current_ep.character_id,
-                            intent="압박 상황 대응 확인 (기본 난이도 세션당 1회)",
-                            virtual_time=current_ep.virtual_time or "",
-                        )
                 # 심화 — 잘한 답에도 장면이 이어진다. 교정할 게 없을 때의 자연스러운
                 # 대화 전개이며, 에피소드당 1회. 재도전 시 다른 질문이 나오도록
                 # 세션 id로 풀에서 회전 선택한다 (세션 내에서는 결정적).
@@ -133,6 +133,29 @@ class TemplateDialogueProvider:
                         intent=dq.get("intent", "장면 심화 전개"),
                         virtual_time=current_ep.virtual_time or "",
                     )
+
+            # 선택한 단일 장면은 전시에서 너무 빨리 끝나지 않도록 추가 대화를 이어간다.
+            # 심화 질문을 이미 한 번 썼더라도 원본 질문 풀을 회전해 재사용하며,
+            # 질문 풀이 없는 오래된 시드에는 범용 후속 질문을 안전한 폴백으로 쓴다.
+            if is_selected_single_episode:
+                pool = current_ep.deepening_questions or []
+                if pool:
+                    dq = pool[((session.id or 0) + len(ep_turns) - 1) % len(pool)]
+                    question_text = dq["text"]
+                    intent = dq.get("intent", "선택 장면 추가 전개")
+                else:
+                    question_text = SELECTED_EPISODE_CONTINUATIONS[
+                        ((session.id or 0) + len(ep_turns) - 1) % len(SELECTED_EPISODE_CONTINUATIONS)
+                    ]
+                    intent = "선택 장면 추가 전개"
+                return QuestionSpec(
+                    episode_id=current_ep.id,
+                    question_type="deepening",
+                    question_text=question_text,
+                    character_id=current_ep.character_id,
+                    intent=intent,
+                    virtual_time=current_ep.virtual_time or "",
+                )
 
         if remaining_eps:
             nxt = remaining_eps[0]
@@ -155,7 +178,8 @@ class TemplateDialogueProvider:
         return self.next_question(session, episodes, turns)
 
     def personalize_question(
-        self, spec: QuestionSpec, situation: str, last_response: str
+        self, spec: QuestionSpec, situation: str, last_response: str,
+        character: dict | None = None, difficulty: str = "basic",
     ) -> str | None:
         return None  # 템플릿 엔진은 개인화 없음 — 대본 그대로
 

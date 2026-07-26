@@ -11,6 +11,7 @@
   선택적으로 로컬 LLM(Ollama)이 답변을 직접 언급하는 문장으로 다듬는다(실패 시 폴백).
 """
 import random
+import re
 
 import httpx
 
@@ -31,6 +32,9 @@ LOW_THRESHOLD = -0.25
 EXCELLENT_COVERAGE = 0.75
 MISSING_COVERAGE = 0.4
 SHORT_SYLLABLES = 12
+CASUAL_OR_RUDE_REPLY = re.compile(
+    r"(?:^|[\s,.!?])(?:ㅇㅇ|ㄴㄴ|응|어|싫어|닥쳐|꺼져|알아서(?:\s+해)?)(?=$|[\s,.!?])"
+)
 
 REACTION_SYSTEM_PROMPT = """당신은 직장 역할극의 등장인물입니다. 신입의 직전 답변에 대한
 짧은 반응 한 문장을 만듭니다.
@@ -45,7 +49,14 @@ def classify(response_text: str, checklist: list[dict]) -> dict:
     """답변을 리액션 케이스로 판정. 우선순위: risky > short > excellent > covered > missing."""
     metrics = analyze_response(response_text, checklist)
     high_risk = any(h["severity"] == "high" for h in metrics["banned_hits"])
-    if high_risk or len(metrics["banned_hits"]) >= 2:
+    # 존댓말 문장 안의 "해야죠"처럼 형태소 분석기가 반말로 오인할 수 있는 경우는
+    # 제외한다. 명확한 채팅 축약어·무례 표현 또는 반말 비중이 높은 답변만 risky다.
+    mostly_banmal = (
+        metrics["politeness"]["banmal_count"] > 0
+        and metrics["politeness"]["formal_ratio"] < 0.5
+    )
+    disrespectful = bool(CASUAL_OR_RUDE_REPLY.search(response_text)) or mostly_banmal
+    if high_risk or len(metrics["banned_hits"]) >= 2 or disrespectful:
         case = "risky"
     elif metrics["syllables"] < SHORT_SYLLABLES:
         case = "short"

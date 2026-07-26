@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { counterpartProfiles, difficulties, practiceGoals, scenariosForRole } from "./data/setupCatalog";
+import { counterpartProfiles, difficulties, getRoleScenarioOptions } from "./data/setupCatalog";
 import { AttractLoop } from "./components/AttractLoop";
 import { MobileMenuSheet, TopNav } from "./components/navigation/AppNavigation";
 import { HomePage } from "./pages/HomePage";
@@ -11,7 +11,7 @@ import { SharePage } from "./pages/SharePage";
 import { ComparePage } from "./pages/ComparePage";
 import { DifficultyPage } from "./pages/setup/DifficultyPage";
 import { RoleSelectPage } from "./pages/setup/RoleSelectPage";
-import { SetupPage } from "./pages/setup/SetupPage";
+import { ScenarioSelectPage } from "./pages/setup/ScenarioSelectPage";
 import {
   REPORT_FLOW_IDLE_TIMEOUT_MS,
   buildRetainedRecord,
@@ -35,8 +35,8 @@ import {
   submitResponse,
 } from "./lib/pocApi";
 
-// 자체 크롬(사이드바/전용 상단바)을 가진 화면은 전역 상단 네비를 숨겨요.
-const CHROMELESS_VIEWS = new Set(["practice", "result", "feedback", "compare"]);
+// 모든 흐름에서 같은 상단 네비게이션을 사용해 화면 전환 감각을 유지해요.
+const CHROMELESS_VIEWS = new Set();
 
 // 백엔드 없이도 리포트/비교/연습 화면을 미리 볼 수 있게 하는 데모 데이터 (?demo=result 등).
 const DEMO_REPORT = {
@@ -126,7 +126,7 @@ const DEMO_HISTORY = [
   { session_id: "d5", total_score: 72, started_at: "2024-05-20", fit_scores: { "Response-Fit": 72, "Voice-Fit": 68, "Eye-Fit": 78, "Posture-Fit": 82 } },
   { session_id: "d6", total_score: 88, started_at: "2024-05-24", fit_scores: { "Response-Fit": 86, "Voice-Fit": 82, "Eye-Fit": 78, "Posture-Fit": 91 } },
 ];
-const DEMO_SESSION = { id: "demo", mode: 5, scenario: { title: "업무 보고 및 피드백 논의", characters: [{ id: "c1", name: "팀장 김민수", role: "상사 / 관리자", personality: "직설적이고 바쁘다. 결론부터 듣고 싶어 한다." }] } };
+const DEMO_SESSION = { id: "demo", mode: 5, scenario: { title: "업무 보고 및 피드백 논의", characters: [{ id: "kim_teamlead", name: "김서윤 팀장", role: "상사", personality: "직설적이고 바쁘다. 결론부터 듣고 싶어 한다." }] } };
 const DEMO_TURN = { id: "t2", order: 2, character_id: "c1", asked_at: "02:35", question_text: "흠, 70%라면 일정보다 살짝 늦는 것 같은데요. 구체적으로 어떤 부분이 지연되고 있나요?" };
 const DEMO_TURN_HISTORY = [
   { id: "t1", order: 1, character_id: "c1", asked_at: "02:31", answered_at: "02:34", question_text: "이번 프로젝트 진행 상황을 간단히 요약해주시고, 현재 가장 어려운 부분은 무엇인지 설명해 주세요.", response_text: "현재 디자인 시스템은 거의 마무리 단계이고, 프론트엔드 구현도 70% 정도 완료되었습니다..." },
@@ -134,9 +134,9 @@ const DEMO_TURN_HISTORY = [
 
 const flow = [
   { id: "home", label: "메인" },
-  { id: "role", label: "기본 설정" },
-  { id: "difficulty", label: "상황 선택" },
-  { id: "setup", label: "목표 선택" },
+  { id: "role", label: "상대 역할 선택" },
+  { id: "scenario", label: "시나리오 선택" },
+  { id: "difficulty", label: "난이도 선택" },
   { id: "preview", label: "시나리오 미리보기" },
   { id: "practice", label: "AI와 연습하기" },
   { id: "result", label: "결과 보기" },
@@ -148,12 +148,9 @@ const flow = [
 export default function App() {
   const [active, setActive] = useState("home");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [counterpart, setCounterpart] = useState("");
   const [counterpartProfile, setCounterpartProfile] = useState("manager");
   const [difficulty, setDifficulty] = useState("basic");
-  const [mode, setMode] = useState(5);
-  const [selectedScenarioId, setSelectedScenarioId] = useState("manager-incident");
-  const [selectedGoalId, setSelectedGoalId] = useState("prep");
+  const mode = 5;
   const [session, setSession] = useState(null);
   const [turn, setTurn] = useState(null);
   const [turnHistory, setTurnHistory] = useState([]);
@@ -165,6 +162,7 @@ export default function App() {
   const [mediaStream, setMediaStream] = useState(null);
   const [permissionState, setPermissionState] = useState({ camera: "prompt", microphone: "prompt" });
   const [pocScenarioSlug, setPocScenarioSlug] = useState("");
+  const [selectedEpisodeId, setSelectedEpisodeId] = useState(null);
   const [consented, setConsented] = useState(false);
   const [apiError, setApiError] = useState("");
   const [starting, setStarting] = useState(false);
@@ -172,15 +170,11 @@ export default function App() {
   const [analysisProgress, setAnalysisProgress] = useState(null);
   const turnAudioReferencesRef = useRef([]);
   const retainedSessionIdRef = useRef("");
-  const scenarioOptions = scenariosForRole(counterpartProfile);
-  const selectedSetupScenario = scenarioOptions.find((item) => item.id === selectedScenarioId) || scenarioOptions[0];
-  const selectedGoal = practiceGoals[selectedGoalId] || practiceGoals[selectedSetupScenario.goalIds[0]];
   const current = flow.find((item) => item.id === active) || flow[0];
-  const previewScenario = {
-    ...(apiScenarios.find((item) => item.slug === pocScenarioSlug) || {}),
-    title: selectedSetupScenario?.title,
-    description: selectedSetupScenario?.text,
-  };
+  const roleScenarioOptions = getRoleScenarioOptions(apiScenarios, counterpartProfile, mode);
+  const selectedScenarioOption = roleScenarioOptions.find((item) => item.episodeId === selectedEpisodeId) || null;
+  const previewScenario = apiScenarios.find((item) => item.slug === (selectedScenarioOption?.scenarioSlug || pocScenarioSlug)) || {};
+  const previewEpisode = previewScenario.episodes?.find((item) => item.id === selectedEpisodeId) || null;
 
   const navigate = (target) => {
     setActive(target);
@@ -193,18 +187,25 @@ export default function App() {
       .then((items) => {
         setApiScenarios(items);
         setPocScenarioSlug((currentSlug) => currentSlug || items[0]?.slug || "");
-        setCounterpart((currentCounterpart) => currentCounterpart || items[0]?.characters?.[0]?.id || "");
       })
       .catch(() => setApiError("서버를 실행하면 연습을 시작할 수 있어요."));
   }, []);
-  useEffect(() => { getHealth().then(setAiHealth).catch(() => setAiHealth(null)); }, []);
+  useEffect(() => {
+    setSelectedEpisodeId((currentId) => roleScenarioOptions.some((item) => item.episodeId === currentId) ? currentId : roleScenarioOptions[0]?.episodeId || null);
+  }, [counterpartProfile, roleScenarioOptions]);
+  useEffect(() => {
+    const refreshHealth = () => getHealth().then(setAiHealth).catch(() => setAiHealth(null));
+    refreshHealth();
+    const timer = window.setInterval(refreshHealth, 5000);
+    return () => window.clearInterval(timer);
+  }, []);
   useEffect(() => {
     const demo = new URLSearchParams(window.location.search).get("demo");
     if (!demo) return;
     setReport(DEMO_REPORT);
     setHistory(DEMO_HISTORY);
     if (demo === "practice") {
-      setSession(DEMO_SESSION); setTurn(DEMO_TURN); setTurnHistory(DEMO_TURN_HISTORY); setTurnSignals({ coverage: 0.85 }); setActive("practice");
+      setSession(DEMO_SESSION); setTurn(DEMO_TURN); setTurnHistory(DEMO_TURN_HISTORY); setTurnSignals(null); setActive("practice");
       // 데모에서도 카메라를 켜면 실시간 얼굴·자세 트래킹을 그대로 시연할 수 있어요 (거부해도 화면은 동작).
       requestExerciseMedia().catch(() => {});
     }
@@ -267,26 +268,12 @@ export default function App() {
     navigate(flow[Math.min(Math.max(currentIndex + offset, 0), flow.length - 1)].id);
   };
   const chooseCounterpartProfile = (profileId) => {
-    const nextScenario = scenariosForRole(profileId)[0];
-    const nextGoal = practiceGoals[nextScenario.goalIds[0]];
     setCounterpartProfile(profileId);
-    setSelectedScenarioId(nextScenario.id);
-    setSelectedGoalId(nextGoal.id);
-    setMode(nextGoal.mode);
+    setSelectedEpisodeId(null);
   };
-  const chooseSetupScenario = (scenarioId) => {
-    const nextScenario = scenarioOptions.find((item) => item.id === scenarioId);
-    if (!nextScenario) return;
-    const nextGoal = practiceGoals[nextScenario.goalIds[0]];
-    setSelectedScenarioId(nextScenario.id);
-    setSelectedGoalId(nextGoal.id);
-    setMode(nextGoal.mode);
-  };
-  const chooseGoal = (goalId) => {
-    const nextGoal = practiceGoals[goalId];
-    if (!nextGoal) return;
-    setSelectedGoalId(nextGoal.id);
-    setMode(nextGoal.mode);
+  const chooseScenario = (option) => {
+    setPocScenarioSlug(option.scenarioSlug);
+    setSelectedEpisodeId(option.episodeId);
   };
   const requestExerciseMedia = async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -311,8 +298,9 @@ export default function App() {
     retainedSessionIdRef.current = "";
     try {
       if (!consented) throw new Error("개인정보 처리에 동의하면 역할극을 시작할 수 있어요.");
+      if (aiHealth?.dialogue_provider !== "ollama" || !aiHealth?.ollama?.dialogue) throw new Error("Ollama 대화 모델을 실행한 뒤 다시 시작해 주세요.");
       await requestExerciseMedia();
-      const nextSession = await createSession({ difficulty, mode, scenarioSlug: pocScenarioSlug, consent: consented });
+      const nextSession = await createSession({ difficulty, mode, scenarioSlug: previewScenario.slug, selectedEpisodeId, consent: consented });
       saveActiveSession(nextSession);
       setSession(nextSession); setTurn(nextSession.current_turn); navigate("practice");
     } catch (error) { setApiError(error.message); } finally { setStarting(false); }
@@ -333,18 +321,18 @@ export default function App() {
   const chromeless = CHROMELESS_VIEWS.has(active);
 
   return <main className={`app-shell ${chromeless ? "chromeless" : ""} ${active === "practice" ? "practice-mode" : ""}`}>
-    {!chromeless && <TopNav active={active} scenarioTitle={session?.scenario?.title || selectedSetupScenario?.title} sessionMode={session?.mode || mode} menuOpen={menuOpen} onMenuOpen={setMenuOpen} onNavigate={navigate} scenarios={apiScenarios} onScenarioSelect={(slug) => { const selected = apiScenarios.find((item) => item.slug === slug); setPocScenarioSlug(slug); setCounterpart(selected?.characters?.[0]?.id || ""); navigate("role"); }} />}
+    {!chromeless && <TopNav active={["preview", "practice"].includes(active) ? "role" : active} scenarioTitle={session?.scenario?.title || previewScenario?.title} sessionMode={session?.mode || mode} menuOpen={menuOpen} onMenuOpen={setMenuOpen} onNavigate={navigate} scenarios={apiScenarios} onScenarioSelect={(slug) => { setPocScenarioSlug(slug); navigate("role"); }} />}
     <MobileMenuSheet open={menuOpen} active={active} onClose={() => setMenuOpen(false)} onNavigate={navigate} />
     <div className="screen-frame">
       {active === "home" && <HomePage onNext={() => navigate("role")} />}
-      {active === "role" && <RoleSelectPage scenario={selectedSetupScenario} counterpart={counterpart} counterpartProfile={counterpartProfile} onCounterpart={setCounterpart} onCounterpartProfile={chooseCounterpartProfile} difficulty={difficulty} onDifficulty={setDifficulty} onPrev={() => go(-1)} onNext={() => navigate("difficulty")} />}
-      {active === "difficulty" && <DifficultyPage scenarios={scenarioOptions} selectedScenarioId={selectedSetupScenario.id} onScenario={chooseSetupScenario} counterpartProfile={counterpartProfile} difficulty={difficulty} onPrev={() => go(-1)} onNext={() => navigate("setup")} />}
-      {active === "setup" && <SetupPage scenario={selectedSetupScenario} goals={selectedSetupScenario.goalIds.map((goalId) => practiceGoals[goalId])} goal={selectedGoal} onGoal={chooseGoal} counterpartProfile={counterpartProfile} difficulty={difficulties.find((item) => item.id === difficulty)} onPrev={() => go(-1)} onNext={() => navigate("preview")} />}
-      {active === "preview" && <PreviewPage onNext={startPractice} starting={starting} scenario={previewScenario} setupScenario={selectedSetupScenario} counterpartProfile={counterpartProfiles.find((item) => item.id === counterpartProfile) || counterpartProfiles[1]} goal={selectedGoal} difficulty={difficulties.find((item) => item.id === difficulty) || difficulties[0]} aiHealth={aiHealth} consented={consented} onConsent={setConsented} error={apiError} permissionState={permissionState} mode={mode} />}
+      {active === "role" && <RoleSelectPage counterpartProfile={counterpartProfile} onCounterpart={chooseCounterpartProfile} onPrev={() => go(-1)} onNext={() => navigate("scenario")} />}
+      {active === "scenario" && <ScenarioSelectPage counterpartProfile={counterpartProfile} scenarios={apiScenarios} selectedEpisodeId={selectedEpisodeId} onScenario={chooseScenario} onPrev={() => go(-1)} onNext={() => navigate("difficulty")} />}
+      {active === "difficulty" && <DifficultyPage counterpartProfile={counterpartProfile} scenario={previewScenario} difficulty={difficulty} onDifficulty={setDifficulty} onPrev={() => go(-1)} onNext={() => navigate("preview")} />}
+      {active === "preview" && <PreviewPage onNext={startPractice} starting={starting} scenario={previewScenario} selectedEpisode={previewEpisode} counterpartProfile={counterpartProfiles.find((item) => item.id === counterpartProfile) || counterpartProfiles[1]} difficulty={difficulties.find((item) => item.id === difficulty) || difficulties[0]} aiHealth={aiHealth} consented={consented} onConsent={setConsented} error={apiError} permissionState={permissionState} mode={mode} />}
       {active === "practice" && <PracticePage onPrev={() => go(-1)} scenario={session?.scenario} aiHealth={aiHealth} turn={turn} history={turnHistory} turnSignals={turnSignals} onSubmit={sendAnswer} busy={submitting} error={apiError} mediaStream={mediaStream} />}
-      {active === "result" && <ResultPage onPrev={() => go(-1)} onPractice={() => navigate("preview")} onNext={() => navigate("feedback")} onNavigate={navigate} report={report} progress={analysisProgress} error={apiError} />}
+      {active === "result" && <ResultPage onPrev={() => go(-1)} onPractice={() => navigate("preview")} onNext={() => navigate("feedback")} report={report} selectedDifficulty={difficulty} progress={analysisProgress} error={apiError} />}
       {active === "feedback" && <FeedbackPage onPrev={() => go(-1)} onPractice={() => navigate("preview")} onNext={() => navigate("compare")} onNavigate={navigate} report={report} />}
-      {active === "compare" && <ComparePage onPrev={() => go(-1)} onRestart={() => navigate("setup")} onShare={() => navigate("share")} onNavigate={navigate} history={history} report={report} />}
+      {active === "compare" && <ComparePage onPrev={() => go(-1)} onRestart={() => navigate("role")} onShare={() => navigate("share")} onNavigate={navigate} history={history} report={report} />}
       {active === "share" && <SharePage onHome={() => navigate("home")} onPractice={() => navigate("role")} report={report} onIssueCode={issueCode} />}
     </div>
     <span className="screen-reader-note" aria-live="polite">현재 화면: {current.label}</span>

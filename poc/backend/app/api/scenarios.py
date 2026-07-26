@@ -24,6 +24,7 @@ def to_scenario_out(scenario: Scenario) -> ScenarioOut:
         episode_titles=titles,
         episodes=[
             {
+                "id": ep.id,
                 "title": ep.title,
                 "situation": ep.situation,
                 "intent": ep.question_intent,

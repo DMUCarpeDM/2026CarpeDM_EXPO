@@ -35,20 +35,20 @@ export function Panel({ children, className = "" }) {
   return <section className={`card ${className}`}>{children}</section>;
 }
 
-function PrimaryBar({ label, onClick, className = "" }) {
+function PrimaryBar({ label, onClick, className = "", disabled = false }) {
   return (
-    <button className={`primary-bar ${className}`} type="button" onClick={onClick}>
+    <button className={`primary-bar ${className}`} type="button" onClick={onClick} disabled={disabled}>
       {label}
       <ArrowRight size={24} />
     </button>
   );
 }
 
-export function SetupFlowActions({ onPrev, label, onNext }) {
+export function SetupFlowActions({ onPrev, label, onNext, nextDisabled = false }) {
   return (
     <div className="setup-flow-actions">
       <button className="setup-back-button" type="button" onClick={onPrev}>이전</button>
-      <PrimaryBar className="setup-next-button" label={label} onClick={onNext} />
+      <PrimaryBar className="setup-next-button" label={label} onClick={onNext} disabled={nextDisabled} />
     </div>
   );
 }
@@ -119,17 +119,17 @@ function SummaryPanel({ children, className = "" }) {
   return <section className={`summary-panel card ${className}`} aria-label="선택 요약">{children}</section>;
 }
 
-export function SetupSelectionSummary({ counterpart, difficulty, scenario, goal, modeLabel, tip }) {
+export function SetupSelectionSummary({ counterpart, scenario, scenarioImage, difficulty, modeLabel, tip }) {
   return (
     <SummaryPanel className="setup-summary-panel">
       <h2><Sparkles size={21} /> 선택 요약</h2>
       <p>현재 선택한 설정을 확인해요.</p>
       <SummaryItem image={counterpart.image} label="상대 역할" value={counterpart.title} tone="blue" />
-      <SummaryItem image={difficulty.image} label="난이도" value={difficulty.title} tone={difficulty.tone} />
-      <SummaryItem image={scenario?.image} icon="briefcase" label="예상 상황" value={scenario?.title || "다음 단계에서 선택"} tone="blue" />
+      <SummaryItem image={scenarioImage} icon="briefcase" label="연습 상황" value={scenario?.title?.replace(" — ", " —\n") || "다음 단계에서 선택"} tone="blue" />
+      <SummaryItem image={difficulty?.image} icon="normal" label="난이도" value={difficulty?.title || "다음 단계에서 선택"} tone={difficulty?.tone || "blue"} />
       <div className="time-box setup-summary-time">
-        {goal?.image ? <img className="summary-asset" src={goal.image} alt="" aria-hidden="true" width="256" height="256" /> : <Clock3 size={20} />}
-        <div><span>{goal ? "연습 목표 · 예상 시간" : "예상 소요 시간"}</span><strong>{goal?.title || modeLabel}</strong>{goal && <small>{modeLabel}</small>}</div>
+        <Clock3 size={20} />
+        <div><span>예상 소요 시간</span><strong>{modeLabel}</strong></div>
       </div>
       <div className="tip-box setup-summary-tip">
         <Bulb2 size={22} />

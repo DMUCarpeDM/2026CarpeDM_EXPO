@@ -13,6 +13,22 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pytest
 
 
+@pytest.fixture
+def ready_ollama(monkeypatch):
+    """세션 API 테스트용 로컬 Ollama 준비 상태. 실제 네트워크 호출은 하지 않는다."""
+    from app.api import sessions
+    from app.core.config import settings
+    from app.services.dialogue.ollama_provider import OllamaDialogueProvider
+
+    monkeypatch.setattr(settings, "dialogue_provider", "ollama")
+    monkeypatch.setattr(sessions, "ollama_dialogue_ready", lambda: True)
+    monkeypatch.setattr(
+        OllamaDialogueProvider,
+        "personalize_question",
+        lambda _self, spec, *_args, **_kwargs: spec.question_text,
+    )
+
+
 @pytest.fixture(scope="session", autouse=True)
 def _cleanup_test_db():
     yield

@@ -144,7 +144,7 @@ class RoleplaySession(Base):
     __tablename__ = "roleplay_sessions"
     __table_args__ = (
         CheckConstraint("mode IN (5, 10)", name="ck_sessions_mode"),
-        CheckConstraint("difficulty IN ('basic', 'pressure')", name="ck_sessions_difficulty"),
+        CheckConstraint("difficulty IN ('basic', 'pressure', 'ultra_pressure')", name="ck_sessions_difficulty"),
         CheckConstraint("attempt_no >= 1", name="ck_sessions_attempt"),
         # /history 최근 10회·직전 세션 비교 — 둘 다 client_key 선두 + id 정렬
         Index("ix_sessions_client_id", "client_key", "id"),
@@ -157,6 +157,8 @@ class RoleplaySession(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     scenario_id: Mapped[int] = mapped_column(ForeignKey("scenarios.id"))
+    # 설정 단계에서 고른 실제 장면. 비어 있으면 기존처럼 시나리오의 전체 흐름을 진행한다.
+    selected_episode_id: Mapped[int | None] = mapped_column(ForeignKey("episodes.id"), nullable=True)
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     # 익명 연속성: 프론트 localStorage UUID (QR/익명 ID 연동의 기반)
     client_key: Mapped[str] = mapped_column(String(64), default="", index=True)
@@ -167,7 +169,7 @@ class RoleplaySession(Base):
     institution_id: Mapped[int | None] = mapped_column(ForeignKey("institutions.id"), nullable=True)
     device_id: Mapped[int | None] = mapped_column(ForeignKey("devices.id"), nullable=True)
     mode: Mapped[int] = mapped_column(Integer, default=5)  # 5 | 10 (분)
-    difficulty: Mapped[str] = mapped_column(String(20), default="basic")  # basic | pressure
+    difficulty: Mapped[str] = mapped_column(String(20), default="basic")  # basic | pressure | ultra_pressure
     # 같은 참여자×시나리오×모드 내 회차 — KPI '2차 수행률'·'1차→2차 개선'의 집계 기반
     attempt_no: Mapped[int] = mapped_column(Integer, default=1)
     status: Mapped[SessionStatus] = mapped_column(Enum(SessionStatus), default=SessionStatus.ready)

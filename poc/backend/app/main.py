@@ -234,7 +234,7 @@ def health():
     if provider is None:
         degraded_reasons.append("서버 STT 없음 — 오프라인 음성 인식 폴백 불가")
     if settings.dialogue_provider == "ollama" and not ollama["dialogue"]:
-        degraded_reasons.append("Ollama 대화 모델 미가동 — 템플릿 질문만 사용")
+        degraded_reasons.append("Ollama 대화 모델 미가동 — 시뮬레이션을 시작할 수 없음")
     if settings.semantic_match_enabled and not semantic:
         degraded_reasons.append("의미 매칭 미가동 — 키워드 판정만 사용 (패러프레이즈 누락 오판 주의)")
     if not kiwi:

@@ -28,8 +28,8 @@ class Settings(BaseSettings):
     # base CER 10.8%/RTF 0.24, vosk-small-ko CER 47.6%. 속도 차이가 미미해 small 기본.
     stt_whisper_model: str = "small"
 
-    # 대화 엔진: template(기본) | ollama(로컬 LLM으로 후속 질문 개인화, 실패 시 템플릿 폴백)
-    dialogue_provider: str = "template"
+    # 대화 엔진: 전시 시뮬레이션은 로컬 Ollama만 사용한다. 모델이 꺼져 있으면 시작할 수 없다.
+    dialogue_provider: str = "ollama"
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "exaone3.5:2.4b"
     # i7-8750H 실측: 워밍 상태 개인화 질문 생성 3.6~4.7s(평균 4.1s) — p95+여유로 7s.

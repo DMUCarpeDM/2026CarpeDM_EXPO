@@ -12,11 +12,14 @@ import { motion } from "framer-motion";
 import { reportFits } from "../lib/reportFits";
 import { RadarChart, TrendChart } from "../components/report/Charts";
 import counterpartPortrait from "../assets/team-lead-portrait.webp";
-import { ReportShell } from "../components/report/DashboardShell";
 import { IconGlyph } from "../components/ui/IconGlyph";
 import { PageToolbar, Panel, ScoreRing } from "../components/report/ResultPrimitives";
 
-const TRAIL = ["대시보드", "1:1 면담", "성과 리포트 분석"];
+const DIFFICULTY_LABELS = {
+  basic: "기본 모드",
+  pressure: "압박 모드",
+  ultra_pressure: "초압박 모드",
+};
 // 4-Fit 키를 한글 이름으로 표시해요 (핵심 지표 행: 응답 (Response) 형태).
 const FIT_KOREAN = { "Response-Fit": "응답", "Voice-Fit": "목소리", "Eye-Fit": "시선", "Posture-Fit": "자세" };
 
@@ -29,16 +32,14 @@ function fitGrade(fit) {
   return "노력 필요";
 }
 
-export function ResultPage({ onPrev, onPractice, onNext, onNavigate, report, progress, error }) {
-  const navigate = onNavigate || (() => {});
-  const download = () => { if (typeof window !== "undefined") window.print(); };
+export function ResultPage({ onPrev, onPractice, onNext, report, selectedDifficulty, progress, error }) {
 
   if (!report) {
     return (
-      <ReportShell active="result" trail={TRAIL} onNavigate={navigate} onDownload={download}>
+      <section className="page report-page">
         <PageToolbar onPrev={onPrev} leftLabel="역할극으로 돌아가기" />
         <Panel className="loading-card"><span className="spinner" /><div><h3>분석 결과를 준비하고 있어요</h3><p>{error || `분석 중이에요 · ${progress?.pct ?? progress?.pct ?? 0}%`}</p></div></Panel>
-      </ReportShell>
+      </section>
     );
   }
 
@@ -49,7 +50,9 @@ export function ResultPage({ onPrev, onPractice, onNext, onNavigate, report, pro
   const strengths = report.strengths?.length ? report.strengths : ["답변의 핵심을 먼저 정리하려는 흐름이 잘 보였어요.", "상대에게 다음 행동을 분명히 알렸어요.", "끝까지 차분한 목소리를 유지했어요."];
   const improvements = report.improvements?.length ? report.improvements : ["결론과 기한을 한 문장으로 먼저 말해 보세요.", "근거를 한 가지 덧붙이면 설득력이 높아져요."];
   const insight = report.headline?.sentence || improvements[0];
-  const pressure = report.difficulty === "pressure";
+  const effectiveDifficulty = selectedDifficulty || report.difficulty;
+  const difficultyClass = effectiveDifficulty === "basic" ? "basic" : "pressure";
+  const difficultyLabel = DIFFICULTY_LABELS[effectiveDifficulty] || "기본 모드";
   const stats = report.speech_stats || {};
   const adaptation = report.deep_analysis?.adaptation;
   const dayEnding = report.day_ending;
@@ -69,8 +72,8 @@ export function ResultPage({ onPrev, onPractice, onNext, onNavigate, report, pro
   ];
 
   return (
-    <ReportShell active="result" trail={TRAIL} onNavigate={navigate} onDownload={download}>
-      <motion.div className="report-page" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
+    <motion.section className="page report-page" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
+      <PageToolbar onPrev={onPrev} leftLabel="연습 화면으로 돌아가기" />
         <div className="report-grid-2col">
           <aside className="report-side-col">
             <Panel className="overall-score-card">
@@ -107,7 +110,7 @@ export function ResultPage({ onPrev, onPractice, onNext, onNavigate, report, pro
               <div><h1>코칭 개요</h1><p>이번 연습의 핵심 요약과 맞춤 코칭 포인트예요.</p></div>
               <dl className="report-meta-strip">
                 {meta.map((item) => <div key={item.label}><item.Icon size={17} aria-hidden="true" /><dt>{item.label}</dt><dd>{item.value}</dd></div>)}
-                <div><dt className="sr-only">난이도</dt><dd><span className={`difficulty-chip ${pressure ? "pressure" : "basic"}`}><AlertTriangle size={14} aria-hidden="true" /> {pressure ? "Pressure Mode" : "Basic Mode"}</span></dd></div>
+                <div><dt className="sr-only">난이도</dt><dd><span className={`difficulty-chip ${difficultyClass}`}><AlertTriangle size={14} aria-hidden="true" /> {difficultyLabel}</span></dd></div>
               </dl>
             </div>
 
@@ -172,8 +175,7 @@ export function ResultPage({ onPrev, onPractice, onNext, onNavigate, report, pro
             </div>
           </section>
         </div>
-      </motion.div>
-    </ReportShell>
+    </motion.section>
   );
 }
 

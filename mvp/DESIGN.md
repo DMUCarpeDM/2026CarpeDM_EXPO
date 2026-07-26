@@ -8,7 +8,7 @@ Apple HIG interpretation for this product: keep the interface clear, defer decor
 
 ### Reference-fidelity direction
 
-The supplied Mirrorting desktop boards are the visual contract for the exhibition flow. They use a bright, translucent floating header that becomes clearly visible on hover or keyboard focus; generous 24–32px gutters; thin cool-gray dividers; blue rectangular CTAs with a restrained 10–12px radius; and white cards with a soft blue-gray lift. Setup is a two-column decision surface with a pale-blue selection summary. Its three steps are `기본 설정`, `상황 선택`, and `목표 선택`: the first combines counterpart role and difficulty, then the next two select the actual work situation and practice goal. Analysis is a dense but calm desktop report: a score rail, coaching overview, metric rows, and a compact radar visual. Practice is the one intentionally dark surface, with the live camera as the primary object and glass feedback panels around it.
+The supplied Mirrorting desktop boards are the visual contract for the exhibition flow. They use a bright, translucent floating header that becomes clearly visible on hover or keyboard focus; generous 24–32px gutters; thin cool-gray dividers; blue rectangular CTAs with a restrained 10–12px radius; and white cards with a soft blue-gray lift. Setup is a two-column decision surface with a pale-blue selection summary. Its three steps are `상대 역할 선택`, `시나리오 선택`, and `난이도 선택`: each step asks for one decision only. Analysis is a dense but calm desktop report: a score rail, coaching overview, metric rows, and a compact radar visual. Practice is the one intentionally dark surface, with the live camera as the primary object and glass feedback panels around it.
 
 The remembered moment is the transition from live camera practice to a precise 4-Fit coaching report. Decorative photos are subordinate to that flow: use the real camera when permission is granted, and use a neutral camera state when it is not. The home hero is a single-column canvas with the supplied high-resolution device render fixed as its right-side background rather than as a separate media column. No sidebar is used anywhere; the shared top header carries navigation and utilities.
 
@@ -99,16 +99,15 @@ Flow rule: setup pages may show compact step context, but practice, feedback, an
 - A card remains a button, so the full card is keyboard-operable.
 - Setup role cards use the generated portrait as a decorative, cropped image with a text title and explanation below it. Difficulty cards use the generated blue smile or orange flame as a decorative medallion. The text remains the accessible label; the image must use empty alt text.
 
-### Dependent Selection Catalog
-- Situation cards are compact vertical cards with a generated medallion, a concise workplace title, two-line outcome copy, and one small contextual label. Desktop uses four equal cards; mobile uses one comfortable reading column.
-- Goal cards are even more compact and use the same generated medallion treatment. Their available set is determined by the selected situation, not by a global fixed list.
-- The setup state is hierarchical: `상대 역할 → 연습 상황 → 연습 목표`. Changing an upstream choice immediately resets only its downstream choice to that branch’s first valid option; the existing PoC `difficulty`, `mode`, and `scenario_slug` payload remains unchanged.
-- Scenario and goal medallions are decorative image assets with empty alt text. Their card title and description remain the accessible name and outcome.
+### Setup Selection Catalog
+- The setup state is direct: `상대 역할 → 시나리오 → 난이도`. Each catalog is independent, so a choice never silently replaces a later choice.
+- Scenario cards are populated from the active PoC scenario API. Their title and description remain the accessible name and outcome.
+- The existing PoC `difficulty`, `mode`, and `scenario_slug` payload remains unchanged. The selected scenario card supplies the `scenario_slug` used to start the backend session.
 
 ### Setup Flow
 - Three reusable pieces work together: `MiniStepper` for the current step, `ChoiceSection` plus `ChoiceCard` for each decision, and `SetupFlowActions` for the bottom back/next pair.
-- Desktop uses a left content column and a sticky right `SelectionSummary` panel. The right panel immediately reflects the counterpart, difficulty, situation, and expected duration, while the main column exposes only decisions for the current step.
-- The interaction state is direct: click a full card to select it, then use “다음 단계로” to continue. The visual catalog retains role-specific situations and situation-specific goals while mapping to the existing local PoC session request without adding an unsupported counterpart field.
+- Desktop uses a left content column and a sticky right `SelectionSummary` panel. The right panel immediately reflects the counterpart, situation, difficulty, and expected duration, while the main column exposes only decisions for the current step.
+- The interaction state is direct: click a full card to select it, then use “다음 단계로” to continue. The setup screen does not expose a separate situation catalog.
 
 ### Fit Metric
 - Used in home snapshot, live practice feedback, report, and comparison.
@@ -145,6 +144,10 @@ Flow rule: setup pages may show compact step context, but practice, feedback, an
 - Surface: dark translucent glass, white text hierarchy, muted inner cards, and one chevron disclosure control in the header.
 - Behavior: panels can collapse to their header when the practice screen becomes crowded, without changing the primary recording action.
 - Desktop placement: panels live inside the camera frame, leave room for the recording controls, and should not exceed roughly one third of the frame width.
+- The tool status panel is one desktop row of four equal tool cards. Each card uses a real connection-derived ON/OFF switch state; it is status only, not a fake control.
+- The current AI question lives in a semi-transparent dark glass panel inside the video so the counterpart remains visible. It shows the prepared `speaking` video while browser TTS is active, and the waveform animates only in that state.
+- The answer input stays directly below the question panel, with a named `전송` button. When browser speech recognition finalizes an utterance, wait three seconds for continued speech, then submit the answer automatically. Typing, pausing, or another interim result cancels that pending submission.
+- The side log shows the persisted AI question and learner answer. It does not repeat the hidden template reaction text as a second AI message.
 
 ### Disclosure Panel
 - Used for secondary report, coaching, and recommendation details after the primary result is already visible.
@@ -154,7 +157,7 @@ Flow rule: setup pages may show compact step context, but practice, feedback, an
 ### Simulation Readiness Board
 - Used only on the pre-practice confirmation screen. It replaces toolbar pills with a clear heading, a plain duration summary, and one bottom primary action.
 - Desktop is a wide main scenario board plus a compact right readiness rail; mobile stacks the same reading order without hiding context.
-- Main board uses numbered role facts, context details, and three objective rows. The side rail uses the existing Reicon semantic icons for AI counterpart and device readiness; no new icon set or generated icon asset is introduced.
+- Main board uses numbered role facts and three objective rows; verbose time/location/background context is omitted. The side rail uses the existing Reicon semantic icons for AI counterpart and device readiness; no new icon set or generated icon asset is introduced.
 
 ## 6. Motion & Interaction
 

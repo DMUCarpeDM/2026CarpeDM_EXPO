@@ -50,8 +50,9 @@ class ConsentIn(BaseModel):
 
 class SessionCreateIn(BaseModel):
     scenario_slug: str | None = None  # 없으면 기본(첫) 시나리오
+    selected_episode_id: int | None = Field(default=None, gt=0)
     mode: int = Field(default=5, description="5 | 10 (분)")
-    difficulty: str = Field(default="basic", pattern="^(basic|pressure)$")
+    difficulty: str = Field(default="basic", pattern="^(basic|pressure|ultra_pressure)$")
     client_key: str = ""
     consent: ConsentIn = ConsentIn()
 
@@ -77,6 +78,7 @@ class SessionOut(BaseModel):
     status: str
     mode: int
     difficulty: str
+    selected_episode_id: int | None = None
     scenario: ScenarioOut
     current_turn: TurnOut | None = None
     # 세션 접근 능력 토큰 — 이후 세션 조회 시 X-Session-Token 헤더로 되돌려준다 (생성 응답에만 값)

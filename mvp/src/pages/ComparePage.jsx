@@ -6,11 +6,9 @@ import { Share3 } from "reicon-react/icons/Share3";
 import { motion } from "framer-motion";
 import { reportFits, scoreFromFit } from "../lib/reportFits";
 import { FitBarRow, TrendChart } from "../components/report/Charts";
-import { ReportShell } from "../components/report/DashboardShell";
 import { IconGlyph } from "../components/ui/IconGlyph";
-import { Panel, ScoreRing } from "../components/report/ResultPrimitives";
+import { PageToolbar, Panel, ScoreRing } from "../components/report/ResultPrimitives";
 
-const TRAIL = ["대시보드", "1:1 면담", "비교 분석"];
 const FIT_META = [
   { key: "Response-Fit", label: "응답", english: "Response", icon: "response", tone: "response" },
   { key: "Voice-Fit", label: "목소리", english: "Voice", icon: "voice", tone: "voice" },
@@ -22,9 +20,7 @@ function fitValue(scores, key) {
   return scoreFromFit(scores?.[key] ?? scores?.[key.replace("-Fit", "").toLowerCase()]);
 }
 
-export function ComparePage({ onPrev, onRestart, onShare, onNavigate, history = [], report }) {
-  const navigate = onNavigate || (() => {});
-  const download = () => { if (typeof window !== "undefined") window.print(); };
+export function ComparePage({ onPrev, onRestart, onShare, history = [], report }) {
 
   const attempts = history.slice(-2);
   const currentFits = reportFits(report);
@@ -51,8 +47,8 @@ export function ComparePage({ onPrev, onRestart, onShare, onNavigate, history = 
   const trendAvg = trendTotals.map((value) => Math.max(40, value - 6));
 
   return (
-    <ReportShell active="compare" trail={TRAIL} onNavigate={navigate} onDownload={download} newPracticeLabel="새로운 연습">
-      <motion.div className="report-page compare-report" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
+    <motion.section className="page report-page compare-report" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
+        <PageToolbar onPrev={onPrev} leftLabel="상세 분석으로 돌아가기" />
         <div className="report-heading">
           <div><h1>연습 비교 분석</h1><p>두 개의 연습 결과를 비교하여 성장 과정을 확인하세요.</p></div>
           <dl className="report-meta-strip">
@@ -106,8 +102,7 @@ export function ComparePage({ onPrev, onRestart, onShare, onNavigate, history = 
             <button type="button" className="primary-button" onClick={onShare}><Share3 size={20} /> Save &amp; Share</button>
           </div>
         </div>
-      </motion.div>
-    </ReportShell>
+    </motion.section>
   );
 }
 

@@ -1,11 +1,14 @@
 """세션 접근 보안 — 능력 토큰(IDOR 차단)·동의 게이트·미저장 파기·설정 안전장치·E2E 리포트."""
 from fastapi.testclient import TestClient
+import pytest
 
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.main import _assert_secure_config, app
 from app.models import RoleplaySession, SessionStatus, Turn
 from app.seed.run import seed
+
+pytestmark = pytest.mark.usefixtures("ready_ollama")
 
 client = TestClient(app)
 

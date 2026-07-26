@@ -21,6 +21,7 @@ import { Monitor } from "reicon-react/icons/Monitor";
 import { Presentation2 } from "reicon-react/icons/Presentation2";
 import { Refresh3 } from "reicon-react/icons/Refresh3";
 import { Share3 } from "reicon-react/icons/Share3";
+import { ShieldCheck } from "reicon-react/icons/ShieldCheck";
 import { Star } from "reicon-react/icons/Star";
 import { Target } from "reicon-react/icons/Target";
 import { User } from "reicon-react/icons/User";
@@ -48,6 +49,7 @@ const reiconGlyphs = {
   report: DocumentText2,
   retry: Refresh3,
   share: Share3,
+  shield: ShieldCheck,
   growth: ChartBarTrendUp,
   chat: ChatRoundCheck,
   interview: MessageQuestion2,

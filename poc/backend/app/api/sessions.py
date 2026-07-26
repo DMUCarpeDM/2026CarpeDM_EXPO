@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
-from sqlalchemy import func
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_optional_user, require_session
@@ -38,6 +38,7 @@ from app.schemas import (
 )
 from app.services.analysis import run_analysis
 from app.services.dialogue import QuestionSpec, get_dialogue_provider
+from app.services.dialogue.availability import ollama_dialogue_ready
 from app.services.dialogue import reactions
 from app.services.session_fsm import InvalidTransition, transition
 
@@ -46,9 +47,31 @@ router = APIRouter(prefix="/sessions", tags=["sessions"])
 MAX_AUDIO_BYTES = 25 * 1024 * 1024  # 업로드 오디오 상한 — DoS 차단 (한 턴 wav 실측 대비 관대)
 
 
+def _stored_difficulty(db: Session, difficulty: str) -> str:
+    """기존 전시 DB의 난이도 제약과 새 초압박 모드를 함께 지원한다."""
+    if difficulty != "ultra_pressure":
+        return difficulty
+    schema = db.execute(text(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'roleplay_sessions'"
+    )).scalar() or ""
+    return "ultra_pressure" if "ultra_pressure" in schema else "pressure"
+
+
 def _episode_title(db: Session, episode_id: int) -> str:
     ep = db.get(Episode, episode_id)
     return ep.title if ep else ""
+
+
+def _selected_episodes(session: RoleplaySession, scenario: Scenario) -> list[Episode]:
+    """선택 장면이 있으면 그 장면만, 없으면 기존 전체 시나리오를 사용한다."""
+    if not session.selected_episode_id:
+        return list(scenario.episodes)
+    return [episode for episode in scenario.episodes if episode.id == session.selected_episode_id]
+
+
+def _character_for(scenario: Scenario, character_id: str) -> dict:
+    """시나리오에 저장된 캐릭터 페르소나를 찾는다."""
+    return next((character for character in scenario.characters if character["id"] == character_id), {})
 
 
 def _create_turn(
@@ -91,6 +114,8 @@ def create_session(
     # 개인정보 처리 동의 게이트 (PIPA — 수집 전 동의). 정상 흐름은 항상 동의 후 호출된다.
     if not body.consent.agreed:
         raise HTTPException(status_code=400, detail="개인정보 처리에 대한 동의가 필요합니다")
+    if not ollama_dialogue_ready():
+        raise HTTPException(status_code=503, detail="Ollama 대화 모델을 준비한 뒤 연습을 시작해 주세요")
 
     query = db.query(Scenario).filter_by(is_active=True)
     scenario = (
@@ -102,6 +127,17 @@ def create_session(
 
     client_key = body.client_key or str(uuid.uuid4())
     mode = body.mode if body.mode in (5, 10) else 5
+    selected_episode = None
+    if body.selected_episode_id:
+        selected_episode = next(
+            (episode for episode in scenario.episodes if episode.id == body.selected_episode_id),
+            None,
+        )
+        if selected_episode is None:
+            raise HTTPException(status_code=400, detail="선택한 장면이 시나리오에 없습니다")
+        if mode not in selected_episode.modes:
+            raise HTTPException(status_code=400, detail="선택한 장면은 현재 연습 시간에 사용할 수 없습니다")
+    stored_difficulty = _stored_difficulty(db, body.difficulty)
     # 회차 기록 (KPI '2차 수행률'·'1차→2차 개선') — 같은 참여자×시나리오×모드 기준
     prev_attempts = (
         db.query(func.count(RoleplaySession.id))
@@ -110,11 +146,12 @@ def create_session(
     )
     session = RoleplaySession(
         scenario_id=scenario.id,
+        selected_episode_id=selected_episode.id if selected_episode else None,
         user_id=user.id if user else None,
         client_key=client_key,
         access_token=secrets.token_urlsafe(24),
         mode=mode,
-        difficulty=body.difficulty,
+        difficulty=stored_difficulty,
         attempt_no=prev_attempts + 1,
     )
     db.add(session)
@@ -126,9 +163,18 @@ def create_session(
         agreed=body.consent.agreed,
     ))
     transition(session, SessionStatus.in_progress)
-    db.commit()
+    db.flush()
 
-    spec = get_dialogue_provider().first_question(session, scenario.episodes)
+    provider = get_dialogue_provider()
+    spec = provider.first_question(session, _selected_episodes(session, scenario))
+    first_episode = db.get(Episode, spec.episode_id)
+    personalized = provider.personalize_question(
+        spec, first_episode.situation if first_episode else "", "", _character_for(scenario, spec.character_id), session.difficulty,
+    )
+    if personalized is None:
+        db.rollback()
+        raise HTTPException(status_code=503, detail="Ollama 질문 생성이 준비되지 않았어요. 잠시 후 다시 시도해 주세요")
+    spec.question_text = personalized
     turn = _create_turn(db, session, spec, order=1)
 
     return SessionOut(
@@ -136,6 +182,7 @@ def create_session(
         status=session.status.value,
         mode=session.mode,
         difficulty=session.difficulty,
+        selected_episode_id=session.selected_episode_id,
         scenario=to_scenario_out(scenario),
         current_turn=_turn_out(db, turn),
         access_token=session.access_token,
@@ -174,6 +221,7 @@ def get_session(
         status=session.status.value,
         mode=session.mode,
         difficulty=session.difficulty,
+        selected_episode_id=session.selected_episode_id,
         scenario=to_scenario_out(session.scenario),
         current_turn=_turn_out(db, current) if current else None,
         history=history,
@@ -213,46 +261,44 @@ def submit_response(
     episode = db.get(Episode, turn.episode_id)
     signals = reactions.classify(turn.response_text, episode.checklist if episode else [])
     reactions.update_rapport(session, signals["case"])
-    db.commit()
+    db.flush()
 
     provider = get_dialogue_provider()
-    spec = provider.plan_next(session, session.scenario.episodes, list(session.turns))
+    spec = provider.plan_next(session, _selected_episodes(session, session.scenario), list(session.turns))
     signals_out = TurnSignalsOut(
         case=signals["case"], coverage=signals["coverage"], risk_hits=signals["risk_hits"],
     )
     if spec is None:
+        db.commit()
         return NextTurnOut(finished=True, turn_signals=signals_out)
+
+    next_episode = db.get(Episode, spec.episode_id)
+    personalized = provider.personalize_question(
+        spec,
+        next_episode.situation if next_episode else "",
+        turn.response_text,
+        _character_for(session.scenario, spec.character_id),
+        session.difficulty,
+    )
+    if personalized is None:
+        db.rollback()
+        raise HTTPException(status_code=503, detail="Ollama 질문 생성이 중단됐어요. 답변을 다시 제출해 주세요")
+    spec.question_text = personalized
 
     # 반응하는 인물 = 방금 답변을 들은 사람 (에피소드가 넘어가도 반응은 직전 화자의 몫)
     reaction = reactions.pick_reaction(session, turn.character_id, signals["case"])
-    character = next(
-        (c for c in session.scenario.characters if c["id"] == turn.character_id), {},
-    ) if reaction else {}
+    character = _character_for(session.scenario, turn.character_id) if reaction else {}
     db.commit()  # pick_reaction이 갱신한 used_reactions 저장
 
-    # LLM 개인화 2건(질문 다듬기·리액션 다듬기)을 병렬 실행 — 순차 실행 시 최악
-    # 타임아웃×2가 체험자 대기가 된다. 스레드에는 평문 데이터만 넘긴다
-    # (ORM/DB Session은 스레드 안전하지 않다 — 재료 추출은 요청 스레드에서).
+    # 질문은 위에서 Ollama로 생성했다. 짧은 반응 문장만 병렬로 다듬는다.
+    # ORM 객체는 스레드에 넘기지 않고 평문 데이터만 사용한다.
     response_text = turn.response_text
-    personalize_q = spec.question_type != "initial"
-    situation = ""
-    if personalize_q:
-        ep = db.get(Episode, spec.episode_id)
-        situation = ep.situation if ep else ""
-    if settings.dialogue_provider == "ollama" and (personalize_q or reaction):
+    # 무례한 답변에는 준비된 단호한 문장을 그대로 사용한다. Ollama가 말투를
+    # 완화해 버리면 사용자가 받아야 할 경계 신호가 사라질 수 있다.
+    if settings.dialogue_provider == "ollama" and reaction and signals["case"] != "risky":
         with ThreadPoolExecutor(max_workers=2) as pool:
-            q_future = (
-                pool.submit(provider.personalize_question, spec, situation, response_text)
-                if personalize_q else None
-            )
-            r_future = (
-                pool.submit(reactions.personalize_reaction, reaction, character, response_text)
-                if reaction else None
-            )
-            if q_future is not None and (personalized := q_future.result()):
-                spec.question_text = personalized
-            if r_future is not None:
-                reaction = r_future.result()
+            reaction_future = pool.submit(reactions.personalize_reaction, reaction, character, response_text)
+            reaction = reaction_future.result()
 
     next_turn = _create_turn(
         db, session, spec, order=turn.order + 1,

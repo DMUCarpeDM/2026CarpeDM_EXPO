@@ -96,6 +96,8 @@ def seed(db=None) -> None:
     own_session = db is None
     db = db or SessionLocal()
     try:
+        # 현재 전시에서 보여 줄 새 시나리오만 목록에 남겨요. 기존 체험 기록은 지우지 않습니다.
+        db.query(Scenario).filter(Scenario.slug != SCENARIO["slug"]).update({Scenario.is_active: False})
         existing = db.query(Scenario).filter_by(slug=SCENARIO["slug"]).first()
         if existing:
             scenario = existing
@@ -116,6 +118,7 @@ def seed(db=None) -> None:
             db.flush()
             for ep in EPISODES:
                 db.add(Episode(scenario_id=scenario.id, **ep))
+        scenario.is_active = True
         db.commit()
         print(f"seeded scenario '{scenario.slug}' with {len(EPISODES)} episodes")
     finally:
