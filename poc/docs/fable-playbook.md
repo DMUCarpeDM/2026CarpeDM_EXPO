@@ -91,7 +91,7 @@
 "무대 구조"가 이번 임무다. frontend/만 만진다.
 
 임무:
-1. 미러 모드 상태 체계: 기존 localStorage 'mirroting-kiosk' 플래그를 확장해
+1. 미러 모드 상태 체계: 기존 localStorage 'mirror-ting-kiosk' 플래그를 확장해
    미러 모드 여부를 전역 상태로 제공하라 (/kiosk 진입 시 켜짐, 새로고침에도 유지).
    미러 모드일 때 <html>에 .mirror-mode 클래스를 부여한다.
 2. 미러 디자인 토큰: docs/mirror-ux-plan.md §5의 .mirror-mode 토큰 블록을

@@ -1,8 +1,8 @@
 const LOCAL_API_BASE = "/api";
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
-const API_BASE = resolveApiBase(globalThis.__MIRRORTING_API_BASE__ || import.meta.env?.VITE_API_URL);
-const CLIENT_KEY = "mirrorting-client-key";
-const ACTIVE_SESSION = "mirrorting-active-session";
+const API_BASE = resolveApiBase(globalThis.__MIRROR_TING_API_BASE__ || import.meta.env?.VITE_API_URL);
+const CLIENT_KEY = "mirror-ting-client-key";
+const ACTIVE_SESSION = "mirror-ting-active-session";
 
 export class PocApiError extends Error {
   constructor(message, status) {
@@ -10,18 +10,6 @@ export class PocApiError extends Error {
     this.name = "PocApiError";
     this.status = status;
   }
-}
-
-// FastAPI의 detail은 문자열이거나(HTTPException) 검증 오류 시 {loc,msg,type} 객체 배열이다.
-// 배열/객체를 그대로 Error.message로 쓰면 화면에 "[object Object]"로 렌더되므로
-// 사람이 읽을 문자열로 정규화한다.
-export function describeApiError(detail, fallback) {
-  if (typeof detail === "string" && detail.trim()) return detail;
-  const entries = Array.isArray(detail) ? detail : detail ? [detail] : [];
-  const messages = entries
-    .map((entry) => (typeof entry === "string" ? entry : entry?.msg))
-    .filter((message) => typeof message === "string" && message.trim());
-  return messages.length ? messages.join(" · ") : fallback;
 }
 
 export function getClientKey() {
@@ -56,7 +44,7 @@ async function request(path, { token, ...options } = {}) {
   });
   const data = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new PocApiError(describeApiError(data?.detail, "서버를 실행하면 연습을 이어갈 수 있어요."), response.status);
+    throw new PocApiError(data?.detail || "서버를 실행하면 연습을 이어갈 수 있어요.", response.status);
   }
   return data;
 }
@@ -83,10 +71,16 @@ export function createSession({ difficulty, mode, scenarioSlug, selectedEpisodeI
   });
 }
 
-// poc 백엔드 계약: 오디오는 /audio(멀티파트 `file`)로 먼저 올리고,
-// 답변 본문은 /response(JSON)로 보낸다. 한 멀티파트에 섞으면 422/500이 난다.
+// poc 백엔드 계약: 오디오는 /audio(멀티파트 `file`), 답변 본문은 /response(JSON).
+// 한 멀티파트에 섞으면 422/500이 난다.
+//
+// 순서가 중요하다: 텍스트가 있으면 /response를 **먼저** 보낸다. 오디오를 먼저 올리면
+// 서버가 "아직 답변이 빈 턴"으로 보고 턴 전체 녹음을 whisper로 전사한 뒤 버린다 —
+// 다음 질문이 그만큼(수십 초) 늦어진다. 응답이 먼저면 서버 전사가 스킵된다.
+// 텍스트가 없을 때(순수 오프라인 폴백)만 예전처럼 오디오 먼저 → 서버 전사가 답을 채운다.
 export async function submitResponse(session, turnId, input) {
-  if (input.audio && input.audio.size > 0) {
+  const uploadAudio = async () => {
+    if (!input.audio || input.audio.size === 0) return;
     try {
       const form = new FormData();
       form.append("file", input.audio, `turn-${turnId}.wav`);
@@ -98,8 +92,8 @@ export async function submitResponse(session, turnId, input) {
     } catch {
       // 오디오 분석은 부가 기능 — 업로드가 실패해도 텍스트 기반 분석으로 진행한다.
     }
-  }
-  return request(`/sessions/${session.id}/turns/${turnId}/response`, {
+  };
+  const postResponse = () => request(`/sessions/${session.id}/turns/${turnId}/response`, {
     method: "POST",
     token: session.access_token,
     body: JSON.stringify({
@@ -108,6 +102,25 @@ export async function submitResponse(session, turnId, input) {
       duration_ms: input.durationMs,
       nonverbal: input.nonverbal || null,
     }),
+  });
+  if (input.text?.trim()) {
+    const result = await postResponse();
+    await uploadAudio();
+    return result;
+  }
+  await uploadAudio();
+  return postResponse();
+}
+
+// 연습 중 실시간 받아쓰기 폴백 — Web Speech가 없거나 실패할 때 3초 안팎의 WAV 조각을
+// 서버 STT(whisper/vosk)로 전사한다. 반환: { text, provider }
+export function transcribeLive(session, wavBlob) {
+  const form = new FormData();
+  form.append("file", wavBlob, "live.wav");
+  return request(`/sessions/${session.id}/stt`, {
+    method: "POST",
+    token: session.access_token,
+    body: form,
   });
 }
 

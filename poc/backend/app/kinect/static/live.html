@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mirror-ting · 뎁스 자세 측정</title>
+<style>
+  /* 색·라운드는 mvp/src/styles/base.css · attract.css 토큰과 동일.
+     CDN 의존 0 — 전시 PC는 오프라인으로 돌아야 한다. */
+  :root {
+    --fit-eye:#6ee7ff; --fit-posture:#5eeaa2; --fit-response:#7ab5ff;
+    --warm:#ff8a00; --ink:#eaf1ff; --muted:#8aa0c4; --dim:#5f7599;
+    --glass:rgba(255,255,255,.05); --line:rgba(255,255,255,.10);
+    --r-card:18px; --r-lg:24px;
+    --font:"SF Pro Text","Inter","Pretendard",-apple-system,BlinkMacSystemFont,
+           system-ui,"Malgun Gothic",sans-serif;
+  }
+  *{box-sizing:border-box} html,body{height:100%;margin:0}
+  body{font-family:var(--font);color:var(--ink);
+       background:linear-gradient(180deg,#16233c 0%,#0d1830 56%,#0a1222 100%);
+       display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;
+       font-variant-numeric:tabular-nums}
+
+  header{display:flex;align-items:baseline;gap:14px;padding:20px 30px 12px;flex:none}
+  .brand{font-size:20px;font-weight:750;letter-spacing:-.015em}
+  .brand em{font-style:normal;color:var(--fit-eye)}
+  .sub{font-size:13px;color:var(--muted)}
+  nav{margin-left:18px;display:flex;gap:8px}
+  nav a{font-size:12px;color:var(--muted);text-decoration:none;padding:5px 11px;
+        border:1px solid var(--line);border-radius:999px}
+  nav a.on{color:var(--ink);background:var(--glass)}
+  .status{margin-left:auto;display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--muted)}
+  .dot{width:8px;height:8px;border-radius:999px;background:var(--muted)}
+  .dot.live{background:var(--fit-posture);animation:pulse 2.2s infinite}
+  .dot.bad{background:var(--warm)}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(94,234,162,.45)}
+    70%{box-shadow:0 0 0 9px rgba(94,234,162,0)}100%{box-shadow:0 0 0 0 rgba(94,234,162,0)}}
+
+  main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:20px;
+       padding:0 30px 24px;min-height:0}
+  @media(max-width:1140px){main{grid-template-columns:1fr}}
+
+  .stage{position:relative;border-radius:var(--r-lg);overflow:hidden;min-height:0;
+         border:1px solid var(--line);
+         background:radial-gradient(120% 85% at 50% 8%,rgba(110,231,255,.08),transparent 62%),
+                    rgba(255,255,255,.017)}
+  canvas#sk{position:absolute;inset:0;width:100%;height:100%}
+
+  /* 거리 눈금 — 게이트를 말로 설명하지 않고 보이게 한다 */
+  .ruler{position:absolute;left:34px;right:34px;bottom:26px;height:38px}
+  .ruler .track{position:absolute;left:0;right:0;top:15px;height:4px;border-radius:999px;
+                background:rgba(255,255,255,.10)}
+  .ruler .valid{position:absolute;top:15px;height:4px;border-radius:999px;
+                background:linear-gradient(90deg,rgba(110,231,255,.55),rgba(94,234,162,.55))}
+  .ruler .pin{position:absolute;top:6px;width:2px;height:22px;border-radius:2px;
+              background:#fff;box-shadow:0 0 10px rgba(255,255,255,.75);
+              transition:left .14s linear}
+  .ruler .pin b{position:absolute;left:50%;transform:translateX(-50%);bottom:24px;
+                font-size:11.5px;font-weight:700;white-space:nowrap}
+  .ruler .tick{position:absolute;top:23px;font-size:10.5px;color:var(--dim)}
+  .ruler .cap{position:absolute;top:0;font-size:10px;color:var(--fit-eye);letter-spacing:.02em}
+
+  .overlay{position:absolute;inset:0;display:grid;place-items:center;align-content:center;
+           gap:9px;text-align:center;padding:26px;background:rgba(10,18,34,.6);
+           backdrop-filter:blur(2px)}
+  .overlay[hidden]{display:none}
+  .overlay b{font-size:19px}
+  .overlay span{font-size:13.5px;color:var(--muted);max-width:38ch;line-height:1.6}
+
+  aside{display:flex;flex-direction:column;gap:13px;min-height:0;overflow:auto;padding-right:2px}
+  .card{background:var(--glass);border:1px solid var(--line);border-radius:var(--r-card);
+        padding:14px 16px}
+  .card>h2{margin:0 0 2px;font-size:11.5px;font-weight:700;letter-spacing:.03em;
+           color:var(--fit-eye);text-transform:uppercase}
+  .card>.src{font-size:11px;color:var(--muted);margin-bottom:10px}
+
+  .hero{display:flex;align-items:baseline;gap:8px}
+  .hero b{font-size:33px;font-weight:800;letter-spacing:-.03em;color:var(--fit-eye)}
+  .hero span{font-size:12.5px;color:var(--muted)}
+  .chips{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+  .chip{font-size:10.5px;color:var(--muted);border:1px solid var(--line);
+        border-radius:999px;padding:3px 9px}
+
+  /* ---- 게이지: 채점 밴드를 눈으로 읽게 한다 ---- */
+  .g{padding:11px 0;border-top:1px solid rgba(255,255,255,.055)}
+  .g:first-child{border-top:0;padding-top:2px}
+  .g-top{display:flex;align-items:baseline;gap:8px}
+  .g-name{font-size:13px;color:#cbdaf2;letter-spacing:-.01em}
+  .g-tag{font-size:9.5px;font-weight:700;letter-spacing:.03em;padding:2px 6px;border-radius:5px;
+         background:rgba(110,231,255,.14);color:var(--fit-eye)}
+  .g-tag.obs{background:rgba(255,255,255,.07);color:var(--muted)}
+  .g-val{margin-left:auto;font-size:19px;font-weight:750;letter-spacing:-.02em}
+  .g-val u{font-style:normal;text-decoration:none;font-size:11px;font-weight:600;
+           color:var(--muted);margin-left:2px}
+  .g-val.hold{font-size:12.5px;font-weight:600;color:var(--dim)}
+  .g-score{font-size:11.5px;font-weight:700;margin-left:7px}
+  .g-note{font-size:10.5px;color:var(--dim);margin-top:3px;line-height:1.45}
+  .g-track{position:relative;height:16px;margin-top:7px}
+  .g-track .base{position:absolute;left:0;right:0;top:6px;height:4px;border-radius:999px;
+                 background:rgba(255,255,255,.09)}
+  .g-track .ideal{position:absolute;top:6px;height:4px;border-radius:999px;
+                  background:rgba(94,234,162,.5)}
+  .g-track .mark{position:absolute;top:1px;width:2px;height:14px;border-radius:2px;
+                 background:#fff;transition:left .14s linear}
+  .g-track .lbl{position:absolute;top:11px;font-size:9.5px;color:var(--dim)}
+
+  canvas.trace{width:100%;height:78px;display:block;margin-top:4px}
+  footer{flex:none;padding:0 30px 18px;font-size:11px;color:var(--dim);line-height:1.5}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Mirror<em>·</em>ting</div>
+  <div class="sub">Azure Kinect DK · 뎁스 기반 자세 측정</div>
+  <nav><a href="/practice">체험자</a><a href="/" class="on">계측</a><a href="/face">표정</a></nav>
+  <div class="status"><i class="dot" id="dot"></i><span id="st">연결 중…</span></div>
+</header>
+
+<main>
+  <section class="stage">
+    <canvas id="sk"></canvas>
+    <div class="ruler" id="ruler">
+      <div class="track"></div><div class="valid" id="rValid"></div>
+      <div class="cap" id="rCap">유효 측정 범위</div>
+      <div class="pin" id="rPin" style="left:-99px"><b id="rVal"></b></div>
+    </div>
+    <div class="overlay" id="ov"><b id="ovT">센서 준비 중</b>
+      <span id="ovB">바디 트래킹 모델을 올리고 있습니다 (약 5초)</span></div>
+  </section>
+
+  <aside>
+    <div class="card">
+      <h2>측정 원본</h2>
+      <div class="src">뎁스 포인트 클라우드에서 인체로 분할된 점</div>
+      <div class="hero"><b id="pts">–</b><span>점 / 프레임</span></div>
+      <div class="chips">
+        <span class="chip" id="cRel">관절 32개 대비 –</span>
+        <span class="chip" id="cJoint">관측 –/32</span>
+        <span class="chip" id="cTorso">몸통 –</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>자세 지표</h2>
+      <div class="src">채점 밴드는 백엔드 <code>nonverbal.py</code>의 실제 값입니다</div>
+      <div id="gauges"></div>
+    </div>
+
+    <div class="card">
+      <h2>최근 30초 추이</h2>
+      <div class="src">어깨 기울기 · 초록 띠가 이상 범위(0–6°)</div>
+      <canvas class="trace" id="trace"></canvas>
+    </div>
+  </aside>
+</main>
+
+<footer id="foot">
+  모든 값은 실측입니다. 표본이 부족하면 숫자를 만들지 않고 “측정 보류”로 표시합니다.
+  “관찰” 표시 지표는 아직 채점 밴드를 확정하지 않은 신규 항목입니다.
+</footer>
+
+<script>
+const el = id => document.getElementById(id);
+const cv = el("sk"), ctx = cv.getContext("2d");
+const tr = el("trace"), tctx = tr.getContext("2d");
+let BONES = [], joints = null, smooth = {}, history = [], gaugeDom = new Map();
+const TRACE_SEC = 30, IDEAL = [0, 6], HARD = 20;
+
+const fit = c => { const r = c.getBoundingClientRect(), d = devicePixelRatio || 1;
+  c.width = Math.max(1, Math.round(r.width * d)); c.height = Math.max(1, Math.round(r.height * d));
+  return d; };
+addEventListener("resize", () => { fit(cv); fit(tr); drawTrace(); });
+fetch("/api/bones").then(r => r.json()).then(d => BONES = d.bones);
+
+const CONF = { 3:"#5eeaa2", 2:"#5eeaa2", 1:"rgba(203,218,242,.40)", 0:"rgba(255,138,0,.45)" };
+
+function drawSkeleton() {
+  const d = fit(cv), W = cv.width, H = cv.height;
+  ctx.clearRect(0, 0, W, H);
+  if (joints) {
+    const size = Math.min(W, H * 0.94) * 0.88, ox = (W - size) / 2, oy = (H - size) / 2 - 8 * d;
+    const P = p => [ox + (1 - p[0]) * size, oy + p[1] * size];   // 거울: 좌우 반전
+    // 접지 타원 — 스켈레톤이 허공에 뜬 느낌을 없앤다
+    const feet = joints.filter(Boolean).reduce((m, j) => Math.max(m, j[1]), 0);
+    if (feet > 0) {
+      const [, fy] = P([0.5, feet]);
+      const g = ctx.createRadialGradient(W / 2, fy, 0, W / 2, fy, size * 0.30);
+      g.addColorStop(0, "rgba(110,231,255,.16)"); g.addColorStop(1, "transparent");
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.ellipse(W / 2, fy, size * .30, size * .045, 0, 0, 6.284); ctx.fill();
+    }
+    ctx.lineCap = "round";
+    for (const [a, b] of BONES) {
+      const ja = joints[a], jb = joints[b]; if (!ja || !jb) continue;
+      const weak = Math.min(ja[2], jb[2]);
+      const [x1, y1] = P(ja), [x2, y2] = P(jb);
+      ctx.strokeStyle = CONF[weak] || CONF[0];
+      ctx.lineWidth = (weak >= 2 ? 3.4 : 1.7) * d;
+      ctx.shadowColor = weak >= 2 ? "rgba(94,234,162,.7)" : "transparent";
+      ctx.shadowBlur = weak >= 2 ? 14 * d : 0;
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
+    for (const j of joints) { if (!j) continue;
+      const [x, y] = P(j); ctx.fillStyle = CONF[j[2]] || CONF[0];
+      ctx.beginPath(); ctx.arc(x, y, (j[2] >= 2 ? 4.5 : 2.6) * d, 0, 6.284); ctx.fill(); }
+  }
+  requestAnimationFrame(drawSkeleton);
+}
+requestAnimationFrame(drawSkeleton);
+
+function drawTrace() {
+  const d = fit(tr), W = tr.width, H = tr.height;
+  tctx.clearRect(0, 0, W, H);
+  const y = v => H - (Math.min(Math.abs(v), HARD) / HARD) * (H - 6 * d) - 3 * d;
+  tctx.fillStyle = "rgba(94,234,162,.13)";
+  tctx.fillRect(0, y(IDEAL[1]), W, y(IDEAL[0]) - y(IDEAL[1]));
+  tctx.strokeStyle = "rgba(255,255,255,.10)"; tctx.lineWidth = 1 * d;
+  tctx.beginPath(); tctx.moveTo(0, y(IDEAL[1])); tctx.lineTo(W, y(IDEAL[1])); tctx.stroke();
+  if (history.length > 1) {
+    const t1 = history[history.length - 1].t, t0 = t1 - TRACE_SEC * 1000;
+    tctx.strokeStyle = "#6ee7ff"; tctx.lineWidth = 1.9 * d;
+    tctx.lineJoin = "round"; tctx.beginPath();
+    let started = false;
+    for (const h of history) {
+      if (h.t < t0) continue;
+      const x = ((h.t - t0) / (TRACE_SEC * 1000)) * W;
+      started ? tctx.lineTo(x, y(h.v)) : (tctx.moveTo(x, y(h.v)), started = true);
+    }
+    tctx.stroke();
+  }
+  tctx.fillStyle = "rgba(95,117,153,.9)";
+  tctx.font = `${10 * d}px ${getComputedStyle(document.body).fontFamily}`;
+  tctx.fillText("20°", 3 * d, 11 * d);
+  tctx.fillText("0°", 3 * d, H - 3 * d);
+}
+
+/* ---- 게이지: 서버가 내려준 실제 밴드로 트랙을 그린다 ---- */
+function ensureGauge(g) {
+  if (gaugeDom.has(g.key)) return gaugeDom.get(g.key);
+  const wrap = document.createElement("div");
+  wrap.className = "g";
+  wrap.innerHTML = `
+    <div class="g-top"><span class="g-name">${g.label}</span>
+      <span class="g-tag ${g.bands ? "" : "obs"}">${g.bands ? "채점" : "관찰"}</span>
+      <span class="g-val">–</span><span class="g-score"></span></div>
+    ${g.bands ? `<div class="g-track"><div class="base"></div><div class="ideal"></div>
+      <div class="mark" style="left:-9px"></div>
+      <div class="lbl" style="left:0">${g.bands[2]}</div>
+      <div class="lbl" style="right:0">${g.bands[3]}${g.unit}</div></div>` : ""}
+    <div class="g-note">${g.note || ""}</div>`;
+  el("gauges").appendChild(wrap);
+  const dom = { wrap, val: wrap.querySelector(".g-val"), score: wrap.querySelector(".g-score"),
+                ideal: wrap.querySelector(".ideal"), mark: wrap.querySelector(".mark") };
+  gaugeDom.set(g.key, dom);
+  return dom;
+}
+
+function renderGauge(g) {
+  const d = ensureGauge(g);
+  if (g.value === null || g.value === undefined) {
+    d.val.className = "g-val hold"; d.val.textContent = "측정 보류"; d.score.textContent = "";
+    if (d.mark) d.mark.style.left = "-9px";
+    return;
+  }
+  const prev = smooth[g.key];
+  const v = prev === undefined ? g.value : prev + (g.value - prev) * .3;
+  smooth[g.key] = v;
+  const digits = Math.abs(v) < 1 && g.unit === "" ? 3 : (g.unit === "mm" ? 0 : 1);
+  d.val.className = "g-val";
+  d.val.innerHTML = `${v > 0 && g.unit === "°" ? "+" : ""}${v.toFixed(digits)}<u>${g.unit}</u>`;
+  if (g.bands) {
+    const [il, ih, hl, hh] = g.bands, span = hh - hl || 1;
+    d.ideal.style.left = `${((il - hl) / span) * 100}%`;
+    d.ideal.style.width = `${((ih - il) / span) * 100}%`;
+    d.mark.style.left = `calc(${Math.max(0, Math.min(100, ((Math.abs(v) - hl) / span) * 100))}% - 1px)`;
+    const s = g.score ?? 0;
+    d.score.textContent = `${Math.round(s)}점`;
+    d.score.style.color = s >= 90 ? "var(--fit-posture)" : s >= 60 ? "var(--fit-eye)" : "var(--warm)";
+  }
+}
+
+const GATE = {
+  no_body:["사람이 감지되지 않습니다","카메라 앞으로 들어와 주세요."],
+  too_close:["너무 가깝습니다","골반이 화면에서 잘리면 몸통 지표를 신뢰할 수 없습니다. 조금 물러나 주세요."],
+  too_far:["너무 멉니다","유효 측정 범위를 벗어났습니다. 조금 앞으로 와 주세요."],
+  unstable:["추적이 불안정합니다","상체가 온전히 보이도록 서 주세요."],
+};
+
+let rulerReady = false;
+function setRuler(range, dist) {
+  const [lo, hi] = range, min = 40, max = 260;
+  if (!rulerReady) {
+    const pct = v => ((v - min) / (max - min)) * 100;
+    el("rValid").style.left = `${pct(lo)}%`;
+    el("rValid").style.width = `${pct(hi) - pct(lo)}%`;
+    el("rCap").style.left = `${pct(lo)}%`;
+    for (const t of [min, lo, hi, max]) {
+      const n = document.createElement("div");
+      n.className = "tick"; n.style.left = `${pct(t)}%`; n.textContent = `${t}cm`;
+      el("ruler").appendChild(n);
+    }
+    rulerReady = true;
+  }
+  const pin = el("rPin");
+  if (dist == null) { pin.style.left = "-99px"; return; }
+  pin.style.left = `${Math.max(0, Math.min(100, ((dist - min) / (max - min)) * 100))}%`;
+  el("rVal").textContent = `${dist.toFixed(0)}cm`;
+}
+
+const ws = new WebSocket(`ws://${location.host}/ws/live`);
+ws.onmessage = ev => {
+  const m = JSON.parse(ev.data), ov = el("ov");
+  if (m.status !== "live") {
+    el("dot").className = ["unavailable","error","retrying"].includes(m.status) ? "dot bad" : "dot";
+    el("st").textContent = m.error || (m.status === "warming" ? "센서 예열 중" : m.status);
+    ov.hidden = false;
+    el("ovT").textContent = m.status === "retrying" ? "센서 재연결 중"
+      : m.error ? "센서를 사용할 수 없습니다" : "센서 준비 중";
+    el("ovB").textContent = m.error
+      || "바디 트래킹 모델을 올리고 있습니다 (약 5초)";
+    return;
+  }
+  const f = m.frame; if (!f) return;
+  el("dot").className = "dot live";
+  el("st").textContent = `실시간 · ${f.fps ?? "–"} fps · 바디 ${f.bodies}`;
+  setRuler(f.range_cm, f.metrics?.dist_cm ?? null);
+
+  if (f.gate !== "ok") {
+    joints = null; ov.hidden = false;
+    const [t, b] = GATE[f.gate] || ["측정 대상 없음", ""];
+    el("ovT").textContent = t; el("ovB").textContent = b;
+    return;
+  }
+  ov.hidden = true; joints = f.joints;
+  const mm = f.metrics || {}, q = f.quality || {};
+  (f.gauges || []).forEach(renderGauge);
+
+  if (mm.surface_points) {
+    el("pts").textContent = mm.surface_points.toLocaleString("ko-KR");
+    el("cRel").textContent = `관절 32개 대비 약 ${Math.round(mm.surface_points / 32)}배`;
+  }
+  el("cJoint").textContent = `관측 ${q.joints_observed ?? "–"}/${q.joints_total ?? 32}`;
+  el("cTorso").textContent = mm.torso_points
+    ? `몸통 ${mm.torso_points.toLocaleString("ko-KR")}점` : "몸통 –";
+
+  if (mm.shoulder_tilt_deg != null) {
+    history.push({ t: Date.now(), v: mm.shoulder_tilt_deg });
+    if (history.length > 1200) history.shift();
+    drawTrace();
+  }
+};
+ws.onclose = () => { el("dot").className = "dot bad"; el("st").textContent = "연결 끊김"; };
+</script>
+</body>
+</html>

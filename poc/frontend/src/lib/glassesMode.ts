@@ -13,7 +13,7 @@
  */
 import { useSyncExternalStore } from 'react';
 
-const KEY = 'mirroting-glasses';
+const KEY = 'mirror-ting-glasses';
 
 const listeners = new Set<() => void>();
 

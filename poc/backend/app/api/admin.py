@@ -86,7 +86,7 @@ def export_csv(
     return StreamingResponse(
         iter([buf.getvalue()]),
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": "attachment; filename=mirroting_sessions.csv"},
+        headers={"Content-Disposition": "attachment; filename=mirror-ting_sessions.csv"},
     )
 
 

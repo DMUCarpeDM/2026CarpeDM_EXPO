@@ -6,7 +6,7 @@
  */
 import { useSyncExternalStore } from 'react';
 
-const KEY = 'mirroting-kiosk'; // 기존 전시 플래그를 그대로 확장 (하위 호환)
+const KEY = 'mirror-ting-kiosk'; // 기존 전시 플래그를 그대로 확장 (하위 호환)
 
 const listeners = new Set<() => void>();
 

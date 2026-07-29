@@ -141,13 +141,13 @@ def _assert_secure_config() -> None:
     """전시/운영 배포 안전장치 — require_secure면 안전하지 않은 설정으로 기동을 거부한다."""
     insecure = []
     if settings.jwt_secret == "change-me-in-production":
-        insecure.append("MIRROTING_JWT_SECRET(기본값)")
+        insecure.append("MIRROR_TING_JWT_SECRET(기본값)")
     if not settings.admin_token:
-        insecure.append("MIRROTING_ADMIN_TOKEN(미설정)")
+        insecure.append("MIRROR_TING_ADMIN_TOKEN(미설정)")
     if settings.require_secure and insecure:
         raise RuntimeError("보안 설정 필요(require_secure=on): " + ", ".join(insecure))
     if settings.jwt_secret == "change-me-in-production":
-        print("[warn] MIRROTING_JWT_SECRET 기본값 사용 — 계정 기능 배포 전 반드시 변경")
+        print("[warn] MIRROR_TING_JWT_SECRET 기본값 사용 — 계정 기능 배포 전 반드시 변경")
 
 
 @asynccontextmanager
@@ -158,7 +158,7 @@ async def lifespan(app: FastAPI):
     _recover_interrupted_analyses()
     _assert_secure_config()
     if not settings.admin_token:
-        print("[warn] MIRROTING_ADMIN_TOKEN 미설정 — 운영 API(/api/admin)는 로컬(같은 PC)에서만 접근 가능")
+        print("[warn] MIRROR_TING_ADMIN_TOKEN 미설정 — 운영 API(/api/admin)는 로컬(같은 PC)에서만 접근 가능")
     import threading
 
     threading.Thread(target=_prewarm_models, daemon=True).start()

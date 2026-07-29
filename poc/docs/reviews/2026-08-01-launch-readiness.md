@@ -191,7 +191,7 @@
 2. **동의 게이트** — `agreed=False`면 세션 생성 400 (PIPA 수집 전 동의).
 3. **미저장 파기** — '미저장' 동의 시 리포트 생성 후 발화 전문(transcript)까지 삭제(기존엔 오디오만). 집계 리포트는 유지.
 4. **admin fail-closed** — 토큰 미설정 시 루프백(같은 PC)에서만 허용 → 부스 LAN 무자격 접근 차단.
-5. **설정 안전장치** — `MIRROTING_REQUIRE_SECURE=true`면 기본 JWT 시크릿·빈 admin 토큰으로 기동 거부 + JWT 기본값 경고.
+5. **설정 안전장치** — `MIRROR_TING_REQUIRE_SECURE=true`면 기본 JWT 시크릿·빈 admin 토큰으로 기동 거부 + JWT 기본값 경고.
 6. **입력 상한** — `ResponseIn.text` 4000자 제한(무한 저장·DoS 차단).
 7. **관람객 간 격리** — 대기 화면 복귀 시 이전 방문자의 익명 키·세션 토큰 초기화.
 

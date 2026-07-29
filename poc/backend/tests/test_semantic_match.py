@@ -135,7 +135,7 @@ def test_semantic_gate_would_promote_with_embeddings(fake_embedder, monkeypatch)
 # ---- 라이브 Ollama 검증 (있을 때만 — 실제 한국어 임베딩 품질) ----
 
 GOLDEN = json.loads(
-    (Path(__file__).parent / "golden" / "response_cases.json").read_text()
+    (Path(__file__).parent / "golden" / "response_cases.json").read_text(encoding="utf-8")
 )
 SEMANTIC_CASES = [c for c in GOLDEN["cases"] if c.get("stage") == "semantic"]
 

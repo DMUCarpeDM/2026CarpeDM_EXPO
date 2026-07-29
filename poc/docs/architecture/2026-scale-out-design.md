@@ -23,7 +23,7 @@
 
 ### 2. 현행 아키텍처 (baseline, 근거)
 
-- 모노레포: React(Vite) + FastAPI + **SQLite**(`core/config.py: database_url`, `MIRROTING_DATABASE_URL`로 오버라이드 가능 — conftest가 실제로 사용).
+- 모노레포: React(Vite) + FastAPI + **SQLite**(`core/config.py: database_url`, `MIRROR_TING_DATABASE_URL`로 오버라이드 가능 — conftest가 실제로 사용).
 - **AI 전량 온디바이스/로컬**: STT(Whisper→Vosk), 대화(Ollama EXAONE), 임베딩(bge-m3), 영상(브라우저 MediaPipe). API 키 0.
 - **집계만 저장**: 영상 원본 미전송, 브라우저가 계산한 숫자 지표만 서버로(`models.Turn.nonverbal_metrics`).
 - 기관 골격 이미 존재하나 미연결: `models.Institution`·`Device`·`AnonymousId`(institution_id FK 슬롯 有).

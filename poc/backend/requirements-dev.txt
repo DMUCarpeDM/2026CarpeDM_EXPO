@@ -1,0 +1,5 @@
+# 개발 전용 — 전시 런타임에는 필요 없다 (requirements.txt와 분리한 이유).
+# 설치: .venv/Scripts/python -m pip install -r requirements-dev.txt
+-r requirements.txt
+
+opencv-python   # app/kinect/viewer.py 실시간 뷰어 (뎁스 영상 + 스켈레톤 오버레이)

@@ -20,24 +20,24 @@ export const api = axios.create({
 /** 세션 능력 토큰 — 생성 시 서버가 발급하고, 세션 데이터 조회에 필요하다.
  * 새로고침·크래시 복구를 위해 세션 id별로 localStorage에 보관한다. */
 export function sessionToken(id: number): string {
-  return localStorage.getItem(`mirroting-session-${id}`) ?? '';
+  return localStorage.getItem(`mirror-ting-session-${id}`) ?? '';
 }
 
 function setSessionToken(id: number, token: string): void {
-  if (token) localStorage.setItem(`mirroting-session-${id}`, token);
+  if (token) localStorage.setItem(`mirror-ting-session-${id}`, token);
 }
 
 /** 관람객 간 격리 — 대기 화면 복귀 시 이전 사람의 익명 키·세션 토큰을 지운다 */
 export function resetVisitorIdentity(): void {
-  localStorage.removeItem('mirroting-client-key');
+  localStorage.removeItem('mirror-ting-client-key');
   for (let i = localStorage.length - 1; i >= 0; i -= 1) {
     const k = localStorage.key(i);
-    if (k && k.startsWith('mirroting-session-')) localStorage.removeItem(k);
+    if (k && k.startsWith('mirror-ting-session-')) localStorage.removeItem(k);
   }
 }
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('mirroting-token');
+  const token = localStorage.getItem('mirror-ting-token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   // 세션 능력 토큰 — /sessions/{id}… 호출에 자동 첨부 (IDOR 차단)
   const m = config.url?.match(/^\/sessions\/(\d+)(?:\/|$)/);
@@ -50,10 +50,10 @@ api.interceptors.request.use((config) => {
 
 /** 익명 연속성 키 — 재도전 비교와 익명 ID 연동의 기반 */
 export function clientKey(): string {
-  let key = localStorage.getItem('mirroting-client-key');
+  let key = localStorage.getItem('mirror-ting-client-key');
   if (!key) {
     key = crypto.randomUUID();
-    localStorage.setItem('mirroting-client-key', key);
+    localStorage.setItem('mirror-ting-client-key', key);
   }
   return key;
 }
@@ -140,7 +140,7 @@ export async function issueCode(): Promise<string> {
 /** 체험 코드로 이전 기록을 이어받는다 (client_key 교체) */
 export async function claimCode(code: string): Promise<void> {
   const { data } = await api.post(`/codes/${encodeURIComponent(code)}/claim`);
-  localStorage.setItem('mirroting-client-key', data.client_key);
+  localStorage.setItem('mirror-ting-client-key', data.client_key);
 }
 
 export interface HistoryItem {
@@ -171,21 +171,21 @@ export async function getReport(sessionId: number): Promise<Report> {
 
 export async function signup(email: string, password: string, name: string): Promise<void> {
   const { data } = await api.post('/auth/signup', { email, password, name });
-  localStorage.setItem('mirroting-token', data.access_token);
+  localStorage.setItem('mirror-ting-token', data.access_token);
 }
 
 export async function login(email: string, password: string): Promise<void> {
   const { data } = await api.post('/auth/login', { email, password });
-  localStorage.setItem('mirroting-token', data.access_token);
+  localStorage.setItem('mirror-ting-token', data.access_token);
 }
 
-/** 운영 토큰 — 서버에 MIRROTING_ADMIN_TOKEN이 설정된 경우 운영 API 호출에 필요 */
+/** 운영 토큰 — 서버에 MIRROR_TING_ADMIN_TOKEN이 설정된 경우 운영 API 호출에 필요 */
 export function adminToken(): string {
-  return localStorage.getItem('mirroting-admin-token') ?? '';
+  return localStorage.getItem('mirror-ting-admin-token') ?? '';
 }
 
 export function setAdminToken(token: string): void {
-  localStorage.setItem('mirroting-admin-token', token);
+  localStorage.setItem('mirror-ting-admin-token', token);
 }
 
 function adminHeaders(): Record<string, string> {
@@ -210,7 +210,7 @@ export async function adminExportCsv(): Promise<void> {
   const url = URL.createObjectURL(data as Blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'mirroting_sessions.csv';
+  a.download = 'mirror-ting_sessions.csv';
   a.click();
   URL.revokeObjectURL(url);
 }

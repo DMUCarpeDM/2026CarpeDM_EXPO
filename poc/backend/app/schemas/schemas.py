@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 
 # ---- auth ----
@@ -96,6 +96,35 @@ class SessionResumeOut(SessionOut):
     elapsed_sec: int = 0
 
 
+# NonverbalIn 살균 기준 (클래스 밖 상수 — pydantic 필드/프라이빗 속성 처리와 분리)
+_NV_RATIO_FIELDS = (
+    "front_gaze_ratio", "head_down_ratio", "smile_ratio", "smile_duchenne_ratio",
+    "mouth_press_ratio", "brow_down_ratio", "arm_cross_ratio", "iris_ratio",
+    "iris_v_ratio", "listening_front_ratio", "answering_front_ratio", "world_ratio",
+    "gesture_active_ratio", "hands_visible_ratio", "lower_visible_ratio",
+    "gesture_two_handed_ratio", "brow_raise_ratio",
+)
+_NV_RANGE_FIELDS = {
+    "gaze_off_count": (0, 100_000), "frames": (0, 1_000_000),
+    "guard_dropped_frames": (0, 1_000_000), "nod_count": (0, 10_000),
+    "avg_shoulder_tilt_deg": (0.0, 90.0), "head_roll_deg": (0.0, 90.0),
+    "tilt_drift_deg": (-90.0, 90.0), "posture_sway": (0.0, 10.0),
+    "gaze_stability": (0.0, 10.0), "hip_sway": (0.0, 10.0),
+    "longest_off_sec": (0.0, 3600.0), "expr_recover_sec": (0.0, 3600.0),
+    "hand_face_sec": (0.0, 3600.0), "contact_bout_mean_sec": (0.0, 3600.0),
+    "contact_streak_max_sec": (0.0, 3600.0), "onset_aversion_sec": (0.0, 3600.0),
+    "gaze_recover_sec": (0.0, 3600.0), "listen_sec": (0.0, 3600.0),
+    "answer_offset_sec": (0.0, 3600.0),
+    "blink_per_min": (0.0, 300.0), "blink_base_per_min": (0.0, 300.0),
+    "front_drift_pct": (-100.0, 100.0), "lean_drift_pct": (-100.0, 100.0),
+    "listen_lean_pct": (-100.0, 100.0),
+    "gesture_energy": (0.0, 10.0), "gesture_amplitude": (0.0, 300.0),
+    "head_motion": (0.0, 10.0), "sample_ms": (40, 1000),
+}
+_NV_TIMELINE_MAX = 150  # 10분 모드(2초 빈 ≈ 300초+여유)도 덮는 상한
+_NV_TIPS_MAX = 20
+
+
 class NonverbalIn(BaseModel):
     front_gaze_ratio: float = 0.0
     gaze_off_count: int = 0
@@ -153,6 +182,47 @@ class NonverbalIn(BaseModel):
     gesture_two_handed_ratio: float | None = None  # 양손 동시 활동 비율 — 양손 강조, 표본 부족 시 null
     head_motion: float | None = None  # 말할 때 코 위치 표준편차(어깨너비 정규화) — 머리 흔들림, 표본 부족 시 null
     tips: list[str] = []  # 턴 중 발생한 실시간 코칭 (S-JKEYHS 리포트 연동)
+
+    # ---- 서버측 살균 (C6 완화) ----
+    # 원본 영상이 서버로 오지 않는 설계라 값 자체의 재계산 검증은 불가능하다.
+    # 대신 물리적으로 가능한 범위를 강제해 (a) 위조 값의 영향 반경을 상식선으로
+    # 제한하고 (b) 리스트 페이로드 폭주(DB 부풀리기)를 차단한다.
+    # 거부(422)가 아니라 클램프인 이유: 클라이언트 집계 버그 하나가 전시장에서
+    # 턴 제출을 통째로 죽여선 안 된다 — 지표는 관찰용, 제출은 생존이 우선.
+    @model_validator(mode="after")
+    def _sanitize(self):
+        for name in _NV_RATIO_FIELDS:
+            value = getattr(self, name)
+            if value is not None:
+                setattr(self, name, min(1.0, max(0.0, value)))
+        for name, (lo, hi) in _NV_RANGE_FIELDS.items():
+            value = getattr(self, name)
+            if value is not None:
+                setattr(self, name, min(hi, max(lo, value)))
+        if self.gaze_off_dir not in (None, "down", "up", "left", "right"):
+            self.gaze_off_dir = None
+        # 시선 방향 분포·존은 형태가 어긋나면 통째로 버린다 (부분 신뢰 없음)
+        known_dirs = {"down", "up", "left", "right"}
+        if not (isinstance(self.gaze_dirs, dict) and set(self.gaze_dirs) <= known_dirs
+                and all(isinstance(v, int) and 0 <= v <= 1_000_000 for v in self.gaze_dirs.values())):
+            self.gaze_dirs = {}
+        if not (len(self.gaze_zones) == 9
+                and all(isinstance(z, int) and 0 <= z <= 1_000_000 for z in self.gaze_zones)):
+            self.gaze_zones = []
+        # 타임라인: 빈 수 상한 + 알려진 키만 + 숫자 아니면 null (moments의 타입 가드와 동일 계약)
+        clean_bins = []
+        for bin_ in self.timeline[:_NV_TIMELINE_MAX]:
+            if not isinstance(bin_, dict):
+                continue
+            clean = {}
+            for key in ("t", "front", "press", "tilt"):
+                v = bin_.get(key)
+                clean[key] = v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+            if clean["t"] is not None:
+                clean_bins.append(clean)
+        self.timeline = clean_bins
+        self.tips = [t[:300] for t in self.tips[:_NV_TIPS_MAX] if isinstance(t, str)]
+        return self
 
 
 class ResponseIn(BaseModel):

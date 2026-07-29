@@ -45,6 +45,8 @@ from app.services.session_fsm import InvalidTransition, transition
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 MAX_AUDIO_BYTES = 25 * 1024 * 1024  # 업로드 오디오 상한 — DoS 차단 (한 턴 wav 실측 대비 관대)
+# 실시간 받아쓰기 조각 상한 — 3~4초 48kHz mono 16bit WAV(~400KB) 대비 관대하되 턴 오디오보다 훨씬 작게
+MAX_LIVE_STT_BYTES = 4 * 1024 * 1024
 
 
 def _stored_difficulty(db: Session, difficulty: str) -> str:
@@ -114,7 +116,10 @@ def create_session(
     # 개인정보 처리 동의 게이트 (PIPA — 수집 전 동의). 정상 흐름은 항상 동의 후 호출된다.
     if not body.consent.agreed:
         raise HTTPException(status_code=400, detail="개인정보 처리에 대한 동의가 필요합니다")
-    if not ollama_dialogue_ready():
+    # 시작 게이트(설정 가능): 개인화 없는 시작을 막을지는 운영 정책이다. 단 이 게이트를
+    # 통과한 뒤에는 Ollama가 죽어도 세션이 끊기지 않는다 — 아래 개인화 실패는 전부
+    # 템플릿 폴백으로 계속 진행한다 (부스에서 진행 중 체험이 벽돌이 되는 것이 최악).
+    if settings.dialogue_require_ollama and not ollama_dialogue_ready():
         raise HTTPException(status_code=503, detail="Ollama 대화 모델을 준비한 뒤 연습을 시작해 주세요")
 
     query = db.query(Scenario).filter_by(is_active=True)
@@ -171,10 +176,10 @@ def create_session(
     personalized = provider.personalize_question(
         spec, first_episode.situation if first_episode else "", "", _character_for(scenario, spec.character_id), session.difficulty,
     )
-    if personalized is None:
-        db.rollback()
-        raise HTTPException(status_code=503, detail="Ollama 질문 생성이 준비되지 않았어요. 잠시 후 다시 시도해 주세요")
-    spec.question_text = personalized
+    # 개인화 실패(Ollama 다운·타임아웃·형식 불량)는 오류가 아니다 — 전문가가 쓴
+    # 템플릿 문장을 그대로 쓴다. 체험 시작을 LLM에 인질로 잡히게 하지 않는다.
+    if personalized:
+        spec.question_text = personalized
     turn = _create_turn(db, session, spec, order=1)
 
     return SessionOut(
@@ -280,10 +285,10 @@ def submit_response(
         _character_for(session.scenario, spec.character_id),
         session.difficulty,
     )
-    if personalized is None:
-        db.rollback()
-        raise HTTPException(status_code=503, detail="Ollama 질문 생성이 중단됐어요. 답변을 다시 제출해 주세요")
-    spec.question_text = personalized
+    # 진행 중 개인화 실패 → 템플릿 대본으로 계속. 예전처럼 rollback+503으로 끊으면
+    # 방금 말한 답변이 통째로 버려지고, Ollama가 죽어 있는 동안 체험이 벽돌이 된다.
+    if personalized:
+        spec.question_text = personalized
 
     # 반응하는 인물 = 방금 답변을 들은 사람 (에피소드가 넘어가도 반응은 직전 화자의 몫)
     reaction = reactions.pick_reaction(session, turn.character_id, signals["case"])
@@ -347,6 +352,38 @@ async def upload_audio(
     return {"ok": True, "path": str(dest), "transcript": transcript}
 
 
+@router.post("/{session_id}/stt")
+async def live_stt(
+    session_id: int,
+    file: UploadFile,
+    session: RoleplaySession = Depends(require_session),
+):
+    """연습 중 실시간 받아쓰기 폴백 — 브라우저 Web Speech가 없거나(오프라인 Chrome 등)
+    실패할 때, 프론트가 3초 안팎의 WAV 조각을 보내 입력창을 채운다.
+    턴 상태는 건드리지 않는다 — 최종 제출·분석은 기존 /audio + /response 경로가 담당한다."""
+    from app.ai.stt import get_stt_provider
+
+    provider = get_stt_provider()
+    if provider is None:
+        raise HTTPException(status_code=503, detail="서버 음성 인식을 사용할 수 없습니다")
+    data = await file.read(MAX_LIVE_STT_BYTES + 1)
+    if len(data) > MAX_LIVE_STT_BYTES:
+        raise HTTPException(status_code=413, detail="음성 조각이 허용 크기를 초과했습니다")
+    # 조각은 전사 즉시 삭제한다 — 세션 오디오 보존 정책(media_retention)과 무관한 임시물
+    tmp = settings.media_dir / f"live_stt_{session_id}_{uuid.uuid4().hex}.wav"
+    await run_in_threadpool(tmp.write_bytes, data)
+    # 저지연 경로가 있으면 우선 사용 (whisper: beam 1 탐욕 디코딩 — 체감 지연 절반)
+    transcribe = getattr(provider, "transcribe_live", provider.transcribe)
+    try:
+        # CPU 바운드 전사는 스레드풀로 — 이벤트 루프를 막으면 다른 방문객 요청까지 멈춘다
+        transcript = await run_in_threadpool(transcribe, str(tmp))
+    except Exception:
+        transcript = ""
+    finally:
+        tmp.unlink(missing_ok=True)
+    return {"text": transcript.strip(), "provider": provider.name}
+
+
 @router.post("/{session_id}/finish", response_model=ProgressOut, status_code=202)
 def finish_session(
     session_id: int,
@@ -383,11 +420,16 @@ def retry_analysis(
 
 
 @router.post("/{session_id}/survey", status_code=201)
-def submit_survey(session_id: int, body: SurveyIn, db: Session = Depends(get_db)):
-    """리포트 후 만족도 설문 저장 — 재제출 시 덮어쓴다 (세션당 1건)."""
-    session = db.get(RoleplaySession, session_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다")
+def submit_survey(
+    session_id: int,
+    body: SurveyIn,
+    session: RoleplaySession = Depends(require_session),
+    db: Session = Depends(get_db),
+):
+    """리포트 후 만족도 설문 저장 — 재제출 시 덮어쓴다 (세션당 1건).
+
+    다른 세션 API와 동일하게 능력 토큰을 요구한다 — id 열거로 타인 세션의
+    KPI 설문을 위조·덮어쓰기하는 IDOR를 막는다."""
     survey = db.query(SurveyResponse).filter_by(session_id=session_id).first()
     if survey is None:
         survey = SurveyResponse(session_id=session_id)

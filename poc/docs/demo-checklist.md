@@ -24,8 +24,8 @@
 
 ## 2.5 측정 보정 (최초 설치 시 1회)
 - [ ] **떨림 임계값 육성 보정**: 안정된 목소리로 1턴 진행 → 리포트에 "피치 흔들림"
-      행이 뜨지 않아야 정상. 뜨면 `backend/.env`의 `MIRROTING_TREMOR_JITTER_FLOOR`/
-      `MIRROTING_TREMOR_SHIMMER_FLOOR` 상향 후 서버 재시작 (코드 수정 불필요.
+      행이 뜨지 않아야 정상. 뜨면 `backend/.env`의 `MIRROR_TING_TREMOR_JITTER_FLOOR`/
+      `MIRROR_TING_TREMOR_SHIMMER_FLOOR` 상향 후 서버 재시작 (코드 수정 불필요.
       현재 기본값은 합성 신호 보정치 — 실제 육성 검증 필요)
 - [ ] **쉼 위치 관용 확인**: 문장을 끝낸 뒤("~하겠습니다.") 일부러 1.5초 쉬고
       다음 문장 시작 × 2회 → 침묵 감점·머뭇거림 지적이 없어야 정상.

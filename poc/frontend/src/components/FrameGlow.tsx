@@ -16,7 +16,7 @@ import { useSyncExternalStore } from 'react';
 export type GlowState = 'off' | 'idle' | 'ai' | 'mine' | 'pressure' | 'complete';
 
 // 운영자 이펙트 토글 (저사양 전시 PC 대비)
-const FX_KEY = 'mirroting-fx';
+const FX_KEY = 'mirror-ting-fx';
 const fxListeners = new Set<() => void>();
 
 export function isFxEnabled(): boolean {

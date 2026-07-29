@@ -1,31 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-globalThis.__MIRRORTING_API_BASE__ = "http://127.0.0.1:8000/api";
+globalThis.__MIRROR_TING_API_BASE__ = "http://127.0.0.1:8000/api";
 const storage = new Map();
 globalThis.localStorage = {
   getItem: (key) => storage.get(key) || null,
   setItem: (key, value) => storage.set(key, String(value)),
 };
-const { createSession, describeApiError, resolveApiBase, submitResponse } = await import("./pocApi.js");
-
-test("describeApiError renders FastAPI 422 detail arrays as readable text, never [object Object]", () => {
-  // FastAPI 검증 오류: {loc,msg,type} 객체 배열 → msg만 뽑아 사람이 읽을 문장으로
-  const detail = [
-    { loc: ["body", "difficulty"], msg: "field required", type: "value_error.missing" },
-    { loc: ["body", "mode"], msg: "value is not a valid integer", type: "type_error.integer" },
-  ];
-  const message = describeApiError(detail, "fallback");
-  assert.equal(message, "field required · value is not a valid integer");
-  assert.doesNotMatch(message, /\[object Object\]/);
-});
-
-test("describeApiError passes through string detail and falls back when empty", () => {
-  assert.equal(describeApiError("이미 진행 중인 세션이 있어요.", "fallback"), "이미 진행 중인 세션이 있어요.");
-  assert.equal(describeApiError(undefined, "fallback"), "fallback");
-  assert.equal(describeApiError([], "fallback"), "fallback");
-  assert.equal(describeApiError({ msg: "단일 객체" }, "fallback"), "단일 객체");
-});
+const { createSession, resolveApiBase, submitResponse } = await import("./pocApi.js");
 
 test("resolveApiBase keeps exhibition traffic on the local PC", () => {
   assert.equal(resolveApiBase("https://remote.example.com/api"), "/api");
@@ -90,9 +72,11 @@ test("createSession sends the selected backend episode", async () => {
   assert.equal(JSON.parse(calls[0].options.body).selected_episode_id, 42);
 });
 
-// 백엔드 계약(poc/backend sessions.py): 오디오는 /audio(멀티파트 `file`)로 먼저,
-// 답변 본문은 /response(JSON ResponseIn)로 — 한 멀티파트에 섞으면 422가 난다.
-test("submitResponse uploads audio to /audio first then posts JSON to /response", async () => {
+// 백엔드 계약(poc/backend sessions.py): 오디오는 /audio(멀티파트 `file`),
+// 답변 본문은 /response(JSON ResponseIn) — 한 멀티파트에 섞으면 422가 난다.
+// 텍스트가 있으면 /response가 먼저다: 오디오를 먼저 올리면 서버가 빈 턴으로 보고
+// 녹음 전체를 whisper로 전사해 다음 질문이 수십 초 늦어진다.
+test("submitResponse posts /response first then uploads audio (skips wasteful server STT)", async () => {
   const calls = [];
   globalThis.fetch = async (url, options) => {
     calls.push({ url, options });
@@ -116,21 +100,42 @@ test("submitResponse uploads audio to /audio first then posts JSON to /response"
   );
 
   assert.equal(calls.length, 2);
-  assert.equal(calls[0].url, "http://127.0.0.1:8000/api/sessions/session-1/turns/turn-1/audio");
+  assert.equal(calls[0].url, "http://127.0.0.1:8000/api/sessions/session-1/turns/turn-1/response");
   assert.equal(calls[0].options.method, "POST");
-  assert.equal(calls[0].options.headers["X-Session-Token"], "token-1");
-  assert.ok(calls[0].options.body instanceof FormData);
-  assert.ok(calls[0].options.body.get("file") instanceof File);
-
-  assert.equal(calls[1].url, "http://127.0.0.1:8000/api/sessions/session-1/turns/turn-1/response");
-  assert.equal(calls[1].options.method, "POST");
-  assert.equal(calls[1].options.headers["Content-Type"], "application/json");
-  assert.deepEqual(JSON.parse(calls[1].options.body), {
+  assert.equal(calls[0].options.headers["Content-Type"], "application/json");
+  assert.deepEqual(JSON.parse(calls[0].options.body), {
     text: "I will send the report today.",
     stt_source: "webspeech",
     duration_ms: 1234,
     nonverbal: { front_gaze_ratio: 0.9, gaze_off_count: 1, avg_shoulder_tilt_deg: 2.5, frames: 20 },
   });
+
+  assert.equal(calls[1].url, "http://127.0.0.1:8000/api/sessions/session-1/turns/turn-1/audio");
+  assert.equal(calls[1].options.method, "POST");
+  assert.equal(calls[1].options.headers["X-Session-Token"], "token-1");
+  assert.ok(calls[1].options.body instanceof FormData);
+  assert.ok(calls[1].options.body.get("file") instanceof File);
+});
+
+test("submitResponse uploads audio first only when there is no text (offline STT fallback)", async () => {
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    return new Response(JSON.stringify({ finished: false }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  await submitResponse(
+    { id: "session-1", access_token: "token-1" },
+    "turn-1",
+    { text: "", audio: new Blob(["x"], { type: "audio/wav" }), sttSource: "text", durationMs: 10, nonverbal: null },
+  );
+
+  assert.equal(calls.length, 2);
+  assert.ok(calls[0].url.endsWith("/audio"));
+  assert.ok(calls[1].url.endsWith("/response"));
 });
 
 test("submitResponse still posts the answer when the audio upload fails", async () => {
@@ -152,7 +157,8 @@ test("submitResponse still posts the answer when the audio upload fails", async 
 
   assert.equal(result.finished, false);
   assert.equal(calls.length, 2);
-  assert.ok(calls[1].url.endsWith("/response"));
+  assert.ok(calls[0].url.endsWith("/response"));
+  assert.ok(calls[1].url.endsWith("/audio"));
 });
 
 test("submitResponse skips the audio route when there is no recording", async () => {

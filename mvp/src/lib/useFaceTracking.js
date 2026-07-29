@@ -3,13 +3,36 @@
  * 원본 영상은 어디에도 저장·전송하지 않고, 브라우저 안에서 프레임을 분석해
  * 오버레이(얼굴 메시·상체 스켈레톤)와 라이브 신호(시선·자세·추론 시간)만 만든다.
  *
+ * 턴 집계·직렬화는 nonverbalMetrics.js(순수 모듈, node --test 대상)가 담당하고,
+ * 이 훅은 MediaPipe 결과에서 프레임 사실만 뽑아 넘긴다.
+ *
  * 반환 live: { status, tracking, eyeFront, tiltDeg, postureLevel, poseTracked, inferMs }
+ *   + collectTurnStats(): 턴 집계를 NonverbalIn 페이로드로 회수하고 리셋
+ *   + setGazePhase('listening' | 'answering' | null): 듣기/말하기 응시 분리용
  * status: idle(카메라 없음) | loading | ready | failed
  */
 import { useEffect, useRef, useState } from "react";
 import { resolveModel, resolveWasmUrl } from "./visionAssets";
+import {
+  BROW_DOWN_ABS,
+  BROW_DOWN_DELTA,
+  BROW_RAISE_ABS,
+  BROW_RAISE_DELTA,
+  PRESS_ABS,
+  PRESS_DELTA,
+  SAMPLE_MS,
+  SMILE_ABS,
+  SMILE_DELTA,
+  SQUINT_ABS,
+  SQUINT_DELTA,
+  accumulateSample,
+  finalizeTurnMetrics,
+  makeTurnAcc,
+  median,
+  resolveExpression,
+  resolveHeadDown,
+} from "./nonverbalMetrics";
 
-const SAMPLE_MS = 80;
 const LIVE_PUSH_MS = 300;
 
 // ---- 홍채 기반 시선 (poc nonverbalCore의 무보정 절대 임계 버전) ----
@@ -35,22 +58,16 @@ const CALIB_SAMPLES = 24; // 80ms × 24 ≈ 2초
 const CALIB_YAW_GATE = 0.45; // 기준 수집 중 옆모습 수준의 샘플은 배제
 const TRACK_LOST_RESET_MS = 3000;
 
-const median = (values) => {
-  const sorted = [...values].sort((a, b) => a - b);
-  return sorted[Math.floor(sorted.length / 2)];
-};
+// 어깨너비가 이보다 좁으면(멀리 있거나 옆모습) 정규화 분모가 불안정해 표본을 버린다
+const MIN_SHOULDER_WIDTH = 0.05;
+// 어깨 기울기 라이브 게이지의 '수평' 판정 임계(도)
+const POSTURE_LEVEL_DEG = 7;
 
-// ---- 턴 단위 비언어 집계 ----
-// 서버 NonverbalIn의 관찰 지표(깜빡임·미소·긴장 신호·응시 스트릭 등)를 실데이터로
-// 채우기 위한 누적기. blendshape은 훅 내부에서만 접근 가능해서 여기서 집계한다.
-const makeTurnAcc = () => ({
-  frames: 0, front: 0, offCount: 0, lastFront: true,
-  offStreakMs: 0, longestOffMs: 0, frontStreakMs: 0, longestFrontMs: 0,
-  shoulderDevSum: 0, shoulderN: 0, rollSum: 0,
-  headDown: 0, blinks: 0, blinkOn: false,
-  smile: 0, mouthPress: 0, browDown: 0,
-  irisFrames: 0, calibratedFrames: 0,
-  offDirs: { down: 0, up: 0, left: 0, right: 0 },
+// 개인 기준으로 삼을 캘리브레이션 표본 — 시선(asym·홍채)·자세(어깨·고개)·
+// 표정(무표정 blendshape 기저)을 같은 창에서 함께 모은다
+const emptyCalib = () => ({
+  asym: [], eyeX: [], eyeDown: [], eyeUp: [], tilt: [], headGap: [],
+  smile: [], squint: [], press: [], browDown: [], browRaise: [],
 });
 
 // 얼굴 메시 표시용 랜드마크 (Face Mesh 468점 중 표정을 잘 드러내는 서브셋)
@@ -83,33 +100,20 @@ const POSE_LINKS = [
 ];
 
 export function useFaceTracking(mediaStream, videoRef, canvasRef) {
-  const [live, setLive] = useState({ status: "idle", tracking: false, calibrating: false, eyeFront: false, tiltDeg: 0, postureLevel: false, poseTracked: false, inferMs: 0 });
+  const [live, setLive] = useState({ status: "idle", tracking: false, calibrating: false, eyeFront: false, tiltDeg: 0, postureLevel: false, poseTracked: false, smiling: false, inferMs: 0 });
   const liveRef = useRef(live);
   const turnAccRef = useRef(makeTurnAcc());
+  // 대화 페이즈 — 듣기(상대 TTS 중) vs 말하기(내 답변 중). 두 응시는 커뮤니케이션에서
+  // 다른 역량이라 서버가 분리 채점한다(LISTEN_GAZE_BANDS vs FRONT_GAZE_BANDS).
+  // ref로 두어 페이즈가 바뀌어도 MediaPipe 파이프라인이 재시작되지 않게 한다.
+  const phaseRef = useRef(null);
+  const calibratedRef = useRef(false);
+  const setGazePhase = useRef((phase) => { phaseRef.current = phase; }).current;
   // 지난 수집 시점 이후의 집계를 NonverbalIn 모양으로 돌려주고 리셋 (턴 제출 시 호출)
   const collectTurnStats = useRef(() => {
     const acc = turnAccRef.current;
     turnAccRef.current = makeTurnAcc();
-    if (!acc.frames) return null;
-    const minutes = (acc.frames * SAMPLE_MS) / 60000;
-    const dominantOff = Object.entries(acc.offDirs).sort((a, b) => b[1] - a[1])[0];
-    return {
-      frames: acc.frames,
-      front_gaze_ratio: acc.front / acc.frames,
-      gaze_off_count: acc.offCount,
-      avg_shoulder_tilt_deg: acc.shoulderN ? acc.shoulderDevSum / acc.shoulderN : 0,
-      head_down_ratio: acc.headDown / acc.frames,
-      longest_off_sec: acc.longestOffMs / 1000,
-      blink_per_min: minutes > 0 ? acc.blinks / minutes : 0,
-      smile_ratio: acc.smile / acc.frames,
-      head_roll_deg: acc.rollSum / acc.frames,
-      mouth_press_ratio: acc.mouthPress / acc.frames,
-      brow_down_ratio: acc.browDown / acc.frames,
-      contact_streak_max_sec: acc.longestFrontMs / 1000,
-      gaze_dirs: acc.offDirs,
-      gaze_off_dir: dominantOff && dominantOff[1] > 0 ? dominantOff[0] : null,
-      iris_ratio: acc.irisFrames / acc.frames,
-    };
+    return finalizeTurnMetrics(acc, calibratedRef.current);
   }).current;
 
   useEffect(() => {
@@ -126,9 +130,11 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
     let offStreak = 0;
     let frontStreak = 0;
     let eyeFrontState = true;
+    // 표정(미소) 라이브 표시 — 깜빡임 프레임에서는 판정이 없으므로 마지막 값을 유지
+    let lastSmile = false;
     // 개인 기준(캘리브레이션) 상태
-    let base = null; // { asym, eyeX, eyeDown, eyeUp }
-    let calib = { asym: [], eyeX: [], eyeDown: [], eyeUp: [] };
+    let base = null; // { asym, eyeX, eyeDown, eyeUp, tilt, headGap }
+    let calib = emptyCalib();
     let lastFaceAt = 0;
     setLive((prev) => ({ ...prev, status: "loading" }));
 
@@ -166,6 +172,38 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
 
             drawOverlay(canvasRef.current, video, lm, plm);
 
+            // ---- 포즈 기하: 어깨 기울기 · 어깨중심(흔들림) · 코-어깨 거리(고개 숙임) ----
+            // 시선 판정보다 먼저 낸다 — 캘리브레이션이 자세 기준도 함께 모으기 때문.
+            let tiltRaw = null;
+            let shoulderX = null;
+            let headGap = null;
+            let worldUsed = false;
+            let poseTracked = false;
+            if (plm) {
+              const ls = plm[11];
+              const rs = plm[12];
+              const noseP = plm[0];
+              poseTracked = (ls?.visibility ?? 1) > 0.5 && (rs?.visibility ?? 1) > 0.5;
+              const width = ls && rs ? Math.abs(ls.x - rs.x) : 0;
+              if (poseTracked && width > MIN_SHOULDER_WIDTH) {
+                // 3D 월드 랜드마크(미터·골반 원점)를 쓰면 몸이 비스듬히 서도(yaw)
+                // 어깨선 기울기가 왜곡되지 않는다 — 2D 투영의 고질적 오차. 없으면 폴백.
+                const wlm = poseResult.worldLandmarks?.[0];
+                const wls = wlm?.[11];
+                const wrs = wlm?.[12];
+                const visible = (p) => !!p && (p.visibility ?? 1) > 0.5;
+                if (visible(wls) && visible(wrs)) {
+                  tiltRaw = (Math.atan2(Math.abs(wls.y - wrs.y), Math.hypot(wls.x - wrs.x, wls.z - wrs.z) + 1e-6) * 180) / Math.PI;
+                  worldUsed = true;
+                } else {
+                  tiltRaw = (Math.atan2(Math.abs(ls.y - rs.y), width) * 180) / Math.PI;
+                }
+                // 어깨너비로 정규화 — 관람객이 앞뒤로 움직여도 스케일이 변하지 않는다
+                shoulderX = ((ls.x + rs.x) / 2) / width;
+                if (noseP) headGap = ((ls.y + rs.y) / 2 - noseP.y) / width;
+              }
+            }
+
             // ---- 라이브 신호 (관찰 전용): 홍채 기반 시선 + 눈선 기울기 ----
             let tiltDeg = 0;
             let sampleFront = null; // null = 이 샘플은 판정 불가(깜빡임 등) → 이전 상태 유지
@@ -181,7 +219,7 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
               // 얼굴을 한동안 놓쳤다 다시 잡으면 다른 관람객일 수 있다 — 기준 재수집
               if (lastFaceAt && ts - lastFaceAt > TRACK_LOST_RESET_MS) {
                 base = null;
-                calib = { asym: [], eyeX: [], eyeDown: [], eyeUp: [] };
+                calib = emptyCalib();
                 eyeFrontState = true;
                 offStreak = 0;
                 frontStreak = 0;
@@ -190,14 +228,27 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
 
               const shapes = {};
               for (const c of faceResult.faceBlendshapes?.[0]?.categories ?? []) shapes[c.categoryName] = c.score;
-              const blink = ((shapes.eyeBlinkLeft ?? 0) + (shapes.eyeBlinkRight ?? 0)) / 2 > 0.5;
-              // 관찰 지표용 표정 신호 (poc 임계값): 미소·입술 압축·찡그림·눈동자 하향
+              const shapeAvg = (...keys) => keys.reduce((sum, k) => sum + (shapes[k] ?? 0), 0) / keys.length;
+              const blink = shapeAvg("eyeBlinkLeft", "eyeBlinkRight") > 0.5;
+              // ---- 표정 원시값 (ARKit blendshape → FACS Action Unit) ----
+              const smileRaw = shapeAvg("mouthSmileLeft", "mouthSmileRight"); // AU12
+              const squintRaw = shapeAvg("cheekSquintLeft", "cheekSquintRight",
+                "eyeSquintLeft", "eyeSquintRight"); // AU6+AU7 눈둘레근
+              const pressRaw = shapeAvg("mouthPressLeft", "mouthPressRight"); // AU23/24
+              const browDownRaw = shapeAvg("browDownLeft", "browDownRight"); // AU4
+              const browRaiseRaw = shapeAvg("browInnerUp", "browOuterUpLeft", "browOuterUpRight"); // AU1+AU2
+              // 판정은 개인 무표정 기저 대비 — 기저가 잡히기 전에는 절대 임계로 폴백한다
+              const smile = resolveExpression(smileRaw, base?.smile, SMILE_ABS, SMILE_DELTA);
+              const squint = resolveExpression(squintRaw, base?.squint, SQUINT_ABS, SQUINT_DELTA);
               sampleMeta = {
                 blink,
-                smile: ((shapes.mouthSmileLeft ?? 0) + (shapes.mouthSmileRight ?? 0)) / 2 > 0.35,
-                press: ((shapes.mouthPressLeft ?? 0) + (shapes.mouthPressRight ?? 0)) / 2 > 0.45,
-                brow: ((shapes.browDownLeft ?? 0) + (shapes.browDownRight ?? 0)) / 2 > 0.5,
-                eyeDownRaw: ((shapes.eyeLookDownLeft ?? 0) + (shapes.eyeLookDownRight ?? 0)) / 2 > 0.55,
+                smile,
+                // 뒤셴 미소(AU6+AU12): 입꼬리와 눈둘레근이 함께 움직여야 눈까지 웃는
+                // 미소다. 깜빡임 중에는 눈둘레근이 같이 올라가므로 표본에서 뺀다.
+                duchenne: smile && !blink && squint,
+                press: resolveExpression(pressRaw, base?.press, PRESS_ABS, PRESS_DELTA),
+                brow: resolveExpression(browDownRaw, base?.browDown, BROW_DOWN_ABS, BROW_DOWN_DELTA),
+                browRaise: resolveExpression(browRaiseRaw, base?.browRaise, BROW_RAISE_ABS, BROW_RAISE_DELTA),
                 iris: false,
                 offDir: null,
               };
@@ -226,12 +277,32 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
                     calib.eyeX.push(eyeX ?? 0);
                     calib.eyeDown.push(eyeDown);
                     calib.eyeUp.push(eyeUp);
+                    // 자세 기준도 같은 창에서 모은다 — 카메라 거치 각도·체형에서 오는
+                    // 상시 기울기를 개인 기준으로 흡수해야 '무너짐'만 남는다
+                    if (tiltRaw !== null) calib.tilt.push(tiltRaw);
+                    if (headGap !== null) calib.headGap.push(headGap);
+                    // 표정 기저 — 이 블록은 깜빡임이 아닌 프레임에서만 돌기 때문에
+                    // 깜빡임으로 부풀려진 눈둘레근이 기저에 섞이지 않는다
+                    calib.smile.push(smileRaw);
+                    calib.squint.push(squintRaw);
+                    calib.press.push(pressRaw);
+                    calib.browDown.push(browDownRaw);
+                    calib.browRaise.push(browRaiseRaw);
                     if (calib.asym.length >= CALIB_SAMPLES) {
                       base = {
                         asym: median(calib.asym),
                         eyeX: median(calib.eyeX),
                         eyeDown: median(calib.eyeDown),
                         eyeUp: median(calib.eyeUp),
+                        // 표본 4개 미만이면 기준 없이(0 / null) 절대 판정으로 폴백
+                        tilt: calib.tilt.length >= 4 ? median(calib.tilt) : 0,
+                        headGap: calib.headGap.length >= 4 ? median(calib.headGap) : null,
+                        // 무표정 기저 — 중앙값이라 수집 중 스친 표정에 흔들리지 않는다
+                        smile: median(calib.smile),
+                        squint: median(calib.squint),
+                        press: median(calib.press),
+                        browDown: median(calib.browDown),
+                        browRaise: median(calib.browRaise),
                       };
                     }
                   }
@@ -263,56 +334,42 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
             if (offStreak >= OFF_STREAK) eyeFrontState = false;
             if (frontStreak >= FRONT_STREAK) eyeFrontState = true;
             const eyeFront = eyeFrontState;
-            let postureLevel = false;
-            let poseTracked = false;
-            let shoulderDev = 0;
-            if (plm) {
-              const shoulderL = plm[11];
-              const shoulderR = plm[12];
-              poseTracked = (shoulderL?.visibility ?? 1) > 0.5 && (shoulderR?.visibility ?? 1) > 0.5;
-              if (poseTracked) {
-                const shoulderDeg = Math.abs((Math.atan2(shoulderR.y - shoulderL.y, shoulderR.x - shoulderL.x) * 180) / Math.PI);
-                shoulderDev = Math.min(shoulderDeg, Math.abs(180 - shoulderDeg));
-                postureLevel = shoulderDev < 7;
-              }
-            }
+            // 기준 보정 어깨 기울기 — 거치 각도·체형에서 오는 상시 기울기를 빼고 '무너짐'만 남긴다
+            const tiltAdj = tiltRaw !== null ? Math.max(0, tiltRaw - (base ? base.tilt : 0)) : null;
+            const postureLevel = tiltAdj !== null && tiltAdj < POSTURE_LEVEL_DEG;
+            // 고개 숙임은 코-어깨 거리로 잰다. 이전에는 eyeLookDown blendshape(눈동자 하향)을
+            // 썼는데, 고개 각도와 안구 방향은 다른 물리량이라 Posture-Fit이 오측정하고 있었다.
+            const headDown = resolveHeadDown(headGap, base ? base.headGap : null);
+            calibratedRef.current = base !== null;
 
             // ---- 턴 단위 집계 (얼굴이 잡힌 샘플만) — 제출 시 collectTurnStats()로 회수 ----
             if (sampleMeta) {
-              const acc = turnAccRef.current;
-              acc.frames += 1;
-              if (eyeFront) {
-                acc.front += 1;
-                acc.frontStreakMs += SAMPLE_MS;
-                acc.offStreakMs = 0;
-                if (acc.frontStreakMs > acc.longestFrontMs) acc.longestFrontMs = acc.frontStreakMs;
-              } else {
-                if (acc.lastFront) {
-                  acc.offCount += 1;
-                  if (sampleMeta.offDir) acc.offDirs[sampleMeta.offDir] += 1;
-                }
-                acc.offStreakMs += SAMPLE_MS;
-                acc.frontStreakMs = 0;
-                if (acc.offStreakMs > acc.longestOffMs) acc.longestOffMs = acc.offStreakMs;
-              }
-              acc.lastFront = eyeFront;
-              if (sampleMeta.blink && !acc.blinkOn) acc.blinks += 1;
-              acc.blinkOn = sampleMeta.blink;
-              if (sampleMeta.smile) acc.smile += 1;
-              if (sampleMeta.press) acc.mouthPress += 1;
-              if (sampleMeta.brow) acc.browDown += 1;
-              if (sampleMeta.eyeDownRaw) acc.headDown += 1;
-              if (sampleMeta.iris) acc.irisFrames += 1;
-              if (base !== null) acc.calibratedFrames += 1;
-              acc.rollSum += tiltDeg;
-              if (poseTracked) { acc.shoulderDevSum += shoulderDev; acc.shoulderN += 1; }
+              accumulateSample(turnAccRef.current, {
+                front: eyeFront,
+                offDir: sampleMeta.offDir,
+                phase: phaseRef.current,
+                blink: sampleMeta.blink,
+                smile: sampleMeta.smile,
+                duchenne: sampleMeta.duchenne,
+                press: sampleMeta.press,
+                brow: sampleMeta.brow,
+                browRaise: sampleMeta.browRaise,
+                iris: sampleMeta.iris,
+                rollDeg: tiltDeg,
+                tiltAdj,
+                shoulderX,
+                headDown,
+                worldUsed,
+              });
             }
+
+            if (sampleMeta) lastSmile = sampleMeta.smile;
 
             if (ts - lastPush > LIVE_PUSH_MS) {
               lastPush = ts;
-              const next = { status: "ready", tracking: Boolean(lm), calibrating: base === null, eyeFront, tiltDeg: Math.round(tiltDeg), postureLevel, poseTracked, inferMs: Math.max(1, Math.round(inferAvg)) };
+              const next = { status: "ready", tracking: Boolean(lm), calibrating: base === null, eyeFront, tiltDeg: Math.round(tiltDeg), postureLevel, poseTracked, smiling: lastSmile, inferMs: Math.max(1, Math.round(inferAvg)) };
               const prev = liveRef.current;
-              if (next.status !== prev.status || next.tracking !== prev.tracking || next.calibrating !== prev.calibrating || next.eyeFront !== prev.eyeFront || next.postureLevel !== prev.postureLevel || next.poseTracked !== prev.poseTracked || Math.abs(next.inferMs - prev.inferMs) > 4) {
+              if (next.status !== prev.status || next.tracking !== prev.tracking || next.calibrating !== prev.calibrating || next.eyeFront !== prev.eyeFront || next.postureLevel !== prev.postureLevel || next.poseTracked !== prev.poseTracked || next.smiling !== prev.smiling || Math.abs(next.inferMs - prev.inferMs) > 4) {
                 liveRef.current = next;
                 setLive(next);
               }
@@ -337,7 +394,7 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
     };
   }, [mediaStream, videoRef, canvasRef]);
 
-  return { ...live, collectTurnStats };
+  return { ...live, collectTurnStats, setGazePhase };
 }
 
 /** 분석 시각화 오버레이 — 영상은 canvas에 그리지 않고 랜드마크만 그린다.

@@ -43,6 +43,16 @@ class WhisperProvider:
         segments, _info = self._model.transcribe(audio_path, language="ko")
         return " ".join(seg.text.strip() for seg in segments)
 
+    def transcribe_live(self, audio_path: str) -> str:
+        """실시간 조각용 저지연 전사 — 탐욕 디코딩(beam 1)·이전 문맥 조건화 해제.
+        3초 안팎 조각은 빔 서치 이득이 거의 없고, 문맥 조건화는 조각 경계에서
+        직전 환청을 증폭시키므로 끄는 쪽이 지연·품질 모두 낫다."""
+        segments, _info = self._model.transcribe(
+            audio_path, language="ko", beam_size=1,
+            condition_on_previous_text=False, without_timestamps=True,
+        )
+        return " ".join(seg.text.strip() for seg in segments)
+
     def transcribe_words(self, audio_path: str) -> list[dict]:
         segments, _info = self._model.transcribe(
             audio_path, language="ko", word_timestamps=True,

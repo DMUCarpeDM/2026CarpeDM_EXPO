@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(py --list)",
+      "Bash(npm --version)",
+      "Bash(python -m venv expo-venv)",
+      "Bash(./expo-venv/Scripts/python -m pip install --quiet --disable-pip-version-check -r \"C:\\\\Users\\\\203\\\\Desktop\\\\2026CarpeDM_EXPO-main\\\\poc\\\\backend\\\\requirements.txt\")",
+      "Bash(PYTHONUTF8=1 ./expo-venv/Scripts/python -m pip install --quiet --disable-pip-version-check -r \"C:\\\\Users\\\\203\\\\Desktop\\\\2026CarpeDM_EXPO-main\\\\poc\\\\backend\\\\requirements.txt\")",
+      "PowerShell(winget --version; ollama --version 2>$null; Get-Command node,npm,ollama -ErrorAction SilentlyContinue | Select-Object Name,Source; Get-PSDrive C | Select-Object @{n='FreeGB';e={[math]::Round\\($_.Free/1GB,1\\)}})",
+      "PowerShell(winget install --id Python.Python.3.12 -e --silent --accept-package-agreements --accept-source-agreements --disable-interactivity)",
+      "PowerShell(git init 2>&1)",
+      "PowerShell(git remote add origin https://github.com/DMUCarpeDM/2026CarpeDM_EXPO.git 2>&1)",
+      "PowerShell(git fetch origin 2>&1)"
+    ]
+  }
+}

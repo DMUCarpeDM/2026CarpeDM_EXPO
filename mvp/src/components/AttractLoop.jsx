@@ -78,7 +78,7 @@ export function AttractLoop({ active, onStart }) {
       {visible && (
         <motion.div className="attract-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }} role="button" aria-label="화면을 터치하면 시작돼요">
           <div className="attract-glow" aria-hidden="true" />
-          <div className="attract-brand"><span className="brand-mark" aria-hidden="true">M</span><strong>Mirrorting</strong></div>
+          <div className="attract-brand"><span className="brand-mark" aria-hidden="true">M</span><strong>Mirror-Ting</strong></div>
           <AnimatePresence mode="wait">
             <motion.div key={current.key} className="attract-slide" initial={{ opacity: 0, y: 26 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}>
               {current.fits ? (

@@ -12,7 +12,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { isMirrorMode, useMirrorMode } from './mirrorMode';
 
 export const KIOSK_IDLE_MS = 90_000;
-const ACTIVITY_EVENT = 'mirroting-activity';
+const ACTIVITY_EVENT = 'mirror-ting-activity';
 
 /** DOM 입력이 아닌 활동(TTS 재생, 음성 인식 결과)을 무조작 타이머에 반영한다 */
 export function pingKioskActivity(): void {

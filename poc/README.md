@@ -59,7 +59,7 @@ API 문서: <http://localhost:8001/docs> (8000은 carpedm-kiosk가 사용)
 
 > **DB 스키마 변경 규칙:** 마이그레이션 도구 없이 `create_all`만 사용하므로,
 > 모델(`app/models/models.py`)을 수정하면 기존 테이블에는 반영되지 않는다.
-> 스키마가 바뀌면 `backend/mirroting.db`(및 `-wal`/`-shm` 파일)를 삭제하고
+> 스키마가 바뀌면 `backend/mirror-ting.db`(및 `-wal`/`-shm` 파일)를 삭제하고
 > 서버를 재기동해 재생성·재시드한다. 실사용 데이터가 쌓이기 시작하면 Alembic 도입이 선행 조건.
 
 ### 프론트엔드 (Node 20+, React + Vite)
@@ -104,10 +104,10 @@ CSV 내보내기, 1클릭 초기화를 제공한다. 초기화·내보내기는 
 감사 기록이 남는다.
 
 관리자 API는 전시(로컬 단독) 기본값에서 무인증이다. 기관 납품 등 네트워크에 노출되는
-환경에서는 `MIRROTING_ADMIN_AUTH_REQUIRED=true`로 인증을 강제하고, 가입한 계정을
+환경에서는 `MIRROR_TING_ADMIN_AUTH_REQUIRED=true`로 인증을 강제하고, 가입한 계정을
 `python -m app.seed.make_admin <email>`로 관리자 승격해 사용한다.
 
-운영 API 보호: 전시장 네트워크에서는 `MIRROTING_ADMIN_TOKEN`을 설정한다
+운영 API 보호: 전시장 네트워크에서는 `MIRROR_TING_ADMIN_TOKEN`을 설정한다
 (.env.example 참고). 설정 시 `/admin` 첫 진입에서 같은 값을 입력하면
 브라우저에 저장된다. 미설정이면 무인증 개발 모드로 동작하고 기동 시 경고가
 출력된다.
@@ -120,7 +120,7 @@ CSV 내보내기, 1클릭 초기화를 제공한다. 초기화·내보내기는 
 ### 로컬 LLM (전시 권장 필수 — setup_ai.sh가 자동 구성, 없어도 폴백 동작)
 
 Ollama(EXAONE 3.5 2.4b)가 준비되면 후속·심화·압박 질문이 사용자 답변을 반영해
-개인화된다(`backend/.env`의 `MIRROTING_DIALOGUE_PROVIDER=ollama`). 타임아웃
+개인화된다(`backend/.env`의 `MIRROR_TING_DIALOGUE_PROVIDER=ollama`). 타임아웃
 (기본 7s, i7-8750H 워밍 평균 4.1s 실측)·형식 오류 시 템플릿 질문으로 자동
 폴백하고, 서버 기동 시 모델을 예열해 첫 체험자 지연을 없앤다.
 
@@ -129,7 +129,7 @@ Ollama(EXAONE 3.5 2.4b)가 준비되면 후속·심화·압박 질문이 사용�
 모두 설치하기를 권장한다(setup_ai.sh가 함께 캐시).
 
 주의: EXAONE 3.5는 q8_0 KV 캐시와 비호환(head_dim=80) — setup_ai.sh가
-`OLLAMA_KV_CACHE_TYPE=f16`을 강제한 LaunchAgent(`com.mirroting.ollama`)로
+`OLLAMA_KV_CACHE_TYPE=f16`을 강제한 LaunchAgent(`com.mirror-ting.ollama`)로
 Ollama를 기동한다. `brew services start ollama`로 직접 띄우면 500 오류가 난다.
 
 ### 리허설용 데모 데이터

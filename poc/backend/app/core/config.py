@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     app_name: str = "4-Fit Mirror-Ting API"
-    database_url: str = "sqlite:///./mirroting.db"
+    database_url: str = "sqlite:///./mirror-ting.db"
     jwt_secret: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24
@@ -28,8 +28,12 @@ class Settings(BaseSettings):
     # base CER 10.8%/RTF 0.24, vosk-small-ko CER 47.6%. 속도 차이가 미미해 small 기본.
     stt_whisper_model: str = "small"
 
-    # 대화 엔진: 전시 시뮬레이션은 로컬 Ollama만 사용한다. 모델이 꺼져 있으면 시작할 수 없다.
+    # 대화 엔진: 전시 시뮬레이션은 로컬 Ollama를 기본으로 사용한다.
     dialogue_provider: str = "ollama"
+    # 세션 시작 게이트: True면 Ollama 미가동 시 새 체험 시작을 막는다(운영자가 즉시
+    # 인지·복구하도록). False면 템플릿 대본으로 시작을 허용한다(무인 운영 우선).
+    # 어느 쪽이든 진행 중 세션은 Ollama가 죽어도 템플릿 폴백으로 끊기지 않는다.
+    dialogue_require_ollama: bool = True
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "exaone3.5:2.4b"
     # i7-8750H 실측: 워밍 상태 개인화 질문 생성 3.6~4.7s(평균 4.1s) — p95+여유로 7s.
@@ -47,12 +51,12 @@ class Settings(BaseSettings):
     # 떨림(jitter/shimmer) 감점 임계 — 합성 신호로 보정된 기본값. 감점 자체는
     # 골든 검증된 결함 수정(떨리는 발화가 억양 보상을 받던 문제)이므로 유지하되,
     # 전시 PC 마이크 보정(demo-checklist §2.5)에서 오탐이 보이면 코드 수정 없이
-    # backend/.env의 MIRROTING_TREMOR_*로 상향한다.
+    # backend/.env의 MIRROR_TING_TREMOR_*로 상향한다.
     tremor_jitter_floor: float = 6.0   # % — 이하는 정상 변동
     tremor_shimmer_floor: float = 8.0  # %
     tremor_penalty_cap: float = 18.0
 
-    model_config = {"env_prefix": "MIRROTING_", "env_file": ".env"}
+    model_config = {"env_prefix": "MIRROR_TING_", "env_file": ".env"}
 
 
 settings = Settings()

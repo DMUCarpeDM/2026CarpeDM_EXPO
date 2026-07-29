@@ -13,11 +13,11 @@ import type { NonverbalMetrics } from '../../api/types';
 
 // 측정 샘플링 주기(ms). 기본 200ms(5Hz) — 깜빡임(100~300ms)·빠른 끄덕임은 샘플
 // 사이로 빠져 과소 집계될 수 있는 물리 한계가 있다. 전시 PC 성능이 허락하면
-// 운영자 패널에서 낮춰 실측한다: localStorage 'mirroting-sample-ms' = 100~500 (§2.5).
+// 운영자 패널에서 낮춰 실측한다: localStorage 'mirror-ting-sample-ms' = 100~500 (§2.5).
 // 아래 모든 표본 게이트는 framesFor(시간 기준)라 값만 바꾸면 일관되게 동작한다.
 export const SAMPLE_MS = (() => {
   if (typeof localStorage === 'undefined') return 200; // 테스트(node) 환경
-  const v = Number(localStorage.getItem('mirroting-sample-ms'));
+  const v = Number(localStorage.getItem('mirror-ting-sample-ms'));
   return Number.isFinite(v) && v >= 100 && v <= 500 ? v : 200;
 })();
 

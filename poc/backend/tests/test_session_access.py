@@ -47,6 +47,19 @@ def test_unknown_session_is_404_even_without_token():
     assert client.get("/api/sessions/999999").status_code == 404
 
 
+def test_survey_requires_session_token():
+    """설문도 다른 세션 API처럼 능력 토큰을 요구한다 — id 열거로 타인 세션의
+    KPI 설문을 위조·덮어쓰기하는 IDOR 차단."""
+    seed()
+    a = _create()
+    body = {"q_clarity": 5, "q_empathy": 4, "q_personalization": 5, "comment": "좋았어요"}
+    assert client.post(f"/api/sessions/{a['id']}/survey", json=body).status_code == 403
+    assert client.post(
+        f"/api/sessions/{a['id']}/survey", json=body,
+        headers={"X-Session-Token": a["access_token"]},
+    ).status_code == 201
+
+
 def test_consent_gate_blocks_without_agreement():
     seed()
     r = client.post(

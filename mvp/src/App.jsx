@@ -33,10 +33,28 @@ import {
   loadActiveSession,
   saveActiveSession,
   submitResponse,
+  transcribeLive,
 } from "./lib/pocApi";
 
 // 모든 흐름에서 같은 상단 네비게이션을 사용해 화면 전환 감각을 유지해요.
 const CHROMELESS_VIEWS = new Set();
+
+// getUserMedia 실패 원인별 안내 — 전시 스태프가 즉시 조치할 수 있는 문장으로
+function mediaErrorMessage(error) {
+  switch (error?.name) {
+    case "NotAllowedError":
+    case "PermissionDeniedError":
+      return "카메라·마이크 권한이 차단되어 있어요. 주소창 오른쪽 카메라 아이콘에서 허용한 뒤 다시 시도해 주세요.";
+    case "NotReadableError":
+    case "TrackStartError":
+      return "다른 프로그램이 카메라·마이크를 사용 중이에요. OBS·Zoom·카메라 앱을 닫고 다시 시도해 주세요.";
+    case "NotFoundError":
+    case "DevicesNotFoundError":
+      return "카메라·마이크 장치를 찾을 수 없어요. 연결 상태를 확인해 주세요.";
+    default:
+      return error?.message || "카메라와 마이크 권한을 허용해야 연습을 시작할 수 있어요.";
+  }
+}
 
 // 백엔드 없이도 리포트/비교/연습 화면을 미리 볼 수 있게 하는 데모 데이터 (?demo=result 등).
 const DEMO_REPORT = {
@@ -126,7 +144,7 @@ const DEMO_HISTORY = [
   { session_id: "d5", total_score: 72, started_at: "2024-05-20", fit_scores: { "Response-Fit": 72, "Voice-Fit": 68, "Eye-Fit": 78, "Posture-Fit": 82 } },
   { session_id: "d6", total_score: 88, started_at: "2024-05-24", fit_scores: { "Response-Fit": 86, "Voice-Fit": 82, "Eye-Fit": 78, "Posture-Fit": 91 } },
 ];
-const DEMO_SESSION = { id: "demo", mode: 5, scenario: { title: "업무 보고 및 피드백 논의", characters: [{ id: "kim_teamlead", name: "김서윤 팀장", role: "상사", personality: "직설적이고 바쁘다. 결론부터 듣고 싶어 한다." }] } };
+const DEMO_SESSION = { id: "demo", mode: 5, scenario: { title: "업무 보고 및 피드백 논의", description: "김서윤 팀장에게 프로젝트 중간 진행 상황을 보고하는 자리예요. 팀장은 바쁘고 직설적이라 결론부터 듣고 싶어 해요. 진행률과 지연 사유, 다음 계획을 준비해 보세요.", characters: [{ id: "kim_teamlead", name: "김서윤 팀장", role: "상사", personality: "직설적이고 바쁘다. 결론부터 듣고 싶어 한다." }] } };
 const DEMO_TURN = { id: "t2", order: 2, character_id: "c1", asked_at: "02:35", question_text: "흠, 70%라면 일정보다 살짝 늦는 것 같은데요. 구체적으로 어떤 부분이 지연되고 있나요?" };
 const DEMO_TURN_HISTORY = [
   { id: "t1", order: 1, character_id: "c1", asked_at: "02:31", answered_at: "02:34", question_text: "이번 프로젝트 진행 상황을 간단히 요약해주시고, 현재 가장 어려운 부분은 무엇인지 설명해 주세요.", response_text: "현재 디자인 시스템은 거의 마무리 단계이고, 프론트엔드 구현도 70% 정도 완료되었습니다..." },
@@ -220,10 +238,15 @@ export default function App() {
         setSession(resumedSession);
         setTurn(resumed.current_turn);
         setTurnHistory(resumed.history || []);
-        if (resumed.status === "in_progress") setActive("practice");
+        if (resumed.status === "in_progress") {
+          setActive("practice");
+          // 새로고침으로 재개된 연습도 카메라·마이크를 다시 요청해야 분석이 살아난다
+          // (스트림은 페이지를 넘어 살아남지 않는다 — 이 호출이 없으면 검은 화면 + 분석 중단)
+          requestExerciseMedia().catch(() => {});
+        }
         if (["analyzing", "completed"].includes(resumed.status)) setActive("result");
       })
-      .catch(() => localStorage.removeItem("mirrorting-active-session"));
+      .catch(() => localStorage.removeItem("mirror-ting-active-session"));
   }, []);
   useEffect(() => {
     if (active !== "result" || !session || report) return undefined;
@@ -280,18 +303,52 @@ export default function App() {
       setPermissionState({ camera: "denied", microphone: "denied" });
       throw new Error("이 브라우저에서는 카메라와 마이크 권한을 사용할 수 없어요.");
     }
-    try {
-      const stream = mediaStream || await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      if (!stream.getVideoTracks().some((track) => track.readyState === "live")) throw new Error("카메라 권한이 필요해요.");
-      if (!stream.getAudioTracks().some((track) => track.readyState === "live")) throw new Error("마이크 권한이 필요해요.");
-      setMediaStream(stream);
+    // 이전 스트림이라도 트랙이 죽었으면(장치 분리·OS 프라이버시 토글) 새로 요청한다 —
+    // 죽은 스트림을 재사용하면 검사에서 던지기만 하고 영영 복구되지 않는다
+    const alive = (stream, kind) => Boolean(stream?.[kind]().some((track) => track.readyState === "live"));
+    if (alive(mediaStream, "getVideoTracks") && alive(mediaStream, "getAudioTracks")) {
       setPermissionState({ camera: "granted", microphone: "granted" });
-      return stream;
-    } catch (error) {
-      setPermissionState({ camera: "denied", microphone: "denied" });
-      throw new Error(error.message || "카메라와 마이크 권한을 허용해야 연습을 시작할 수 있어요.");
+      return mediaStream;
     }
+    // 카메라·마이크 합동 요청은 한쪽 고장(OBS 등 다른 앱 점유·장치 미연결)으로 전체가
+    // 거부된다 — 실패하면 축별로 재시도해 살아 있는 쪽만이라도 확보한다.
+    // 카메라만 되면 분석·거울은 살고, 마이크만 되면 음성 입력·녹음은 산다.
+    // 지난번에 선택한 마이크가 있으면 우선 사용 (전시 PC의 빈 잭·Kinect 어레이 혼재 대응)
+    const savedMic = localStorage.getItem("mirror-ting-mic-device");
+    const audioConstraint = savedMic ? { deviceId: { ideal: savedMic } } : true;
+    let stream = null;
+    let lastError = null;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: audioConstraint });
+    } catch (error) {
+      lastError = error;
+      const parts = [];
+      try { parts.push(await navigator.mediaDevices.getUserMedia({ video: true })); } catch (videoError) { lastError = videoError; }
+      try { parts.push(await navigator.mediaDevices.getUserMedia({ audio: audioConstraint })); } catch (audioError) { if (!parts.length) lastError = audioError; }
+      const tracks = parts.flatMap((part) => part.getTracks());
+      if (tracks.length) stream = new MediaStream(tracks);
+    }
+    const camera = alive(stream, "getVideoTracks");
+    const microphone = alive(stream, "getAudioTracks");
+    setPermissionState({ camera: camera ? "granted" : "denied", microphone: microphone ? "granted" : "denied" });
+    if (!camera && !microphone) throw new Error(mediaErrorMessage(lastError));
+    if (mediaStream && mediaStream !== stream) mediaStream.getTracks().forEach((track) => track.stop());
+    setMediaStream(stream);
+    return stream;
   };
+  // 마이크 장치 전환 — 무음 장치(빈 잭)가 기본으로 잡히는 전시 PC 문제를 화면에서 바로 해결.
+  // 비디오 트랙은 유지하고 오디오 트랙만 새 장치로 교체한 스트림을 만든다.
+  const switchMicDevice = async (deviceId) => {
+    const fresh = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: deviceId } } });
+    localStorage.setItem("mirror-ting-mic-device", deviceId);
+    const videoTracks = mediaStream?.getVideoTracks?.().filter((track) => track.readyState === "live") || [];
+    mediaStream?.getAudioTracks?.().forEach((track) => track.stop());
+    const next = new MediaStream([...videoTracks, ...fresh.getAudioTracks()]);
+    setMediaStream(next);
+    setPermissionState((prev) => ({ ...prev, microphone: "granted" }));
+    return next;
+  };
+
   const startPractice = async () => {
     setStarting(true); setApiError(""); setReport(null); setTurnHistory([]); setTurnSignals(null);
     turnAudioReferencesRef.current = [];
@@ -329,7 +386,7 @@ export default function App() {
       {active === "scenario" && <ScenarioSelectPage counterpartProfile={counterpartProfile} scenarios={apiScenarios} selectedEpisodeId={selectedEpisodeId} onScenario={chooseScenario} onPrev={() => go(-1)} onNext={() => navigate("difficulty")} />}
       {active === "difficulty" && <DifficultyPage counterpartProfile={counterpartProfile} scenario={previewScenario} difficulty={difficulty} onDifficulty={setDifficulty} onPrev={() => go(-1)} onNext={() => navigate("preview")} />}
       {active === "preview" && <PreviewPage onNext={startPractice} starting={starting} scenario={previewScenario} selectedEpisode={previewEpisode} counterpartProfile={counterpartProfiles.find((item) => item.id === counterpartProfile) || counterpartProfiles[1]} difficulty={difficulties.find((item) => item.id === difficulty) || difficulties[0]} aiHealth={aiHealth} consented={consented} onConsent={setConsented} error={apiError} permissionState={permissionState} mode={mode} />}
-      {active === "practice" && <PracticePage onPrev={() => go(-1)} scenario={session?.scenario} aiHealth={aiHealth} turn={turn} history={turnHistory} turnSignals={turnSignals} onSubmit={sendAnswer} busy={submitting} error={apiError} mediaStream={mediaStream} />}
+      {active === "practice" && <PracticePage onPrev={() => go(-1)} scenario={session?.scenario} aiHealth={aiHealth} turn={turn} history={turnHistory} turnSignals={turnSignals} onSubmit={sendAnswer} busy={submitting} error={apiError} mediaStream={mediaStream} onTranscribe={typeof session?.id === "number" ? (wav) => transcribeLive(session, wav) : null} onRequestMedia={requestExerciseMedia} onSwitchMic={switchMicDevice} />}
       {active === "result" && <ResultPage onPrev={() => go(-1)} onPractice={() => navigate("preview")} onNext={() => navigate("feedback")} report={report} selectedDifficulty={difficulty} progress={analysisProgress} error={apiError} />}
       {active === "feedback" && <FeedbackPage onPrev={() => go(-1)} onPractice={() => navigate("preview")} onNext={() => navigate("compare")} onNavigate={navigate} report={report} />}
       {active === "compare" && <ComparePage onPrev={() => go(-1)} onRestart={() => navigate("role")} onShare={() => navigate("share")} onNavigate={navigate} history={history} report={report} />}

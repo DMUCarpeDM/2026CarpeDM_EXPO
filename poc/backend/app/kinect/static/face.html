@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mirror-ting · 얼굴 표정 측정</title>
+<style>
+  :root{
+    --fit-eye:#6ee7ff; --fit-posture:#5eeaa2; --fit-response:#7ab5ff;
+    --warm:#ff8a00; --ink:#eaf1ff; --muted:#8aa0c4; --dim:#5f7599;
+    --glass:rgba(255,255,255,.05); --line:rgba(255,255,255,.10);
+    --r-card:18px; --r-lg:24px;
+    --font:"SF Pro Text","Inter","Pretendard",-apple-system,BlinkMacSystemFont,
+           system-ui,"Malgun Gothic",sans-serif;
+  }
+  *{box-sizing:border-box} html,body{height:100%;margin:0}
+  body{font-family:var(--font);color:var(--ink);
+       background:linear-gradient(180deg,#16233c 0%,#0d1830 56%,#0a1222 100%);
+       display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;
+       font-variant-numeric:tabular-nums}
+
+  header{display:flex;align-items:baseline;gap:14px;padding:20px 30px 12px;flex:none}
+  .brand{font-size:20px;font-weight:750;letter-spacing:-.015em}
+  .brand em{font-style:normal;color:var(--fit-eye)}
+  .sub{font-size:13px;color:var(--muted)}
+  nav{margin-left:18px;display:flex;gap:8px}
+  nav a{font-size:12px;color:var(--muted);text-decoration:none;padding:5px 11px;
+        border:1px solid var(--line);border-radius:999px}
+  nav a.on{color:var(--ink);background:var(--glass)}
+  .status{margin-left:auto;display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--muted)}
+  .dot{width:8px;height:8px;border-radius:999px;background:var(--muted)}
+  .dot.live{background:var(--fit-posture)}
+  .dot.bad{background:var(--warm)}
+  select{font-family:var(--font);font-size:12px;color:var(--ink);background:rgba(255,255,255,.06);
+         border:1px solid var(--line);border-radius:999px;padding:5px 10px;max-width:190px}
+
+  main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:20px;
+       padding:0 30px 24px;min-height:0}
+  @media(max-width:1140px){main{grid-template-columns:1fr}}
+
+  .stage{position:relative;border-radius:var(--r-lg);overflow:hidden;min-height:0;
+         border:1px solid var(--line);background:#060b16}
+  video,canvas#mesh{position:absolute;inset:0;width:100%;height:100%}
+  video{object-fit:cover;transform:scaleX(-1)}
+  .legend{position:absolute;left:20px;bottom:18px;display:flex;gap:14px;
+          font-size:11px;color:rgba(234,241,255,.62);text-shadow:0 1px 3px rgba(0,0,0,.7)}
+  .legend i{display:inline-block;width:7px;height:7px;border-radius:999px;margin-right:5px;
+            background:rgba(255,255,255,.6);vertical-align:1px}
+  .legend .on i{background:var(--fit-posture);box-shadow:0 0 8px var(--fit-posture)}
+  .legend .on{color:var(--fit-posture)}
+
+  .overlay{position:absolute;inset:0;display:grid;place-items:center;align-content:center;
+           gap:9px;text-align:center;padding:26px;background:rgba(10,18,34,.74)}
+  .overlay[hidden]{display:none}
+  .overlay b{font-size:19px}
+  .overlay span{font-size:13.5px;color:var(--muted);max-width:40ch;line-height:1.6}
+  .overlay button{margin-top:6px;font-family:var(--font);font-size:13px;font-weight:600;
+                  color:#0a1222;background:var(--fit-eye);border:0;border-radius:999px;
+                  padding:9px 20px;cursor:pointer}
+
+  aside{display:flex;flex-direction:column;gap:13px;min-height:0;overflow:auto;padding-right:2px}
+  .card{background:var(--glass);border:1px solid var(--line);border-radius:var(--r-card);
+        padding:14px 16px}
+  .card>h2{margin:0 0 2px;font-size:11.5px;font-weight:700;letter-spacing:.03em;
+           color:var(--fit-eye);text-transform:uppercase}
+  .card>.src{font-size:11px;color:var(--muted);margin-bottom:10px}
+  .hero{display:flex;align-items:baseline;gap:8px}
+  .hero b{font-size:33px;font-weight:800;letter-spacing:-.03em;color:var(--fit-eye)}
+  .hero span{font-size:12.5px;color:var(--muted)}
+  .chips{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+  .chip{font-size:10.5px;color:var(--muted);border:1px solid var(--line);
+        border-radius:999px;padding:3px 9px}
+
+  /* 뒤셴 판정 — 제품에서 의미가 가장 큰 값이라 초점으로 둔다 */
+  .verdict{display:flex;align-items:center;gap:12px}
+  .verdict .ring{width:52px;height:52px;border-radius:999px;flex:none;
+                 border:2.5px solid rgba(255,255,255,.13);display:grid;place-items:center;
+                 font-size:11px;font-weight:800;color:var(--dim);transition:all .2s}
+  .verdict.on .ring{border-color:var(--fit-posture);color:var(--fit-posture);
+                    box-shadow:0 0 22px rgba(94,234,162,.35)}
+  .verdict .txt b{display:block;font-size:16px;font-weight:750;letter-spacing:-.02em}
+  .verdict .txt span{font-size:11.5px;color:var(--dim);line-height:1.45}
+
+  .au{padding:9px 0;border-top:1px solid rgba(255,255,255,.055)}
+  .au:first-child{border-top:0;padding-top:2px}
+  .au-top{display:flex;align-items:baseline;gap:7px}
+  .au-name{font-size:13px;color:#cbdaf2}
+  .au-code{font-size:9.5px;color:var(--dim);border:1px solid var(--line);
+           border-radius:4px;padding:1px 4px}
+  .au-ratio{margin-left:auto;font-size:10.5px;color:var(--dim)}
+  .au-val{font-size:16px;font-weight:750;min-width:44px;text-align:right}
+  .bar{height:5px;border-radius:999px;background:rgba(255,255,255,.08);margin-top:6px;
+       overflow:hidden;position:relative}
+  .bar i{display:block;height:100%;border-radius:999px;background:rgba(110,231,255,.65);
+         width:0%;transition:width .1s linear}
+  .bar i.hot{background:linear-gradient(90deg,var(--fit-eye),var(--fit-posture))}
+  .bar u{position:absolute;top:-2px;width:2px;height:9px;background:rgba(255,255,255,.45)}
+
+  canvas.tl{width:100%;height:104px;display:block;margin-top:2px}
+  .calib{font-size:11px;color:var(--warm)}
+  footer{flex:none;padding:0 30px 18px;font-size:11px;color:var(--dim);line-height:1.5}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Mirror<em>·</em>ting</div>
+  <div class="sub">MediaPipe · 얼굴 표정 측정</div>
+  <nav><a href="/practice">체험자</a><a href="/">계측</a><a href="/face" class="on">표정</a></nav>
+  <div class="status"><select id="cams" title="카메라"></select>
+    <i class="dot" id="dot"></i><span id="st">준비 중…</span></div>
+</header>
+
+<main>
+  <section class="stage">
+    <video id="video" playsinline muted></video>
+    <canvas id="mesh"></canvas>
+    <div class="legend">
+      <span id="lgBrow"><i></i>눈썹</span><span id="lgEye"><i></i>눈</span>
+      <span id="lgMouth"><i></i>입</span>
+      <span style="color:rgba(234,241,255,.42)">활성 영역이 초록으로 표시됩니다</span>
+    </div>
+    <div class="overlay" id="ov">
+      <b id="ovT">카메라 권한이 필요합니다</b>
+      <span id="ovB">브라우저가 카메라를 사용하도록 허용해 주세요. 영상은 이 PC를 벗어나지 않습니다.</span>
+      <button id="ovBtn">카메라 시작</button>
+    </div>
+  </section>
+
+  <aside>
+    <div class="card">
+      <h2>측정 원본</h2>
+      <div class="src">MediaPipe FaceLandmarker · 온디바이스</div>
+      <div class="hero"><b id="lmCount">–</b><span>랜드마크 / 프레임</span></div>
+      <div class="chips"><span class="chip" id="cBs">blendshape –</span>
+        <span class="chip" id="cFps">– fps</span><span class="chip" id="cDrawn">표시 45점</span></div>
+    </div>
+
+    <div class="card">
+      <h2>진정성 미소</h2>
+      <div class="src">입꼬리(AU12)와 눈둘레근(AU6)이 함께 움직여야 눈까지 웃는 미소다</div>
+      <div class="verdict" id="verdict">
+        <div class="ring" id="vRing">–</div>
+        <div class="txt"><b id="vLabel">측정 대기</b><span id="vNote">깜빡임 중에는 눈둘레근이 함께 올라가 오판하므로 표본에서 제외합니다</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Action Unit</h2>
+      <div class="src" id="calib">무표정 기준 수집 중… 자연스러운 표정을 유지해 주세요</div>
+      <div id="aus"></div>
+    </div>
+
+    <div class="card">
+      <h2>눈둘레근 신호 진단</h2>
+      <div class="src">AU6를 무엇으로 재고 있는지 · <b id="dSrc" style="color:var(--eye)">–</b></div>
+      <div class="au"><div class="au-top"><span class="au-name">cheekSquint</span>
+        <span class="au-code">blendshape</span><span class="au-val" id="dCheek">–</span></div></div>
+      <div class="au"><div class="au-top"><span class="au-name">eyeSquint</span>
+        <span class="au-code">blendshape</span><span class="au-val" id="dEyeSq">–</span></div></div>
+      <div class="au"><div class="au-top"><span class="au-name">browDown</span>
+        <span class="au-code">blendshape</span><span class="au-val" id="dBrowBs">–</span></div></div>
+      <div class="au"><div class="au-top"><span class="au-name">아랫꺼풀 상승</span>
+        <span class="au-code">기하</span><span class="au-val" id="dLid">–</span></div></div>
+      <div class="au"><div class="au-top"><span class="au-name">눈썹 하강</span>
+        <span class="au-code">기하</span><span class="au-val" id="dDrop">–</span></div></div>
+      <div class="au"><div class="au-top"><span class="au-name">눈썹 모임</span>
+        <span class="au-code">기하</span><span class="au-val" id="dPinch">–</span></div></div>
+      <div class="au"><div class="au-top"><span class="au-name">눈</span>
+        <span class="au-code">개폐</span><span class="au-val" id="dBlink">–</span></div></div>
+      <div class="note" style="font-size:10.5px;color:var(--dim);margin-top:7px;line-height:1.5">
+        임계는 상수가 아니라 <b>무표정 구간에서 잰 노이즈의 5배</b>입니다 —
+        카메라·조명·거리·사람이 바뀌어도 따라갑니다.<br>
+        도출된 임계: <b id="dThr" style="color:var(--eye)">기준 수집 중</b>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>최근 20초 활성 구간</h2>
+      <div class="src">표정은 순간값이 아니라 지속·회복 시간이 의미를 만든다</div>
+      <canvas class="tl" id="tl"></canvas>
+    </div>
+  </aside>
+</main>
+
+<footer>
+  판정은 blendshape 절대값이 아니라 <b style="color:var(--muted)">개인 무표정 기준 대비 변화량</b>입니다.
+  기준이 잡히기 전에는 절대 임계로 폴백하며 그 상태를 위에 표시합니다.
+</footer>
+
+<script type="module">
+import { FilesetResolver, FaceLandmarker } from "/vendor/tasks-vision.mjs";
+const el = id => document.getElementById(id);
+const video = el("video"), cv = el("mesh"), ctx = cv.getContext("2d");
+const tl = el("tl"), tctx = tl.getContext("2d");
+
+/* 478개를 다 그리면 흰 덩어리가 된다 — 구조를 드러내는 45개를 골라
+   윤곽선 + 최근접 이웃 연결로 엮으면 삼각 메쉬가 된다. (MediaPipe 468 인덱스) */
+const OVAL=[10,338,332,284,389,356,454,288,365,379,152,150,136,58,234,127,162,109];
+const BROW=[70,105,107,336,334,300];
+const EYE=[33,133,159,145,362,263,386,374];
+const MOUTH=[61,291,0,17,13,14];
+const CHAINS=[[...OVAL,10],[70,105,107],[336,334,300],[33,159,133,145,33],
+              [362,386,263,374,362],[61,0,291,17,61],[168,6,1],[98,1,327]];
+const PICKED=[...new Set([...OVAL,...BROW,...EYE,...MOUTH,168,6,1,98,327,205,425])];
+const REGION_OF = new Map();
+BROW.forEach(i=>REGION_OF.set(i,"brow")); EYE.forEach(i=>REGION_OF.set(i,"eye"));
+MOUTH.forEach(i=>REGION_OF.set(i,"mouth"));
+
+/* AU 정의 · 임계값은 mvp/src/lib/nonverbalMetrics.js와 동일 */
+const AUS=[
+  {key:"smile", name:"미소",       code:"AU12",    abs:.35,delta:.30, region:"mouth",
+   keys:["mouthSmileLeft","mouthSmileRight"]},
+  // cheekSquint는 뺐다 — 실측에서 세션 내내 최대 0%였다(한 번도 안 움직임).
+  // 4개 평균에 넣으면 신호를 절반으로 희석시키기만 한다.
+  {key:"squint",name:"눈둘레근",   code:"AU6+7",   abs:.35,delta:.30, region:"eye",
+   keys:["eyeSquintLeft","eyeSquintRight"]},
+  {key:"press", name:"입술 압축",  code:"AU23/24", abs:.45,delta:.40, region:"mouth",
+   keys:["mouthPressLeft","mouthPressRight"]},
+  // 임계를 실측으로 내렸다: 무표정 0.003 · 최대 찡그림 0.22 (개인 기준 대비 0.218).
+  // 기존 0.45는 실제 도달 범위의 2배라 영영 켜지지 않았다.
+  {key:"brow",  name:"미간 찌푸림",code:"AU4",     abs:.15,delta:.10, region:"brow",
+   keys:["browDownLeft","browDownRight"]},
+  {key:"raise", name:"눈썹 올림",  code:"AU1+2",   abs:.40,delta:.35, region:"brow",
+   keys:["browInnerUp","browOuterUpLeft","browOuterUpRight"]},
+];
+const LANES=[...AUS.map(a=>({key:a.key,name:a.name})),{key:"duch",name:"뒤셴"}];
+const CALIB_FRAMES=60, WINDOW_MS=20000;
+const calib={}; let base=null; AUS.forEach(a=>calib[a.key]=[]);
+calib.lower=[]; calib.aper=[]; calib.browGap=[]; calib.browPinch=[];
+calib.pitch=[]; calib.yaw=[];
+// 기준을 잡을 때와 머리 각도가 이만큼 넘게 다르면 측정을 보류한다.
+// 2D 랜드마크는 각도에 따라 단축되므로, 보정 없이 재면 표정과 구별되지 않는다.
+const POSE_PITCH_TOL=0.12;   // 세로 단축 비율 변화
+const POSE_YAW_TOL=0.10;     // 좌우 눈 폭 비대칭 변화
+
+/* ---- AU6를 기하로 잰다 (blendshape 보조가 아니라 주 신호) ----
+   MediaPipe의 cheekSquint는 거의 움직이지 않는 것으로 알려져 있어, eyeSquint와
+   함께 4개를 평균하면 신호가 절반으로 희석된다. 아래 진단 카드에서 실제로
+   그런지 눈으로 확인할 수 있다.
+
+   물리적으로 깜빡임과 AU6는 **다른 눈꺼풀**이 움직인다:
+     깜빡임 → 윗눈꺼풀이 내려온다
+     AU6    → 아랫눈꺼풀이 올라온다 (안륜근 수축)
+   그래서 위/아래 간격을 나눠 재면 둘을 구분할 수 있고, 깜빡임을 AU6로
+   오판하지 않는다. 눈 가로폭으로 정규화해 거리·얼굴 크기에 불변이다. */
+const EYES=[{out:33,in:133,up:159,low:145},{out:263,in:362,up:386,low:374}];
+const BROW_IN=[107,336];   // 안쪽 눈썹 (AU4 코루게이터가 내리고 모은다)
+
+/* 척도는 **눈 가로폭**이다. 눈이 벌어진 정도(세로)를 분모로 쓰면 안 된다 —
+   홑꺼풀·작은 눈은 그 값이 작아서 같은 근육 움직임에도 비율이 부풀려지고,
+   임계를 너무 쉽게 넘는다. 실제로 그 버그가 있었다.
+   안륜근·코루게이터의 변위는 눈꺼풀 벌어짐이 아니라 **얼굴 크기**에 비례하므로
+   가로폭으로 정규화하는 것이 개인차에 공정하다. */
+function faceGeometry(lm){
+  let width=0, cy=0, n=0;
+  const w_=[];
+  for(const e of EYES){
+    const w=Math.hypot(lm[e.out].x-lm[e.in].x, lm[e.out].y-lm[e.in].y);
+    if(w<1e-6)continue;
+    w_.push(w); width+=w; cy+=(lm[e.out].y+lm[e.in].y)/2; n++;
+  }
+  if(n<2)return null;
+  const w=width/n, eyeY=cy/n;
+
+  /* ⚠ 세로 거리를 가로 척도로 나누면 안 된다. 고개를 숙이면 세로만 단축되고
+     가로는 그대로라, 눈썹이 내려온 것과 구별되지 않는다 (실측에서 미간 200%).
+     세로는 **세로 기준**으로 나눈다 — 눈높이→코끝 거리는 같은 비율로 단축되므로
+     나누면 각도 영향이 상쇄된다. 진짜 찡그림은 이 거리를 바꾸지 않는다. */
+  const vscale=Math.abs(lm[1].y-eyeY);
+  if(vscale<1e-6)return null;
+
+  let upper=0, lower=0;
+  for(const e of EYES){
+    const c=(lm[e.out].y+lm[e.in].y)/2;
+    upper+=(c-lm[e.up].y)/vscale;    // 눈 중심 → 윗꺼풀 (깜빡임이 줄인다)
+    lower+=(lm[e.low].y-c)/vscale;   // 눈 중심 → 아랫꺼풀 (AU6가 줄인다)
+  }
+  const browY=(lm[BROW_IN[0]].y+lm[BROW_IN[1]].y)/2;
+  return {
+    width:w, vscale,
+    upper:upper/n, lower:lower/n, aperture:(upper+lower)/n,
+    browGap:(eyeY-browY)/vscale,                              // 세로 → 세로 기준
+    browPinch:Math.abs(lm[BROW_IN[0]].x-lm[BROW_IN[1]].x)/w,  // 가로 → 가로 기준
+    // 머리 각도 대리값 — 기준을 잡을 때와 크게 달라지면 측정을 보류한다
+    pitchProxy:vscale/w,
+    yawProxy:(w_[0]-w_[1])/(w_[0]+w_[1]),
+  };
+}
+let hist=[];                       // {t, state:{key:bool}}
+let activeRegion={brow:false,eye:false,mouth:false};
+
+el("aus").innerHTML = AUS.map(a=>`
+  <div class="au">
+    <div class="au-top"><span class="au-name">${a.name}</span>
+      <span class="au-code">${a.code}</span>
+      <span class="au-ratio" id="r_${a.key}">–</span>
+      <span class="au-val" id="v_${a.key}">–</span></div>
+    <div class="bar"><i id="b_${a.key}"></i><u id="t_${a.key}" style="left:0"></u></div>
+  </div>`).join("");
+
+const median=a=>{const s=[...a].sort((x,y)=>x-y);return s[s.length>>1];};
+/** 견고 산포 — 중앙값 절대편차. 이상치(스친 표정)에 흔들리지 않는다. */
+const madSd=a=>{const m=median(a);return 1.4826*median(a.map(v=>Math.abs(v-m)));};
+
+let thr=null;                  // 노이즈에서 도출한 임계 (캘리브레이션 후 확정)
+const recent={lower:[],browGap:[],browPinch:[]};   // 프레임 중앙값 평활용
+function smooth(key,v){
+  const buf=recent[key]; buf.push(v); if(buf.length>SMOOTH_N)buf.shift();
+  return median(buf);
+}
+/* 개인 기준이 있으면 '남은 표현 여지 대비 변화량' — 단순 차이를 쓰면 기저값이
+   높은 사람이 blendshape 상한(1.0)에 막혀 임계에 도달할 수 없다. */
+const norm=(raw,b)=>b==null?raw:Math.max(0,(raw-b)/Math.max(1-b,1e-6));
+
+let landmarker=null, fps=0, lastT=0, running=false;
+const fit=c=>{const r=c.getBoundingClientRect(),d=devicePixelRatio||1;
+  c.width=Math.max(1,Math.round(r.width*d));c.height=Math.max(1,Math.round(r.height*d));return d;};
+addEventListener("resize",()=>{fit(cv);fit(tl);drawTimeline();});
+
+function drawMesh(lm,d){
+  const W=cv.width,H=cv.height; ctx.clearRect(0,0,W,H);
+  const vw=video.videoWidth||16, vh=video.videoHeight||9;      // object-fit:cover 대응
+  const s=Math.max(W/vw,H/vh), dw=vw*s, dh=vh*s, ox=(W-dw)/2, oy=(H-dh)/2;
+  const P=i=>[ox+(1-lm[i].x)*dw, oy+lm[i].y*dh];               // 거울: 좌우 반전
+  const hot=i=>{const r=REGION_OF.get(i);return r?activeRegion[r]:false;};
+
+  ctx.lineJoin="round";
+  for(const chain of CHAINS){
+    const live=chain.some(hot);
+    ctx.strokeStyle=live?"rgba(94,234,162,.92)":"rgba(255,255,255,.6)";
+    ctx.lineWidth=(live?1.9:1.25)*d;
+    ctx.shadowColor=live?"rgba(94,234,162,.85)":"transparent";
+    ctx.shadowBlur=live?11*d:0;
+    ctx.beginPath();
+    chain.forEach((i,n)=>{const[x,y]=P(i); n?ctx.lineTo(x,y):ctx.moveTo(x,y);});
+    ctx.stroke();
+  }
+  ctx.shadowBlur=0;
+
+  const pts=PICKED.map(P);
+  const seen=new Set();
+  ctx.strokeStyle="rgba(255,255,255,.32)"; ctx.lineWidth=1*d; ctx.beginPath();
+  for(let i=0;i<pts.length;i++){
+    const near=pts.map((p,j)=>[j,(p[0]-pts[i][0])**2+(p[1]-pts[i][1])**2])
+                  .filter(([j])=>j!==i).sort((a,b)=>a[1]-b[1]).slice(0,3);
+    for(const[j]of near){const k=i<j?`${i}_${j}`:`${j}_${i}`;
+      if(seen.has(k))continue; seen.add(k);
+      ctx.moveTo(pts[i][0],pts[i][1]); ctx.lineTo(pts[j][0],pts[j][1]);}
+  }
+  ctx.stroke();
+
+  ctx.shadowColor="rgba(0,0,0,.5)";
+  PICKED.forEach((idx,n)=>{
+    const[x,y]=pts[n], live=hot(idx);
+    ctx.fillStyle=live?"#5eeaa2":"#fff";
+    ctx.shadowBlur=(live?10:3)*d;
+    ctx.beginPath(); ctx.arc(x,y,(live?3.8:2.9)*d,0,6.284); ctx.fill();
+  });
+  ctx.shadowBlur=0;
+}
+
+function drawTimeline(){
+  const d=fit(tl),W=tl.width,H=tl.height;
+  tctx.clearRect(0,0,W,H);
+  const laneH=H/LANES.length, now=Date.now(), t0=now-WINDOW_MS;
+  tctx.font=`${9.5*d}px ${getComputedStyle(document.body).fontFamily}`;
+  LANES.forEach((lane,i)=>{
+    const y=i*laneH;
+    tctx.fillStyle="rgba(255,255,255,.045)";
+    tctx.fillRect(46*d,y+laneH*.22,W-46*d,laneH*.56);
+    tctx.fillStyle="rgba(95,117,153,.95)";
+    tctx.fillText(lane.name,2*d,y+laneH*.68);
+    for(let n=0;n<hist.length;n++){
+      const h=hist[n]; if(h.t<t0||!h.state[lane.key])continue;
+      const x=46*d+((h.t-t0)/WINDOW_MS)*(W-46*d);
+      const nx=n+1<hist.length?46*d+((hist[n+1].t-t0)/WINDOW_MS)*(W-46*d):x+1.6*d;
+      tctx.fillStyle=lane.key==="duch"?"rgba(94,234,162,.95)":"rgba(110,231,255,.8)";
+      tctx.fillRect(x,y+laneH*.22,Math.max(1.4*d,nx-x),laneH*.56);
+    }
+  });
+}
+
+function ratio(key){
+  const t0=Date.now()-WINDOW_MS, win=hist.filter(h=>h.t>=t0);
+  if(win.length<10)return null;
+  return win.filter(h=>h.state[key]).length/win.length;
+}
+
+/* 임계는 상수로 정하지 않는다 — **캘리브레이션 중 측정한 노이즈에서 도출**한다.
+   처음엔 물리적 변위를 짐작해 0.025/0.040/0.050으로 잡았는데, 정규화 후 랜드마크
+   지터가 그와 같은 자릿수(~0.02)여서 가만히 있어도 계속 임계를 넘었다.
+   상수를 다시 짐작하는 대신, 무표정 구간의 산포를 재서 그 배수로 잡는다 —
+   카메라·조명·거리·사람이 바뀌어도 따라간다.
+
+   견고 산포는 MAD로 낸다(중앙값 절대편차 × 1.4826 ≈ 표준편차). 잠깐 스친 표정이
+   섞여도 흔들리지 않는다. 배수 k=5는 보수적으로 잡았다 — 이 제품의 원칙이
+   '오판 억제'이므로, 놓치는 것보다 잘못 짚는 쪽이 더 나쁘다. */
+const NOISE_K=5;
+const FLOOR={lidRise:0.012, browDrop:0.015, browPinch:0.015};  // 노이즈가 비정상적으로
+                                                               // 작을 때의 하한
+const SMOOTH_N=5;   // 프레임 중앙값 — AU는 수백 ms 지속하고 지터는 프레임 단위다
+// 깜빡임만은 '자기 기준 대비 비율'이 맞다 — 같은 사람의 평소 개폐와 비교하므로
+// 눈 크기 편향이 생기지 않는다.
+const BLINK_APERTURE=0.55;
+const peak={};                 // 진단용 세션 최대치
+let lastDiagPost=0;            // 서버 전송 스로틀 (1.5초)
+const bump=(k,v)=>{peak[k]=Math.max(peak[k]??0,v);return v;};
+
+function updateAUs(shapes,lm){
+  const avg=keys=>keys.reduce((s,k)=>s+(shapes[k]??0),0)/keys.length;
+  const g=faceGeometry(lm);
+
+  /* 깜빡임은 blendshape으로 판정한다.
+     전체 개폐로 재던 것이 치명적이었다: 진짜 미소는 아랫꺼풀이 올라와 개폐를
+     줄이므로 **깜빡임으로 오판**되고, 뒤셴 판정에서 제외돼 영영 '사회적 미소'로만
+     떴다. eyeBlink는 포즈에 강건하고 윗꺼풀 하강에 반응하므로 AU6와 섞이지 않는다. */
+  const blinkRaw=avg(["eyeBlinkLeft","eyeBlinkRight"]);
+  const blink=blinkRaw>.5;
+
+  if(base===null&&!blink){   // 깜빡임 프레임은 기준에서 뺀다 (눈둘레근이 부풀려진다)
+    AUS.forEach(a=>calib[a.key].push(avg(a.keys)));
+    if(g){calib.lower.push(g.lower);calib.aper.push(g.aperture);
+          calib.browGap.push(g.browGap);calib.browPinch.push(g.browPinch);
+          calib.pitch.push(g.pitchProxy);calib.yaw.push(g.yawProxy);}
+    if(calib.smile.length>=CALIB_FRAMES&&calib.lower.length>=20){
+      base={}; AUS.forEach(a=>base[a.key]=median(calib[a.key]));
+      base.lower=median(calib.lower); base.aper=median(calib.aper);
+      base.browGap=median(calib.browGap); base.browPinch=median(calib.browPinch);
+      base.pitch=median(calib.pitch); base.yaw=median(calib.yaw);
+      // 임계 = 무표정 노이즈의 k배 (하한 적용). 상수를 짐작하지 않는다.
+      thr={
+        lidRise:Math.max(FLOOR.lidRise, NOISE_K*madSd(calib.lower)),
+        browDrop:Math.max(FLOOR.browDrop, NOISE_K*madSd(calib.browGap)),
+        browPinch:Math.max(FLOOR.browPinch, NOISE_K*madSd(calib.browPinch)),
+      };
+      el("dThr").textContent=`아랫꺼풀 ${thr.lidRise.toFixed(3)} · `
+        +`눈썹하강 ${thr.browDrop.toFixed(3)} · 눈썹모임 ${thr.browPinch.toFixed(3)}`;
+      el("calib").innerHTML='<span style="color:var(--fit-posture)">개인 무표정 기준 확정</span> · 기준을 잡을 때의 머리 각도를 유지해 주세요';
+    }
+  }
+
+  /* 머리 각도 게이트 — 기준과 다른 각도에서 잰 값은 표정이 아니라 원근 단축이다.
+     보정하지 않고 **측정을 보류**한다: 틀린 숫자보다 모른다고 말하는 편이 낫다. */
+  let poseOff=null;
+  if(base&&g){
+    const dp=Math.abs(g.pitchProxy/base.pitch-1), dy=Math.abs(g.yawProxy-base.yaw);
+    if(dp>POSE_PITCH_TOL||dy>POSE_YAW_TOL)
+      poseOff=dp/POSE_PITCH_TOL>dy/POSE_YAW_TOL?"고개를 들거나 숙였습니다":"고개를 돌렸습니다";
+  }
+
+  /* 기하 신호 — 전부 '기준 대비 변위'이고 단위는 눈 가로폭이다.
+     기준값으로 다시 나누지 않는다: 그렇게 하면 눈이 작은 사람의 분모가 작아
+     같은 움직임이 부풀려진다(이전 버전의 편향 버그). */
+  let lidRise=null, browDrop=null, browPinch=null;
+  if(base&&thr&&g){
+    // 프레임 중앙값으로 평활한 뒤 차분 — 지터는 프레임 단위, AU는 수백 ms 지속한다
+    lidRise  =Math.max(0, base.lower    - smooth("lower",g.lower));
+    browDrop =Math.max(0, base.browGap  - smooth("browGap",g.browGap));
+    browPinch=Math.max(0, base.browPinch- smooth("browPinch",g.browPinch));
+  }
+  // 임계 대비 배율로 환산 — 1.0이 임계. (모듈 스코프의 ratio()와 이름이 겹치면
+  // 활성 비율 표시가 NaN이 된다. 실제로 그 버그가 있었다.)
+  /* 기하 채널은 **아랫꺼풀 상승 하나만** 판정에 쓴다.
+     눈썹 기하(하강·모임)는 진단에만 남긴다 — 실측에서 고개 각도 5.9% 차이가
+     눈썹 값을 13.7% 밀어냈다. 눈썹은 눈에서 멀어 세로 척도 하나로 원근을
+     상쇄할 수 없다. 같은 조건에서 blendshape browDown은 0.003으로 깨끗했으므로
+     눈썹은 blendshape이 옳은 선택이다.
+     아랫꺼풀은 눈 중심 바로 옆이라 함께 단축돼 무표정에서 0으로 유지됐다. */
+  const scaleTo=(v,t)=>v===null?null:v/t;
+  const geoOf={squint:(poseOff||!thr)?null:scaleTo(lidRise,thr.lidRise), brow:null};
+
+  const state={}; activeRegion={brow:false,eye:false,mouth:false};
+  for(const a of AUS){
+    const raw=avg(a.keys);
+    let v=base?norm(raw,base[a.key]):raw;
+    let on=v>(base?a.delta:a.abs);
+    const geo=(base&&geoOf[a.key]!=null)?geoOf[a.key]:null;
+    if(geo!==null){
+      // 기하가 주 신호, blendshape는 보조 — 둘 중 하나만 켜져도 인정
+      on=geo>=1||on;
+      v=Math.max(v/(a.delta||1),geo);   // 막대: 1.0 = 임계
+    }else if(base){ v=v/(a.delta||1); }
+    else{ v=v/(a.abs||1); }
+    state[a.key]=on; if(on)activeRegion[a.region]=true;
+    // 100% = 임계 도달. 넘어도 100%에서 자른다 — 200%처럼 보이면 값이 폭주한
+    // 것으로 읽혀 오해를 부른다. 활성 여부는 색과 막대로 전달한다.
+    el("v_"+a.key).textContent=`${Math.round(Math.min(v,1)*100)}%`;
+    el("v_"+a.key).style.color=on?"var(--fit-posture)":"var(--ink)";
+    el("b_"+a.key).style.width=`${Math.min(100,v*100)}%`;
+    el("b_"+a.key).className=on?"hot":"";
+    el("t_"+a.key).style.left="100%";   // 임계 = 막대 100%
+  }
+
+  // ---- 진단: 어떤 신호가 실제로 움직이는지 ----
+  const cheek=avg(["cheekSquintLeft","cheekSquintRight"]);
+  const eyeSq=avg(["eyeSquintLeft","eyeSquintRight"]);
+  const browBs=avg(["browDownLeft","browDownRight"]);
+  bump("cheek",cheek); bump("eyeSq",eyeSq); bump("browBs",browBs);
+  bump("blink",blinkRaw); bump("smileBs",avg(["mouthSmileLeft","mouthSmileRight"]));
+  if(lidRise!==null){bump("lid",lidRise);bump("bDrop",browDrop);bump("bPinch",browPinch);}
+  const show=(v,p,scale)=>v===null?"기준 수집 중"
+    :`${(v*scale).toFixed(scale===100?0:3)}${scale===100?"%":""} <span style="color:var(--dim)">(최대 ${((peak[p]??0)*scale).toFixed(scale===100?0:3)})</span>`;
+  el("dCheek").innerHTML=show(cheek,"cheek",100);
+  el("dEyeSq").innerHTML=show(eyeSq,"eyeSq",100);
+  el("dBrowBs").innerHTML=show(browBs,"browBs",100);
+  el("dLid").innerHTML=show(lidRise,"lid",1);
+  el("dDrop").innerHTML=show(browDrop,"bDrop",1);
+  el("dPinch").innerHTML=show(browPinch,"bPinch",1);
+  el("dLid").style.color=(geoOf.squint??0)>=1?"var(--fit-posture)":"var(--ink)";
+  el("dBlink").textContent=blink?"감김":"열림";
+  if(poseOff){
+    // blendshape은 포즈에 강건하므로 계속 쓴다 — 기하 채널만 보류한다
+    el("dSrc").innerHTML=`<span style="color:var(--warm)">기하 채널 보류 — ${poseOff}</span> · blendshape은 계속 동작`;
+    el("calib").innerHTML=`<span style="color:var(--warm)">${poseOff}</span> · 정면으로 돌아오면 눈둘레근 기하 채널이 다시 켜집니다`;
+  }else{
+    el("dSrc").textContent=base?"기하 변위 (주) + blendshape (보조)":"blendshape 폴백 (기준 수집 중)";
+    if(base)el("calib").innerHTML='<span style="color:var(--fit-posture)">개인 무표정 기준 확정</span> · 기준을 잡을 때의 머리 각도를 유지해 주세요';
+  }
+
+  // 숫자만 서버로 — 영상·랜드마크는 보내지 않는다. 개발자가 값을 볼 유일한 통로다.
+  if(Date.now()-lastDiagPost>1500){
+    lastDiagPost=Date.now();
+    const r3=v=>v===null?null:+v.toFixed(4);
+    fetch("/api/face-diag",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        calibrated:!!base,
+        blendshape_now:{cheekSquint:+cheek.toFixed(3),eyeSquint:+eyeSq.toFixed(3),
+                        browDown:+browBs.toFixed(3),eyeBlink:+blinkRaw.toFixed(3),
+                        smile:+avg(["mouthSmileLeft","mouthSmileRight"]).toFixed(3)},
+        blendshape_peak:{cheekSquint:+(peak.cheek??0).toFixed(3),
+                         eyeSquint:+(peak.eyeSq??0).toFixed(3),
+                         browDown:+(peak.browBs??0).toFixed(3),
+                         eyeBlink:+(peak.blink??0).toFixed(3),
+                         smile:+(peak.smileBs??0).toFixed(3)},
+        baseline_bs:base?{smile:+base.smile.toFixed(3),squint:+base.squint.toFixed(3),
+                          brow:+base.brow.toFixed(3)}:null,
+        geo_now:{lidRise:r3(lidRise),browDrop:r3(browDrop),browPinch:r3(browPinch)},
+        geo_peak:{lidRise:+(peak.lid??0).toFixed(4),browDrop:+(peak.bDrop??0).toFixed(4),
+                  browPinch:+(peak.bPinch??0).toFixed(4)},
+        thresholds:thr?{lidRise:+thr.lidRise.toFixed(4),browDrop:+thr.browDrop.toFixed(4),
+                        browPinch:+thr.browPinch.toFixed(4),source:`노이즈×${NOISE_K}`,
+                        blinkAperture:BLINK_APERTURE}:null,
+        noise_sd:base?{lower:+madSd(calib.lower).toFixed(4),
+                       browGap:+madSd(calib.browGap).toFixed(4),
+                       browPinch:+madSd(calib.browPinch).toFixed(4)}:null,
+        state:{blink,smile:state.smile,squint:state.squint,brow:state.brow},
+        pose:{withheld:poseOff,
+              pitchProxy:g?+g.pitchProxy.toFixed(4):null,
+              yawProxy:g?+g.yawProxy.toFixed(4):null,
+              basePitch:base?+base.pitch.toFixed(4):null,
+              baseYaw:base?+base.yaw.toFixed(4):null},
+        baseline:base?{lower:+base.lower.toFixed(4),aperture:+base.aper.toFixed(4),
+                       browGap:+base.browGap.toFixed(4),browPinch:+base.browPinch.toFixed(4)}:null,
+      })}).catch(()=>{});
+  }
+
+  const duch=state.smile&&!blink&&state.squint;
+  state.duch=duch;
+
+  const vd=el("verdict");
+  vd.className="verdict"+(duch?" on":"");
+  el("vRing").textContent=duch?"진짜":(state.smile?"사회":"–");
+  el("vLabel").textContent=duch?"눈까지 웃는 미소":(state.smile?"입만 웃는 사회적 미소":"미소 없음");
+
+  hist.push({t:Date.now(),state});
+  const cut=Date.now()-WINDOW_MS-2000;
+  while(hist.length&&hist[0].t<cut)hist.shift();
+  for(const a of AUS){
+    const r=ratio(a.key);
+    el("r_"+a.key).textContent=r===null?"–":`20초 중 ${Math.round(r*100)}%`;
+  }
+  ["brow","eye","mouth"].forEach(r=>{
+    el("lg"+r[0].toUpperCase()+r.slice(1)).className=activeRegion[r]?"on":"";
+  });
+  drawTimeline();
+}
+
+function loop(){
+  if(!running)return;
+  if(video.readyState>=2&&landmarker){
+    const now=performance.now();
+    const res=landmarker.detectForVideo(video,now);
+    fps=fps?fps*.9+(1000/Math.max(now-lastT,1))*.1:30; lastT=now;
+    const d=fit(cv), lm=res.faceLandmarks?.[0];
+    if(lm){
+      el("dot").className="dot live"; el("st").textContent="얼굴 인식 중";
+      el("lmCount").textContent=lm.length.toLocaleString("ko-KR");
+      const cats=res.faceBlendshapes?.[0]?.categories??[];
+      el("cBs").textContent=`blendshape ${cats.length}개`;
+      el("cFps").textContent=`${fps.toFixed(0)} fps`;
+      if(cats.length){const s={};for(const c of cats)s[c.categoryName]=c.score;updateAUs(s,lm);}
+      drawMesh(lm,d);
+    }else{
+      ctx.clearRect(0,0,cv.width,cv.height);
+      el("dot").className="dot"; el("st").textContent="얼굴을 찾는 중";
+    }
+  }
+  requestAnimationFrame(loop);
+}
+
+async function listCams(sel){
+  const dv=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==="videoinput");
+  el("cams").innerHTML=dv.map((d,i)=>`<option value="${d.deviceId}">${d.label||`카메라 ${i+1}`}</option>`).join("");
+  if(sel)el("cams").value=sel;
+}
+
+async function start(deviceId){
+  el("ov").hidden=true; el("st").textContent="카메라 여는 중";
+  try{
+    if(video.srcObject)video.srcObject.getTracks().forEach(t=>t.stop());
+    const stream=await navigator.mediaDevices.getUserMedia({
+      video:deviceId?{deviceId:{exact:deviceId}}:{width:{ideal:1280},height:{ideal:720}},audio:false});
+    video.srcObject=stream; await video.play();
+    await listCams(stream.getVideoTracks()[0].getSettings().deviceId);
+    if(!landmarker){
+      el("st").textContent="모델 적재 중";
+      const fs=await FilesetResolver.forVisionTasks("/vendor/wasm");
+      landmarker=await FaceLandmarker.createFromOptions(fs,{
+        baseOptions:{modelAssetPath:"/vendor/models/face_landmarker.task"},
+        runningMode:"VIDEO",numFaces:1,outputFaceBlendshapes:true});
+    }
+    running=true; lastT=performance.now(); requestAnimationFrame(loop);
+  }catch(err){
+    el("dot").className="dot bad"; el("st").textContent="실패"; el("ov").hidden=false;
+    el("ovT").textContent="카메라를 열 수 없습니다";
+    el("ovB").textContent=`${err.name}: ${err.message}. Kinect RGB는 뎁스 서비스가 점유 중일 수 있습니다 — 목록에서 다른 카메라를 선택해 주세요.`;
+    await listCams();
+  }
+}
+el("ovBtn").onclick=()=>start(el("cams").value||undefined);
+el("cams").onchange=()=>start(el("cams").value);
+listCams();
+</script>
+</body>
+</html>
