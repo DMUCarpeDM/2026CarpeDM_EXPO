@@ -12,6 +12,18 @@ export class PocApiError extends Error {
   }
 }
 
+// FastAPI의 detail은 문자열이거나(HTTPException) 검증 오류 시 {loc,msg,type} 객체 배열이다.
+// 배열/객체를 그대로 Error.message로 쓰면 화면에 "[object Object]"로 렌더되므로
+// 사람이 읽을 문자열로 정규화한다.
+export function describeApiError(detail, fallback) {
+  if (typeof detail === "string" && detail.trim()) return detail;
+  const entries = Array.isArray(detail) ? detail : detail ? [detail] : [];
+  const messages = entries
+    .map((entry) => (typeof entry === "string" ? entry : entry?.msg))
+    .filter((message) => typeof message === "string" && message.trim());
+  return messages.length ? messages.join(" · ") : fallback;
+}
+
 export function getClientKey() {
   let clientKey = localStorage.getItem(CLIENT_KEY);
   if (!clientKey) {
@@ -44,7 +56,7 @@ async function request(path, { token, ...options } = {}) {
   });
   const data = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new PocApiError(data?.detail || "서버를 실행하면 연습을 이어갈 수 있어요.", response.status);
+    throw new PocApiError(describeApiError(data?.detail, "서버를 실행하면 연습을 이어갈 수 있어요."), response.status);
   }
   return data;
 }

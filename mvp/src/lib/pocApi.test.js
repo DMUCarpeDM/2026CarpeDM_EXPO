@@ -7,7 +7,25 @@ globalThis.localStorage = {
   getItem: (key) => storage.get(key) || null,
   setItem: (key, value) => storage.set(key, String(value)),
 };
-const { createSession, resolveApiBase, submitResponse } = await import("./pocApi.js");
+const { createSession, describeApiError, resolveApiBase, submitResponse } = await import("./pocApi.js");
+
+test("describeApiError renders FastAPI 422 detail arrays as readable text, never [object Object]", () => {
+  // FastAPI 검증 오류: {loc,msg,type} 객체 배열 → msg만 뽑아 사람이 읽을 문장으로
+  const detail = [
+    { loc: ["body", "difficulty"], msg: "field required", type: "value_error.missing" },
+    { loc: ["body", "mode"], msg: "value is not a valid integer", type: "type_error.integer" },
+  ];
+  const message = describeApiError(detail, "fallback");
+  assert.equal(message, "field required · value is not a valid integer");
+  assert.doesNotMatch(message, /\[object Object\]/);
+});
+
+test("describeApiError passes through string detail and falls back when empty", () => {
+  assert.equal(describeApiError("이미 진행 중인 세션이 있어요.", "fallback"), "이미 진행 중인 세션이 있어요.");
+  assert.equal(describeApiError(undefined, "fallback"), "fallback");
+  assert.equal(describeApiError([], "fallback"), "fallback");
+  assert.equal(describeApiError({ msg: "단일 객체" }, "fallback"), "단일 객체");
+});
 
 test("resolveApiBase keeps exhibition traffic on the local PC", () => {
   assert.equal(resolveApiBase("https://remote.example.com/api"), "/api");
