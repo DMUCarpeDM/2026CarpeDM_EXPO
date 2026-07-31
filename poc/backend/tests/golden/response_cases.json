@@ -63,6 +63,18 @@
       "text": "저는 김지연이라는 사람입니다. 서버 쪽 일을 하러 왔고, 퇴근 전까지 개발 환경을 전부 갖춰 놓는 게 오늘 할 일입니다. 궁금한 건 그때그때 물어보겠습니다.",
       "expect": {"future_coverage_min": 0.7}
     },
+    {
+      "id": "ep1_missing_commute", "episode": 1, "stage": "current",
+      "note": "동문서답 — 자기소개 자리에 통근·맛집 이야기 (2026-07-29 보정 셋 확충, 전시 PC 실측 kw 0.0·sem max 0.61)",
+      "text": "지하철이 오늘따라 한산해서 일찍 도착했습니다. 회사 근처에 괜찮은 점심 집이 많다고 들었습니다. 나중에 가 보고 싶습니다.",
+      "expect": {"case": "missing", "coverage_max": 0.2, "banned_max": 0}
+    },
+    {
+      "id": "ep1_semantic_paraphrase2", "episode": 1, "stage": "semantic",
+      "note": "역할·목표·협업이 전부 일상어 — 키워드 0 커버 (전시 PC 실측 병합 0.75). ② 승격 대상",
+      "text": "새로 온 박선우라고 불러 주세요. 결제 화면 코드를 들여다보는 일을 하게 됐고, 해 지기 전까지 사내 도구 계정을 전부 열어두는 게 제 몫이에요. 막히면 혼자 끙끙대지 않고 바로 소리 내겠습니다.",
+      "expect": {"future_coverage_min": 0.7}
+    },
 
     {
       "id": "ep2_excellent_crisis", "episode": 2, "stage": "current",
@@ -116,6 +128,18 @@
       "id": "ep2_semantic_paraphrase", "episode": 2, "stage": "semantic",
       "note": "공감·확인·에스컬레이션·기한이 전부 패러프레이즈 — 키워드 전멸. ② 승격 대상",
       "text": "많이 당황스러우시겠어요. 지금 무슨 일인지 들여다보는 중이라, 위에 계신 분께 이 건을 올리고 잠시 뒤에 결과를 드리겠습니다.",
+      "expect": {"future_coverage_min": 0.6}
+    },
+    {
+      "id": "ep2_missing_smalltalk", "episode": 2, "stage": "current",
+      "note": "동문서답 — 긴급 고객 응대 자리에 요금제 잡담 (2026-07-29 확충, kw 0.0·sem max 0.59)",
+      "text": "요즘 서버 비용이 많이 올랐다던데, 클라우드 요금제는 어떤 것을 쓰고 계신가요? 저희 학교 과제 때도 고민이 많았습니다.",
+      "expect": {"case": "missing", "coverage_max": 0.2, "banned_max": 0}
+    },
+    {
+      "id": "ep2_semantic_paraphrase2", "episode": 2, "stage": "semantic",
+      "note": "공감·파악중·에스컬레이션·회신 약속 전부 일상어 — 키워드 0 커버 (실측 병합 1.0). ② 승격 대상",
+      "text": "저희도 상황을 무겁게 받아들이고 있어요. 어디서 꼬였는지 지금 들여다보는 중이고, 저보다 윗선에 곧장 알리겠습니다. 삼십 분 안으로 정리된 내용을 들려드릴게요.",
       "expect": {"future_coverage_min": 0.6}
     },
 
@@ -173,6 +197,18 @@
       "text": "한숨 돌리셔도 됩니다. 아까 새로 올린 버전이 말썽이어서 이전 버전으로 되돌렸고, 앞으로는 올리기 전에 한 번 더 살펴보겠습니다.",
       "expect": {"future_coverage_min": 0.7}
     },
+    {
+      "id": "ep3_missing_lunch", "episode": 3, "stage": "current",
+      "note": "동문서답 — 수습 보고 자리에 식당·자리 정돈 (2026-07-29 확충, kw 0.0·sem max 0.61)",
+      "text": "점심에 구내식당 메뉴가 아주 괜찮았습니다. 오후에는 자리 주변을 정돈하면서 보내려고 합니다.",
+      "expect": {"case": "missing", "coverage_max": 0.2, "banned_max": 0}
+    },
+    {
+      "id": "ep3_semantic_paraphrase2", "episode": 3, "stage": "semantic",
+      "note": "결론·원인·조치·재발방지 다른 표현 조합 — 키워드 0 커버 (실측 병합 1.0). ② 승격 대상",
+      "text": "마음 놓으셔도 될 상태예요. 어제 올라간 코드가 말썽을 부렸고, 이전 판으로 되돌리는 것으로 마무리했어요. 앞으로는 내보내기 전에 검증 단계를 하나 더 거치겠습니다.",
+      "expect": {"future_coverage_min": 0.7}
+    },
 
     {
       "id": "ep4_excellent_desc", "episode": 4, "stage": "current",
@@ -210,6 +246,18 @@
       "text": "미안, 오늘은 안 돼. 대신 내일 일찍 올게.",
       "expect": {"banmal_min": 1, "formal_max": 0.4}
     },
+    {
+      "id": "ep4_missing_drama", "episode": 4, "stage": "current",
+      "note": "동문서답 — 우선순위 협의 자리에 드라마 잡담 (2026-07-29 확충, kw 0.0·sem max 0.61)",
+      "text": "어제 본 드라마가 정말 재미있었습니다. 요즘 사무실에서도 온통 그 작품 이야기뿐이더라고요. 마지막 회가 벌써 궁금합니다.",
+      "expect": {"case": "missing", "coverage_max": 0.2, "banned_max": 0}
+    },
+    {
+      "id": "ep4_semantic_paraphrase", "episode": 4, "stage": "semantic",
+      "note": "쿠션·불가·대안이 패러프레이즈 — 키워드는 가/불가 축만 걸림 kw 0.36 (실측 병합 1.0). ② 승격 대상",
+      "text": "이렇게 먼저 물어봐 주신 건 정말 고맙게 생각해요. 다만 오늘 저녁은 빼기 어려운 약속이 있어서 자리를 지키기 힘들 것 같아요. 그 몫은 아침에 서둘러 나와 배포 상태부터 살펴보는 것으로 갚을게요.",
+      "expect": {"future_coverage_min": 0.8}
+    },
 
     {
       "id": "ep5_excellent_join", "episode": 5, "stage": "current",
@@ -245,6 +293,19 @@
       "id": "ep5_semantic_paraphrase", "episode": 5, "stage": "semantic",
       "note": "참석·호의가 전부 패러프레이즈('끼어야죠','여러분 아니었으면') — ② 승격 대상",
       "text": "저야 영광이죠, 당연히 끼어야죠! 오늘 여러분 아니었으면 큰일 날 뻔했어요.",
+      "expect": {"future_coverage_min": 0.8}
+    },
+
+    {
+      "id": "ep6_missing_interior", "episode": 6, "stage": "current",
+      "note": "동문서답 — 임원 보고 자리에 인테리어 감상 (2026-07-29 확충, kw 0.0·sem max 0.50)",
+      "text": "사무실 인테리어가 인상적입니다. 회의실 의자도 편하고 채광이 좋네요. 근무 환경이 부럽습니다.",
+      "expect": {"case": "missing", "coverage_max": 0.2, "banned_max": 0}
+    },
+    {
+      "id": "ep6_semantic_paraphrase", "episode": 6, "stage": "semantic",
+      "note": "결론·사업 영향·결정 요청이 패러프레이즈 — kw 0.33 (실측 병합 1.0). ② 승격 대상",
+      "text": "말씀드리고 싶은 핵심은 필수 기능만 추려서 내보내자는 것입니다. 이렇게 하면 이용자 신뢰를 지키면서 지연 부담을 줄일 수 있습니다. 이 자리에서 범위를 정해 주시면 뒤이어 담당자별 일정표를 바로 돌리겠습니다.",
       "expect": {"future_coverage_min": 0.8}
     }
   ]

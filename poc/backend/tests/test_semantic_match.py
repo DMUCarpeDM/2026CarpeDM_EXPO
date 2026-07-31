@@ -33,6 +33,13 @@ FAKE_VECTORS = {
 def fake_embedder(monkeypatch):
     monkeypatch.setattr(semantic_match, "available", lambda: True)
     monkeypatch.setattr(semantic_match, "_embed", lambda t: FAKE_VECTORS.get(t))
+    # 판정 경로는 배치 함수를 쓴다 — 같은 가짜 공간을 배치 형태로도 제공
+    monkeypatch.setattr(
+        semantic_match, "_embed_many",
+        lambda texts, budget_sec=None: {
+            t: v for t in texts if (v := FAKE_VECTORS.get(t)) is not None
+        },
+    )
 
 
 def test_semantic_matches_paraphrase(fake_embedder):

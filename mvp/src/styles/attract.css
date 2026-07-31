@@ -17,6 +17,19 @@
   color: #fff;
   cursor: pointer;
   user-select: none;
+  /* 숨김은 언마운트가 아니라 CSS로 처리한다 — 언마운트(AnimatePresence exit)에
+     기대면 중첩 exit 미완료 시 opacity 0 · pointer-events auto의 '보이지 않는 벽'이
+     전체 화면을 덮어 부스 터치가 전부 죽는다 (전시 PC 실발생 버그). */
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.5s ease, visibility 0s linear 0.5s;
+}
+.attract-overlay.is-on {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 0.5s ease;
 }
 .attract-glow {
   position: absolute;

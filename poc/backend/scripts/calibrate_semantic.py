@@ -67,6 +67,24 @@ def main() -> None:
                  if c.get("stage", "current") == "current"
                  and c["expect"].get("coverage_max", 1) <= 0.25]
 
+    # 전 케이스의 문장·절 + 전 앵커를 한 번의 배치로 프리웜 — 이 PC 실측상
+    # 임베딩 비용은 요청 횟수가 지배하므로(단건 ~3s) 단건 루프면 수 분이 걸린다.
+    import re
+
+    from app.ai.discourse import _sentences
+
+    warm: list[str] = []
+    for case in positives + negatives:
+        for s in _sentences(case["text"]):
+            warm.append(s)
+            clauses = [c.strip() for c in re.split(r",\s*", s) if len(c.strip()) >= 6]
+            if len(clauses) >= 2:
+                warm += clauses
+    for ep in BY_ORDER.values():
+        for item in ep["checklist"]:
+            warm += semantic_match._anchors(item)
+    semantic_match._embed_many(warm, budget_sec=120.0)
+
     pos_sims = [max(max_similarities(c)) for c in positives]
     neg_sims = [max(max_similarities(c)) for c in negatives]
     print(f"패러프레이즈(잡아야 함) 최대 유사도: {[round(s, 3) for s in pos_sims]}")
