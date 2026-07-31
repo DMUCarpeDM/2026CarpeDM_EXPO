@@ -9,7 +9,13 @@ class Settings(BaseSettings):
     jwt_secret: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24
-    cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    # 5173 = 전시 mvp · 5174 = B2B 웹앱(poc/frontend) — 동시 구동을 전제로 둘 다 허용.
+    # (웹앱 dev는 vite 프록시로 동일 출처라 CORS 무관하지만, VITE_API_URL로 직접
+    # 호출하는 구성에서도 죽지 않도록 방어적으로 열어 둔다)
+    cors_origins: list[str] = [
+        "http://localhost:5173", "http://127.0.0.1:5173",
+        "http://localhost:5174", "http://127.0.0.1:5174",
+    ]
     media_dir: Path = Path("./media")
     # 운영 API(/api/admin: 전시 초기화·CSV 내보내기) 보호 토큰 — X-Admin-Token 헤더로 대조.
     # 비우면 무인증(개발 편의). 전시장 네트워크에 열 때는 반드시 설정할 것.

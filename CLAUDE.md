@@ -17,7 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **`mvp/`** — 전시 관람객용 프론트엔드(JSX, framer-motion). **전시 당일 실제로 띄우는 화면.** `src/lib/pocApi.js`로 poc 백엔드를 호출하며 분석은 절대 중복 구현하지 않는다.
 - **`poc/docs/`** — 기술 문서(prd.json·demo-checklist·architecture 등). 루트 `docs/`는 기획·부스 운영 문서(`plan/`, hardware-order-55.md)로 별개다.
 
-**스펙 ID가 가리키는 파일은 `poc/docs/prd.json`이다.** mvp와 poc는 5173 포트가 겹치므로 동시에 띄우지 않는다. mvp는 백엔드를 **8001**로 기대한다(8000은 carpedm-kiosk가 점유).
+**스펙 ID가 가리키는 파일은 `poc/docs/prd.json`이다.** mvp는 **5173**, poc/frontend(B2B 웹앱)는 **5174 고정**(vite 프록시 → 8001)이라 동시에 띄울 수 있다. 두 프론트 모두 백엔드를 **8001**로 기대한다(8000은 carpedm-kiosk가 점유).
 
 ## 개발 명령
 

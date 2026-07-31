@@ -4,8 +4,24 @@
     {
       "name": "mirror-ting-mvp",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "mvp"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "mvp"
+      ],
       "port": 5173
+    },
+    {
+      "name": "mirror-ting-webapp",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "poc/frontend"
+      ],
+      "port": 5174
     }
   ]
 }

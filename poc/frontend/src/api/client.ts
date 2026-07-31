@@ -17,7 +17,11 @@ import type {
 } from './types';
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8001/api',
+  // 기본은 상대 경로 — dev는 vite 프록시(5174→8001), 배포는 동일 호스트 서빙을
+  // 전제해 브라우저 CORS를 원천 회피한다. 절대 URL(구 기본값 8001 직접 호출)은
+  // 5173 외 포트에서 CORS로 전 API가 죽는 함정이었다. 다른 호스트의 백엔드를
+  // 쓸 때만 VITE_API_URL로 명시 지정한다.
+  baseURL: import.meta.env.VITE_API_URL ?? '/api',
   // 응답 없는 요청은 제한 시간 후 실패시켜 재시도 UI로 넘긴다 — 무한 대기는
   // submitting 잠금과 겹쳐 키오스크 전체를 굳게 만든다 (전시 생존성)
   timeout: 10_000,
