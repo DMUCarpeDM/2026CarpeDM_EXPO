@@ -1,12 +1,18 @@
 import axios from 'axios';
 import type {
   AdminMetrics,
+  Me,
+  MySession,
   NextTurnResult,
   NonverbalMetrics,
+  OrgDetail,
+  OrgMember,
+  OrgSessionList,
   Progress,
   Report,
   RoleplaySession,
   Scenario,
+  SessionClaim,
   Turn,
 } from './types';
 
@@ -169,14 +175,83 @@ export async function getReport(sessionId: number): Promise<Report> {
   return (await api.get(`/sessions/${sessionId}/report`)).data;
 }
 
-export async function signup(email: string, password: string, name: string): Promise<void> {
-  const { data } = await api.post('/auth/signup', { email, password, name });
+export async function signup(
+  email: string,
+  password: string,
+  name: string,
+  inviteCode?: string,
+): Promise<void> {
+  // 초대 코드가 있으면 가입과 동시에 기관 소속 (S-B2B-118).
+  // 코드 불일치 시 서버가 404를 던지고 계정은 만들어지지 않는다.
+  const { data } = await api.post('/auth/signup', {
+    email,
+    password,
+    name,
+    ...(inviteCode ? { invite_code: inviteCode } : {}),
+  });
   localStorage.setItem('mirror-ting-token', data.access_token);
 }
 
 export async function login(email: string, password: string): Promise<void> {
   const { data } = await api.post('/auth/login', { email, password });
   localStorage.setItem('mirror-ting-token', data.access_token);
+}
+
+// ---- B2B 온보딩 교육 (S-B2B-101·S-B2B-118) ----
+
+/** 로그인 토큰 존재 여부 — 네비게이션·페이지 게이트용 */
+export function authToken(): string {
+  return localStorage.getItem('mirror-ting-token') ?? '';
+}
+
+export function clearAuthToken(): void {
+  localStorage.removeItem('mirror-ting-token');
+}
+
+export async function getMe(): Promise<Me> {
+  return (await api.get('/auth/me')).data;
+}
+
+export async function getOrgDetail(orgId: number): Promise<OrgDetail> {
+  return (await api.get(`/orgs/${orgId}`)).data;
+}
+
+/** 초대 코드 회전 — 기존 코드는 즉시 만료된다 (매니저 전용) */
+export async function rotateOrgInvites(orgId: number): Promise<OrgDetail> {
+  return (await api.post(`/orgs/${orgId}/invites/rotate`)).data;
+}
+
+export async function getOrgMembers(orgId: number): Promise<OrgMember[]> {
+  return (await api.get(`/orgs/${orgId}/members`)).data;
+}
+
+export async function getOrgSessions(
+  orgId: number,
+  opts: { jobRole?: string; limit?: number; offset?: number } = {},
+): Promise<OrgSessionList> {
+  const { data } = await api.get(`/orgs/${orgId}/sessions`, {
+    params: {
+      job_role: opts.jobRole || undefined,
+      limit: opts.limit ?? 50,
+      offset: opts.offset ?? 0,
+    },
+  });
+  return data;
+}
+
+/** 수강생 본인 연습 이력 — /me/results 데이터 소스 */
+export async function getMySessions(): Promise<MySession[]> {
+  return (await api.get('/sessions/mine')).data;
+}
+
+/** 클레임 미리보기 — claim_token 자체가 능력 토큰이라 무인증 (S-B2B-111) */
+export async function previewClaim(claimToken: string): Promise<SessionClaim> {
+  return (await api.get(`/sessions/claim/${encodeURIComponent(claimToken)}`)).data;
+}
+
+/** 세션을 내 계정에 귀속 — 404 위조 토큰, 409 타인 귀속 */
+export async function claimSession(claimToken: string): Promise<SessionClaim> {
+  return (await api.post('/sessions/claim', { claim_token: claimToken })).data;
 }
 
 /** 운영 토큰 — 서버에 MIRROR_TING_ADMIN_TOKEN이 설정된 경우 운영 API 호출에 필요 */

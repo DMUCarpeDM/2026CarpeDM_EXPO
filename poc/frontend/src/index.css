@@ -3512,3 +3512,456 @@ h2 .icon {
 .glasses-hud.no-fx .glasses-speaking-ping,
 .glasses-hud.no-fx .glasses-mic-btn.recording,
 .glasses-hud.no-fx .glasses-calib-ring.active { animation: none; }
+
+/* ---- B2B 온보딩 웹앱 (S-B2B-112·S-B2B-114·S-B2B-118) ---- */
+
+.b2b-page-header .section-sub {
+  margin-bottom: 0;
+}
+
+.b2b-brand-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+}
+
+.b2b-brand-mark {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+}
+
+/* 대시보드는 테이블이 있어 기본 페이지 폭보다 넓게 쓴다 */
+.org-dashboard {
+  max-width: 1080px;
+}
+
+.org-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--s-3);
+  margin-bottom: var(--s-4);
+}
+
+.org-summary-grid .metric-value {
+  font-size: 1.15rem; /* 기관명이 길어도 카드가 무너지지 않게 */
+}
+
+.invite-block {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  flex-wrap: wrap;
+}
+
+.invite-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+.invite-code {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--s-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  padding: 8px 14px;
+}
+
+.invite-code strong {
+  font-family: ui-monospace, 'Cascadia Mono', monospace;
+  font-size: 1.05rem;
+  letter-spacing: 0.12em;
+}
+
+.invite-code em {
+  font-style: normal;
+  color: var(--text-3);
+  font-size: 0.76rem;
+}
+
+.invite-code.inactive {
+  opacity: 0.5;
+}
+
+/* ---- 데이터 테이블 (읽기 전용) ---- */
+.table-scroll {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.data-table th {
+  text-align: left;
+  color: var(--text-3);
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: var(--s-2) var(--s-3);
+  border-bottom: 1px solid var(--border-strong);
+  white-space: nowrap;
+}
+
+.data-table td {
+  padding: var(--s-3);
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.data-table tbody tr:hover {
+  background: var(--surface-2);
+}
+
+.cell-sub {
+  display: block;
+  color: var(--text-3);
+  font-size: 0.76rem;
+}
+
+.role-chip {
+  margin-left: var(--s-2);
+  font-size: 0.7rem;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-full);
+  padding: 1px 8px;
+  vertical-align: 1px;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin-bottom: var(--s-3);
+  font-size: 0.86rem;
+  color: var(--text-2);
+}
+
+.filter-row select {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  padding: 8px 12px;
+  font-size: 0.86rem;
+  font-family: inherit;
+  margin-left: var(--s-2);
+}
+
+.filter-total {
+  margin: 0;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-3);
+  margin-top: var(--s-4);
+}
+
+.pager .ghost-btn {
+  padding: 8px 14px;
+  font-size: 0.84rem;
+}
+
+.pager .section-sub {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- 등급 배지 (점수 표기 방침 S-B2B-112) ---- */
+.grade-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--r-full);
+  padding: 3px 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  border: 1px solid var(--border-strong);
+  color: var(--text-2);
+  background: var(--surface-2);
+}
+
+.grade-badge.good {
+  color: var(--good);
+  border-color: var(--good);
+  background: var(--good-weak);
+}
+
+.grade-badge.ok {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-weak);
+}
+
+.grade-badge.mid {
+  color: var(--warn);
+  border-color: var(--warn);
+  background: rgba(183, 121, 31, 0.1);
+}
+
+.grade-badge.low {
+  color: var(--bad);
+  border-color: var(--bad);
+  background: var(--bad-weak);
+}
+
+.grade-badge.lg {
+  font-size: 1.05rem;
+  padding: 6px 20px;
+}
+
+/* 원점수 보조 표기 — 등급 옆에 작게 (수강생 화면은 참고 표기, 관리자 화면은 병기) */
+.score-sub {
+  display: inline-block;
+  margin-left: var(--s-2);
+  color: var(--text-3);
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- 4-Fit 미니 게이지 (숫자 없는 시각 표기) ---- */
+.fit-mini {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--s-2) var(--s-4);
+  margin-top: var(--s-4);
+}
+
+.fit-mini-item {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.fit-mini-label {
+  color: var(--text-3);
+  font-size: 0.76rem;
+  width: 28px;
+  flex-shrink: 0;
+}
+
+.fit-mini-track {
+  flex: 1;
+  height: 6px;
+  border-radius: var(--r-full);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.fit-mini-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--r-full);
+  background: var(--accent);
+}
+
+/* ---- 내 결과 (D-16) ---- */
+.result-card {
+  padding: var(--s-5) var(--s-6);
+}
+
+.result-card-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--s-4);
+  flex-wrap: wrap;
+}
+
+.result-card-title {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+
+.result-card-title strong {
+  font-size: 1.02rem;
+}
+
+.result-card-meta {
+  color: var(--text-3);
+  font-size: 0.8rem;
+}
+
+.result-card-grade {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+}
+
+.result-card-status {
+  color: var(--text-3);
+  font-size: 0.78rem;
+}
+
+.empty-card {
+  color: var(--text-2);
+  text-align: center;
+}
+
+/* ---- 클레임 (S-B2B-111) ---- */
+.claim {
+  justify-content: center;
+  max-width: 520px;
+}
+
+.claim-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  text-align: center;
+  align-items: center;
+}
+
+.claim-card h1 {
+  font-size: 1.35rem;
+}
+
+.claim-brand {
+  width: 220px;
+  max-width: 70%;
+}
+
+.claim-summary {
+  width: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.claim-summary > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--s-3);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--s-2);
+}
+
+.claim-summary dt {
+  color: var(--text-3);
+  font-size: 0.82rem;
+}
+
+.claim-summary dd {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.claim-auth-actions {
+  display: flex;
+  gap: var(--s-3);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.claim-grade {
+  margin: var(--s-2) 0;
+}
+
+/* ---- PIPA 동의 (D-14, 문구: docs/plan/b2b/consent-copy.md) ---- */
+.consent-box {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  padding: var(--s-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  text-align: left;
+}
+
+.consent-box h2 {
+  margin: 0;
+}
+
+.consent-copy {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 0.86rem;
+  line-height: 1.7;
+}
+
+.consent-copy strong,
+.consent-box .consent-list strong {
+  color: var(--text);
+}
+
+.consent-box .consent-list {
+  margin: 0;
+}
+
+.consent-box .consent-check {
+  align-items: flex-start;
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.consent-box .consent-check input {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.consent-check.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.consent-check.consent-required {
+  border-top: 1px solid var(--border-strong);
+  padding-top: var(--s-3);
+  font-weight: 600;
+}
+
+.consent-full {
+  color: var(--text-2);
+  font-size: 0.84rem;
+}
+
+.consent-full summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 0.84rem;
+}
+
+.consent-full-body {
+  margin-top: var(--s-3);
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  padding: var(--s-4);
+  line-height: 1.7;
+}
+
+.consent-full-body h3 {
+  font-size: 0.84rem;
+  margin: var(--s-3) 0 var(--s-1);
+  color: var(--text);
+}
+
+.consent-full-body p,
+.consent-full-body ul {
+  margin: 0 0 var(--s-2);
+}
+
+.consent-full-body ul {
+  padding-left: 18px;
+}
+
+.invite-hint {
+  margin: 0;
+}
