@@ -220,6 +220,15 @@ def test_job_role_selection_without_nfc():
     changed = client.patch("/api/auth/me", headers=headers, json={"job_role": "cafe_crew"})
     assert changed.status_code == 200 and changed.json()["job_role"] == "cafe_crew"
 
+    # 세션 생성의 직무도 같은 화이트리스트 — 오타 직무가 대시보드 집계에서
+    # 조용히 빠지는 대신 422로 즉시 거부된다
+    assert client.post("/api/sessions", json={
+        "mode": 5, "consent": CONSENT, "job_role": "CS_AGENT",
+    }).status_code == 422
+    assert client.post("/api/sessions", json={
+        "mode": 5, "consent": CONSENT, "job_role": "cs_agent",
+    }).status_code == 200
+
     # 초대 코드 + 직무 동시 가입
     org = _create_org(suffix)
     resp = client.post("/api/auth/signup", json={

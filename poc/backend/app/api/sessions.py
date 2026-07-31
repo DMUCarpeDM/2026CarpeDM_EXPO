@@ -150,6 +150,15 @@ def create_session(
         if nfc_bridge.recent_tap_matches(body.nfc_uid):
             card_org_id = card.institution_id
 
+    # 직무 검증 — 다른 모든 job_role 입력 경로(signup·/orgs/join·PATCH /me·nfc/issue)와
+    # 같은 화이트리스트를 쓴다. 무검증 스탬프는 기관 대시보드의 직무 필터·KPI 집계에서
+    # 오타 세션이 조용히 빠지는 구멍이 된다.
+    if job_role:
+        from app.api.orgs import JOB_ROLES
+
+        if job_role not in JOB_ROLES:
+            raise HTTPException(status_code=422, detail="알 수 없는 직무입니다")
+
     query = db.query(Scenario).filter_by(is_active=True)
     scenario = (
         query.filter_by(slug=scenario_slug).first()

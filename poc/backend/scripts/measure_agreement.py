@@ -56,19 +56,38 @@ def krippendorff_alpha_interval(ratings: dict[str, dict[str, float]]) -> float |
 
 
 def cmd_template(out_path: str) -> None:
-    """완료 세션에서 채점 시트 생성 — 대화 전문과 judge 점수(있으면)를 함께 담는다."""
+    """완료 세션에서 채점 시트 생성 — 대화 전문과 judge 점수(있으면)를 함께 담는다.
+
+    필터는 limit **이전** SQL 단계에서 건다: 미저장 동의로 발화가 파기된 세션과
+    데모 시드(demo-*)가 최근 30건 창을 소진하면, 더 오래된 채점 가능(보관 동의)
+    세션이 있어도 시트가 비는 표본 고갈이 생긴다.
+    """
     from app.core.database import SessionLocal
-    from app.models import AnalysisResult, FitType, RoleplaySession, SessionStatus
+    from app.models import (
+        DEMO_CLIENT_KEY_PREFIX,
+        AnalysisResult,
+        FitType,
+        RoleplaySession,
+        SessionStatus,
+        Turn,
+    )
 
     db = SessionLocal()
     try:
         sessions = (
             db.query(RoleplaySession)
-            .filter(RoleplaySession.status == SessionStatus.completed)
+            .filter(
+                RoleplaySession.status == SessionStatus.completed,
+                ~RoleplaySession.client_key.like(f"{DEMO_CLIENT_KEY_PREFIX}%"),
+                RoleplaySession.turns.any(Turn.response_text != ""),
+            )
             .order_by(RoleplaySession.id.desc())
             .limit(30)
             .all()
         )
+        if not sessions:
+            print("채점 가능한 세션이 없습니다 — 발화가 보존된(익명/계정 저장 동의) "
+                  "완료 세션이 필요합니다. 미저장 동의 세션은 발화가 파기되어 채점 불가.")
         with open(out_path, "w", newline="", encoding="utf-8-sig") as f:
             writer = csv.writer(f)
             writer.writerow(["session_id", "rater", "score", "transcript"])
@@ -78,7 +97,7 @@ def cmd_template(out_path: str) -> None:
                     for t in s.turns if t.response_text
                 )
                 if not transcript:
-                    continue  # 미저장 동의로 발화가 파기된 세션은 채점 불가
+                    continue  # 방어적 이중 확인 (쿼리 필터가 1차 방어선)
                 judge_row = (
                     db.query(AnalysisResult)
                     .filter_by(session_id=s.id, turn_id=None, fit_type=FitType.response)

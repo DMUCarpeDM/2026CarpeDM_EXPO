@@ -39,14 +39,31 @@ function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
       // 초대 코드 불일치는 404 — 계정 자체가 만들어지지 않았음을 분명히 알린다 (S-B2B-118)
       if (mode === 'signup' && isAxiosError(err) && err.response?.status === 404 && inviteCode.trim()) {
         setError('초대 코드가 올바르지 않습니다. 코드를 확인해 주세요. (계정은 만들어지지 않았어요)');
-      } else if (mode === 'signup' && isAxiosError(err) && err.response?.status === 422 && jobRole) {
-        // 알 수 없는 직무는 422 — 이때도 계정은 만들어지지 않는다 (S-B2B-PACK)
-        setError('직무 값이 올바르지 않습니다. 직무를 다시 선택해 주세요. (계정은 만들어지지 않았어요)');
       } else {
-        // pydantic 검증 422는 detail이 배열이므로 문자열일 때만 그대로 보여준다
+        // 422는 상태코드만으로 원인을 알 수 없다 — 직무 오류(detail 문자열)와
+        // pydantic 필드 검증(detail 배열: 이메일 형식·비밀번호 길이 등)을 detail로
+        // 구분한다. 상태코드+직무선택만 보고 직무 오류로 단정하면, 이메일 오타
+        // 사용자가 직무를 아무리 다시 골라도 가입이 막히는 미로에 갇힌다.
         const detail =
           (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
-        setError(typeof detail === 'string' ? detail : '요청에 실패했습니다.');
+        if (typeof detail === 'string') {
+          const suffix = mode === 'signup' ? ' (계정은 만들어지지 않았어요)' : '';
+          setError(`${detail}${suffix}`);
+        } else if (Array.isArray(detail)) {
+          const fields = detail
+            .map((d) => (Array.isArray((d as { loc?: unknown[] }).loc) ? String((d as { loc: unknown[] }).loc[1] ?? '') : ''))
+            .filter(Boolean);
+          const fieldLabel: Record<string, string> = {
+            email: '이메일 형식을 확인해 주세요 (예: name@example.com).',
+            password: '비밀번호는 8자 이상이어야 해요.',
+            invite_code: '초대 코드가 너무 길어요. 코드만 붙여넣었는지 확인해 주세요.',
+            job_role: '직무 값이 올바르지 않습니다. 직무를 다시 선택해 주세요.',
+          };
+          const known = fields.map((f) => fieldLabel[f]).filter(Boolean);
+          setError(known[0] ?? '입력 값을 확인해 주세요.');
+        } else {
+          setError('요청에 실패했습니다.');
+        }
       }
     } finally {
       setBusy(false);
@@ -88,6 +105,7 @@ function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
             <input
               placeholder="초대 코드 (선택)"
               value={inviteCode}
+              maxLength={32}
               autoCapitalize="off"
               autoCorrect="off"
               onChange={(e) => setInviteCode(e.target.value)}
