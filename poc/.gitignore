@@ -24,5 +24,8 @@ public/models/
 # 오프라인 STT 모델 (backend/scripts/setup_offline_stt.py 생성물)
 backend/models
 .claude-backend.log
+# 기동 스크립트의 백엔드 로그 (start-exhibition.ps1)
+backend/backend-dev.log
+backend/backend-dev.out.log
 backend/demo_mirror.db
 backend/demo_verify.db

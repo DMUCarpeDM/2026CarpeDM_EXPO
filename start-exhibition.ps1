@@ -30,13 +30,16 @@ if ($LASTEXITCODE -ne 0) {
     if (-not (Wait-Url 'http://localhost:11434/api/version')) { throw 'Ollama가 응답하지 않습니다' }
 } else { Write-Host '[1/3] Ollama 이미 실행 중' }
 
-# 2) 분석 서버 (FastAPI :8001)
+# 2) 분석 서버 (FastAPI :8001) — 로그를 파일로 남긴다: 조용히 죽었을 때
+#    "장면이 없어요" 같은 2차 증상만 남고 사인을 알 수 없던 문제의 재발 방지
 & "$env:SystemRoot\System32\curl.exe" -s --max-time 3 http://127.0.0.1:8001/api/health | Out-Null
 if ($LASTEXITCODE -ne 0) {
-    Write-Host '[2/3] 분석 서버 시작...'
+    Write-Host '[2/3] 분석 서버 시작... (로그: poc\backend\backend-dev.log)'
     Start-Process -FilePath (Join-Path $backend '.venv\Scripts\python.exe') `
         -ArgumentList '-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8001' `
-        -WorkingDirectory $backend -WindowStyle Hidden
+        -WorkingDirectory $backend -WindowStyle Hidden `
+        -RedirectStandardError (Join-Path $backend 'backend-dev.log') `
+        -RedirectStandardOutput (Join-Path $backend 'backend-dev.out.log')
     if (-not (Wait-Url 'http://127.0.0.1:8001/api/health')) { throw '분석 서버가 응답하지 않습니다' }
 } else { Write-Host '[2/3] 분석 서버 이미 실행 중' }
 
@@ -55,5 +58,14 @@ Write-Host "`n/api/health → $health`n"
 if ($health -match '"dialogue":\s*false') {
     Write-Warning 'Ollama 대화 모델 미가동 — ollama pull exaone3.5:2.4b 필요 (실제 시뮬레이션 불가)'
 }
+# +) B2B 웹앱 (Vite :5174, 선택) — 실패해도 전시(1~3단계)에는 영향 없음
+& "$env:SystemRoot\System32\curl.exe" -s --max-time 3 http://localhost:5174 | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host '[+] B2B 웹앱 시작... (http://localhost:5174)'
+    Start-Process -FilePath "C:\Program Files\nodejs\npm.cmd" -ArgumentList 'run','dev' `
+        -WorkingDirectory (Join-Path $root 'poc\frontend') -WindowStyle Hidden
+    if (-not (Wait-Url 'http://localhost:5174' 10)) { Write-Warning 'B2B 웹앱이 응답하지 않습니다 (전시에는 영향 없음)' }
+} else { Write-Host '[+] B2B 웹앱 이미 실행 중' }
+
 Start-Process 'http://localhost:5173'
-Write-Host '전시 준비 완료 — 카메라·마이크 권한을 허용하세요.'
+Write-Host '전시 준비 완료 — 카메라·마이크 권한을 허용하세요. (B2B 웹앱: http://localhost:5174)'

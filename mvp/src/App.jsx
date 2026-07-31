@@ -239,12 +239,27 @@ export default function App() {
 
   useEffect(() => { window.scrollTo(0, 0); }, [active]);
   useEffect(() => {
-    getScenarios()
-      .then((items) => {
-        setApiScenarios(items);
-        setPocScenarioSlug((currentSlug) => currentSlug || items[0]?.slug || "");
-      })
-      .catch(() => setApiError("서버를 실행하면 연습을 시작할 수 있어요."));
+    // 시나리오 목록은 성공할 때까지 재시도한다 — 백엔드가 프론트보다 늦게 켜지면
+    // 마운트 1회 조회는 영영 빈 목록으로 남아, 모든 역할이 "장면이 없어요"로
+    // 보이는 오진(백엔드 다운을 콘텐츠 부재로 표시)을 만든다.
+    let cancelled = false;
+    let timer = 0;
+    const load = () => {
+      getScenarios()
+        .then((items) => {
+          if (cancelled) return;
+          setApiScenarios(items);
+          setPocScenarioSlug((currentSlug) => currentSlug || items[0]?.slug || "");
+          setApiError("");
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setApiError("서버를 실행하면 연습을 시작할 수 있어요.");
+          timer = window.setTimeout(load, 5000); // 서버가 켜지면 자동 복구
+        });
+    };
+    load();
+    return () => { cancelled = true; window.clearTimeout(timer); };
   }, []);
   useEffect(() => {
     setSelectedEpisodeId((currentId) => roleScenarioOptions.some((item) => item.episodeId === currentId) ? currentId : roleScenarioOptions[0]?.episodeId || null);
