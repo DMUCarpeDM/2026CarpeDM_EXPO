@@ -53,13 +53,13 @@ npx tsc -b        # 타입검사만
 
 ```bash
 cd poc/backend
-./.venv/bin/python -m pytest tests                                    # 전체 (313 passed / 4 skipped)
+./.venv/bin/python -m pytest tests                    # 전체 (2026-07-31 기준 460 passed — Ollama 미가동 시 일부 skip)
 ./.venv/bin/python -m pytest tests/test_scoring.py                    # 파일 하나
 ./.venv/bin/python -m pytest tests/test_scoring.py::test_weighted_mean # 테스트 하나
 ./.venv/bin/python -m pytest -k voice                                 # 이름 필터
 ```
 
-`poc/backend/tests/`에 31개 파일. `tests/golden/`의 JSON 케이스(`response_cases.json`, `session_cases.json`)로 회귀를 고정하는 골든 하네스가 있다. CI(`.github/workflows/ci.yml`)는 **세 잡**을 돌린다: poc/backend(Python 3.12 `pytest`), poc/frontend(Node 22 `tsc -b` + `npm test` + `build`), mvp(Node 22 `npm test` + `build`). **린트(oxlint)는 CI에 없으므로 로컬에서 돌린다.**
+`poc/backend/tests/`에 45개 파일. `tests/golden/`의 JSON 케이스(`response_cases.json`, `session_cases.json`)로 회귀를 고정하는 골든 하네스가 있다. CI(`.github/workflows/ci.yml`)는 **세 잡**을 돌린다: poc/backend(Python 3.12 `pytest`), poc/frontend(Node 22 `tsc -b` + `npm test` + `build`), mvp(Node 22 `npm test` + `build`). **린트(oxlint)는 CI에 없으므로 로컬에서 돌린다.**
 
 ### 오프라인 자산 / 데모 데이터
 
@@ -86,11 +86,11 @@ cd poc/backend
 
 **4-Fit 분석**(`app/ai/`): Response-Fit(의미 매칭·담화 구조), Voice-Fit(음성 DSP·텍스트-음성 정렬), Eye-Fit·Posture-Fit(브라우저 MediaPipe 지표를 서버가 점수화), + 표정(관찰 레이어), + 심층 교차 분석(`app/services/deep_analysis.py`, `moments.py` — 비언어·음성·턴 맥락을 시간 정렬한 "결정적 순간" 감지). 모든 원시 지표는 `app/ai/scoring.py`의 `band_score`로 0~100 정규화 후 가중 평균한다.
 
-**대화 엔진**(`app/services/dialogue/`): `template_provider`(항상 동작) 또는 `ollama_provider`(로컬 LLM 개인화). `MIRROTING_DIALOGUE_PROVIDER`로 선택하며 타임아웃·형식 오류 시 템플릿으로 폴백한다.
+**대화 엔진**(`app/services/dialogue/`): `template_provider`(항상 동작) 또는 `ollama_provider`(로컬 LLM 개인화). `MIRROR_TING_DIALOGUE_PROVIDER`로 선택하며 타임아웃·형식 오류 시 템플릿으로 폴백한다.
 
 디렉터리 책임:
 
-- `poc/backend/app/core/` 설정·DB·JWT · `app/models/`·`app/schemas/` 도메인 모델·pydantic 스키마 · `app/seed/` 시나리오 세계관·에피소드·체크리스트·금지어 · `app/services/` 대화 엔진·분석 오케스트레이션·리포트·FSM · `app/ai/` 4-Fit 모듈·점수 정규화·STT 제공자 · `app/api/` REST 라우터(전부 `/api` prefix: auth·scenarios·sessions·reports·admin·codes)
+- `poc/backend/app/core/` 설정·DB·JWT · `app/models/`·`app/schemas/` 도메인 모델·pydantic 스키마 · `app/seed/` 시나리오 세계관·에피소드·체크리스트·금지어 + **시나리오 팩**(`packs/*.json` — 파일 하나가 직무 시나리오 하나: 페르소나·리액션 풀·루브릭 가중치·감정 프로파일·결말, 로더는 `packs.py`)·브랜드 응대 매뉴얼(`manuals/`) · `app/services/` 대화 엔진·감정 상태 머신(`dialogue/emotion.py`)·분석 오케스트레이션·리포트·FSM·점수 표기 방침(`score_policy.py`)·NFC 브리지(`nfc_bridge.py`) · `app/ai/` 4-Fit 모듈·점수 정규화·STT 제공자·LLM judge(`judge.py`)·파라링귀스틱(`paralinguistics.py`)·매뉴얼 검색(`manual_rag.py`) · `app/api/` REST 라우터(전부 `/api` prefix: auth·scenarios·sessions·reports·admin·codes·orgs·nfc)
 - `mvp/src/pages/` 전시 흐름 화면(Home·setup/·Preview·Practice·Result·Compare·Feedback·Share) · `src/lib/` pocApi(백엔드 계약)·audioWav·useFaceTracking·reportFits·exhibitionSession · `src/components/` report·setup·navigation·ui · `src/data/` 역할·상황·목표 선택 카탈로그(전시 전용, 백엔드엔 difficulty/mode/`scenario_slug`만 전달)
 - `poc/frontend/src/features/` (레거시) 화면 단위(onboarding·roleplay·report·kiosk·admin·auth) · `src/lib/` stt·tts·recorder(WAV 인코딩)·mirror mode · `src/stores/` zustand · `src/api/` axios client
 
@@ -103,7 +103,7 @@ cd poc/backend
 ## 코드 규약 (비자명한 것)
 
 - **스펙 ID 추적** — 코드 주석의 `S-XXXXXX`(스펙) / `F-XXXXXX`(기능) / `R-XXXXXX`(요구사항)는 `poc/docs/prd.json`의 ID를 가리킨다. 새 기능은 관련 ID를 주석에 남긴다.
-- **설정** — pydantic-settings, env 접두사 `MIRROTING_`, `.env` 파일. 모든 기본값은 `app/core/config.py`에 있다(예: `MIRROTING_DIALOGUE_PROVIDER=ollama`, `MIRROTING_STT_WHISPER_MODEL=small`).
+- **설정** — pydantic-settings, env 접두사 `MIRROR_TING_`, `.env` 파일. 모든 기본값은 `app/core/config.py`에 있다(예: `MIRROR_TING_DIALOGUE_PROVIDER=ollama`, `MIRROR_TING_STT_WHISPER_MODEL=small`). `STT_WHISPER_MODEL`은 크기 이름 또는 로컬 디렉터리 경로 — 상대 경로는 backend 루트 기준으로도 해석된다(`app/ai/stt/base.py`).
 - **Python 버전** — 3.12가 기준. 3.14도 동작하지만 faster-whisper(ctranslate2 휠 부재)가 빠져 서버 STT는 Vosk 폴백만 쓴다. 그래서 `app/ai/voice_fit.py`는 librosa/llvmlite 대신 numpy 기반 독립 모듈로 작성돼 있다.
 - **Voice-Fit 측정 정책** — 오디오가 있으면 실측, 음성인식 턴은 발화시간 근사, 텍스트입력 턴은 측정 제외(지표 오염 방지). 이 구분을 무너뜨리지 않는다.
 - **코칭 코멘트 구조** — 모든 코멘트는 "관측 → 해석 → 처방(따라 말할 예시 문장)"을 따른다. 시드 체크리스트는 실무 화법 프레임워크(PREP 결론 우선 보고, 4단계 사과, DESC 거절)에 정렬돼 있다.
@@ -120,4 +120,8 @@ cd poc/backend
 
 리포트에서 4자리 익명 코드가 발급되고 재방문 시 최근 10회 점수 추이가 이어진다(`/api/codes`, `/api/reports/history`). 상세는 `poc/docs/`(demo-checklist.md, mirror-ux-plan.md, hardware-plan.md, pitch/), 부스 기획은 루트 `docs/plan/` 참고.
 
-**전시 전 필수 보정** — `poc/docs/demo-checklist.md`가 기준이다. 특히 의미 매칭 임계값은 개발 맥 기준이라 전시 PC에서 `scripts/calibrate_semantic.py`로 반드시 재보정하고, 떨림 임계값(`MIRROTING_TREMOR_*_FLOOR`) 기본값은 합성 신호 보정치라 실제 육성 검증이 필요하다.
+**B2B 온보딩 확장 (2026-07-31)** — 기관(초대 코드)·NFC 카드(ACR122U, 발급 키오스크 `?kiosk=issue` → 미러 태그 즉시 시작)·영수증 QR 클레임·감정 상태 머신(카페 온도 팩)·judge 3겹이 얹혀 있다. 결정 기록은 `docs/plan/b2b/`(PRD·ADR·동의 문구), 스펙 ID는 `S-B2B-*`. 수강생 화면 점수는 등급 표기(`score_policy.py`), 전시 mvp는 점수 유지.
+
+**전시 전 필수 보정** — `poc/docs/demo-checklist.md`가 기준이다. 특히 의미 매칭 임계값은 개발 맥 기준이라 전시 PC에서 `scripts/calibrate_semantic.py`로 반드시 재보정하고, 떨림 임계값(`MIRROR_TING_TREMOR_*_FLOOR`) 기본값은 합성 신호 보정치라 실제 육성 검증이 필요하다.
+
+**Windows 전시 PC** — 실제 전시는 Windows PC에서 돌아간다. 매일 기동은 루트 `start-exhibition.ps1`(Ollama→백엔드 8001→mvp 5173), 셋업 차이는 루트 `WINDOWS-SETUP.md` 참조(ctranslate2==4.4.0 고정, 테스트 시 `PYTHONUTF8=1` 필요).

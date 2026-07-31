@@ -48,7 +48,7 @@ export function HomePage({ onNext }) {
         </div>
       </section>
 
-      <section className="home-advantages" aria-label="Mirrorting 서비스 장점">
+      <section className="home-advantages" aria-label="Mirror-Ting 서비스 장점">
         <div className="home-advantages-head">
           <span>매일의 대화를 위한 AI 코칭</span>
           <h2>대화를 더 편하게 만드는<br />5가지 연습 방법</h2>

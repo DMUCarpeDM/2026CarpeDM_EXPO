@@ -1,4 +1,4 @@
-# Mirrorting Frontend Improvement Plan
+# Mirror-Ting Frontend Improvement Plan
 
 ## Fixed Decisions
 
@@ -14,7 +14,7 @@
 - [x] Wave 1: Create `DESIGN.md` as the root design contract.
 - [x] Wave 1: Create this implementation checklist.
 - [x] Wave 1: Add `framer-motion`.
-- [x] Wave 1: Add `MotionSection`, `MobileMenuSheet`, `MirrortingIcon`, and `ProductBenefitSection`.
+- [x] Wave 1: Add `MotionSection`, `MobileMenuSheet`, `MirrorTingIcon`, and `ProductBenefitSection`.
 - [x] Wave 2: Add scroll-driven product benefits below the home hero.
 - [x] Wave 3: Reduce visible information density on selection flows with compact summary/help panels.
 - [x] Wave 4: Add mobile hamburger and bottom-sheet navigation.
@@ -35,7 +35,7 @@
 
 ## QA Evidence Targets
 
-- Desktop screenshot: `/tmp/mirrorting-home-desktop.png`
-- Tablet screenshot: `/tmp/mirrorting-home-tablet.png`
-- Mobile screenshot: `/tmp/mirrorting-home-mobile.png`
-- Browser QA JSON summary: `/tmp/mirrorting-frontend-qa.json`
+- Desktop screenshot: `/tmp/mirror-ting-home-desktop.png`
+- Tablet screenshot: `/tmp/mirror-ting-home-tablet.png`
+- Mobile screenshot: `/tmp/mirror-ting-home-mobile.png`
+- Browser QA JSON summary: `/tmp/mirror-ting-frontend-qa.json`

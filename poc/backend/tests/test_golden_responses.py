@@ -17,7 +17,9 @@ from app.ai.response_fit import analyze_response, score_response
 from app.seed.seed_data import EPISODES
 from app.services.dialogue import reactions
 
-GOLDEN = json.loads((Path(__file__).parent / "golden" / "response_cases.json").read_text())
+GOLDEN = json.loads(
+    (Path(__file__).parent / "golden" / "response_cases.json").read_text(encoding="utf-8")
+)
 CASES = GOLDEN["cases"]
 CURRENT = [c for c in CASES if c.get("stage", "current") == "current"]
 SEMANTIC = [c for c in CASES if c.get("stage") == "semantic"]
@@ -147,7 +149,9 @@ def test_determinism():
 
 # ---- 수행도 → 하루의 결말 시나리오 ----
 
-SESSIONS = json.loads((Path(__file__).parent / "golden" / "session_cases.json").read_text())
+SESSIONS = json.loads(
+    (Path(__file__).parent / "golden" / "session_cases.json").read_text(encoding="utf-8")
+)
 
 
 @pytest.mark.parametrize("scenario", SESSIONS["scenarios"], ids=lambda s: s["id"])

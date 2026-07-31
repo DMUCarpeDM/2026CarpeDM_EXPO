@@ -1,5 +1,5 @@
 goal: >-
-  Transform the Mirrorting MVP into a 1920x1080 kiosk-ready desktop exhibition
+  Transform the Mirror-Ting MVP into a 1920x1080 kiosk-ready desktop exhibition
   application whose mockup-aligned UI uses the PoC backend's real four-Fit
   analysis from camera and microphone input, without requiring internet access.
 

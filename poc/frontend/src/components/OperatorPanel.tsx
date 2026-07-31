@@ -15,7 +15,7 @@ const HOLD_MS = 3000;
 // 측정 샘플링 주기 후보 (§2.5 실기기 튜닝). 200ms=5Hz 기본, 100ms=10Hz는
 // 깜빡임·끄덕임 과소집계를 줄이지만 CPU 부하가 오른다 — 전시 PC에서 실측 후 선택.
 const SAMPLE_OPTIONS = [100, 150, 200] as const;
-const SAMPLE_KEY = 'mirroting-sample-ms';
+const SAMPLE_KEY = 'mirror-ting-sample-ms';
 
 function currentSampleMs(): number {
   const v = Number(localStorage.getItem(SAMPLE_KEY));

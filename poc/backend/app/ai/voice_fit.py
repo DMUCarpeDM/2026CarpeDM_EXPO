@@ -43,7 +43,7 @@ F0_CV_BANDS = (0.08, 0.35, 0.0, 0.60)
 # 억양·강세' 대역에 들어가 오히려 보상받았다. 오판 억제를 위해 jitter(주파수)와
 # shimmer(진폭)가 '동시에' 뚜렷할 때만, 상한을 두고 감점한다.
 # 임계값은 settings로 이동 — 전시 PC 보정(§2.5) 시 backend/.env의
-# MIRROTING_TREMOR_JITTER_FLOOR 등으로 코드 수정 없이 조정한다.
+# MIRROR_TING_TREMOR_JITTER_FLOOR 등으로 코드 수정 없이 조정한다.
 TREMOR_JITTER_FLOOR = settings.tremor_jitter_floor   # % — 이하는 정상 변동 (합성 보정: 안정 발화 모형 ~0-2%)
 TREMOR_SHIMMER_FLOOR = settings.tremor_shimmer_floor  # %
 TREMOR_PENALTY_CAP = settings.tremor_penalty_cap

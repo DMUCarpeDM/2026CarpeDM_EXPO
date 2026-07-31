@@ -1,12 +1,18 @@
 import axios from 'axios';
 import type {
   AdminMetrics,
+  Me,
+  MySession,
   NextTurnResult,
   NonverbalMetrics,
+  OrgDetail,
+  OrgMember,
+  OrgSessionList,
   Progress,
   Report,
   RoleplaySession,
   Scenario,
+  SessionClaim,
   Turn,
 } from './types';
 
@@ -20,24 +26,24 @@ export const api = axios.create({
 /** 세션 능력 토큰 — 생성 시 서버가 발급하고, 세션 데이터 조회에 필요하다.
  * 새로고침·크래시 복구를 위해 세션 id별로 localStorage에 보관한다. */
 export function sessionToken(id: number): string {
-  return localStorage.getItem(`mirroting-session-${id}`) ?? '';
+  return localStorage.getItem(`mirror-ting-session-${id}`) ?? '';
 }
 
 function setSessionToken(id: number, token: string): void {
-  if (token) localStorage.setItem(`mirroting-session-${id}`, token);
+  if (token) localStorage.setItem(`mirror-ting-session-${id}`, token);
 }
 
 /** 관람객 간 격리 — 대기 화면 복귀 시 이전 사람의 익명 키·세션 토큰을 지운다 */
 export function resetVisitorIdentity(): void {
-  localStorage.removeItem('mirroting-client-key');
+  localStorage.removeItem('mirror-ting-client-key');
   for (let i = localStorage.length - 1; i >= 0; i -= 1) {
     const k = localStorage.key(i);
-    if (k && k.startsWith('mirroting-session-')) localStorage.removeItem(k);
+    if (k && k.startsWith('mirror-ting-session-')) localStorage.removeItem(k);
   }
 }
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('mirroting-token');
+  const token = localStorage.getItem('mirror-ting-token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   // 세션 능력 토큰 — /sessions/{id}… 호출에 자동 첨부 (IDOR 차단)
   const m = config.url?.match(/^\/sessions\/(\d+)(?:\/|$)/);
@@ -50,10 +56,10 @@ api.interceptors.request.use((config) => {
 
 /** 익명 연속성 키 — 재도전 비교와 익명 ID 연동의 기반 */
 export function clientKey(): string {
-  let key = localStorage.getItem('mirroting-client-key');
+  let key = localStorage.getItem('mirror-ting-client-key');
   if (!key) {
     key = crypto.randomUUID();
-    localStorage.setItem('mirroting-client-key', key);
+    localStorage.setItem('mirror-ting-client-key', key);
   }
   return key;
 }
@@ -66,10 +72,13 @@ export async function createSession(opts: {
   mode: number;
   difficulty: string;
   agreed: boolean;
+  // 직무 축 시나리오 선택 (S-B2B-PACK) — 미지정이면 서버 기본(첫) 시나리오
+  scenarioSlug?: string;
 }): Promise<RoleplaySession> {
   const { data } = await api.post('/sessions', {
     mode: opts.mode,
     difficulty: opts.difficulty,
+    ...(opts.scenarioSlug ? { scenario_slug: opts.scenarioSlug } : {}),
     client_key: clientKey(),
     consent: { agreed: opts.agreed, storage_policy: 'none' },
   });
@@ -140,7 +149,7 @@ export async function issueCode(): Promise<string> {
 /** 체험 코드로 이전 기록을 이어받는다 (client_key 교체) */
 export async function claimCode(code: string): Promise<void> {
   const { data } = await api.post(`/codes/${encodeURIComponent(code)}/claim`);
-  localStorage.setItem('mirroting-client-key', data.client_key);
+  localStorage.setItem('mirror-ting-client-key', data.client_key);
 }
 
 export interface HistoryItem {
@@ -169,23 +178,100 @@ export async function getReport(sessionId: number): Promise<Report> {
   return (await api.get(`/sessions/${sessionId}/report`)).data;
 }
 
-export async function signup(email: string, password: string, name: string): Promise<void> {
-  const { data } = await api.post('/auth/signup', { email, password, name });
-  localStorage.setItem('mirroting-token', data.access_token);
+export async function signup(
+  email: string,
+  password: string,
+  name: string,
+  inviteCode?: string,
+  jobRole?: string,
+): Promise<void> {
+  // 초대 코드가 있으면 가입과 동시에 기관 소속 (S-B2B-118).
+  // 코드 불일치 시 서버가 404를 던지고 계정은 만들어지지 않는다.
+  // 직무는 선택 입력 (S-B2B-PACK) — 알 수 없는 직무면 422, 계정 미생성.
+  const { data } = await api.post('/auth/signup', {
+    email,
+    password,
+    name,
+    ...(inviteCode ? { invite_code: inviteCode } : {}),
+    ...(jobRole ? { job_role: jobRole } : {}),
+  });
+  localStorage.setItem('mirror-ting-token', data.access_token);
 }
 
 export async function login(email: string, password: string): Promise<void> {
   const { data } = await api.post('/auth/login', { email, password });
-  localStorage.setItem('mirroting-token', data.access_token);
+  localStorage.setItem('mirror-ting-token', data.access_token);
 }
 
-/** 운영 토큰 — 서버에 MIRROTING_ADMIN_TOKEN이 설정된 경우 운영 API 호출에 필요 */
+// ---- B2B 온보딩 교육 (S-B2B-101·S-B2B-118) ----
+
+/** 로그인 토큰 존재 여부 — 네비게이션·페이지 게이트용 */
+export function authToken(): string {
+  return localStorage.getItem('mirror-ting-token') ?? '';
+}
+
+export function clearAuthToken(): void {
+  localStorage.removeItem('mirror-ting-token');
+}
+
+export async function getMe(): Promise<Me> {
+  return (await api.get('/auth/me')).data;
+}
+
+/** 본인 직무 변경 (S-B2B-PACK) — 무인증 401, 알 수 없는 직무 422 */
+export async function updateJobRole(jobRole: string): Promise<Me> {
+  return (await api.patch('/auth/me', { job_role: jobRole })).data;
+}
+
+export async function getOrgDetail(orgId: number): Promise<OrgDetail> {
+  return (await api.get(`/orgs/${orgId}`)).data;
+}
+
+/** 초대 코드 회전 — 기존 코드는 즉시 만료된다 (매니저 전용) */
+export async function rotateOrgInvites(orgId: number): Promise<OrgDetail> {
+  return (await api.post(`/orgs/${orgId}/invites/rotate`)).data;
+}
+
+export async function getOrgMembers(orgId: number): Promise<OrgMember[]> {
+  return (await api.get(`/orgs/${orgId}/members`)).data;
+}
+
+export async function getOrgSessions(
+  orgId: number,
+  opts: { jobRole?: string; limit?: number; offset?: number } = {},
+): Promise<OrgSessionList> {
+  const { data } = await api.get(`/orgs/${orgId}/sessions`, {
+    params: {
+      job_role: opts.jobRole || undefined,
+      limit: opts.limit ?? 50,
+      offset: opts.offset ?? 0,
+    },
+  });
+  return data;
+}
+
+/** 수강생 본인 연습 이력 — /me/results 데이터 소스 */
+export async function getMySessions(): Promise<MySession[]> {
+  return (await api.get('/sessions/mine')).data;
+}
+
+/** 클레임 미리보기 — claim_token 자체가 능력 토큰이라 무인증 (S-B2B-111) */
+export async function previewClaim(claimToken: string): Promise<SessionClaim> {
+  return (await api.get(`/sessions/claim/${encodeURIComponent(claimToken)}`)).data;
+}
+
+/** 세션을 내 계정에 귀속 — 404 위조 토큰, 409 타인 귀속 */
+export async function claimSession(claimToken: string): Promise<SessionClaim> {
+  return (await api.post('/sessions/claim', { claim_token: claimToken })).data;
+}
+
+/** 운영 토큰 — 서버에 MIRROR_TING_ADMIN_TOKEN이 설정된 경우 운영 API 호출에 필요 */
 export function adminToken(): string {
-  return localStorage.getItem('mirroting-admin-token') ?? '';
+  return localStorage.getItem('mirror-ting-admin-token') ?? '';
 }
 
 export function setAdminToken(token: string): void {
-  localStorage.setItem('mirroting-admin-token', token);
+  localStorage.setItem('mirror-ting-admin-token', token);
 }
 
 function adminHeaders(): Record<string, string> {
@@ -210,7 +296,7 @@ export async function adminExportCsv(): Promise<void> {
   const url = URL.createObjectURL(data as Blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'mirroting_sessions.csv';
+  a.download = 'mirror-ting_sessions.csv';
   a.click();
   URL.revokeObjectURL(url);
 }

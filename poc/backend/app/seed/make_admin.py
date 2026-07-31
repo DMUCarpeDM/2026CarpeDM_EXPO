@@ -1,4 +1,4 @@
-"""관리자 승격 CLI — 기관 모드(MIRROTING_ADMIN_AUTH_REQUIRED=true) 운영자 계정 준비.
+"""관리자 승격 CLI — 기관 모드(MIRROR_TING_ADMIN_AUTH_REQUIRED=true) 운영자 계정 준비.
 
 실행: python -m app.seed.make_admin <email>
 (먼저 /api/auth/signup으로 가입되어 있어야 한다)

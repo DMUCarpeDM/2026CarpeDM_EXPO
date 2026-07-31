@@ -8,10 +8,11 @@ import time
 import traceback
 from pathlib import Path
 
-from app.ai import nonverbal, response_fit, voice_align, voice_fit
+from app.ai import judge, nonverbal, paralinguistics, response_fit, voice_align, voice_fit
 from app.ai.discourse import analyze_discourse
 from app.ai.scoring import ENGINE_VERSION, weighted_mean
 from app.ai.stt import get_stt_provider
+from app.core.config import settings
 from app.core.database import SessionLocal
 from app.models import AnalysisResult, Consent, FitType, Report, RoleplaySession, SessionStatus, Turn
 from app.services import report as report_service
@@ -149,6 +150,12 @@ def run_analysis(session_id: int) -> None:
                     metrics = voice_fit.estimate_from_text(t.response_text, t.response_duration_ms)
                 else:
                     metrics = {}
+                # 파라링귀스틱 (S-B2B-PARA): 음성 기반 턴만 필러 측정 — 관찰 레이어
+                # (점수 미반영). 텍스트 입력 턴은 metrics가 비어 여기 오지 않는다.
+                if metrics:
+                    fillers = paralinguistics.analyze_fillers(t.response_text)
+                    if fillers:
+                        metrics["fillers"] = fillers
                 score = voice_fit.score_voice(metrics)
             except Exception:
                 traceback.print_exc()
@@ -199,18 +206,46 @@ def run_analysis(session_id: int) -> None:
             FitType.eye: weighted_mean(eye_scores) if eye_scores else None,
             FitType.posture: weighted_mean(posture_scores) if posture_scores else None,
         }
+
+        # 5.5) LLM judge (S-B2B-JUDGE): Response 세션 점수에 루브릭 CoT 채점을
+        # 보수적으로 혼합한다. 실패·미가동은 결정적 점수 그대로 — 가산 레이어.
+        judge_info = None
+        if session_scores[FitType.response] is not None:
+            scenario = session.scenario
+            try:
+                judge_info = judge.judge_response_session(
+                    turns,
+                    brand=(getattr(scenario, "brand", "") or "") if scenario else "",
+                    world_hint=((scenario.world_setting or {}).get("situation", "") if scenario else ""),
+                )
+            except Exception:
+                traceback.print_exc()
+                judge_info = None
+            if judge_info:
+                deterministic = session_scores[FitType.response]
+                blended = judge.blend(deterministic, judge_info["median"])
+                judge_info = {
+                    **judge_info,
+                    "deterministic": round(deterministic, 1),
+                    "blended": blended,
+                    "blend_weight": settings.judge_blend_weight,
+                }
+                session_scores[FitType.response] = blended
+
         for fit, score in session_scores.items():
             if score is not None:
                 db.add(AnalysisResult(
                     session_id=session.id, turn_id=None, fit_type=fit,
-                    raw_metrics={}, score=score, engine_version=ENGINE_VERSION,
+                    # judge 투명성: 세션 레벨 Response 결과에 채점 근거 전체를 남긴다
+                    raw_metrics={"judge": judge_info} if fit == FitType.response and judge_info else {},
+                    score=score, engine_version=ENGINE_VERSION,
                 ))
         db.commit()
 
         # 6) 리포트 생성
         _set_progress(db, session, "report", 92)
         analysis_ms = int((time.monotonic() - started) * 1000)
-        report_service.build_report(db, session, session_scores, analysis_ms)
+        report_service.build_report(db, session, session_scores, analysis_ms, judge_info=judge_info)
 
         # 7) 저장 정책 적용 (S-CBYKOH): '미저장' 동의면 분석이 끝난 음성 파일을 즉시 삭제
         consent = db.query(Consent).filter_by(session_id=session.id).first()
@@ -230,6 +265,23 @@ def run_analysis(session_id: int) -> None:
             ).all()
             for r in turn_results:
                 r.raw_metrics = strip_turn_verbatim(r.raw_metrics)
+            # 세션 레벨 judge 근거도 파기 대상 — reasoning은 루브릭 지시상 발화
+            # 원문을 인용할 수 있다. 수치 투명성(n·중앙값·혼합)만 남긴다.
+            # 즉시 열람용 사본(report.deep_analysis.judge.reasonings)은 보관 기간 후
+            # _purge_expired_quotes가 지운다 — 턴 verbatim과 같은 수명 정책.
+            session_response = db.query(AnalysisResult).filter(
+                AnalysisResult.session_id == session.id,
+                AnalysisResult.turn_id.is_(None),
+                AnalysisResult.fit_type == FitType.response,
+            ).first()
+            if session_response and (session_response.raw_metrics or {}).get("judge"):
+                cleaned = dict(session_response.raw_metrics)
+                judge_meta = dict(cleaned["judge"])
+                judge_meta["samples"] = [
+                    {"score": s.get("score")} for s in judge_meta.get("samples", [])
+                ]
+                cleaned["judge"] = judge_meta
+                session_response.raw_metrics = cleaned
             db.commit()
 
         # 최종 승격 전 DB 진실 재확인 — 분석 도중 운영자 리셋(→aborted)이 들어왔는지.

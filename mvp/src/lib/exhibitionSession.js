@@ -1,9 +1,9 @@
 export const REPORT_FLOW_IDLE_TIMEOUT_MS = 90_000;
 
-const ACTIVE_SESSION = "mirrorting-active-session";
-const RETAINED_RECORDS = "mirrorting-retained-records";
+const ACTIVE_SESSION = "mirror-ting-active-session";
+const RETAINED_RECORDS = "mirror-ting-retained-records";
 const REPORT_FLOW_VIEWS = new Set(["result", "feedback", "compare", "share"]);
-const AUDIO_DB = "mirrorting-retained-audio";
+const AUDIO_DB = "mirror-ting-retained-audio";
 const AUDIO_STORE = "turn-audio";
 const AUDIO_DB_VERSION = 1;
 

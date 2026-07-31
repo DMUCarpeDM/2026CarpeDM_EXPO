@@ -40,9 +40,11 @@ class DialogueProvider(Protocol):
     def personalize_question(
         self, spec: QuestionSpec, situation: str, last_response: str,
         character: dict | None = None, difficulty: str = "basic",
+        emotion_directive: str = "",
     ) -> str | None:
         """spec 질문을 직전 답변 맥락으로 다듬는다 (실패·비활성 시 None).
 
         평문 인자만 받으므로 스레드에서 안전하다 (ORM 객체 전달 금지).
+        emotion_directive: 감정 상태 머신(S-B2B-EMOTION)의 상태 주입 지시문.
         """
         ...

@@ -33,6 +33,13 @@ FAKE_VECTORS = {
 def fake_embedder(monkeypatch):
     monkeypatch.setattr(semantic_match, "available", lambda: True)
     monkeypatch.setattr(semantic_match, "_embed", lambda t: FAKE_VECTORS.get(t))
+    # 판정 경로는 배치 함수를 쓴다 — 같은 가짜 공간을 배치 형태로도 제공
+    monkeypatch.setattr(
+        semantic_match, "_embed_many",
+        lambda texts, budget_sec=None: {
+            t: v for t in texts if (v := FAKE_VECTORS.get(t)) is not None
+        },
+    )
 
 
 def test_semantic_matches_paraphrase(fake_embedder):
@@ -135,7 +142,7 @@ def test_semantic_gate_would_promote_with_embeddings(fake_embedder, monkeypatch)
 # ---- 라이브 Ollama 검증 (있을 때만 — 실제 한국어 임베딩 품질) ----
 
 GOLDEN = json.loads(
-    (Path(__file__).parent / "golden" / "response_cases.json").read_text()
+    (Path(__file__).parent / "golden" / "response_cases.json").read_text(encoding="utf-8")
 )
 SEMANTIC_CASES = [c for c in GOLDEN["cases"] if c.get("stage") == "semantic"]
 

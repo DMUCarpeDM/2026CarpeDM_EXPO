@@ -1,7 +1,7 @@
 """의미 매칭 임계값 보정 — 골든 셋 기반 (전시 PC에서 Ollama 가동 후 실행).
 
 사용:
-    ollama pull bge-m3   # 또는 설정된 MIRROTING_OLLAMA_EMBED_MODEL
+    ollama pull bge-m3   # 또는 설정된 MIRROR_TING_OLLAMA_EMBED_MODEL
     ./.venv/bin/python scripts/calibrate_semantic.py
 
 무엇을 하나:
@@ -20,7 +20,8 @@ from app.ai import semantic_match  # noqa: E402
 from app.seed.seed_data import EPISODES  # noqa: E402
 
 GOLDEN = json.loads(
-    (Path(__file__).parent.parent / "tests" / "golden" / "response_cases.json").read_text()
+    (Path(__file__).parent.parent / "tests" / "golden" / "response_cases.json")
+    .read_text(encoding="utf-8")
 )
 BY_ORDER = {e["order"]: e for e in EPISODES}
 
@@ -65,6 +66,24 @@ def main() -> None:
     negatives = [c for c in GOLDEN["cases"]
                  if c.get("stage", "current") == "current"
                  and c["expect"].get("coverage_max", 1) <= 0.25]
+
+    # 전 케이스의 문장·절 + 전 앵커를 한 번의 배치로 프리웜 — 이 PC 실측상
+    # 임베딩 비용은 요청 횟수가 지배하므로(단건 ~3s) 단건 루프면 수 분이 걸린다.
+    import re
+
+    from app.ai.discourse import _sentences
+
+    warm: list[str] = []
+    for case in positives + negatives:
+        for s in _sentences(case["text"]):
+            warm.append(s)
+            clauses = [c.strip() for c in re.split(r",\s*", s) if len(c.strip()) >= 6]
+            if len(clauses) >= 2:
+                warm += clauses
+    for ep in BY_ORDER.values():
+        for item in ep["checklist"]:
+            warm += semantic_match._anchors(item)
+    semantic_match._embed_many(warm, budget_sec=120.0)
 
     pos_sims = [max(max_similarities(c)) for c in positives]
     neg_sims = [max(max_similarities(c)) for c in negatives]

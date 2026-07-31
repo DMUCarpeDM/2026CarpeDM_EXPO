@@ -52,7 +52,7 @@ export function DashboardSidebar({ active, onNavigate }) {
     <aside className="dashboard-sidebar">
       <button className="sidebar-brand" type="button" onClick={() => onNavigate("home")}>
         <span className="brand-mark" aria-hidden="true">M</span>
-        <span>Mirrorting</span>
+        <span>Mirror-Ting</span>
       </button>
       <nav className="sidebar-nav" aria-label="대시보드 메뉴">
         {NAV_GROUPS.map((group) => (
@@ -66,7 +66,7 @@ export function DashboardSidebar({ active, onNavigate }) {
                 onClick={() => onNavigate(item.id)}
                 aria-current={isActive(item, active) ? "page" : undefined}
               >
-                <item.Icon size={20} className="mirrorting-icon" weight="Outline" strokeWidth={1.5} aria-hidden="true" />
+                <item.Icon size={20} className="mirror-ting-icon" weight="Outline" strokeWidth={1.5} aria-hidden="true" />
                 <span>{item.label}</span>
               </button>
             ))}

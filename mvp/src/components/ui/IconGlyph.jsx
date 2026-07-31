@@ -69,7 +69,7 @@ export function IconGlyph({ icon: Icon, size = 24 }) {
   return (
     <ResolvedIcon
       size={size}
-      className="mirrorting-icon mirrorting-reicon-icon"
+      className="mirror-ting-icon mirror-ting-reicon-icon"
       weight="Outline"
       strokeWidth={1.5}
       aria-hidden="true"

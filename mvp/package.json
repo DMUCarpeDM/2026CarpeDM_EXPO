@@ -1,5 +1,5 @@
 {
-  "name": "mirrorting-component-library",
+  "name": "mirror-ting-component-library",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -22,5 +22,8 @@
   },
   "devDependencies": {
     "playwright": "^1.61.1"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true
   }
 }

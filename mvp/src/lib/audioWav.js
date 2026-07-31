@@ -19,6 +19,28 @@ export async function blobToWav(blob) {
   }
 }
 
+/** encodeWav 출력(16-bit PCM mono) 조각에 말소리가 있는지 — RMS·피크 이중 게이트.
+ * 서버 폴백 STT가 무음 조각까지 Whisper에 보내면 지연 낭비에 환청 텍스트
+ * (무음 → "감사합니다" 류)까지 생기므로 전송 전에 걸러낸다.
+ * 둘 다 넘어야 통과: RMS만(지속 소음)·피크만(단발 클릭)으로는 말소리가 아니다. */
+const SPEECH_RMS = 0.008;
+const SPEECH_PEAK = 0.06;
+
+export async function wavHasSpeech(wavBlob) {
+  const view = new DataView(await wavBlob.arrayBuffer());
+  const count = (view.byteLength - 44) >> 1;
+  if (count <= 0) return false;
+  let sumSq = 0;
+  let peak = 0;
+  for (let i = 0; i < count; i += 1) {
+    const s = view.getInt16(44 + i * 2, true) / 0x8000;
+    sumSq += s * s;
+    const abs = Math.abs(s);
+    if (abs > peak) peak = abs;
+  }
+  return Math.sqrt(sumSq / count) >= SPEECH_RMS && peak >= SPEECH_PEAK;
+}
+
 function encodeWav(samples, sampleRate) {
   const buffer = new ArrayBuffer(44 + samples.length * 2);
   const view = new DataView(buffer);

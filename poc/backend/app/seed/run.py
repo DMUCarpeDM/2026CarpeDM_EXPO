@@ -96,8 +96,14 @@ def seed(db=None) -> None:
     own_session = db is None
     db = db or SessionLocal()
     try:
-        # 현재 전시에서 보여 줄 새 시나리오만 목록에 남겨요. 기존 체험 기록은 지우지 않습니다.
-        db.query(Scenario).filter(Scenario.slug != SCENARIO["slug"]).update({Scenario.is_active: False})
+        from app.seed.packs import load_pack_files, seed_packs
+
+        # 현재 노출할 시나리오 = 기본(전시) 시나리오 + 시나리오 팩(S-B2B-PACK).
+        # 그 외(과거 시드 잔재)만 비활성화한다. 기존 체험 기록은 지우지 않는다.
+        keep_slugs = {SCENARIO["slug"]} | {p["slug"] for p in load_pack_files()}
+        db.query(Scenario).filter(Scenario.slug.notin_(keep_slugs)).update(
+            {Scenario.is_active: False}, synchronize_session=False,
+        )
         existing = db.query(Scenario).filter_by(slug=SCENARIO["slug"]).first()
         if existing:
             scenario = existing
@@ -119,8 +125,13 @@ def seed(db=None) -> None:
             for ep in EPISODES:
                 db.add(Episode(scenario_id=scenario.id, **ep))
         scenario.is_active = True
+        # 도메인 태그 (S-B2B-PACK): 기존 전시 시나리오 = 사무행정 트랙.
+        # rubric_weights는 비워 균등 가중 유지 — 기존 점수·골든 회귀와의 호환.
+        scenario.domain = "office"
+        scenario.job_role = "office_admin"
+        loaded = seed_packs(db)
         db.commit()
-        print(f"seeded scenario '{scenario.slug}' with {len(EPISODES)} episodes")
+        print(f"seeded scenario '{scenario.slug}' with {len(EPISODES)} episodes + packs {loaded}")
     finally:
         if own_session:
             db.close()

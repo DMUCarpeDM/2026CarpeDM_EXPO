@@ -11,7 +11,7 @@
  */
 import { useSyncExternalStore } from 'react';
 
-const KEY = 'mirroting-offline-mode';
+const KEY = 'mirror-ting-offline-mode';
 
 const listeners = new Set<() => void>();
 

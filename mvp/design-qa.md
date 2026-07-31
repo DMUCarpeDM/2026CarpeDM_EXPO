@@ -80,7 +80,7 @@
 - Palette follows the design system: fog canvas, white/glass panels, Azure primary action, semantic green/orange/red/purple chips, and 4-Fit colors.
 
 **Focused Region Comparison Evidence**
-- Typography: large blue `Mirrorting` title and dark heading hierarchy match the supplied boards; small UI labels use compact bold weights.
+- Typography: large blue `Mirror-Ting` title and dark heading hierarchy match the supplied boards; small UI labels use compact bold weights.
 - Spacing/layout: 1448px-wide board uses dense card rows with 16px grid gaps and soft elevation similar to the mockups.
 - Colors/tokens: primary blue, fog canvas, white card surfaces, and muted graphite labels map to the design document.
 - Images/assets: camera overlay is recreated as a code-native UI stage with icon-library outline, guide lines, and glass fit overlay; profile photos are represented as avatar chips rather than real portraits.

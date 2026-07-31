@@ -58,9 +58,9 @@ export function ComparePage({ onPrev, onRestart, onShare, history = [], report }
         </div>
 
         <div className="compare-versus">
-          <AttemptColumn tone="prev" title="Previous Mirrorting" date={previous?.started_at?.slice(0, 10) || "이전 기록"} total={hasPrevious ? previousTotal : trendTotals[0]} rows={rows} which="before" prevRow={prevRow} muted={!hasPrevious} />
+          <AttemptColumn tone="prev" title="Previous Mirror-Ting" date={previous?.started_at?.slice(0, 10) || "이전 기록"} total={hasPrevious ? previousTotal : trendTotals[0]} rows={rows} which="before" prevRow={prevRow} muted={!hasPrevious} />
           <span className="versus-badge">VS</span>
-          <AttemptColumn tone="current" title="Current Mirrorting" date={attempts.at(-1)?.started_at?.slice(0, 10) || "방금 완료"} total={currentTotal} rows={rows} which="after" prevRow={prevRow} />
+          <AttemptColumn tone="current" title="Current Mirror-Ting" date={attempts.at(-1)?.started_at?.slice(0, 10) || "방금 완료"} total={currentTotal} rows={rows} which="after" prevRow={prevRow} />
         </div>
 
         <Panel className="compare-detail-card">

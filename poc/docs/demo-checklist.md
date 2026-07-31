@@ -8,14 +8,22 @@
 - [ ] 터치 동작 확인 (모서리 4곳 + 중앙)
 
 ## 2. 소프트웨어 (5분)
-- [ ] 백엔드 기동: `cd backend && ./.venv/bin/uvicorn app.main:app --port 8000`
-- [ ] 프론트 기동: `cd frontend && npm run dev -- --host` (또는 빌드 서빙)
+- [ ] **전시 PC(Windows) 기동**: 저장소 루트 `start-exhibition.ps1` 실행
+      (Ollama → 분석 서버 8001 → MVP 5173 순서 자동 기동 — `WINDOWS-SETUP.md` 참조).
+      맥 개발 환경이면 `cd poc/backend && ./.venv/bin/uvicorn app.main:app --port 8001` +
+      `cd mvp && npm run dev`
+- [ ] `http://127.0.0.1:8001/api/health`에서 **`degraded: false`** 확인 —
+      `server_stt: "whisper"` · `ollama: {dialogue: true, embedding: true}` ·
+      `semantic_match: true`. 부팅 직후 1분은 콜드 로드로 `semantic_match: false`일
+      수 있다(60초 내 자동 승격 — 재확인)
 - [ ] **(권장 필수) Ollama 기동 확인**: `ollama list`에 exaone3.5:2.4b(리액션 개인화)와
-      nomic-embed-text(의미 매칭) — 없어도 폴백으로 완주하지만 **Response 품질이 크게
+      bge-m3(의미 매칭) — 없어도 폴백으로 완주하지만 **Response 품질이 크게
       다르다**. 임베딩이 없으면 패러프레이즈 답변("고객께 양해를 구하겠습니다")이
       키워드 미스로 '누락' 판정돼 억울한 교정 후속이 나갈 수 있다. 전시 PC엔 반드시 설치
 - [ ] **(Ollama 있으면 필수) 의미 매칭 임계값 보정**: `python scripts/calibrate_semantic.py`
-      — 임계 0.66은 개발 맥 기준이라 전시 PC에서 반드시 재보정
+      — 임계값은 임베딩 모델 종속이라 PC 교체 시 재보정.
+      ✅ 2026-07-29 전시 PC(i7-12700) 실측: 확충 골든 17점(양성 9·음성 8)에서
+      0.68~0.80 전 구간 인식 9/9·오탐 0 — 현재 0.69 유지, 재보정 불필요
 - [ ] 오프라인 자산 확인: `npm run setup-offline` 완료 여부
       (전시장 인터넷 불안정 대비 — MediaPipe wasm/모델 로컬 서빙)
 - [ ] `VITE_PUBLIC_ORIGIN`을 미러 PC의 LAN 주소로 설정했는지
@@ -24,8 +32,8 @@
 
 ## 2.5 측정 보정 (최초 설치 시 1회)
 - [ ] **떨림 임계값 육성 보정**: 안정된 목소리로 1턴 진행 → 리포트에 "피치 흔들림"
-      행이 뜨지 않아야 정상. 뜨면 `backend/.env`의 `MIRROTING_TREMOR_JITTER_FLOOR`/
-      `MIRROTING_TREMOR_SHIMMER_FLOOR` 상향 후 서버 재시작 (코드 수정 불필요.
+      행이 뜨지 않아야 정상. 뜨면 `backend/.env`의 `MIRROR_TING_TREMOR_JITTER_FLOOR`/
+      `MIRROR_TING_TREMOR_SHIMMER_FLOOR` 상향 후 서버 재시작 (코드 수정 불필요.
       현재 기본값은 합성 신호 보정치 — 실제 육성 검증 필요)
 - [ ] **쉼 위치 관용 확인**: 문장을 끝낸 뒤("~하겠습니다.") 일부러 1.5초 쉬고
       다음 문장 시작 × 2회 → 침묵 감점·머뭇거림 지적이 없어야 정상.
@@ -126,6 +134,24 @@
       후 같은 턴 재전달로 계속 진행되는지
 - [ ] 운영자 제스처(우상단 3초 롱프레스) → 패널 열림
 
+## 3.5 B2B/NFC 흐름 점검 (S-B2B-NFC · S-B2B-EMOTION · S-B2B-CLAIM)
+
+- [ ] 발급 키오스크(`?kiosk=issue`): 직무 선택 → 카드 태그 → "발급 완료"까지 진행,
+      8초 후 초기 화면 자동 복귀
+- [ ] 리더 미연결 상태에서 수동 폴백(UID 직접 입력·직무 선택 버튼)이 뜨는지 —
+      NFC 미인식이 체험 중단이 되면 안 된다
+- [ ] 미러 홈에서 발급 카드 태그 → 동의 화면 → **카페 온도 시나리오로 즉시 시작**
+- [ ] 미등록 카드 태그 → "직무를 선택해 시작하세요" 폴백 화면
+- [ ] 카페 크루 시나리오에서 감정 온도 게이지: 첫 화면 '격앙' 근처(72) →
+      좋은 사과("정말 죄송합니다, 바로 다시 만들어 드릴게요")에 온도가 **내려가고**
+      완화 연출이 나오는지 / 무성의 답변("네")에 **올라가는지**
+- [ ] 리포트: Before→After 코칭 카드(실제 발화 인용)·말하기 데이터의 분당 음절 표기·
+      영수증 QR(claim_url) 렌더 확인
+- [ ] `.env`의 `MIRROR_TING_CLAIM_BASE_URL`이 관람객 휴대폰에서 열리는 주소인지
+      (기본 localhost는 휴대폰에서 안 열린다)
+- [ ] judge 반영 확인: `/api/health` 정상 + 리포트 심층 분석에 "AI 루브릭 채점" 카드.
+      분석이 3분 넘게 걸리면 `.env`에 `MIRROR_TING_JUDGE_SAMPLES=0` 후 재기동
+
 ## 문제 발생 시
 | 증상 | 조치 |
 |---|---|
@@ -134,3 +160,6 @@
 | 화면이 웹 모드로 보임 | `/kiosk` 재진입 (미러 모드 재활성) |
 | 다음 체험자 준비 | 운영자 패널 → 세션 초기화 |
 | 분석 멈춤 | 리포트 화면의 "분석 다시 시도" 또는 운영자 패널 → 초기화 |
+| NFC 태그 무반응 | 리더 LED 확인 → PC/SC 서비스(`SCardSvr`) 재시작 → 그래도 안 되면 수동 폴백으로 운영 (`WINDOWS-SETUP.md` B2B 섹션) |
+| 감정 게이지 안 뜸 | 카페 온도 시나리오인지 확인 (기존 클라우드밋 시나리오는 감정 프로파일 없음 — 정상) |
+| 분석이 오래 걸림 | judge 끄기: `.env` `MIRROR_TING_JUDGE_SAMPLES=0` 후 백엔드 재시작 |

@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mirror-ting · 체험자 화면 (미러 모드)</title>
+<style>
+  /* mirror-ux-plan.md의 존 레이아웃과 원칙을 그대로 구현한다.
+     원칙 2: 반사 존에는 상시 UI를 두지 않고 가장자리 글로우로만 상태를 표현.
+     원칙 4: 실시간 게이지는 미러에서 기본 숨김 — 세션당 1~3회 코칭 토스트만. */
+  :root{
+    --eye:#6ee7ff; --posture:#5eeaa2; --warm:#ff8a00; --ink:#eaf1ff;
+    --muted:#8aa0c4; --dim:#5f7599; --line:rgba(255,255,255,.10);
+    --font:"SF Pro Text","Inter","Pretendard",-apple-system,BlinkMacSystemFont,
+           system-ui,"Malgun Gothic",sans-serif;
+  }
+  *{box-sizing:border-box} html,body{height:100%;margin:0}
+  body{font-family:var(--font);color:var(--ink);background:#05080f;
+       display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;
+       font-variant-numeric:tabular-nums;overflow:hidden}
+
+  header{display:flex;align-items:baseline;gap:14px;padding:16px 26px 10px;flex:none}
+  .brand{font-size:18px;font-weight:750;letter-spacing:-.015em}
+  .brand em{font-style:normal;color:var(--eye)}
+  .sub{font-size:12.5px;color:var(--muted)}
+  nav{margin-left:16px;display:flex;gap:7px}
+  nav a{font-size:11.5px;color:var(--muted);text-decoration:none;padding:4px 10px;
+        border:1px solid var(--line);border-radius:999px}
+  nav a.on{color:var(--ink);background:rgba(255,255,255,.05)}
+  .st{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+  .dot{width:8px;height:8px;border-radius:999px;background:var(--muted)}
+  .dot.live{background:var(--posture)}.dot.bad{background:var(--warm)}
+
+  main{flex:1;display:flex;gap:26px;align-items:center;justify-content:center;
+       padding:0 26px 22px;min-height:0}
+
+  /* ---- 미러 패널: 세로 1080×1920 비율 ---- */
+  .mirror{position:relative;aspect-ratio:9/16;height:100%;max-height:100%;flex:none;
+          border-radius:20px;overflow:hidden;
+          background:linear-gradient(180deg,#0b1424 0%,#070d18 55%,#04070e 100%);
+          transition:box-shadow .5s ease}
+  .ring{position:absolute;inset:0;pointer-events:none}
+  .ring rect{fill:none;stroke:rgba(110,231,255,.85);stroke-width:2.5;
+             stroke-linecap:round;transition:stroke-dashoffset .9s linear,stroke .6s}
+
+  .zone{position:absolute;left:0;right:0}
+  .z-avatar{top:0;height:18%;display:flex;align-items:center;gap:14px;padding:0 26px}
+  .av{width:58px;height:58px;border-radius:999px;flex:none;display:grid;place-items:center;
+      font-size:17px;font-weight:750;color:#0a1222;
+      background:linear-gradient(145deg,#8ecbff,#6ee7ff)}
+  .who b{display:block;font-size:17px;font-weight:750;letter-spacing:-.02em}
+  .who span{font-size:12px;color:var(--muted)}
+
+  .z-reflect{top:18%;height:47%}
+  canvas#sil{position:absolute;inset:0;width:100%;height:100%;opacity:.16}
+  .z-reflect .hint{position:absolute;left:0;right:0;bottom:12px;text-align:center;
+                   font-size:11px;color:rgba(138,160,196,.5);line-height:1.5}
+
+  .z-caption{top:65%;height:15%;padding:0 30px;display:flex;align-items:center}
+  .z-caption p{margin:0;font-size:19px;line-height:1.5;letter-spacing:-.02em;
+               color:#dce8fb;font-weight:500}
+
+  .z-control{top:80%;height:20%;display:grid;place-items:center;gap:9px}
+  .mic{width:96px;height:96px;border-radius:999px;border:1.5px solid rgba(110,231,255,.4);
+       background:radial-gradient(circle at 50% 35%,rgba(110,231,255,.20),rgba(110,231,255,.05));
+       display:grid;place-items:center;cursor:pointer}
+  .mic svg{width:38px;height:38px}
+  .z-control small{font-size:11.5px;color:var(--muted)}
+
+  .divider{position:absolute;left:0;right:0;height:1px;background:rgba(255,255,255,.05)}
+
+  /* 코칭 토스트 — 세션당 1~3회, 순간 오버레이만 (원칙 2) */
+  .toast{position:absolute;left:22px;right:22px;top:22%;padding:13px 16px;border-radius:14px;
+         background:rgba(10,20,36,.9);border:1px solid rgba(110,231,255,.3);
+         backdrop-filter:blur(6px);opacity:0;transform:translateY(-8px);
+         transition:opacity .45s,transform .45s;pointer-events:none}
+  .toast.on{opacity:1;transform:translateY(0)}
+  .toast b{display:block;font-size:13.5px;font-weight:700;color:var(--eye);margin-bottom:3px}
+  .toast span{font-size:12.5px;color:#c6d6f0;line-height:1.5}
+
+  /* ---- 오른쪽: 체험자에게 보이지 않는 계측 ---- */
+  .peek{width:288px;flex:none;display:flex;flex-direction:column;gap:11px;
+        align-self:stretch;justify-content:center}
+  .peek .cap{font-size:10.5px;color:var(--warm);letter-spacing:.02em;
+             border:1px dashed rgba(255,138,0,.35);border-radius:8px;padding:7px 9px;
+             line-height:1.5}
+  .card{background:rgba(255,255,255,.045);border:1px solid var(--line);
+        border-radius:16px;padding:13px 15px}
+  .card h2{margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:.03em;
+           color:var(--eye);text-transform:uppercase}
+  .big{display:flex;align-items:baseline;gap:7px}
+  .big b{font-size:31px;font-weight:800;letter-spacing:-.03em}
+  .big span{font-size:11.5px;color:var(--muted)}
+  .kv{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;
+      border-top:1px solid rgba(255,255,255,.05)}
+  .kv:first-of-type{border-top:0}
+  .kv span{color:#c6d6f0}.kv b{font-weight:700}
+  .note{font-size:10.5px;color:var(--dim);margin-top:7px;line-height:1.5}
+  footer{flex:none;padding:0 26px 14px;font-size:10.5px;color:var(--dim);line-height:1.5}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Mirror<em>·</em>ting</div>
+  <div class="sub">체험자 화면 · 미러 모드</div>
+  <nav><a href="/practice" class="on">체험자</a><a href="/">계측</a><a href="/face">표정</a></nav>
+  <div class="st"><i class="dot" id="dot"></i><span id="stx">연결 중…</span></div>
+</header>
+
+<main>
+  <section class="mirror" id="mirror">
+    <svg class="ring" id="ringSvg" preserveAspectRatio="none">
+      <rect id="ringRect" x="1.5" y="1.5" rx="19" ry="19"></rect>
+    </svg>
+
+    <div class="zone z-avatar">
+      <div class="av">김</div>
+      <div class="who"><b>김서윤 팀장</b><span>상사 · 출시 준비 킥오프</span></div>
+    </div>
+    <div class="divider" style="top:18%"></div>
+
+    <div class="zone z-reflect">
+      <canvas id="sil"></canvas>
+      <div class="hint">실제 하프미러에서는 이 자리에 체험자의 반사가 보입니다<br>
+        (여기서는 뎁스 실루엣을 아주 희미하게 대신 표시)</div>
+    </div>
+    <div class="divider" style="top:65%"></div>
+
+    <div class="zone z-caption">
+      <p>오늘 회의에서는 출시 일정부터 다시 맞춰야 해요. 본인이 맡은 역할과 오늘 꼭 확인할 한 가지를 30초 안에 정리해 주세요.</p>
+    </div>
+    <div class="divider" style="top:80%"></div>
+
+    <div class="zone z-control">
+      <div class="mic">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#6ee7ff" stroke-width="1.6"
+             stroke-linecap="round"><path d="M12 4v8m0 0a3 3 0 0 0 3-3V7a3 3 0 0 0-6 0v2a3 3 0 0 0 3 3z"/>
+          <path d="M7 11a5 5 0 0 0 10 0M12 16v3"/></svg>
+      </div>
+      <small id="timerText">말할 준비가 되면 눌러주세요</small>
+    </div>
+
+    <div class="toast" id="toast"><b id="toastT"></b><span id="toastB"></span></div>
+  </section>
+
+  <aside class="peek">
+    <div class="cap">↓ 이 열은 <b>체험자에게 보이지 않습니다.</b> 미러에서는 실시간 게이지를
+      숨기고(원칙 4) 가장자리 글로우와 코칭 토스트로만 전달합니다.</div>
+
+    <div class="card">
+      <h2>실시간 Posture-Fit</h2>
+      <div class="big"><b id="pScore">–</b><span>/ 100</span></div>
+      <div class="note" id="pUsed">–</div>
+    </div>
+
+    <div class="card">
+      <h2>측정 근거</h2>
+      <div class="kv"><span>어깨 기울기</span><b id="kTilt">–</b></div>
+      <div class="kv"><span>상체 흔들림</span><b id="kSway">–</b></div>
+      <div class="kv"><span>표면 점</span><b id="kPts">–</b></div>
+      <div class="kv"><span>거리</span><b id="kDist">–</b></div>
+    </div>
+
+    <div class="card">
+      <h2>프레임 글로우</h2>
+      <div class="kv"><span>현재 상태</span><b id="gState">–</b></div>
+      <div class="note">색과 세기만으로 상태를 전달합니다. 숫자를 보여주면 체험자가
+        지표를 의식해 자세를 꾸미고, 측정 대상이 훼손됩니다.</div>
+    </div>
+  </aside>
+</main>
+
+<footer>
+  아바타·자막은 실제 시드 콘텐츠(에피소드 1 · 김서윤 팀장)입니다. Posture-Fit은
+  <code>score_posture()</code>의 실제 가중치로 계산하며, 순간값으로 정의되지 않는 성분은
+  제외하고 그 사실을 함께 표시합니다.
+</footer>
+
+<script>
+const el=id=>document.getElementById(id);
+const cv=el("sil"),ctx=cv.getContext("2d");
+let BONES=[],joints=null;
+fetch("/api/bones").then(r=>r.json()).then(d=>BONES=d.bones);
+
+const fit=c=>{const r=c.getBoundingClientRect(),d=devicePixelRatio||1;
+  c.width=Math.max(1,Math.round(r.width*d));c.height=Math.max(1,Math.round(r.height*d));return d;};
+
+/* 타이머: 숫자 카운트다운 대신 테두리를 도는 얇은 빛의 링 (원칙 4).
+   마지막 30초에만 숫자가 등장한다. */
+const TURN_SEC=180; let t0=Date.now();
+function layoutRing(){
+  const m=el("mirror"),r=el("ringRect");
+  el("ringSvg").setAttribute("viewBox",`0 0 ${m.clientWidth} ${m.clientHeight}`);
+  r.setAttribute("width",m.clientWidth-3); r.setAttribute("height",m.clientHeight-3);
+  const len=r.getTotalLength(); r.style.strokeDasharray=len; r.dataset.len=len;
+}
+function tickRing(){
+  const r=el("ringRect"),len=+r.dataset.len||0;
+  const left=Math.max(0,TURN_SEC-(Date.now()-t0)/1000);
+  r.style.strokeDashoffset=len*(1-left/TURN_SEC);
+  r.style.stroke=left<30?"rgba(255,138,0,.9)":"rgba(110,231,255,.85)";
+  el("timerText").textContent=left<30
+    ? `${Math.ceil(left)}초 남음`
+    : "말할 준비가 되면 눌러주세요";
+  requestAnimationFrame(tickRing);
+}
+addEventListener("resize",()=>{layoutRing();fit(cv);});
+layoutRing(); requestAnimationFrame(tickRing);
+
+function drawSil(){
+  const d=fit(cv),W=cv.width,H=cv.height;
+  ctx.clearRect(0,0,W,H);
+  if(joints&&BONES.length){
+    const s=Math.min(W,H)*0.92,ox=(W-s)/2,oy=(H-s)/2;
+    const P=p=>[ox+(1-p[0])*s,oy+p[1]*s];       // 거울: 좌우 반전
+    ctx.strokeStyle="#fff";ctx.lineCap="round";ctx.lineWidth=9*d;
+    for(const[a,b]of BONES){const ja=joints[a],jb=joints[b];
+      if(!ja||!jb||Math.min(ja[2],jb[2])<2)continue;
+      const[x1,y1]=P(ja),[x2,y2]=P(jb);
+      ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}
+  }
+  requestAnimationFrame(drawSil);
+}
+requestAnimationFrame(drawSil);
+
+/* 코칭 토스트 — 실측이 5초 이상 지속될 때만, 세션당 최대 3회 (PRD) */
+let lowSince=null,toastCount=0,toastUntil=0,lastToast=0;
+function maybeCoach(score,tilt,sway){
+  const now=Date.now();
+  if(now<toastUntil){return;}
+  if(now-lastToast<45000||toastCount>=3){lowSince=score<60?(lowSince??now):null;return;}
+  if(score===null||score>=60){lowSince=null;return;}
+  lowSince=lowSince??now;
+  if(now-lowSince<5000)return;
+  const worse=(Math.abs(tilt??0)>6)?["어깨가 한쪽으로 기울어 있어요","양쪽 어깨 높이를 맞춰보세요."]
+    :["상체가 흔들리고 있어요","발에 체중을 고르게 두고 서보세요."];
+  el("toastT").textContent=worse[0]; el("toastB").textContent=worse[1];
+  el("toast").className="toast on";
+  toastCount++; lastToast=now; lowSince=null; toastUntil=now+5200;
+  setTimeout(()=>el("toast").className="toast",5000);
+}
+
+function setGlow(score){
+  const m=el("mirror");
+  if(score===null){m.style.boxShadow="none";el("gState").textContent="측정 대기";return;}
+  if(score>=90){m.style.boxShadow="0 0 44px rgba(94,234,162,.30) inset,0 0 22px rgba(94,234,162,.16)";
+    el("gState").textContent="안정 (초록)";}
+  else if(score>=60){m.style.boxShadow="0 0 44px rgba(110,231,255,.26) inset,0 0 22px rgba(110,231,255,.14)";
+    el("gState").textContent="보통 (하늘)";}
+  else{m.style.boxShadow="0 0 56px rgba(255,138,0,.30) inset,0 0 26px rgba(255,138,0,.18)";
+    el("gState").textContent="주의 (주황)";}
+}
+
+const ws=new WebSocket(`ws://${location.host}/ws/live`);
+ws.onmessage=ev=>{
+  const m=JSON.parse(ev.data);
+  if(m.status!=="live"){
+    el("dot").className=["unavailable","error","retrying"].includes(m.status)?"dot bad":"dot";
+    el("stx").textContent=m.error||m.status; joints=null; setGlow(null); return;
+  }
+  const f=m.frame; if(!f)return;
+  el("dot").className="dot live";
+  el("stx").textContent=`실시간 · ${f.fps??"–"} fps`;
+  if(f.gate!=="ok"){joints=null;setGlow(null);
+    el("pScore").textContent="–";el("pUsed").textContent="유효 거리 밖 — 측정 보류";return;}
+  joints=f.joints;
+  const mm=f.metrics||{},pl=f.posture_live||{};
+  const s=pl.score??null;
+  el("pScore").textContent=s===null?"–":Math.round(s);
+  el("pScore").style.color=s===null?"var(--dim)":s>=90?"var(--posture)":s>=60?"var(--eye)":"var(--warm)";
+  el("pUsed").textContent=pl.used?.length
+    ? `사용: ${pl.used.join(" · ")} / 미포함: ${pl.missing.join(" · ")}` : "–";
+  el("kTilt").textContent=mm.shoulder_tilt_deg!=null?`${mm.shoulder_tilt_deg.toFixed(1)}°`:"–";
+  el("kSway").textContent=mm.sway_cm!=null?`${mm.sway_cm.toFixed(2)} cm`:"–";
+  el("kPts").textContent=mm.surface_points?mm.surface_points.toLocaleString("ko-KR"):"–";
+  el("kDist").textContent=mm.dist_cm!=null?`${mm.dist_cm.toFixed(0)} cm`:"–";
+  setGlow(s); maybeCoach(s,mm.shoulder_tilt_deg,mm.sway_cm);
+};
+ws.onclose=()=>{el("dot").className="dot bad";el("stx").textContent="연결 끊김";};
+</script>
+</body>
+</html>

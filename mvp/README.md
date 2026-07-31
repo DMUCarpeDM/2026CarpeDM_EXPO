@@ -1,4 +1,4 @@
-# Mirrorting MVP — 전시 프론트엔드
+# Mirror-Ting MVP — 전시 프론트엔드
 
 이 디렉터리는 관람객 체험용 React/Vite 프론트엔드입니다. 실제 대화와 분석은 [`../poc/backend`](../poc/backend)의 로컬 API를 사용합니다.
 

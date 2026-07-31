@@ -21,6 +21,11 @@ def to_scenario_out(scenario: Scenario) -> ScenarioOut:
         description=scenario.description,
         world_setting=scenario.world_setting,
         characters=scenario.characters,
+        # 팩 메타 (S-B2B-PACK): NFC 없는 웹앱이 직무로 시나리오를 고르는 축.
+        # 구형 행(팩 이전 시드)은 컬럼이 NULL일 수 있어 or ""로 흡수한다.
+        job_role=scenario.job_role or "",
+        domain=scenario.domain or "",
+        brand=scenario.brand or "",
         episode_titles=titles,
         episodes=[
             {

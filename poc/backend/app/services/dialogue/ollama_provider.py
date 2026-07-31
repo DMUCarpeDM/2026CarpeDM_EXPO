@@ -102,10 +102,15 @@ class OllamaDialogueProvider:
     def personalize_question(
         self, spec: QuestionSpec, situation: str, last_response: str,
         character: dict | None = None, difficulty: str = "basic",
+        emotion_directive: str = "",
     ) -> str | None:
         """평문 인자만 사용 — 요청 스레드 밖(병렬 실행)에서도 안전하다."""
+        persona = _persona_instruction(character or {}, difficulty)
+        # 감정 상태 주입 (S-B2B-EMOTION) — 상태 머신이 정한 현재 감정을 연기시킨다
+        if emotion_directive:
+            persona += f"\n[현재 감정 상태] {emotion_directive}"
         prompt = (
-            f"{_persona_instruction(character or {}, difficulty)}\n"
+            f"{persona}\n"
             f"[상황] {situation}\n"
             f"[역할 ID] {spec.character_id}\n"
             f"[사용자의 직전 답변] {last_response[:300] or '아직 답변 전입니다.'}\n"

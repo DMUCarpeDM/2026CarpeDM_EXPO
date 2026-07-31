@@ -96,9 +96,25 @@ def rapport_level(session: RoleplaySession) -> str:
     return "mid"
 
 
+def _reaction_pool(session: RoleplaySession, character_id: str, case: str) -> list[str]:
+    """리액션 문장 풀 — 시나리오 팩에 내장된 캐릭터별 풀 우선, 없으면 시드 라이브러리.
+
+    팩(S-B2B-PACK) 캐릭터는 characters[].reactions = {case: [문장...]}을 갖는다 —
+    새 직무 시나리오가 seed_data의 REACTIONS를 수정하지 않고 자체 리액션을 가진다.
+    """
+    characters = (session.scenario.characters if session.scenario else None) or []
+    for character in characters:
+        if character.get("id") == character_id:
+            embedded = (character.get("reactions") or {}).get(case)
+            if embedded:
+                return list(embedded)
+            break
+    return list(REACTIONS.get(character_id, {}).get(case, []))
+
+
 def pick_reaction(session: RoleplaySession, character_id: str, case: str) -> str:
     """캐릭터 톤 × 케이스로 리액션 선택. 같은 세션에서 같은 문장을 반복하지 않는다."""
-    pool = REACTIONS.get(character_id, {}).get(case, [])
+    pool = _reaction_pool(session, character_id, case)
     if not pool:
         return ""
     state = dict(session.rapport or {})
@@ -110,12 +126,17 @@ def pick_reaction(session: RoleplaySession, character_id: str, case: str) -> str
     return reaction
 
 
-def personalize_reaction(reaction: str, character: dict, response_text: str) -> str:
+def personalize_reaction(
+    reaction: str, character: dict, response_text: str, emotion_directive: str = "",
+) -> str:
     """로컬 LLM(Ollama)로 답변을 직접 언급하는 리액션으로 다듬는다. 실패 시 템플릿 유지."""
     if settings.dialogue_provider != "ollama":
         return reaction
+    # 감정 상태 주입 (S-B2B-EMOTION) — 리액션 문장에도 현재 감정이 실린다
+    emotion_line = f"[현재 감정 상태] {emotion_directive}\n" if emotion_directive else ""
     prompt = (
         f"[캐릭터] {character.get('name', '')} — {character.get('speech_style', '')}\n"
+        f"{emotion_line}"
         f"[신입의 직전 답변] {response_text[:300]}\n"
         f"[참고용 기본 반응] {reaction}\n"
         "위 답변에 대한 이 캐릭터의 반응 한 문장을 만드세요."
@@ -145,5 +166,10 @@ def personalize_reaction(reaction: str, character: dict, response_text: str) -> 
 
 
 def select_ending(session: RoleplaySession) -> dict:
-    """하루의 결말 — 수행도 3단계 분기."""
-    return dict(ENDINGS[rapport_level(session)])
+    """하루의 결말 — 수행도 3단계 분기. 팩 시나리오는 자체 결말을 가진다."""
+    level = rapport_level(session)
+    world = (session.scenario.world_setting if session.scenario else None) or {}
+    pack_endings = world.get("endings") or {}
+    if level in pack_endings:
+        return dict(pack_endings[level])
+    return dict(ENDINGS[level])

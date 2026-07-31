@@ -30,10 +30,10 @@ test("buildRetainedRecord keeps completed audio references and analysis result",
   });
 
   assert.equal(record.session_id, "session-1");
-  assert.equal(record.audio_reference, "indexeddb://mirrorting-retained-audio/session-1/turn-1");
+  assert.equal(record.audio_reference, "indexeddb://mirror-ting-retained-audio/session-1/turn-1");
   assert.deepEqual(record.audio_references, [
-    "indexeddb://mirrorting-retained-audio/session-1/turn-1",
-    "indexeddb://mirrorting-retained-audio/session-1/turn-2",
+    "indexeddb://mirror-ting-retained-audio/session-1/turn-1",
+    "indexeddb://mirror-ting-retained-audio/session-1/turn-2",
   ]);
   assert.deepEqual(record.analysis_result, { total_score: 84, fit_scores: { voice: { score: 80 } } });
   assert.equal(record.completed_at, "2026-07-13T12:00:00.000Z");
@@ -57,7 +57,7 @@ test("saveRetainedRecord preserves the newest record for each completed session"
   const records = readRetainedRecords(storage);
   assert.equal(records.length, 1);
   assert.equal(records[0].analysis_result.total_score, 91);
-  assert.equal(records[0].audio_reference, "indexeddb://mirrorting-retained-audio/session-1/turn-2");
+  assert.equal(records[0].audio_reference, "indexeddb://mirror-ting-retained-audio/session-1/turn-2");
 });
 
 test("isReportFlowView limits kiosk idle reset to the report flow", () => {

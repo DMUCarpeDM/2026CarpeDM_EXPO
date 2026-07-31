@@ -17,19 +17,19 @@ import { koreanVoiceStatus } from '../../lib/tts';
 export default function AdminPage() {
   const [metrics, setMetrics] = useState<AdminMetrics | null>(null);
   const [message, setMessage] = useState('');
-  const [kiosk, setKiosk] = useState(localStorage.getItem('mirroting-kiosk') === '1');
+  const [kiosk, setKiosk] = useState(localStorage.getItem('mirror-ting-kiosk') === '1');
   const [offline, setOffline] = useState(isOfflineMode());
   // 전시 준비 점검: 서버 STT 제공자(whisper/vosk/없음)와 TTS 음성 상태(로컬/네트워크/없음)
   const [serverStt, setServerStt] = useState<string | null | undefined>(undefined);
   const [voice, setVoice] = useState(koreanVoiceStatus());
-  // 서버에 MIRROTING_ADMIN_TOKEN이 설정된 경우에만 401이 떨어지고 입력창이 열린다
+  // 서버에 MIRROR_TING_ADMIN_TOKEN이 설정된 경우에만 401이 떨어지고 입력창이 열린다
   const [needToken, setNeedToken] = useState(false);
   const [token, setToken] = useState(adminToken());
 
   const handleError = useCallback((e: unknown, fallback: string) => {
     if (isAxiosError(e) && e.response?.status === 401) {
       setNeedToken(true);
-      setMessage('운영 토큰이 필요합니다. 서버의 MIRROTING_ADMIN_TOKEN 값을 입력해주세요.');
+      setMessage('운영 토큰이 필요합니다. 서버의 MIRROR_TING_ADMIN_TOKEN 값을 입력해주세요.');
     } else {
       setMessage(fallback);
     }
@@ -90,7 +90,7 @@ export default function AdminPage() {
 
   function toggleKiosk() {
     const next = !kiosk;
-    localStorage.setItem('mirroting-kiosk', next ? '1' : '0');
+    localStorage.setItem('mirror-ting-kiosk', next ? '1' : '0');
     setKiosk(next);
     setMessage(next ? '전시 모드 ON — 리포트 90초 무조작 시 자동 초기화됩니다.' : '전시 모드 OFF');
   }

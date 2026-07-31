@@ -6,7 +6,15 @@ band_score: 이상 구간 안이면 100점, 한계 구간 밖이면 0점, 사이
 
 # 점수 산식 버전 — 밴드 기준·가중치·측정 방법이 바뀌면 반드시 올린다.
 # 백분위·추이 비교는 동일 버전 표본끼리만 수행한다 (analysis_results/reports에 스냅샷).
-ENGINE_VERSION = "1"
+#
+# v2: MVP 프론트가 누락하던 지표를 복원해 측정 방법이 바뀌었다.
+#   - posture_sway / tilt_drift_deg 실측 (v1에서는 기본값 0.0 → 상수 만점이었다)
+#   - head_down_ratio를 코-어깨 거리로 측정 (v1은 eyeLookDown blendshape = 눈동자 하향)
+#   - 어깨 기울기를 3D 월드 랜드마크로 계산 (몸 회전에 불변)
+#   - 듣기/말하기 응시 분리·응시 리듬 전달 → score_eye가 v2 경로로 동작
+#   - 표정 판정을 개인 무표정 기저 대비로 전환 (v1은 절대 임계 → 사람마다 오판)
+#     smile_ratio·mouth_press_ratio·brow_down_ratio의 분포가 달라진다 (관찰 지표)
+ENGINE_VERSION = "2"
 
 
 def clamp(v: float, lo: float = 0.0, hi: float = 100.0) -> float:

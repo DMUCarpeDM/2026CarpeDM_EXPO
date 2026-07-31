@@ -105,7 +105,146 @@
 .practice-camera:fullscreen { border-radius: 0; }
 .practice-camera .camera-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
 .practice-camera .counterpart-video { transform: none; object-position: center 30%; }
-.analysis-video, .analysis-canvas { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+/* 우측 사이드 컬럼 — 상대 PiP(또는 내 분석 PiP)와 분석 로그를 세로로 쌓는다 */
+.camera-sidecol {
+  position: absolute;
+  top: 64px;
+  right: 18px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: clamp(170px, 21%, 250px);
+}
+
+/* 분석 PiP — 팀장 영상 시나리오에서 내 카메라·실측 랜드마크를 우측 상단에 보여준다 */
+.analysis-pip {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--pl-overlay-bg);
+  box-shadow: 0 14px 32px rgba(3, 10, 22, 0.35);
+  backdrop-filter: blur(10px);
+}
+.analysis-pip-stage { position: relative; aspect-ratio: 4 / 5; }
+/* drawOverlay가 object-fit: cover 좌표계로 사상하므로 비디오·캔버스를 동일 미러로 겹친다 */
+.analysis-pip-stage video, .analysis-pip-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+.analysis-pip-empty { position: absolute; inset: 0; display: grid; place-items: center; color: rgba(255, 255, 255, 0.55); font-size: 12px; }
+.analysis-pip-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 8px 12px; }
+.analysis-pip-title { display: inline-flex; align-items: center; gap: 6px; width: 100%; color: rgba(255, 255, 255, 0.92); font-size: 11.5px; font-weight: 700; letter-spacing: 0.01em; }
+.analysis-pip-title i { width: 6px; height: 6px; border-radius: 50%; background: #64748b; }
+.analysis-pip.is-live .analysis-pip-title i { background: #22c55e; box-shadow: 0 0 6px rgba(34, 197, 94, 0.8); animation: rec-pulse 1.4s ease-in-out infinite; }
+.practice-screen.is-paused .analysis-pip-title i { animation: none; }
+.analysis-pip-signal { display: inline-flex; align-items: baseline; gap: 4px; font-size: 11px; }
+.analysis-pip-signal small { color: rgba(255, 255, 255, 0.55); font-size: 10px; }
+.analysis-pip-signal b { font-variant-numeric: tabular-nums; font-weight: 720; }
+.analysis-pip-signal.good b { color: #6ee7a0; }
+.analysis-pip-signal.warn b { color: #fca55f; }
+.analysis-pip-signal.pending b { color: #93c5fd; }
+.analysis-pip[role="button"] { cursor: pointer; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+.analysis-pip[role="button"]:hover { border-color: rgba(126, 176, 255, 0.65); box-shadow: 0 14px 32px rgba(3, 10, 22, 0.5); }
+
+/* 실측 신호 칩 — LIVE 칩 옆에 시선·자세·추론 시간 (useFaceTracking 실제 출력) */
+.camera-signal-chip {
+  display: inline-flex; align-items: baseline; gap: 5px;
+  padding: 7px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-pill);
+  background: var(--pl-overlay-bg);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 12px;
+  backdrop-filter: blur(10px);
+}
+.camera-signal-chip small { color: rgba(255, 255, 255, 0.6); font-size: 10.5px; font-weight: 600; }
+.camera-signal-chip b { font-weight: 720; font-variant-numeric: tabular-nums; }
+.camera-signal-chip.good b { color: #6ee7a0; }
+.camera-signal-chip.warn b { color: #fca55f; }
+.camera-signal-chip.pending b { color: #93c5fd; }
+.camera-signal-chip.mic-retry { cursor: pointer; border-color: rgba(252, 165, 95, 0.55); font: inherit; }
+.camera-signal-chip.mic-retry b { color: #fca55f; }
+.camera-signal-chip.mic-retry:hover { border-color: #fca55f; background: rgba(60, 34, 12, 0.6); }
+
+/* 스테이지 전환 버튼 — 내 분석 ↔ AI 상대.
+   .camera-expand(width: 33px)가 뒤에 선언돼 있어 특이도를 올려 폭 고정을 푼다 */
+.practice-camera .camera-swap { width: auto; height: 33px; display: inline-flex; align-items: center; padding: 0 13px; font-size: 12px; font-weight: 650; white-space: nowrap; }
+
+/* 카메라 끊김 복구 — 새로고침·권한 차단 후 연습 화면 안에서 바로 다시 연결 */
+.camera-reconnect { position: absolute; left: 50%; top: 54%; z-index: 3; display: grid; justify-items: center; gap: 9px; transform: translateX(-50%); text-align: center; }
+.camera-reconnect button { padding: 12px 22px; border: 1px solid rgba(126, 176, 255, 0.5); border-radius: var(--radius-pill); background: rgba(0, 100, 255, 0.88); color: #fff; font-size: 14px; font-weight: 700; box-shadow: 0 10px 26px rgba(0, 70, 190, 0.4); backdrop-filter: blur(8px); }
+.camera-reconnect button:hover { background: rgba(20, 115, 255, 0.95); }
+.camera-reconnect small { max-width: 320px; color: rgba(255, 255, 255, 0.72); font-size: 11.5px; line-height: 1.5; }
+.camera-reconnect small.is-error { padding: 7px 12px; border-radius: 10px; background: rgba(229, 72, 77, 0.18); color: #ffb3b6; font-weight: 600; }
+
+/* 분석 로그 — 파이프라인 실이벤트 티커 (모노스페이스, 최신이 아래) */
+.analysis-feed {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(7, 13, 25, 0.72);
+  box-shadow: 0 14px 32px rgba(3, 10, 22, 0.35);
+  backdrop-filter: blur(10px);
+  font-family: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+}
+.analysis-feed-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.09); }
+.analysis-feed-title { display: inline-flex; align-items: center; gap: 6px; color: rgba(190, 214, 255, 0.9); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; }
+.analysis-feed-title i { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 6px rgba(34, 197, 94, 0.8); animation: rec-pulse 1.4s ease-in-out infinite; }
+.practice-screen.is-paused .analysis-feed-title i { animation: none; }
+.analysis-feed-head b { color: #8ef7bc; font-size: 10.5px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.analysis-feed ul { margin: 0; padding: 8px 12px; list-style: none; display: grid; gap: 5px; min-height: 96px; align-content: start; }
+.analysis-feed li { display: flex; gap: 7px; font-size: 10.5px; line-height: 1.45; animation: feed-in 0.3s ease-out both; }
+@keyframes feed-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.analysis-feed li time { flex: none; color: rgba(148, 178, 224, 0.62); font-variant-numeric: tabular-nums; }
+.analysis-feed li span { color: rgba(226, 238, 255, 0.92); word-break: keep-all; }
+.analysis-feed li.empty span { color: rgba(148, 178, 224, 0.55); }
+.analysis-feed-foot { padding: 7px 12px; border-top: 1px solid rgba(255, 255, 255, 0.09); color: rgba(148, 178, 224, 0.66); font-size: 9.5px; letter-spacing: 0.02em; }
+
+/* 마이크 실파형 — AnalyserNode가 구동하는 막대 (기존 점 장식을 대체) */
+.control-wave.is-real i { width: 3px; height: 15px; border-radius: 2px; background: linear-gradient(180deg, #9cc3ff, #4a87ff); transform: scaleY(0.18); transform-origin: center; animation: none; will-change: transform; }
+.control-wave.is-real.is-listening i { background: linear-gradient(180deg, #b7f7d4, #34d399); }
+
+/* ---------- 상황 브리핑 팝업 ---------- */
+.practice-briefing {
+  position: absolute; inset: 0; z-index: 30;
+  display: grid; place-items: center;
+  padding: 24px;
+  background: rgba(7, 13, 26, 0.56);
+  backdrop-filter: blur(7px);
+}
+.practice-briefing-card {
+  width: min(560px, 92vw);
+  padding: 26px 30px 22px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 30px 80px rgba(4, 12, 30, 0.42);
+}
+.briefing-kicker { display: inline-flex; padding: 5px 11px; border-radius: var(--radius-pill); background: rgba(0, 100, 255, 0.1); color: var(--color-blue); font-size: 11.5px; font-weight: 750; letter-spacing: 0.02em; }
+.practice-briefing-card h2 { margin: 12px 0 8px; font-size: 22px; font-weight: 740; letter-spacing: -0.02em; word-break: keep-all; }
+.briefing-situation { margin: 0 0 16px; color: var(--color-graphite); font-size: 15.5px; line-height: 1.62; word-break: keep-all; }
+.briefing-counterpart { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-fog); }
+.briefing-avatar { width: 34px; height: 34px; flex: none; overflow: hidden; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--color-border); }
+.briefing-avatar img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.briefing-counterpart strong { display: block; font-size: 14px; font-weight: 700; }
+.briefing-counterpart small { color: var(--color-muted); font-size: 12px; line-height: 1.45; }
+.briefing-points { margin-top: 12px; }
+.briefing-points small { color: var(--color-muted); font-size: 11.5px; font-weight: 650; }
+.briefing-points ul { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 5px; }
+.briefing-points li { position: relative; padding-left: 16px; color: var(--color-ink); font-size: 13.5px; line-height: 1.5; word-break: keep-all; }
+.briefing-points li::before { content: "◆"; position: absolute; left: 0; top: 0.35em; color: var(--color-blue); font-size: 8px; }
+.briefing-foot { display: flex; align-items: center; gap: 14px; margin-top: 18px; }
+.briefing-progress { position: relative; flex: 1; height: 5px; border-radius: 3px; background: rgba(16, 24, 40, 0.1); overflow: hidden; }
+.briefing-progress i { position: absolute; inset: 0; border-radius: 3px; background: linear-gradient(90deg, #1d6dff, #0057e0); transform-origin: left center; animation: briefing-run linear forwards; }
+@keyframes briefing-run { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+.briefing-foot button { display: inline-flex; align-items: center; gap: 5px; padding: 10px 18px; border: 0; border-radius: var(--radius-pill); background: var(--color-blue); color: #fff; font-size: 13.5px; font-weight: 700; box-shadow: 0 8px 20px rgba(0, 100, 255, 0.28); }
+.briefing-foot button:hover { filter: brightness(1.06); }
+
+/* 종료 확인 — 브리핑 카드 스타일 재사용, 촬영 중 오클릭 보호 */
+.practice-confirm .practice-briefing-card { width: min(420px, 92vw); }
+.confirm-foot { justify-content: flex-end; }
+.confirm-foot .confirm-stay { background: var(--color-blue); }
+.confirm-foot .confirm-leave { background: #fff; color: #e5484d; border: 1px solid rgba(229, 72, 77, 0.45); box-shadow: none; }
+.confirm-foot .confirm-leave:hover { background: rgba(229, 72, 77, 0.06); filter: none; }
 /* 실시간 랜드마크 캔버스 — 비디오와 동일하게 미러링해 좌표를 일치시킨다 */
 .tracking-canvas { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; transform: scaleX(-1); pointer-events: none; }
 .practice-camera > :not(.camera-video):not(.tracking-zone):not(.tracking-canvas) { z-index: 3; }
@@ -140,7 +279,8 @@
 
 /* 카메라 위 오버레이 칩들 */
 .camera-topline { position: absolute; top: 18px; display: flex; align-items: center; gap: 8px; }
-.camera-topline.left { left: 18px; }
+/* 좌측 칩 무리가 우측 버튼 밑으로 파고들지 않게 폭을 제한하고 줄바꿈한다 */
+.camera-topline.left { left: 18px; max-width: calc(100% - 240px); flex-wrap: wrap; }
 .camera-topline.right { right: 18px; }
 .camera-live-chip {
   display: inline-flex; align-items: center; gap: 9px;
@@ -194,6 +334,13 @@
 .tool-status-state b { min-width: 18px; font: inherit; white-space: nowrap; }
 .tool-status-row.ready { border-color: rgba(34, 197, 94, 0.22); background: rgba(248, 255, 251, 0.96); }
 .tool-status-row.ready .tool-status-state { flex-direction: row-reverse; background: var(--color-blue); }
+
+/* 마이크 장치 선택 — 무음 장치(빈 잭)가 기본으로 잡혔을 때 화면에서 바로 교체 */
+.mic-picker { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 9px 12px; border: 1px solid var(--color-border); border-radius: 11px; background: var(--color-fog); }
+.mic-picker span { flex: none; color: var(--color-graphite); font-size: 12px; font-weight: 650; }
+.mic-picker select { flex: 1; min-width: 0; padding: 7px 9px; border: 1px solid var(--color-border-strong); border-radius: 8px; background: #fff; color: var(--color-ink); font-size: 12px; }
+.mic-picker.is-warn { border-color: rgba(252, 165, 95, 0.7); background: rgba(255, 247, 237, 0.9); }
+.mic-picker.is-warn span { color: #c2570b; }
 
 @media (max-width: 760px) {
   .tool-status-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }

@@ -46,8 +46,8 @@ def test_reset_during_analysis_is_not_overwritten(monkeypatch):
     # build_report 직후 '운영자 리셋'이 다른 세션에서 들어온 것처럼 aborted로 만든다
     orig = report_service.build_report
 
-    def sabotage(db, session, scores, ms):
-        orig(db, session, scores, ms)
+    def sabotage(db, session, scores, ms, **kwargs):
+        orig(db, session, scores, ms, **kwargs)
         other = SessionLocal()
         try:
             other.query(RoleplaySession).filter_by(id=sid).update(

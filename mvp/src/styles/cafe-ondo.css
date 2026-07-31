@@ -1,0 +1,490 @@
+/* 카페 온도 B2B 흐름 — 발급 키오스크(E-17)·미러 NFC 폴백(E-20)·감정 온도 게이지·
+   영수증 QR·코칭 카드(E-21/F-4). 브랜드 가이드: docs/plan/b2b/brand-cafe-ondo.md */
+
+:root {
+  --ondo-brown: #4a2e1f;
+  --ondo-orange: #e8833a;
+  --ondo-cream: #f7efe6;
+  --ondo-brown-soft: rgba(74, 46, 31, 0.08);
+}
+
+/* ---- 발급 키오스크 전용 화면 (?kiosk=issue) — 전시 셸 밖에서 단독 렌더 ---- */
+
+.kiosk-issue-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  padding: 40px clamp(24px, 5vw, 72px) 28px;
+  background:
+    radial-gradient(90% 55% at 50% -6%, rgba(232, 131, 58, 0.14) 0%, transparent 60%),
+    linear-gradient(180deg, #fdf8f1 0%, var(--ondo-cream) 100%);
+  color: var(--ondo-brown);
+  text-align: center;
+}
+.kiosk-issue-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.kiosk-issue-brand img { width: clamp(280px, 30vw, 400px); height: auto; }
+.kiosk-issue-badge {
+  padding: 8px 18px;
+  border: 1px solid rgba(74, 46, 31, 0.18);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--ondo-brown);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.kiosk-issue-step {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: min(1080px, 100%);
+  padding: 24px 0;
+}
+.kiosk-issue-step h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(30px, 3.6vw, 46px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+.kiosk-issue-sub { margin: 0; color: rgba(74, 46, 31, 0.72); font-size: clamp(15px, 1.5vw, 19px); }
+.kiosk-wait-role { color: var(--ondo-orange); font-weight: 800; }
+
+/* 직무 선택 카드 3종 */
+.kiosk-role-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  width: 100%;
+  margin-top: 26px;
+}
+.kiosk-role-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 30px 22px 26px;
+  border: 1.5px solid rgba(74, 46, 31, 0.14);
+  border-radius: var(--radius-lg);
+  background: #fff;
+  color: var(--ondo-brown);
+  box-shadow: 0 16px 36px rgba(74, 46, 31, 0.08);
+  cursor: pointer;
+  transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+}
+.kiosk-role-card:hover,
+.kiosk-role-card:focus-visible {
+  border-color: var(--ondo-orange);
+  box-shadow: 0 20px 44px rgba(232, 131, 58, 0.22);
+  transform: translateY(-4px);
+}
+.kiosk-role-card img { width: 72px; height: 72px; margin-bottom: 6px; }
+.kiosk-role-card strong { font-size: clamp(19px, 1.9vw, 24px); font-weight: 800; letter-spacing: -0.02em; }
+.kiosk-role-card small { color: rgba(74, 46, 31, 0.66); font-size: 14.5px; line-height: 1.5; }
+.kiosk-role-card em {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 12px;
+  padding: 9px 18px;
+  border-radius: var(--radius-pill);
+  background: var(--ondo-orange);
+  color: #fff;
+  font-size: 14.5px;
+  font-style: normal;
+  font-weight: 750;
+}
+/* 사무행정(클라우드밋) 카드는 브랜드 톤만 살짝 구분한다 — 두 세계관을 섞지 않는 표식 */
+.kiosk-role-card.cloudmeet img { filter: grayscale(0.35) brightness(1.04); }
+.kiosk-role-card.cloudmeet em { background: var(--ondo-brown); }
+
+/* 카드 태그 대기 — 리더 위 카드 애니메이션 */
+.kiosk-tap-zone {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 210px;
+  height: 210px;
+  margin-bottom: 8px;
+}
+.kiosk-tap-ripple {
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgba(232, 131, 58, 0.55);
+  border-radius: 50%;
+  animation: kiosk-ripple 2.1s ease-out infinite;
+}
+.kiosk-tap-ripple.delay { animation-delay: 1.05s; }
+@keyframes kiosk-ripple {
+  0% { opacity: 0.9; transform: scale(0.62); }
+  100% { opacity: 0; transform: scale(1.08); }
+}
+.kiosk-tap-card {
+  display: grid;
+  place-items: center;
+  width: 128px;
+  height: 128px;
+  border-radius: 32px;
+  background: #fff;
+  box-shadow: 0 18px 40px rgba(74, 46, 31, 0.16);
+  animation: kiosk-tap-bob 2.1s ease-in-out infinite;
+}
+.kiosk-tap-card img { width: 84px; height: 84px; }
+@keyframes kiosk-tap-bob {
+  0%, 100% { transform: translateY(-7px); }
+  50% { transform: translateY(7px); }
+}
+
+.kiosk-wait-spinner {
+  width: 30px;
+  height: 30px;
+  margin-top: 14px;
+  border: 3px solid rgba(74, 46, 31, 0.16);
+  border-top-color: var(--ondo-orange);
+  border-radius: 50%;
+  animation: kiosk-spin 0.9s linear infinite;
+}
+.kiosk-wait-spinner.is-busy { border-top-color: var(--ondo-brown); }
+@keyframes kiosk-spin { to { transform: rotate(360deg); } }
+
+/* 수동 UID 폴백 (운영자용) */
+.kiosk-manual { margin-top: 26px; }
+.kiosk-manual-toggle {
+  padding: 10px 20px;
+  border: 1px dashed rgba(74, 46, 31, 0.34);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: rgba(74, 46, 31, 0.72);
+  font-size: 14.5px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.kiosk-manual-toggle:hover { border-color: var(--ondo-orange); color: var(--ondo-orange); }
+.kiosk-manual-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(430px, 90vw);
+  padding: 18px 20px;
+  border: 1px solid rgba(74, 46, 31, 0.14);
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-light);
+  text-align: left;
+}
+.kiosk-manual-panel label { font-size: 13.5px; font-weight: 750; color: var(--ondo-brown); }
+.kiosk-manual-row { display: flex; gap: 8px; }
+.kiosk-manual-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 14px;
+  border: 1px solid rgba(74, 46, 31, 0.22);
+  border-radius: 12px;
+  font-size: 15px;
+  font-family: ui-monospace, "Cascadia Mono", monospace;
+  letter-spacing: 0.04em;
+  color: var(--ondo-brown);
+}
+.kiosk-manual-row input:focus { border-color: var(--ondo-orange); outline: none; }
+.kiosk-manual-row button {
+  padding: 11px 22px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--ondo-orange);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 750;
+  cursor: pointer;
+}
+.kiosk-manual-row button:disabled { opacity: 0.45; cursor: default; }
+.kiosk-manual-panel small { color: rgba(74, 46, 31, 0.58); font-size: 12.5px; }
+
+.kiosk-back-link {
+  margin-top: 20px;
+  border: 0;
+  background: transparent;
+  color: rgba(74, 46, 31, 0.55);
+  font-size: 14.5px;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+.kiosk-back-link:hover { color: var(--ondo-brown); }
+.kiosk-back-link:disabled { opacity: 0.4; cursor: default; }
+
+/* 발급 완료 */
+.kiosk-done-check {
+  display: grid;
+  place-items: center;
+  width: 104px;
+  height: 104px;
+  margin-bottom: 10px;
+  border-radius: 50%;
+  background: var(--ondo-orange);
+  color: #fff;
+  box-shadow: 0 20px 46px rgba(232, 131, 58, 0.4);
+}
+.kiosk-done-role { margin: 0; font-size: clamp(18px, 2vw, 24px); }
+.kiosk-done-role strong { color: var(--ondo-orange); font-weight: 800; }
+.kiosk-done-note { color: rgba(74, 46, 31, 0.55); font-size: 13px; }
+.kiosk-done-return {
+  width: min(320px, 70vw);
+  height: 6px;
+  margin-top: 24px;
+  border-radius: var(--radius-pill);
+  background: rgba(74, 46, 31, 0.12);
+  overflow: hidden;
+}
+.kiosk-done-return i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ondo-orange);
+  animation: kiosk-return-fill linear forwards;
+  transform-origin: left;
+}
+@keyframes kiosk-return-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* 운영자용 오류 토스트 */
+.kiosk-toast {
+  position: fixed;
+  bottom: 34px;
+  left: 50%;
+  z-index: 40;
+  transform: translateX(-50%);
+  max-width: min(560px, calc(100vw - 48px));
+  padding: 13px 22px;
+  border-radius: var(--radius-pill);
+  background: rgba(42, 24, 14, 0.94);
+  color: #ffe8d6;
+  font-size: 14.5px;
+  font-weight: 650;
+  box-shadow: 0 16px 38px rgba(42, 24, 14, 0.35);
+}
+
+.kiosk-issue-foot { padding: 18px 0 4px; color: rgba(74, 46, 31, 0.45); font-size: 12.5px; }
+
+@media (max-width: 900px) {
+  .kiosk-role-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---- 미러 NFC 수동 폴백 시트 (E-20) — 홈 위 오버레이 ---- */
+
+.nfc-fallback-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80; /* AttractLoop(90)보다 아래 — 유휴 시 어트랙트가 자연히 덮는다 */
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background: rgba(15, 20, 30, 0.52);
+  backdrop-filter: blur(6px);
+}
+.nfc-fallback-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: min(520px, 100%);
+  padding: 34px 30px 26px;
+  border-radius: var(--radius-lg);
+  background: var(--ondo-cream);
+  color: var(--ondo-brown);
+  box-shadow: 0 30px 70px rgba(10, 14, 22, 0.4);
+  text-align: center;
+}
+.nfc-fallback-mark { width: 62px; height: 62px; margin-bottom: 4px; }
+.nfc-fallback-card h2 { margin: 0; font-family: var(--font-display); font-size: 25px; font-weight: 800; letter-spacing: -0.02em; }
+.nfc-fallback-card > p { margin: 0 0 14px; color: rgba(74, 46, 31, 0.7); font-size: 15px; line-height: 1.55; }
+.nfc-fallback-roles { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.nfc-fallback-roles button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "title icon" "text icon";
+  row-gap: 2px;
+  align-items: center;
+  padding: 15px 18px;
+  border: 1.5px solid rgba(74, 46, 31, 0.16);
+  border-radius: var(--radius-card);
+  background: #fff;
+  color: var(--ondo-brown);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.nfc-fallback-roles button:hover,
+.nfc-fallback-roles button:focus-visible {
+  border-color: var(--ondo-orange);
+  box-shadow: 0 12px 28px rgba(232, 131, 58, 0.2);
+}
+.nfc-fallback-roles strong { grid-area: title; font-size: 17px; font-weight: 780; }
+.nfc-fallback-roles small { grid-area: text; color: rgba(74, 46, 31, 0.62); font-size: 13.5px; }
+.nfc-fallback-roles svg { grid-area: icon; color: var(--ondo-orange); }
+.nfc-fallback-close {
+  margin-top: 16px;
+  border: 0;
+  background: transparent;
+  color: rgba(74, 46, 31, 0.55);
+  font-size: 14px;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+.nfc-fallback-close:hover { color: var(--ondo-brown); }
+
+/* ---- 감정 온도 게이지 (S-B2B-EMOTION) — 연습 스테이지 사이드 컬럼 ---- */
+
+.emotion-gauge {
+  padding: 12px 14px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  background: rgba(7, 13, 25, 0.72);
+  box-shadow: 0 14px 32px rgba(3, 10, 22, 0.35);
+  backdrop-filter: blur(10px);
+  color: #fff;
+}
+.emotion-gauge-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.emotion-gauge-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.72);
+}
+.emotion-gauge-title i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--emotion-color);
+  box-shadow: 0 0 10px var(--emotion-color);
+}
+.emotion-gauge-head b { font-size: 19px; font-weight: 800; color: var(--emotion-color); font-variant-numeric: tabular-nums; }
+.emotion-gauge-track {
+  position: relative;
+  height: 10px;
+  margin-top: 9px;
+  border-radius: var(--radius-pill);
+  background: rgba(247, 239, 230, 0.16); /* 크림 트랙 — 평온의 바탕색 */
+  overflow: hidden;
+}
+.emotion-gauge-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--emotion-color);
+  box-shadow: 0 0 14px var(--emotion-soft);
+  transition: background-color 0.7s ease;
+}
+.emotion-gauge-ticks { position: absolute; inset: 0; display: flex; pointer-events: none; }
+.emotion-gauge-ticks i { flex: 1; border-right: 1px solid rgba(7, 13, 25, 0.4); }
+.emotion-gauge-ticks i:last-child { border-right: 0; }
+.emotion-gauge-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; min-height: 20px; }
+.emotion-gauge-state { font-size: 13px; font-style: normal; font-weight: 780; color: var(--emotion-color); }
+.emotion-gauge-eased {
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(94, 234, 148, 0.16);
+  color: #5eeaa2;
+  font-size: 11.5px;
+  font-weight: 750;
+}
+
+/* ---- 리포트: 코치의 한 수 (F-4) + 영수증 QR (E-21) ---- */
+
+.coach-move-card .coach-move-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 19px;
+  font-weight: 780;
+  letter-spacing: -0.02em;
+}
+.coach-move-chip {
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--ondo-brown-soft);
+  color: var(--ondo-brown);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+}
+.coach-move-head p { margin: 6px 0 0; color: var(--color-graphite); font-size: 14px; }
+.coach-move-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.coach-move-list li {
+  position: relative;
+  padding: 16px 18px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-fog);
+}
+.coach-move-turn {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.coach-move-before {
+  margin: 0 0 8px;
+  padding-left: 12px;
+  border-left: 3px solid rgba(224, 68, 46, 0.5);
+  color: var(--color-graphite);
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+.coach-move-issue { margin: 0 0 10px; color: var(--danger); font-size: 13.5px; font-weight: 650; }
+.coach-move-after {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid rgba(232, 131, 58, 0.4);
+  color: var(--color-ink);
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.55;
+}
+.coach-move-after b { color: var(--ondo-orange); font-weight: 800; }
+.coach-move-ref { display: block; margin-top: 8px; color: var(--ondo-brown); font-size: 12.5px; font-weight: 650; opacity: 0.75; }
+
+.claim-qr-card { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+.claim-qr-card h2 { margin: 0; font-size: 18px; font-weight: 780; }
+.claim-qr-card img {
+  width: min(240px, 70%);
+  height: auto;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--color-border);
+  background: var(--ondo-cream);
+  padding: 10px;
+}
+.claim-qr-card p { margin: 0; color: var(--color-graphite); font-size: 13.5px; line-height: 1.5; }
+
+@media (prefers-reduced-motion: reduce) {
+  .kiosk-tap-ripple, .kiosk-tap-card, .kiosk-wait-spinner { animation: none; }
+}

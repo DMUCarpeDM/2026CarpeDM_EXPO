@@ -144,7 +144,7 @@ export default function ReportPage() {
 
   // 전시(키오스크) 모드: 무조작 90초 후 자동으로 대기 화면 복귀 (S-RKGLXP)
   useEffect(() => {
-    if (localStorage.getItem('mirroting-kiosk') !== '1' || !report) return;
+    if (localStorage.getItem('mirror-ting-kiosk') !== '1' || !report) return;
     let idle: ReturnType<typeof setTimeout>;
     const reset = () => {
       clearTimeout(idle);

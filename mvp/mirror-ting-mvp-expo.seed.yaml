@@ -1,5 +1,5 @@
 goal: >-
-  Improve the Mirrorting MVP into a 1920×1080 offline exhibition experience whose
+  Improve the Mirror-Ting MVP into a 1920×1080 offline exhibition experience whose
   unified, sidebar-free desktop UI follows the supplied PC mockups while preserving
   all existing MVP flows and presenting real PoC-backed 4-Fit analysis.
 
@@ -34,7 +34,7 @@ acceptance_criteria:
     inactivity on a completed report, the UI returns to the start screen.
 
 ontology_schema:
-  name: MirrortingExhibitionMvp
+  name: MirrorTingExhibitionMvp
   entities:
     - name: ExhibitionRuntime
       fields:

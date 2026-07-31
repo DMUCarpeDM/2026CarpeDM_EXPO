@@ -283,7 +283,7 @@ DB는 enum 저장만 담당한다 — 전이 규칙까지 DB 트리거로 넣는
   → ③ `media/` 전체 삭제 → ④ DB 파일 삭제. `audit_events`에 파기 기록.
 - **계정 삭제 요청 시**: `users` 행 삭제 → 세션·동의는 `SET NULL`로 익명화되어 통계는 보존 (✅ FK 설계에 반영).
 
-**백업(전시 중)**: WAL 모드이므로 운영 중에도 `sqlite3 mirroting.db "VACUUM INTO 'backup-$(date).db'"`
+**백업(전시 중)**: WAL 모드이므로 운영 중에도 `sqlite3 mirror-ting.db "VACUUM INTO 'backup-$(date).db'"`
 가 안전하다. 일과 종료마다 1회 권장.
 
 ---
@@ -319,7 +319,7 @@ DB는 enum 저장만 담당한다 — 전이 규칙까지 DB 트리거로 넣는
 | 단계 | 시점 | 내용 | 적용 방법 |
 |---|---|---|---|
 | **Phase 0** ✅ | 완료 (2026-07-07) | FK 강제·CASCADE, 유니크/CHECK 제약, WAL·busy_timeout, naive UTC 통일, modes JSON 배열, 재시도 멱등성 | DB 재생성 |
-| **Phase 1** ✅ | 완료 (2026-07-07) | `engine_version`(analysis_results·reports + 백분위 표본 한정), `attempt_no`(+ 2차 수행률·1차→2차 개선 KPI), `survey_responses`(+ 제출 API·설문 평균 KPI), 인덱스 3종(§4), CHECK 4종, `users.role` + admin 가드(`MIRROTING_ADMIN_AUTH_REQUIRED`, 기본 off), `audit_events`(초기화·내보내기 기록), admin fit 집계 SQL 전환 | DB 재생성 (README 규칙) |
+| **Phase 1** ✅ | 완료 (2026-07-07) | `engine_version`(analysis_results·reports + 백분위 표본 한정), `attempt_no`(+ 2차 수행률·1차→2차 개선 KPI), `survey_responses`(+ 제출 API·설문 평균 KPI), 인덱스 3종(§4), CHECK 4종, `users.role` + admin 가드(`MIRROR_TING_ADMIN_AUTH_REQUIRED`, 기본 off), `audit_events`(초기화·내보내기 기록), admin fit 집계 SQL 전환 | DB 재생성 (README 규칙) |
 | **Phase 2** | 전시 후 ~ 기관 파일럿 | **Alembic 도입(이후 모든 변경은 마이그레이션)**, `characters`·`checklist_items`·`pressure_questions`·`participants`·`lexicons` 정규화, `anonymous_ids` → participant FK | Alembic 마이그레이션 |
 | **Phase 3** | 기관 납품 | PostgreSQL 전환(§8), `daily_stats` 롤업, 멀티테넌시 완성, 코칭 이벤트 테이블 승격 검토 | Alembic + 데이터 이관 |
 

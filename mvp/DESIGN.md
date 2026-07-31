@@ -1,14 +1,14 @@
-# Mirrorting Design System
+# Mirror-Ting Design System
 
 ## 1. Atmosphere & Identity
 
-Mirrorting feels like a calm AI coaching studio for workplace conversations. The signature is a bright Apple-like canvas with selective Liquid Glass overlays around camera, AI question, action, and 4-Fit feedback moments. The product should feel supportive and precise, not evaluative or noisy.
+Mirror-Ting feels like a calm AI coaching studio for workplace conversations. The signature is a bright Apple-like canvas with selective Liquid Glass overlays around camera, AI question, action, and 4-Fit feedback moments. The product should feel supportive and precise, not evaluative or noisy.
 
 Apple HIG interpretation for this product: keep the interface clear, defer decoration behind the user's task, and make every control feel directly manipulable. A screen should present one main decision, one primary next action, and secondary details only when they help the current step.
 
 ### Reference-fidelity direction
 
-The supplied Mirrorting desktop boards are the visual contract for the exhibition flow. They use a bright, translucent floating header that becomes clearly visible on hover or keyboard focus; generous 24–32px gutters; thin cool-gray dividers; blue rectangular CTAs with a restrained 10–12px radius; and white cards with a soft blue-gray lift. Setup is a two-column decision surface with a pale-blue selection summary. Its three steps are `상대 역할 선택`, `시나리오 선택`, and `난이도 선택`: each step asks for one decision only. Analysis is a dense but calm desktop report: a score rail, coaching overview, metric rows, and a compact radar visual. Practice is the one intentionally dark surface, with the live camera as the primary object and glass feedback panels around it.
+The supplied Mirror-Ting desktop boards are the visual contract for the exhibition flow. They use a bright, translucent floating header that becomes clearly visible on hover or keyboard focus; generous 24–32px gutters; thin cool-gray dividers; blue rectangular CTAs with a restrained 10–12px radius; and white cards with a soft blue-gray lift. Setup is a two-column decision surface with a pale-blue selection summary. Its three steps are `상대 역할 선택`, `시나리오 선택`, and `난이도 선택`: each step asks for one decision only. Analysis is a dense but calm desktop report: a score rail, coaching overview, metric rows, and a compact radar visual. Practice is the one intentionally dark surface, with the live camera as the primary object and glass feedback panels around it.
 
 The remembered moment is the transition from live camera practice to a precise 4-Fit coaching report. Decorative photos are subordinate to that flow: use the real camera when permission is granted, and use a neutral camera state when it is not. The home hero is a single-column canvas with the supplied high-resolution device render fixed as its right-side background rather than as a separate media column. No sidebar is used anywhere; the shared top header carries navigation and utilities.
 
@@ -126,11 +126,11 @@ Flow rule: setup pages may show compact step context, but practice, feedback, an
 
 ### Service Demo Section
 - Structure: centered benefit headline, two large live-assist demo cards, three calm advantage visuals, and a split transcript/metric block.
-- Reference principle: Cluely-like progressive information density, adapted to Mirrorting coaching ethics and existing tokens.
+- Reference principle: Cluely-like progressive information density, adapted to Mirror-Ting coaching ethics and existing tokens.
 - Copy rule: describe what the AI helps the user do, not what the AI does secretly or instead of the user.
 
 ### Reicon SVG Icon
-- Mirrorting uses the public Reicon React set for interactive utilities, role, scenario, difficulty, section, and 4-Fit icons. The five home benefit icons are generated 3D image assets to match the supplied marketing board.
+- Mirror-Ting uses the public Reicon React set for interactive utilities, role, scenario, difficulty, section, and 4-Fit icons. The five home benefit icons are generated 3D image assets to match the supplied marketing board.
 - Icons use Reicon's 24px grid, Outline weight, 1.5px stroke override where supported, and inherit current color.
 - `IconGlyph` owns semantic mapping such as `response`, `voice`, `eye`, `posture`, `interview`, `presentation`, `negotiation`, `feedback`, `easy`, `normal`, and `hard`.
 - Direct utility icons must stay secondary and use geometric precision rendering.

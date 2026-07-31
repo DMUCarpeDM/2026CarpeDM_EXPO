@@ -25,7 +25,7 @@ fi
 "$UV" pip install --python .venv -r requirements.txt faster-whisper
 
 echo "== [2/5] Whisper 모델 사전 다운로드 =="
-MODEL="${MIRROTING_STT_WHISPER_MODEL:-small}"
+MODEL="${MIRROR_TING_STT_WHISPER_MODEL:-small}"
 .venv/bin/python - "$MODEL" <<'PY'
 import sys
 from faster_whisper import WhisperModel
@@ -42,7 +42,7 @@ if ! command -v ollama >/dev/null; then
     echo "!! brew가 없습니다 — https://ollama.com 에서 설치 후 재실행"; exit 1
   fi
 fi
-PLIST="$HOME/Library/LaunchAgents/com.mirroting.ollama.plist"
+PLIST="$HOME/Library/LaunchAgents/com.mirror-ting.ollama.plist"
 if [ ! -f "$PLIST" ]; then
   brew services stop ollama >/dev/null 2>&1 || true
   cat > "$PLIST" <<'EOF'
@@ -50,7 +50,7 @@ if [ ! -f "$PLIST" ]; then
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>Label</key><string>com.mirroting.ollama</string>
+    <key>Label</key><string>com.mirror-ting.ollama</string>
     <key>ProgramArguments</key>
     <array><string>/usr/local/bin/ollama</string><string>serve</string></array>
     <key>EnvironmentVariables</key>
@@ -60,15 +60,15 @@ if [ ! -f "$PLIST" ]; then
     </dict>
     <key>RunAtLoad</key><true/>
     <key>KeepAlive</key><true/>
-    <key>StandardOutPath</key><string>/tmp/mirroting-ollama.log</string>
-    <key>StandardErrorPath</key><string>/tmp/mirroting-ollama.log</string>
+    <key>StandardOutPath</key><string>/tmp/mirror-ting-ollama.log</string>
+    <key>StandardErrorPath</key><string>/tmp/mirror-ting-ollama.log</string>
 </dict>
 </plist>
 EOF
   # ollama 실행 경로가 /usr/local/bin이 아니면 보정 (Apple Silicon: /opt/homebrew/bin)
   OLLAMA_BIN="$(command -v ollama)"
   [ "$OLLAMA_BIN" != "/usr/local/bin/ollama" ] && sed -i '' "s|/usr/local/bin/ollama|$OLLAMA_BIN|" "$PLIST"
-  launchctl bootout "gui/$(id -u)/com.mirroting.ollama" 2>/dev/null || true
+  launchctl bootout "gui/$(id -u)/com.mirror-ting.ollama" 2>/dev/null || true
   launchctl bootstrap "gui/$(id -u)" "$PLIST"
   sleep 4
 fi
@@ -80,7 +80,7 @@ ollama pull exaone3.5:2.4b
 ollama pull bge-m3
 
 echo "== [5/5] .env =="
-[ -f .env ] || printf '# 기준 문서: .env.example\nMIRROTING_DIALOGUE_PROVIDER=ollama\n' > .env
+[ -f .env ] || printf '# 기준 문서: .env.example\nMIRROR_TING_DIALOGUE_PROVIDER=ollama\n' > .env
 
 echo
 echo "완료. 확인:  .venv/bin/uvicorn app.main:app --reload  →  GET /api/health"

@@ -9,6 +9,8 @@ import { Clock3 } from "reicon-react/icons/Clock3";
 import { Refresh3 } from "reicon-react/icons/Refresh3";
 import { User } from "reicon-react/icons/User";
 import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
+import QRCode from "qrcode";
 import { reportFits } from "../lib/reportFits";
 import { RadarChart, TrendChart } from "../components/report/Charts";
 import counterpartPortrait from "../assets/team-lead-portrait.webp";
@@ -33,6 +35,18 @@ function fitGrade(fit) {
 }
 
 export function ResultPage({ onPrev, onPractice, onNext, report, selectedDifficulty, progress, error }) {
+  // 영수증 QR (E-21 / S-B2B-CLAIM) — claim_url이 있으면 QR로 렌더한다. 훅은 조기 반환(로딩
+  // 화면)보다 먼저 호출해야 한다 — 리포트 도착 시 훅 개수가 달라지면 React가 죽는다.
+  const [claimQr, setClaimQr] = useState("");
+  const claimUrl = report?.claim_url || "";
+  useEffect(() => {
+    if (!claimUrl) { setClaimQr(""); return undefined; }
+    let cancelled = false;
+    QRCode.toDataURL(claimUrl, { width: 240, margin: 1, color: { dark: "#4A2E1F", light: "#F7EFE6" } })
+      .then((dataUrl) => { if (!cancelled) setClaimQr(dataUrl); })
+      .catch(() => { if (!cancelled) setClaimQr(""); });
+    return () => { cancelled = true; };
+  }, [claimUrl]);
 
   if (!report) {
     return (
@@ -45,7 +59,8 @@ export function ResultPage({ onPrev, onPractice, onNext, report, selectedDifficu
 
   const fits = reportFits(report);
   const total = Math.round(report.total_score ?? 0);
-  const grade = total >= 80 ? "Great" : total >= 60 ? "Good" : "Try";
+  // 서버 등급(S-B2B-SCORE: 우수/양호/보통/연습 필요)이 오면 그대로 쓰고, 없으면 기존 표기.
+  const grade = report.grade || (total >= 80 ? "Great" : total >= 60 ? "Good" : "Try");
   const percentile = report.percentile_top ? `상위 ${report.percentile_top}%` : total >= 80 ? "상위 18%" : "상위 40%";
   const strengths = report.strengths?.length ? report.strengths : ["답변의 핵심을 먼저 정리하려는 흐름이 잘 보였어요.", "상대에게 다음 행동을 분명히 알렸어요.", "끝까지 차분한 목소리를 유지했어요."];
   const improvements = report.improvements?.length ? report.improvements : ["결론과 기한을 한 문장으로 먼저 말해 보세요.", "근거를 한 가지 덧붙이면 설득력이 높아져요."];
@@ -54,13 +69,22 @@ export function ResultPage({ onPrev, onPractice, onNext, report, selectedDifficu
   const difficultyClass = effectiveDifficulty === "basic" ? "basic" : "pressure";
   const difficultyLabel = DIFFICULTY_LABELS[effectiveDifficulty] || "기본 모드";
   const stats = report.speech_stats || {};
+  // 파라링귀스틱 요약 (S-B2B-PARA) — 말 속도(SPM)·필러를 실측 스트립에 함께 보여줘요.
+  const para = stats.paralinguistics || {};
+  const fillerTop = Array.isArray(para.filler_top) && para.filler_top[0] ? para.filler_top[0][0] : "";
   const adaptation = report.deep_analysis?.adaptation;
   const dayEnding = report.day_ending;
+  // Before→After 코칭 카드 (F-4 / S-B2B-COACH) — 실제 발화 인용 → 이슈 → 제안 문장.
+  const coaching = Array.isArray(report.coaching) ? report.coaching.filter((card) => card?.suggestion) : [];
   // 실측 요약 스트립 — "측정했다"는 증거를 숫자로 먼저 보여줘요.
   const statItems = [
     stats.turns ? { label: "답변", value: `${stats.turns}턴` } : null,
     stats.total_syllables ? { label: "총 발화", value: `${stats.total_syllables}음절` } : null,
-    stats.avg_speech_rate ? { label: "말속도", value: `${stats.avg_speech_rate}음절/초` } : null,
+    // 분당 음절(SPM)이 오면 해석 문구와 함께 그쪽을 쓰고, 없으면 기존 초당 표기를 유지해요.
+    para.speech_rate_spm
+      ? { label: "말 속도", value: `분당 ${para.speech_rate_spm}음절${para.speech_rate_note ? ` · ${para.speech_rate_note}` : ""}` }
+      : stats.avg_speech_rate ? { label: "말 속도", value: `${stats.avg_speech_rate}음절/초` } : null,
+    Number.isFinite(para.filler_count) ? { label: "필러", value: `${para.filler_count}회${fillerTop ? ` · 주로 “${fillerTop}”` : ""}` } : null,
     typeof stats.formal_pct === "number" ? { label: "격식 표현", value: `${stats.formal_pct}%` } : null,
     stats.measurement?.frames ? { label: "영상 분석", value: `${stats.measurement.frames}프레임` } : null,
     stats.measurement?.audio_sec ? { label: "음성 분석", value: `${Math.round(stats.measurement.audio_sec)}초` } : null,
@@ -103,6 +127,13 @@ export function ResultPage({ onPrev, onPractice, onNext, report, selectedDifficu
                 ))}
               </ul>
             </Panel>
+            {claimQr && (
+              <Panel className="claim-qr-card">
+                <h2>결과 가져가기</h2>
+                <img src={claimQr} alt="결과 귀속 QR 코드" width="240" height="240" />
+                <p>QR을 찍으면 이 결과를 계정에 담을 수 있어요.</p>
+              </Panel>
+            )}
           </aside>
 
           <section className="report-main-col">
@@ -126,6 +157,26 @@ export function ResultPage({ onPrev, onPractice, onNext, report, selectedDifficu
                 <CoachingList tone="improve" title="개선 포인트 (Areas to Improve)" items={improvements} />
               </div>
             </Panel>
+
+            {coaching.length > 0 && (
+              <Panel className="coach-move-card">
+                <div className="coach-move-head">
+                  <h2>코치의 한 수 <span className="coach-move-chip">Before → After</span></h2>
+                  <p>실제로 했던 말을 코치가 다시 써 봤어요. 소리 내어 따라 읽어 보세요.</p>
+                </div>
+                <ol className="coach-move-list">
+                  {coaching.map((card, index) => (
+                    <li key={`${card.turn_order ?? "t"}-${index}`}>
+                      {card.turn_order ? <span className="coach-move-turn">{card.turn_order}턴</span> : null}
+                      {card.quote && <blockquote className="coach-move-before">“{card.quote}”</blockquote>}
+                      {card.issue && <p className="coach-move-issue">{card.issue}</p>}
+                      <p className="coach-move-after"><b aria-hidden="true">→</b>{card.suggestion}</p>
+                      {card.manual_ref?.title && <small className="coach-move-ref">카페 온도 응대 매뉴얼 · {card.manual_ref.title}</small>}
+                    </li>
+                  ))}
+                </ol>
+              </Panel>
+            )}
 
             {adaptation?.points?.length >= 2 && (
               <Panel className="adaptation-card">

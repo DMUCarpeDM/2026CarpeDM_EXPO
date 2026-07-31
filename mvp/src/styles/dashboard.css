@@ -80,7 +80,7 @@
 }
 .sidebar-link:hover { background: rgba(0, 100, 255, 0.05); color: var(--color-ink); }
 .sidebar-link.active { background: var(--color-blue-soft); color: var(--color-blue); font-weight: 650; }
-.sidebar-link .mirrorting-icon { flex: 0 0 auto; }
+.sidebar-link .mirror-ting-icon { flex: 0 0 auto; }
 
 .sidebar-user {
   display: flex;

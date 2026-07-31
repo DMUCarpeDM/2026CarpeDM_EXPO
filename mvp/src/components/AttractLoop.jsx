@@ -73,33 +73,39 @@ export function AttractLoop({ active, onStart }) {
 
   const current = SLIDES[slide];
 
+  // 항상 마운트 + CSS 클래스 전환. AnimatePresence 언마운트에 기대던 이전 구조는
+  // 중첩 exit가 완료되지 않으면 투명한 전체 화면 벽(pointer-events: auto)이
+  // 영구 잔류해 아래 UI 터치를 전부 막았다 — 숨김/차단은 attract.css가 책임진다.
   return (
-    <AnimatePresence>
+    <div
+      className={`attract-overlay${visible ? " is-on" : ""}`}
+      role="button"
+      aria-label="화면을 터치하면 시작돼요"
+      aria-hidden={!visible}
+    >
+      <div className="attract-glow" aria-hidden="true" />
+      <div className="attract-brand"><span className="brand-mark" aria-hidden="true">M</span><strong>Mirror-Ting</strong></div>
       {visible && (
-        <motion.div className="attract-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }} role="button" aria-label="화면을 터치하면 시작돼요">
-          <div className="attract-glow" aria-hidden="true" />
-          <div className="attract-brand"><span className="brand-mark" aria-hidden="true">M</span><strong>Mirrorting</strong></div>
-          <AnimatePresence mode="wait">
-            <motion.div key={current.key} className="attract-slide" initial={{ opacity: 0, y: 26 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}>
-              {current.fits ? (
-                <div className="attract-fits" aria-hidden="true">
-                  {["response", "voice", "eye", "posture"].map((fit) => (
-                    <span key={fit} className={`attract-fit ${fit}`}><IconGlyph icon={fit} size={27} /></span>
-                  ))}
-                </div>
-              ) : (
-                <span className="attract-icon" aria-hidden="true">{current.icon}</span>
-              )}
-              <h2>{current.title.split("\n").map((line) => <span key={line}>{line}</span>)}</h2>
-              <p>{current.sub}</p>
-            </motion.div>
-          </AnimatePresence>
-          <div className="attract-dots" aria-hidden="true">
-            {SLIDES.map((item, index) => <i key={item.key} className={index === slide ? "on" : ""} />)}
-          </div>
-          <button type="button" className="attract-cta" onClick={onStart}>화면을 터치하면 시작돼요</button>
-        </motion.div>
+        <AnimatePresence mode="wait">
+          <motion.div key={current.key} className="attract-slide" initial={{ opacity: 0, y: 26 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}>
+            {current.fits ? (
+              <div className="attract-fits" aria-hidden="true">
+                {["response", "voice", "eye", "posture"].map((fit) => (
+                  <span key={fit} className={`attract-fit ${fit}`}><IconGlyph icon={fit} size={27} /></span>
+                ))}
+              </div>
+            ) : (
+              <span className="attract-icon" aria-hidden="true">{current.icon}</span>
+            )}
+            <h2>{current.title.split("\n").map((line) => <span key={line}>{line}</span>)}</h2>
+            <p>{current.sub}</p>
+          </motion.div>
+        </AnimatePresence>
       )}
-    </AnimatePresence>
+      <div className="attract-dots" aria-hidden="true">
+        {SLIDES.map((item, index) => <i key={item.key} className={index === slide ? "on" : ""} />)}
+      </div>
+      <button type="button" className="attract-cta" onClick={onStart} tabIndex={visible ? 0 : -1}>화면을 터치하면 시작돼요</button>
+    </div>
   );
 }

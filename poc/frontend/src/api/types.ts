@@ -21,6 +21,11 @@ export interface Scenario {
   slug: string;
   title: string;
   description: string;
+  // 팩 메타 (S-B2B-PACK) — NFC 없는 웹앱이 직무로 시나리오를 고르는 축.
+  // 구형(팩 이전) 시드 시나리오는 세 값 모두 빈 문자열 → "공통" 그룹으로 취급.
+  job_role: string; // 'cafe_crew' | 'cs_agent' | 'office_admin' | ''
+  domain: string; // 'service' | 'office' | ''
+  brand: string; // 'cafe-ondo' | ''
   world_setting: {
     company: string;
     service: string;
@@ -117,6 +122,9 @@ export interface TurnSignals {
   case: 'excellent' | 'covered' | 'missing' | 'short' | 'risky';
   coverage: number;
   risk_hits: number;
+  // 감정 상태 머신 (S-B2B-EMOTION) — {state, label, temperature, eased}.
+  // 감정 프로파일이 없는 시나리오(기존 전시)는 빈 객체.
+  emotion: Record<string, unknown>;
 }
 
 export interface NextTurnResult {
@@ -249,6 +257,95 @@ export interface Report {
     total_score: number;
     fit_scores: Record<string, number | null>;
   } | null;
+}
+
+// ---- B2B 온보딩 교육 (S-B2B-101·S-B2B-118) ----
+
+/** GET /auth/me — 로그인 사용자의 기관 소속·역할 */
+export interface Me {
+  id: number;
+  email: string;
+  name: string;
+  institution_id: number | null;
+  org_role: '' | 'trainee' | 'manager';
+  job_role: string;
+}
+
+export interface OrgInvite {
+  code: string;
+  org_role: string;
+  is_active: boolean;
+}
+
+export interface Org {
+  id: number;
+  name: string;
+  code: string;
+}
+
+/** 매니저 전용 상세 — 초대 코드를 포함하므로 수강생 화면에 노출하지 않는다 */
+export interface OrgDetail extends Org {
+  invites: OrgInvite[];
+  member_count: number;
+}
+
+export interface OrgMember {
+  id: number;
+  email: string;
+  name: string;
+  org_role: string;
+  job_role: string;
+  session_count: number;
+  last_session_at: string | null;
+}
+
+/** 세션 목록에 실리는 fit_scores — 저장된 리포트 원형. score 중심으로만 읽는다 */
+export type SessionFitScores = Record<string, { score: number | null; label?: string }>;
+
+/** GET /orgs/{id}/sessions 행 — 관리자에게는 원점수+등급 병기 (S-B2B-112) */
+export interface OrgSessionItem {
+  id: number;
+  user_id: number | null;
+  user_name: string;
+  user_email: string;
+  job_role: string;
+  scenario_title: string;
+  mode: number;
+  difficulty: string;
+  status: string;
+  started_at: string;
+  total_score: number | null;
+  grade: string | null;
+  fit_scores: SessionFitScores;
+}
+
+export interface OrgSessionList {
+  total: number;
+  items: OrgSessionItem[];
+}
+
+/** GET /sessions/mine 행 — 수강생 화면은 등급 중심 표기 (S-B2B-112) */
+export interface MySession {
+  id: number;
+  scenario_title: string;
+  job_role: string;
+  mode: number;
+  difficulty: string;
+  status: string;
+  started_at: string;
+  grade: string | null;
+  total_score: number | null;
+  fit_scores: SessionFitScores;
+}
+
+/** 세션 클레임 미리보기/귀속 응답 (S-B2B-111) */
+export interface SessionClaim {
+  session_id: number;
+  scenario_title: string;
+  started_at: string;
+  total_score: number | null;
+  grade: string | null;
+  already_claimed: boolean;
 }
 
 export interface AdminMetrics {
