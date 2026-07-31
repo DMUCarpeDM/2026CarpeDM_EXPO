@@ -7,7 +7,7 @@ globalThis.localStorage = {
   getItem: (key) => storage.get(key) || null,
   setItem: (key, value) => storage.set(key, String(value)),
 };
-const { createSession, resolveApiBase, submitResponse } = await import("./pocApi.js");
+const { createSession, getNfcTap, issueNfcCard, resolveApiBase, resolveNfcCard, submitResponse } = await import("./pocApi.js");
 
 test("resolveApiBase keeps exhibition traffic on the local PC", () => {
   assert.equal(resolveApiBase("https://remote.example.com/api"), "/api");
@@ -55,6 +55,59 @@ test("createSession preserves ultra pressure for the persona prompt", async () =
   await createSession({ difficulty: "ultra_pressure", mode: 10, scenarioSlug: "release-schedule-alignment", consent: true });
 
   assert.equal(JSON.parse(calls[0].options.body).difficulty, "ultra_pressure");
+});
+
+// NFC 시작(S-B2B-NFC): nfc_uid·job_role은 카드 흐름일 때만 실린다 — 기존 계약을 오염시키지 않는다.
+test("createSession stamps the NFC card fields only when provided", async () => {
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    return new Response(JSON.stringify({ id: "session-nfc" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  await createSession({ difficulty: "basic", mode: 5, scenarioSlug: "ondo-cafe-crew", consent: true, jobRole: "cafe_crew", nfcUid: "04A1B2C3" });
+  const nfcPayload = JSON.parse(calls[0].options.body);
+  assert.equal(nfcPayload.job_role, "cafe_crew");
+  assert.equal(nfcPayload.nfc_uid, "04A1B2C3");
+  assert.equal(nfcPayload.scenario_slug, "ondo-cafe-crew");
+
+  // 수동 폴백은 직무만, 일반 흐름은 둘 다 없이 — 미전달 필드는 body에 나타나지 않는다.
+  await createSession({ difficulty: "basic", mode: 5, scenarioSlug: "release-schedule-alignment", consent: true, jobRole: "office_admin", nfcUid: "" });
+  const manualPayload = JSON.parse(calls[1].options.body);
+  assert.equal(manualPayload.job_role, "office_admin");
+  assert.equal("nfc_uid" in manualPayload, false);
+
+  await createSession({ difficulty: "basic", mode: 5, scenarioSlug: "release-schedule-alignment", consent: true });
+  const plainPayload = JSON.parse(calls[2].options.body);
+  assert.equal("job_role" in plainPayload, false);
+  assert.equal("nfc_uid" in plainPayload, false);
+});
+
+test("NFC endpoints follow the backend contract paths", async () => {
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    return new Response(JSON.stringify({ seq: 2, uid: "04AA", reader: "kiosk", at: 1 }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  await getNfcTap("kiosk", 7);
+  assert.equal(calls[0].url, "http://127.0.0.1:8000/api/nfc/tap?reader=kiosk&since=7");
+
+  await issueNfcCard({ uid: "04AA", jobRole: "cafe_crew" });
+  assert.equal(calls[1].url, "http://127.0.0.1:8000/api/nfc/issue");
+  const issueBody = JSON.parse(calls[1].options.body);
+  assert.equal(issueBody.job_role, "cafe_crew");
+  assert.equal("scenario_slug" in issueBody, false); // 미지정이면 서버 기본 팩을 쓴다
+
+  await resolveNfcCard("04AA");
+  assert.equal(calls[2].url, "http://127.0.0.1:8000/api/nfc/resolve");
+  assert.deepEqual(JSON.parse(calls[2].options.body), { uid: "04AA" });
 });
 
 test("createSession sends the selected backend episode", async () => {
@@ -180,4 +233,36 @@ test("submitResponse skips the audio route when there is no recording", async ()
   assert.equal(calls.length, 1);
   assert.ok(calls[0].url.endsWith("/response"));
   assert.equal(JSON.parse(calls[0].options.body).stt_source, "text");
+});
+
+test("422 detail 배열은 사용자용 문구로 축약된다 — '[object Object]' 토스트 방지", async () => {
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({ detail: [{ type: "string_pattern_mismatch", loc: ["body", "uid"] }] }),
+      { status: 422, headers: { "Content-Type": "application/json" } },
+    );
+
+  await assert.rejects(
+    issueNfcCard({ uid: "not-hex!", jobRole: "cafe_crew" }),
+    (error) => {
+      assert.equal(typeof error.message, "string");
+      assert.ok(!error.message.includes("[object"));
+      assert.ok(error.message.includes("입력 형식"));
+      return true;
+    },
+  );
+});
+
+test("문자열 detail(HTTPException)은 그대로 사용자에게 전달된다", async () => {
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({ detail: "등록되지 않았거나 폐기된 카드입니다" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+
+  await assert.rejects(resolveNfcCard("04AABBCC"), (error) => {
+    assert.equal(error.message, "등록되지 않았거나 폐기된 카드입니다");
+    assert.equal(error.status, 404);
+    return true;
+  });
 });

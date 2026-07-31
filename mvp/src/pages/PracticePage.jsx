@@ -7,10 +7,11 @@ import { Pause } from "reicon-react/icons/Pause";
 import { Play } from "reicon-react/icons/Play";
 import { Power } from "reicon-react/icons/Power";
 import { Refresh3 } from "reicon-react/icons/Refresh3";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { IconGlyph } from "../components/ui/IconGlyph";
 import { TeamLeadVideo } from "../components/practice/TeamLeadVideo";
 import { blobToWav, wavHasSpeech } from "../lib/audioWav";
+import { emotionVisual } from "../lib/emotionGauge";
 import { shouldScheduleAutoSubmit } from "../lib/sttAutoSubmit";
 import { useFaceTracking } from "../lib/useFaceTracking";
 import counterpartPortrait from "../assets/team-lead-video-portrait.png";
@@ -70,6 +71,9 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
     return () => window.clearTimeout(timer);
   }, [showBriefing, briefingMs]);
   const aiReady = aiHealth?.dialogue_provider === "ollama" && aiHealth?.ollama?.dialogue;
+  // 감정 온도 게이지 (S-B2B-EMOTION) — 서버 감정 상태 머신의 신호. 감정 프로파일이 없는
+  // 시나리오는 emotion이 {}로 와서 null이 되고, 게이지를 아예 렌더하지 않는다(하위 호환).
+  const emotion = emotionVisual(turnSignals?.emotion);
   // MediaPipe 실시간 얼굴·상체 트래킹 (영상 미전송 — 브라우저 안에서만 분석)
   const track = useFaceTracking(mediaStream, analysisVideoRef, overlayRef);
   const trackingLive = track.status === "ready" && track.tracking;
@@ -600,12 +604,14 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
             </div>}
             <div className="camera-sidecol">
               {isTeamLead && <CounterpartPip name={characterName} state={teamLeadVideoState} paused={paused} onReactionComplete={() => setTeamLeadReaction("")} onSwap={() => setStageView("counterpart")} />}
+              {emotion && <EmotionGauge emotion={emotion} name={characterName} />}
               {trackingLive && <AnalysisFeed feed={feed} track={track} sttMode={sttMode} />}
             </div>
           </> : <>
             <TeamLeadVideo state={teamLeadVideoState} name={characterName} paused={paused} onReactionComplete={() => setTeamLeadReaction("")} />
             <div className="camera-sidecol">
               <AnalysisPip videoRef={analysisVideoRef} canvasRef={overlayRef} track={track} live={trackingLive} hasCamera={hasCamera} onSwap={() => setStageView("mirror")} />
+              {emotion && <EmotionGauge emotion={emotion} name={characterName} />}
               {trackingLive && <AnalysisFeed feed={feed} track={track} sttMode={sttMode} />}
             </div>
           </>}
@@ -778,6 +784,49 @@ function AnalysisPip({ videoRef, canvasRef, track, live, hasCamera, onSwap }) {
         ))}
       </div>
     </StagePip>
+  );
+}
+
+// 감정 온도 게이지 (S-B2B-EMOTION) — 상대의 감정 온도(0~100)를 실시간으로 보여주는 연출 핵심.
+// 좋은 응대는 온도를 내린다: 서버 감정 상태 머신(평온→불만→격앙)의 값을 그대로 시각화하고,
+// 한 턴에 온도가 크게 떨어지면(eased) "화가 풀리고 있어요" 완화 연출을 띄운다.
+function EmotionGauge({ emotion, name }) {
+  return (
+    <div
+      className={`emotion-gauge state-${emotion.state}`}
+      style={{ "--emotion-color": emotion.color, "--emotion-soft": emotion.soft }}
+      aria-label={`${name}의 감정 온도 ${Math.round(emotion.pct)}도 — ${emotion.label}`}
+    >
+      <div className="emotion-gauge-head">
+        <span className="emotion-gauge-title"><i aria-hidden="true" />감정 온도</span>
+        <b>{Math.round(emotion.pct)}°</b>
+      </div>
+      <div className="emotion-gauge-track" aria-hidden="true">
+        <motion.span
+          className="emotion-gauge-fill"
+          initial={false}
+          animate={{ width: `${emotion.pct}%` }}
+          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+        />
+        <span className="emotion-gauge-ticks"><i /><i /><i /></span>
+      </div>
+      <div className="emotion-gauge-foot">
+        <em className="emotion-gauge-state">{emotion.label}</em>
+        <AnimatePresence>
+          {emotion.eased && (
+            <motion.span
+              className="emotion-gauge-eased"
+              initial={{ opacity: 0, y: 6, scale: 0.94 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+            >
+              화가 풀리고 있어요
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
   );
 }
 

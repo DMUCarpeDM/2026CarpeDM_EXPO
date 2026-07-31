@@ -44,7 +44,16 @@ async function request(path, { token, ...options } = {}) {
   });
   const data = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new PocApiError(data?.detail || "서버를 실행하면 연습을 이어갈 수 있어요.", response.status);
+    // FastAPI 422의 detail은 객체 배열이라 그대로 message에 넣으면 화면에
+    // "[object Object]"가 뜬다 — 문자열 detail만 통과시키고 나머지는 축약한다.
+    const detail = data?.detail;
+    const message =
+      typeof detail === "string" && detail
+        ? detail
+        : Array.isArray(detail)
+          ? "입력 형식이 올바르지 않아요. 다시 확인해 주세요."
+          : "서버를 실행하면 연습을 이어갈 수 있어요.";
+    throw new PocApiError(message, response.status);
   }
   return data;
 }
@@ -57,7 +66,7 @@ export function getHealth() {
   return request("/health");
 }
 
-export function createSession({ difficulty, mode, scenarioSlug, selectedEpisodeId, consent }) {
+export function createSession({ difficulty, mode, scenarioSlug, selectedEpisodeId, consent, jobRole, nfcUid }) {
   return request("/sessions", {
     method: "POST",
     body: JSON.stringify({
@@ -65,10 +74,39 @@ export function createSession({ difficulty, mode, scenarioSlug, selectedEpisodeI
       mode,
       scenario_slug: scenarioSlug,
       ...(selectedEpisodeId ? { selected_episode_id: selectedEpisodeId } : {}),
+      // ---- B2B 확장 (S-B2B-SESSION / S-B2B-NFC) — NFC·직무 흐름일 때만 실어 기존 계약을 보존한다.
+      // nfc_uid를 주면 서버가 카드의 직무·시나리오를 세션에 스탬프한다 (미등록 카드 404).
+      ...(jobRole ? { job_role: jobRole } : {}),
+      ...(nfcUid ? { nfc_uid: nfcUid } : {}),
       client_key: getClientKey(),
       consent: { agreed: consent, storage_policy: "none" },
     }),
   });
+}
+
+// ---- NFC (S-B2B-103~106) — 발급 키오스크·미러 태그 계약 ----
+
+// 리더 브리지 폴링 — since(마지막으로 본 seq) 이후 새 태그가 없으면 uid가 빈 문자열이다.
+export function getNfcTap(reader, since = 0) {
+  return request(`/nfc/tap?reader=${encodeURIComponent(reader)}&since=${since}`);
+}
+
+// 카드 발급/재발급 — 같은 uid는 직무를 덮어쓴다 (카드는 회전 소모품). 알 수 없는 직무면 422.
+export function issueNfcCard({ uid, jobRole, scenarioSlug }) {
+  return request("/nfc/issue", {
+    method: "POST",
+    body: JSON.stringify({
+      uid,
+      job_role: jobRole,
+      ...(scenarioSlug ? { scenario_slug: scenarioSlug } : {}),
+    }),
+  });
+}
+
+// 미러 시작 계약 — 태그된 카드의 직무·시나리오를 돌려준다. 미등록·폐기 카드는 404 →
+// 호출부가 수동 직무 선택 폴백 UI를 띄운다 (미인식이 체험 중단이 되면 안 된다).
+export function resolveNfcCard(uid) {
+  return request("/nfc/resolve", { method: "POST", body: JSON.stringify({ uid }) });
 }
 
 // poc 백엔드 계약: 오디오는 /audio(멀티파트 `file`), 답변 본문은 /response(JSON).
