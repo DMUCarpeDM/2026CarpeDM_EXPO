@@ -212,10 +212,15 @@ def create_session(
     provider = get_dialogue_provider()
     spec = provider.first_question(session, _selected_episodes(session, scenario))
     first_episode = db.get(Episode, spec.episode_id)
-    personalized = provider.personalize_question(
-        spec, first_episode.situation if first_episode else "", "", _character_for(scenario, spec.character_id), session.difficulty,
-        emotion_directive=emotion.directive_for(session, spec.character_id),
-    )
+    # 감정 시나리오(고객 페르소나)의 도입 대사는 각본을 유지한다 (S-B2B-EMOTION).
+    # 직전 답변이 없는 첫 턴은 개인화가 더할 맥락이 없고, 소형 LLM이 역할을
+    # 뒤집는 사고(격앙한 고객이 직원처럼 사과하는 첫마디 — 리허설 실측)가
+    # 도입 몰입을 깨뜨린다. 2턴부터는 직전 답변 기반 개인화가 정상 동작한다.
+    personalized = None
+    if not emotion.profile_of(session):
+        personalized = provider.personalize_question(
+            spec, first_episode.situation if first_episode else "", "", _character_for(scenario, spec.character_id), session.difficulty,
+        )
     # 개인화 실패(Ollama 다운·타임아웃·형식 불량)는 오류가 아니다 — 전문가가 쓴
     # 템플릿 문장을 그대로 쓴다. 체험 시작을 LLM에 인질로 잡히게 하지 않는다.
     if personalized:

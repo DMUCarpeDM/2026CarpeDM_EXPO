@@ -93,6 +93,35 @@ def test_directive_only_for_target_character():
         db.close()
 
 
+def test_emotion_scenario_first_line_stays_scripted(monkeypatch):
+    """감정 시나리오의 도입 대사는 개인화하지 않는다 — 역할 반전 사고 방지 (리허설 실측).
+
+    격앙한 고객의 첫마디를 소형 LLM이 다듬으면 직원처럼 사과하는 문장으로
+    뒤집힐 수 있다. 기존(감정 비활성) 시나리오의 첫 질문 개인화는 유지된다.
+    """
+    from app.services.dialogue.ollama_provider import OllamaDialogueProvider
+
+    seed()
+    calls = []
+    monkeypatch.setattr(
+        OllamaDialogueProvider, "personalize_question",
+        lambda _self, spec, *a, **k: calls.append(spec.question_type) or spec.question_text,
+    )
+
+    crew = client.post("/api/sessions", json={
+        "mode": 5, "consent": CONSENT, "scenario_slug": "ondo-cafe-crew",
+    }).json()
+    assert calls == [], "감정 시나리오 첫 턴은 개인화 호출 자체가 없어야 한다"
+    # 각본 원문 그대로 — 격앙한 고객의 컴플레인
+    assert "온도라떼" in crew["current_turn"]["question_text"]
+    assert "10분" in crew["current_turn"]["question_text"]
+
+    client.post("/api/sessions", json={
+        "mode": 5, "consent": CONSENT, "scenario_slug": "release-schedule-alignment",
+    })
+    assert calls == ["initial"], "기존(감정 비활성) 시나리오의 첫 질문 개인화는 유지"
+
+
 def test_turn_signals_carry_emotion_via_api():
     """관통: 팩 세션의 턴 제출 응답에 감정 게이지가 실린다."""
     seed()
