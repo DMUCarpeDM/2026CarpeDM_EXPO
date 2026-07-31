@@ -272,6 +272,42 @@ _NV_TIMELINE_MAX = 150  # 10분 모드(2초 빈 ≈ 300초+여유)도 덮는 상
 _NV_TIPS_MAX = 20
 
 
+class KinectObsIn(BaseModel):
+    """키넥트 뎁스 관찰 (S6) — 웹캠 MediaPipe를 보완하는 뎁스 실측 뭉치.
+
+    프론트는 뎁스 값을 기존 자세 필드에 그대로 넣고(같은 단위·같은 밴드) 여기엔
+    출처·게이트용 표본과 뎁스 고유 관찰(몸통 회전·거리)만 담는다. 원본 영상 미전송
+    원칙은 동일 — 집계 숫자만 온다. 위조·버그 값은 거부(422) 대신 물리 범위로 클램프
+    한다(NonverbalIn과 같은 정책 — 턴 제출은 생존이 우선).
+    """
+    frames: int = 0            # 뎁스 표본 프레임 — 채점 게이트용
+    fps: float = 0.0
+    duration_sec: float = 0.0
+    calibrated: bool = False
+    mode: str = ""             # 실행 모드 표기 (CPU|CUDA 등) — 측정 투명성
+    tilt_deg: float = 0.0      # 어깨 기울기(도) — avg_shoulder_tilt_deg에 대응
+    sway_norm: float = 0.0     # 상체 흔들림(정규화) — posture_sway에 대응
+    torso_yaw_deg: float = 0.0  # 몸통 회전 각(뎁스 고유) — 관찰 카드용
+    torso_yaw_dir: str | None = None  # left | right — 그 외는 버린다
+    dist_cm: float = 0.0       # 상대와의 거리(cm)
+    dist_drift_cm: float = 0.0  # 후반-전반 거리 변화(+ 물러남 / - 다가옴)
+
+    @model_validator(mode="after")
+    def _sanitize(self):
+        self.frames = int(min(1_000_000, max(0, self.frames)))
+        self.fps = float(min(120.0, max(0.0, self.fps)))
+        self.duration_sec = float(min(3600.0, max(0.0, self.duration_sec)))
+        self.tilt_deg = float(min(90.0, max(0.0, self.tilt_deg)))
+        self.sway_norm = float(min(10.0, max(0.0, self.sway_norm)))
+        self.torso_yaw_deg = float(min(180.0, max(0.0, self.torso_yaw_deg)))
+        self.dist_cm = float(min(1000.0, max(0.0, self.dist_cm)))
+        self.dist_drift_cm = float(min(1000.0, max(-1000.0, self.dist_drift_cm)))
+        if self.torso_yaw_dir not in ("left", "right"):
+            self.torso_yaw_dir = None
+        self.mode = (self.mode or "")[:30]
+        return self
+
+
 class NonverbalIn(BaseModel):
     front_gaze_ratio: float = 0.0
     gaze_off_count: int = 0
@@ -329,6 +365,9 @@ class NonverbalIn(BaseModel):
     gesture_two_handed_ratio: float | None = None  # 양손 동시 활동 비율 — 양손 강조, 표본 부족 시 null
     head_motion: float | None = None  # 말할 때 코 위치 표준편차(어깨너비 정규화) — 머리 흔들림, 표본 부족 시 null
     tips: list[str] = []  # 턴 중 발생한 실시간 코칭 (S-JKEYHS 리포트 연동)
+    # ---- 키넥트 뎁스 통합 (S6) — 자세 값은 위 기존 필드로, 여기엔 출처·뎁스 뭉치만 ----
+    posture_source: str | None = None  # mediapipe | kinect — 그 외 표기는 버린다
+    kinect: KinectObsIn | None = None   # 뎁스 관찰 (없으면 기존 경로 그대로 — 하위 호환)
 
     # ---- 서버측 살균 (C6 완화) ----
     # 원본 영상이 서버로 오지 않는 설계라 값 자체의 재계산 검증은 불가능하다.
@@ -348,6 +387,9 @@ class NonverbalIn(BaseModel):
                 setattr(self, name, min(hi, max(lo, value)))
         if self.gaze_off_dir not in (None, "down", "up", "left", "right"):
             self.gaze_off_dir = None
+        # 자세 출처 표기는 화이트리스트만 — 알 수 없는 값은 버린다(키넥트 게이트 오작동 방지)
+        if self.posture_source not in ("mediapipe", "kinect"):
+            self.posture_source = None
         # 시선 방향 분포·존은 형태가 어긋나면 통째로 버린다 (부분 신뢰 없음)
         known_dirs = {"down", "up", "left", "right"}
         if not (isinstance(self.gaze_dirs, dict) and set(self.gaze_dirs) <= known_dirs
@@ -388,6 +430,9 @@ class TurnSignalsOut(BaseModel):
     # 감정 상태 머신 (S-B2B-EMOTION): {state, label, temperature, eased} —
     # 프론트 온도 게이지·표정 연출용. 감정 프로파일이 없는 시나리오는 빈 dict.
     emotion: dict = {}
+    # 표정 인지 (S-EXPR-ACK): {state, label} — 관람객 표정이 상대 리액션에 실렸을 때만.
+    # 판정 보류·미보정·상한 초과 턴은 빈 dict.
+    expression: dict = {}
 
 
 class NextTurnOut(BaseModel):

@@ -637,6 +637,71 @@ def _gaze_map(session: RoleplaySession) -> dict | None:
     return {"zones": ratios, "frames": total, "comment": comment}
 
 
+# 키넥트 뎁스 관찰 임계 (S6) — 밴드 없는 관찰 축이라 확실할 때만 말한다(보수적).
+# 몸통 회전은 웹캠 정면 지표로는 안 잡히는 뎁스 고유 관찰. 실기기 보정 전 보수치.
+_KINECT_YAW_FLAG = 10.0    # 이 이상 평균 회전이면 지적 카드
+_KINECT_YAW_PRAISE = 5.0   # 이 이하로 정면을 유지했으면 칭찬 카드
+_KINECT_DIST_FLAG = 15.0   # 후반에 이만큼(cm) 물러났으면 지적 카드
+_KINECT_DIST_STABLE = 10.0  # 거리 변화가 이 이내여야 '정면 유지' 칭찬 대상
+_DIR_KO = {"left": "왼쪽", "right": "오른쪽"}
+
+
+def _kinect_segments(session: RoleplaySession) -> list[dict]:
+    """뎁스 관찰 카드 (S6) — 몸통 회전·거리 변화. 밴드 없는 관찰 축이라 점수엔
+    안 실리고 관찰 문장으로만 전달한다. 뎁스 데이터 없으면 카드도 없다.
+
+    자세 값(기울기·흔들림)은 기존 필드로 이미 채점되므로 여기서 중복하지 않는다.
+    측정 출처('뎁스')를 문장에 명시해 실측 근거를 드러낸다.
+    """
+    turns = [
+        t for t in getattr(session, "turns", [])
+        if isinstance(getattr(t, "nonverbal_metrics", None), dict)
+        and isinstance(t.nonverbal_metrics.get("kinect"), dict)
+    ]
+    if not turns:
+        return []
+    kins = [t.nonverbal_metrics["kinect"] for t in turns]
+    last = turns[-1]
+
+    yaws = [abs(float(k.get("torso_yaw_deg") or 0.0)) for k in kins]
+    mean_yaw = sum(yaws) / len(yaws)
+    dirs = [k.get("torso_yaw_dir") for k in kins if k.get("torso_yaw_dir") in ("left", "right")]
+    dominant = max(set(dirs), key=dirs.count) if dirs else None
+    drifts = [float(k.get("dist_drift_cm") or 0.0) for k in kins]
+    mean_drift = sum(drifts) / len(drifts)
+
+    def seg(observed: str, interpretation: str, suggestion: str) -> dict:
+        return {
+            "turn_id": last.id, "turn_order": last.order, "fit_type": "habit",
+            "quote": "", "observed": observed,
+            "interpretation": interpretation, "suggestion": suggestion,
+        }
+
+    segs: list[dict] = []
+    if mean_yaw >= _KINECT_YAW_FLAG:
+        side = _DIR_KO.get(dominant, "한쪽")
+        segs.append(seg(
+            f"뎁스 측정에서 답변 중 몸통이 평균 {mean_yaw:.0f}° {side}으로 돌아가 있었어요.",
+            "정면을 벗어난 몸통은 웹캠 시선 지표로는 잘 안 잡히지만, 상대에겐 발을 빼는 "
+            "듯한 인상으로 읽힐 수 있어요.",
+            f"어깨를 상대 정면으로 다시 맞추면(특히 {side}으로 트는 습관) 같은 말도 더 "
+            "적극적으로 들려요.",
+        ))
+    if mean_drift >= _KINECT_DIST_FLAG:
+        segs.append(seg(
+            f"뎁스 측정에서 답변이 이어질수록 상대에게서 약 {mean_drift:.0f}cm 물러났어요.",
+            "무의식적으로 거리를 벌리면 자신 없어 보이거나 대화를 피하는 신호로 읽힐 수 있어요.",
+            "처음 앉은 거리를 끝까지 유지하면 안정적이고 몰입한 인상을 줘요.",
+        ))
+    if not segs and mean_yaw <= _KINECT_YAW_PRAISE and abs(mean_drift) <= _KINECT_DIST_STABLE:
+        segs.append(seg(
+            "뎁스 측정에서 답변 내내 상대를 정면으로 마주한 안정적인 자세를 유지했어요.",
+            "정면을 지키는 몸통은 상대에게 집중하고 있다는 강한 신호예요.",
+            "이 자세를 실제 면접·미팅에서도 그대로 가져가면 좋아요.",
+        ))
+    return segs
+
+
 def _habit_segments(session: RoleplaySession) -> list[dict]:
     """무의식 습관 카드 — 지각 확장 지표(손-얼굴·팔짱·제스처 경직/과다·체중 이동·
     긴장 표정·미소 타이밍·진정성 미소).
@@ -1047,7 +1112,7 @@ def build_report(
         strengths=strengths,
         improvements=improvements,
         evidence_segments=sorted(
-            evidence_segments + live_segments + _habit_segments(session),
+            evidence_segments + live_segments + _habit_segments(session) + _kinect_segments(session),
             key=lambda s: s["turn_order"],
         ),
         headline=headline,

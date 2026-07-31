@@ -96,13 +96,25 @@ def score_posture(metrics: dict) -> float | None:
     이번에 신설된 관찰 지표(제스처·골반 스웨이·경청 자세)는 원칙대로 점수 밖 —
     실기기 보정 전에는 습관 카드·교차 분석만 소비한다.
     """
-    if not metrics or metrics.get("frames", 0) < MIN_FRAMES:
+    if not metrics:
+        return None
+    webcam_alive = metrics.get("frames", 0) >= MIN_FRAMES
+    # 키넥트 뎁스 게이트 (S6): 웹캠 표본이 부족해도 출처가 kinect이고 뎁스 프레임이
+    # 충분하면 채점한다. 출처 표기 없이 kinect 뭉치만 있으면 게이트를 열지 않는다.
+    kinect = metrics.get("kinect") or {}
+    depth_alive = (metrics.get("posture_source") == "kinect"
+                   and (kinect.get("frames") or 0) >= MIN_FRAMES)
+    if not webcam_alive and not depth_alive:
         return None
     parts = [
         (band_score(metrics.get("avg_shoulder_tilt_deg", 0.0), *SHOULDER_TILT_BANDS), 0.4),
-        (band_score(metrics.get("head_down_ratio", 0.0), *HEAD_DOWN_BANDS), 0.35),
         (band_score(metrics.get("posture_sway", 0.0), *SWAY_BANDS), 0.25),
     ]
+    # head_down_ratio는 MediaPipe(웹캠) 몫 — 단위가 달라 키넥트가 대체할 수 없다.
+    # 웹캠이 죽은 뎁스 단독 턴에서 기본값 0.0이 가중 0.35의 상수 만점으로 새면
+    # 나쁜 자세도 점수가 뜨므로, 웹캠이 살아 있을 때만 포함한다.
+    if webcam_alive:
+        parts.append((band_score(metrics.get("head_down_ratio", 0.0), *HEAD_DOWN_BANDS), 0.35))
     if "tilt_drift_deg" in metrics:
         # 유지력: 좋게 시작해 무너지는 자세는 평균 기울기만으로는 안 보인다
         parts.append((band_score(max(0.0, metrics["tilt_drift_deg"]), *TILT_DRIFT_BANDS), 0.15))

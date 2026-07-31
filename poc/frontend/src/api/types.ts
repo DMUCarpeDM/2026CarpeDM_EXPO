@@ -116,6 +116,25 @@ export interface NonverbalMetrics {
   gesture_two_handed_ratio: number | null; // 양 손목 동시 활동 프레임 / 한 손이라도 활동 — 양손 강조, 손 활동 3초 미만 null
   head_motion: number | null; // 말할 때 코 위치(어깨너비 정규화) 표준편차 — 머리 흔들림(안절부절), 답변 3초 미만 null
   tips: string[]; // 턴 중 발생한 실시간 코칭 문구
+  // ---- 키넥트 뎁스 통합 (S6) — 자세 값은 위 기존 필드로, 여기엔 출처·뎁스 뭉치만 ----
+  posture_source?: 'mediapipe' | 'kinect' | null; // 자세 측정 출처 (없으면 기존 경로)
+  kinect?: KinectObs | null; // 뎁스 관찰 (없으면 하위 호환 — 기존 페이로드 그대로)
+}
+
+// 키넥트 뎁스 관찰 (S6) — 자세 값은 NonverbalMetrics 기존 필드로 흐르고,
+// 여기엔 출처·게이트 표본과 뎁스 고유 관찰(몸통 회전·거리)만 담는다.
+export interface KinectObs {
+  frames: number; // 뎁스 표본 프레임 — 채점 게이트용
+  fps: number;
+  duration_sec: number;
+  calibrated: boolean;
+  mode: string; // 실행 모드 표기 (CPU|CUDA 등)
+  tilt_deg: number; // 어깨 기울기(도)
+  sway_norm: number; // 상체 흔들림(정규화)
+  torso_yaw_deg: number; // 몸통 회전 각(뎁스 고유)
+  torso_yaw_dir: 'left' | 'right' | null;
+  dist_cm: number; // 상대와의 거리(cm)
+  dist_drift_cm: number; // 후반-전반 거리 변화(+ 물러남 / - 다가옴)
 }
 
 export interface TurnSignals {
@@ -125,6 +144,9 @@ export interface TurnSignals {
   // 감정 상태 머신 (S-B2B-EMOTION) — {state, label, temperature, eased}.
   // 감정 프로파일이 없는 시나리오(기존 전시)는 빈 객체.
   emotion: Record<string, unknown>;
+  // 표정 인지 (S-EXPR-ACK) — {state, label}. 관람객 표정이 상대 리액션에
+  // 실렸을 때만 채워지고, 판정 보류·상한 초과 턴은 빈 객체.
+  expression: Record<string, unknown>;
 }
 
 export interface NextTurnResult {

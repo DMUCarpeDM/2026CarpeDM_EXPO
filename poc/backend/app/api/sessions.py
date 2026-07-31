@@ -41,7 +41,7 @@ from app.schemas import (
 from app.services.analysis import run_analysis
 from app.services.dialogue import QuestionSpec, get_dialogue_provider
 from app.services.dialogue.availability import ollama_dialogue_ready
-from app.services.dialogue import emotion, reactions
+from app.services.dialogue import emotion, expression, reactions
 from app.services.session_fsm import InvalidTransition, transition
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -479,6 +479,8 @@ def submit_response(
     # 반응하는 인물 = 방금 답변을 들은 사람 (에피소드가 넘어가도 반응은 직전 화자의 몫)
     reaction = reactions.pick_reaction(session, turn.character_id, signals["case"])
     character = _character_for(session.scenario, turn.character_id) if reaction else {}
+    # 표정 인지 (S-EXPR-ACK): 이번 턴 표정 집계를 판정 — Ollama 다듬기 뒤 apply로 합성한다
+    expr_state = expression.classify(turn.nonverbal_metrics)
     db.commit()  # pick_reaction이 갱신한 used_reactions 저장
 
     # 질문은 위에서 Ollama로 생성했다. 짧은 반응 문장만 병렬로 다듬는다.
@@ -496,6 +498,12 @@ def submit_response(
                 reaction_directive,
             )
             reaction = reaction_future.result()
+
+    # 표정 인지 한마디 합성 — 리액션 확정 뒤(Ollama 다듬기 포함) 결정적으로 얹는다.
+    # 케이스 게이트·세션 상한·같은 상태 연속 금지는 apply가 처리한다. rapport 변경은
+    # 바로 아래 _create_turn의 commit으로 저장된다.
+    reaction, acked = expression.apply(session, character, reaction, expr_state, signals["case"])
+    signals_out.expression = expression.signals_payload(acked)
 
     next_turn = _create_turn(
         db, session, spec, order=turn.order + 1,
