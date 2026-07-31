@@ -112,6 +112,10 @@ class Scenario(Base):
     rubric_weights: Mapped[dict] = mapped_column(JSON, default=dict)
     # 감정 상태 머신 프로파일 {enabled, initial, temperature, deltas, lines} — 비면 비활성
     emotion_profile: Mapped[dict] = mapped_column(JSON, default=dict)
+    # 대화 정책 {personalize_questions: bool} — false면 질문은 각본 그대로 쓰고
+    # LLM은 리액션만 다듬는다. 소형 LLM의 격식체 재작성이 캐릭터(진상 고객 등)의
+    # 말맛을 죽이는 문제의 구조적 해법: 각본이 가장 자연스러운 자산이다.
+    dialogue_policy: Mapped[dict] = mapped_column(JSON, default=dict)
 
     episodes: Mapped[list["Episode"]] = relationship(
         back_populates="scenario", order_by="Episode.order",

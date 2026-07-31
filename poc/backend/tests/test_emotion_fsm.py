@@ -99,13 +99,19 @@ def test_emotion_scenario_first_line_stays_scripted(monkeypatch):
     격앙한 고객의 첫마디를 소형 LLM이 다듬으면 직원처럼 사과하는 문장으로
     뒤집힐 수 있다. 기존(감정 비활성) 시나리오의 첫 질문 개인화는 유지된다.
     """
+    from app.services.dialogue import reactions as reactions_module
     from app.services.dialogue.ollama_provider import OllamaDialogueProvider
 
     seed()
     calls = []
+    reaction_calls = []
     monkeypatch.setattr(
         OllamaDialogueProvider, "personalize_question",
         lambda _self, spec, *a, **k: calls.append(spec.question_type) or spec.question_text,
+    )
+    monkeypatch.setattr(
+        reactions_module, "personalize_reaction",
+        lambda reaction, *a, **k: reaction_calls.append(reaction) or reaction,
     )
 
     crew = client.post("/api/sessions", json={
@@ -115,6 +121,42 @@ def test_emotion_scenario_first_line_stays_scripted(monkeypatch):
     # 각본 원문 그대로 — 격앙한 고객의 컴플레인
     assert "온도라떼" in crew["current_turn"]["question_text"]
     assert "10분" in crew["current_turn"]["question_text"]
+
+    # 팩 정책(personalize_questions=false): 이후 턴의 질문도 각본 그대로 —
+    # 소형 LLM 재작성이 캐릭터 말맛을 안내문 격식체로 뭉개는 문제의 구조적 차단.
+    # '개인화 체감'은 리액션(personalize_reaction)과 감정 게이지가 담당한다.
+    headers = {"X-Session-Token": crew["access_token"]}
+    resp = client.post(
+        f"/api/sessions/{crew['id']}/turns/{crew['current_turn']['id']}/response",
+        headers=headers,
+        json={"text": "정말 죄송합니다. 온도라떼 바로 다시 만들어 드리겠습니다.",
+              "stt_source": "text", "duration_ms": 6000},
+    )
+    assert resp.status_code == 200, resp.text
+    assert calls == [], "팩 시나리오는 이후 턴 질문도 개인화하지 않는다 (각본 고정)"
+    # 리액션도 각본 풀 그대로 — LLM 재작성이 역할을 흐리는 문제(고객이 직원
+    # 말투로 "신경 써 볼게요" — 실측)의 차단. 풀 문장 중 하나가 그대로 나온다.
+    assert reaction_calls == [], "팩 시나리오는 리액션도 LLM 재작성하지 않는다"
+    reaction_text = resp.json()["next_turn"]["reaction_text"] if resp.json()["next_turn"] else ""
+    if reaction_text:
+        from app.seed.packs import load_pack_files
+
+        crew_pack = next(p for p in load_pack_files() if p["slug"] == "ondo-cafe-crew")
+        customer = next(c for c in crew_pack["characters"] if c["id"] == "angry_customer")
+        pool = [line for lines in customer["reactions"].values() for line in lines]
+        assert reaction_text in pool, "리액션은 팩 풀 원문이어야 한다"
+    next_turn = resp.json()["next_turn"]
+    if next_turn:  # 다음 질문은 팩 각본 문장 그대로다
+        from app.seed.packs import load_pack_files
+
+        pack = next(p for p in load_pack_files() if p["slug"] == "ondo-cafe-crew")
+        scripted = {ep["initial_question"] for ep in pack["episodes"]}
+        for ep in pack["episodes"]:
+            scripted |= {item["followup"] for item in ep.get("checklist", [])}
+            scripted |= {q["text"] for q in ep.get("deepening_questions", [])}
+            scripted |= {q["text"] for q in ep.get("pressure_questions", [])}
+            scripted |= set((ep.get("intro_variants") or {}).values())
+        assert next_turn["question_text"] in scripted, "팩 질문은 각본 문장 중 하나여야 한다"
 
     client.post("/api/sessions", json={
         "mode": 5, "consent": CONSENT, "scenario_slug": "release-schedule-alignment",

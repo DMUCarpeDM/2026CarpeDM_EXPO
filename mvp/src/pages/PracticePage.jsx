@@ -10,11 +10,12 @@ import { Refresh3 } from "reicon-react/icons/Refresh3";
 import { AnimatePresence, motion } from "framer-motion";
 import { IconGlyph } from "../components/ui/IconGlyph";
 import { TeamLeadVideo } from "../components/practice/TeamLeadVideo";
+import { CounterpartAvatar } from "../components/practice/CounterpartAvatar";
 import { blobToWav, wavHasSpeech } from "../lib/audioWav";
 import { emotionVisual } from "../lib/emotionGauge";
 import { shouldScheduleAutoSubmit } from "../lib/sttAutoSubmit";
 import { useFaceTracking } from "../lib/useFaceTracking";
-import counterpartPortrait from "../assets/team-lead-video-portrait.png";
+import { PersonaFace } from "../components/ui/PersonaFace";
 
 function formatClock(totalSeconds) {
   const m = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
@@ -577,7 +578,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
             <button type="button" className="topbar-scenario">{scenario?.title || "업무 보고 및 피드백 논의"} <ChevronDown size={15} /></button>
           </div>
           <div className="topbar-item counterpart">
-            <span className="counterpart-avatar"><img src={counterpartPortrait} alt="" /></span>
+            <span className="counterpart-avatar"><PersonaFace name={characterName} /></span>
             <span className="counterpart-meta">
               <span className="topbar-item-label">상대</span>
               <strong>{characterName} <i className="presence-dot" aria-hidden="true" /><em className="ai-tag">AI</em></strong>
@@ -604,6 +605,9 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
             </div>}
             <div className="camera-sidecol">
               {isTeamLead && <CounterpartPip name={characterName} state={teamLeadVideoState} paused={paused} onReactionComplete={() => setTeamLeadReaction("")} onSwap={() => setStageView("counterpart")} />}
+              {!isTeamLead && character && (
+                <CounterpartAvatar name={characterName} role={character?.role || ""} speaking={aiSpeaking} emotion={emotion} />
+              )}
               {emotion && <EmotionGauge emotion={emotion} name={characterName} />}
               {trackingLive && <AnalysisFeed feed={feed} track={track} sttMode={sttMode} />}
             </div>
@@ -704,7 +708,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
           <h2>{episode?.title || scenario?.title || "연습 상황"}</h2>
           <p className="briefing-situation">{briefingSituation}</p>
           <div className="briefing-counterpart">
-            <span className="briefing-avatar" aria-hidden="true"><img src={counterpartPortrait} alt="" /></span>
+            <span className="briefing-avatar" aria-hidden="true"><PersonaFace name={characterName} /></span>
             <div><strong>{characterName}</strong><small>{character?.role || "상대"}{character?.personality ? ` · ${character.personality}` : ""}</small></div>
           </div>
           {briefingPoints.length > 0 && <div className="briefing-points">
@@ -929,7 +933,7 @@ function ChatBubble({ children, ai = false, mine = false, name, time }) {
   }
   return (
     <div className={`chat-message ${ai ? "ai" : ""}`}>
-      <span className="chat-avatar" aria-hidden="true"><img src={counterpartPortrait} alt="" /></span>
+      <span className="chat-avatar" aria-hidden="true"><PersonaFace name={name} /></span>
       <div className="chat-content">
         <span className="chat-meta">{name} · {time}</span>
         <div className="chat-bubble"><p>{children}</p></div>
@@ -941,7 +945,7 @@ function ChatBubble({ children, ai = false, mine = false, name, time }) {
 function AiPromptOverlay({ name, speaking, text }) {
   return <section className={`ai-prompt-overlay ${speaking ? "is-speaking" : ""}`} aria-label={`${name}의 질문`}>
     <div className="ai-prompt-meta">
-      <span className="ai-prompt-avatar" aria-hidden="true"><img src={counterpartPortrait} alt="" /></span>
+      <span className="ai-prompt-avatar" aria-hidden="true"><PersonaFace name={name} /></span>
       <strong>{name}</strong>
       <em>{speaking ? "AI가 말하는 중" : "AI 질문"}</em>
     </div>

@@ -43,8 +43,8 @@
 .topbar-scenario:hover { color: var(--color-blue); }
 .topbar-scenario svg { color: var(--color-muted); }
 .topbar-item.counterpart { flex-direction: row; align-items: center; gap: 9px; }
-.counterpart-avatar { position: relative; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; overflow: hidden; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--color-border), 0 2px 6px rgba(16, 24, 40, 0.12); background: linear-gradient(135deg, #2f7cff, #0064ff); color: #fff; }
-.counterpart-avatar img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.counterpart-card { position: relative; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; overflow: hidden; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--color-border), 0 2px 6px rgba(16, 24, 40, 0.12); background: linear-gradient(135deg, #2f7cff, #0064ff); color: #fff; }
+.counterpart-card img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
 .counterpart-meta { display: flex; flex-direction: column; gap: 1px; }
 .counterpart-meta strong { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 680; letter-spacing: -0.01em; }
 .presence-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.16); }
@@ -452,4 +452,72 @@
   .control-speak input { min-width: 0; }
   .control-clock small { display: none; }
   .control-send { min-width: 58px; height: 38px; padding: 0 9px 0 11px; }
+}
+
+/* 상대 아바타 폴백 (CounterpartAvatar) — 영상 자산 없는 캐릭터의 존재감.
+   감정 온도 색(--avatar-tint)이 링·상태 점에 실려 게이지와 같은 언어를 쓴다. */
+.counterpart-card {
+  --avatar-tint: rgba(148, 163, 184, 0.9);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+}
+.counterpart-card-face {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(148, 163, 184, 0.16);
+  border: 2px solid var(--avatar-tint);
+  flex: none;
+}
+.counterpart-card-face b {
+  font-size: 22px;
+  font-weight: 800;
+  color: #f8fafc;
+}
+.counterpart-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.counterpart-card-meta strong {
+  font-size: 14px;
+  color: #f1f5f9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.counterpart-card-meta small {
+  font-size: 11px;
+  color: rgba(226, 232, 240, 0.65);
+}
+.counterpart-card-meta i {
+  font-style: normal;
+  font-size: 11px;
+  color: rgba(226, 232, 240, 0.55);
+}
+.counterpart-card.is-speaking .counterpart-card-meta i {
+  color: var(--avatar-tint);
+  font-weight: 700;
+}
+
+/* 이니셜 인물 얼굴 (PersonaFace) — 실사 초상 없는 인물의 공용 아바타.
+   부모 래퍼(.chat-avatar 등)의 크기·radius를 그대로 채운다. */
+.persona-initial {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: rgba(232, 131, 58, 0.2);
+  color: #f8fafc;
+  font-weight: 800;
+  font-size: 0.95em;
 }

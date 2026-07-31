@@ -13,7 +13,7 @@ import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { reportFits } from "../lib/reportFits";
 import { RadarChart, TrendChart } from "../components/report/Charts";
-import counterpartPortrait from "../assets/team-lead-portrait.webp";
+import { PersonaFace } from "../components/ui/PersonaFace";
 import { IconGlyph } from "../components/ui/IconGlyph";
 import { PageToolbar, Panel, ScoreRing } from "../components/report/ResultPrimitives";
 
@@ -205,7 +205,7 @@ export function ResultPage({ onPrev, onPractice, onNext, report, selectedDifficu
 
             {dayEnding?.text && (
               <Panel className="day-ending-card">
-                <span className="day-ending-avatar"><img src={counterpartPortrait} alt="" /></span>
+                <span className="day-ending-avatar"><PersonaFace name={report.character_name || ""} /></span>
                 <div>
                   <h2>하루의 결말 {dayEnding.label && <em className="day-ending-chip">{dayEnding.label}</em>}</h2>
                   <p>“{dayEnding.text}”</p>

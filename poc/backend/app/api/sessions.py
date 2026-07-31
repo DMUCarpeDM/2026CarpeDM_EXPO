@@ -78,6 +78,32 @@ def _character_for(scenario: Scenario, character_id: str) -> dict:
     return next((character for character in scenario.characters if character["id"] == character_id), {})
 
 
+def _scripted_questions(scenario: Scenario | None) -> bool:
+    """질문을 각본 그대로 쓰는 시나리오인가 — 팩 정책 또는 감정 프로파일 활성.
+
+    소형 LLM의 재작성은 캐릭터 말맛(진상 고객의 다급함 등)을 안내문 격식체로
+    뭉개는 경향이 있다(리허설·플레이 실측). 각본이 가장 자연스러운 자산이므로
+    팩은 질문을 각본으로 고정하고, LLM은 직전 답변을 언급하는 짧은 리액션만
+    다듬는다 — '개인화 체감'은 리액션과 감정 게이지가 담당한다.
+    """
+    if scenario is None:
+        return False
+    policy = (getattr(scenario, "dialogue_policy", None) or {})
+    if policy.get("personalize_questions") is False:
+        return True
+    return bool((getattr(scenario, "emotion_profile", None) or {}).get("enabled"))
+
+
+def _scripted_reactions(scenario: Scenario | None) -> bool:
+    """리액션도 각본 풀 그대로 쓰는 시나리오 — 팩의 케이스별 리액션은 캐릭터
+    말맛이 완성된 문장이라, 소형 LLM 재작성이 역할을 흐리는(고객이 직원 말투로
+    "신경 써 볼게요" — 실측) 것보다 원문이 낫다."""
+    if scenario is None:
+        return False
+    policy = (getattr(scenario, "dialogue_policy", None) or {})
+    return policy.get("personalize_reactions") is False
+
+
 def _create_turn(
     db: Session,
     session: RoleplaySession,
@@ -221,12 +247,11 @@ def create_session(
     provider = get_dialogue_provider()
     spec = provider.first_question(session, _selected_episodes(session, scenario))
     first_episode = db.get(Episode, spec.episode_id)
-    # 감정 시나리오(고객 페르소나)의 도입 대사는 각본을 유지한다 (S-B2B-EMOTION).
-    # 직전 답변이 없는 첫 턴은 개인화가 더할 맥락이 없고, 소형 LLM이 역할을
-    # 뒤집는 사고(격앙한 고객이 직원처럼 사과하는 첫마디 — 리허설 실측)가
-    # 도입 몰입을 깨뜨린다. 2턴부터는 직전 답변 기반 개인화가 정상 동작한다.
+    # 각본 고정 시나리오(팩·감정 프로파일)는 도입부터 개인화하지 않는다 —
+    # 역할 반전 사고(격앙한 고객이 직원처럼 사과 — 리허설 실측)와 격식체
+    # 재작성으로 말맛이 죽는 문제의 구조적 차단 (_scripted_questions 참조).
     personalized = None
-    if not emotion.profile_of(session):
+    if not _scripted_questions(scenario):
         personalized = provider.personalize_question(
             spec, first_episode.situation if first_episode else "", "", _character_for(scenario, spec.character_id), session.difficulty,
         )
@@ -436,14 +461,16 @@ def submit_response(
         return NextTurnOut(finished=True, turn_signals=signals_out)
 
     next_episode = db.get(Episode, spec.episode_id)
-    personalized = provider.personalize_question(
-        spec,
-        next_episode.situation if next_episode else "",
-        turn.response_text,
-        _character_for(session.scenario, spec.character_id),
-        session.difficulty,
-        emotion_directive=emotion.directive_for(session, spec.character_id),
-    )
+    personalized = None
+    if not _scripted_questions(session.scenario):
+        personalized = provider.personalize_question(
+            spec,
+            next_episode.situation if next_episode else "",
+            turn.response_text,
+            _character_for(session.scenario, spec.character_id),
+            session.difficulty,
+            emotion_directive=emotion.directive_for(session, spec.character_id),
+        )
     # 진행 중 개인화 실패 → 템플릿 대본으로 계속. 예전처럼 rollback+503으로 끊으면
     # 방금 말한 답변이 통째로 버려지고, Ollama가 죽어 있는 동안 체험이 벽돌이 된다.
     if personalized:
@@ -460,7 +487,9 @@ def submit_response(
     reaction_directive = emotion.directive_for(session, turn.character_id)
     # 무례한 답변에는 준비된 단호한 문장을 그대로 사용한다. Ollama가 말투를
     # 완화해 버리면 사용자가 받아야 할 경계 신호가 사라질 수 있다.
-    if settings.dialogue_provider == "ollama" and reaction and signals["case"] != "risky":
+    # 각본 리액션 정책(팩)이면 풀 문장을 그대로 쓴다 (_scripted_reactions 참조).
+    if (settings.dialogue_provider == "ollama" and reaction and signals["case"] != "risky"
+            and not _scripted_reactions(session.scenario)):
         with ThreadPoolExecutor(max_workers=2) as pool:
             reaction_future = pool.submit(
                 reactions.personalize_reaction, reaction, character, response_text,

@@ -125,6 +125,7 @@ def upsert_pack(db, data: dict) -> Scenario:
     scenario.brand = data.get("brand", "")
     scenario.rubric_weights = data.get("rubric_weights", {})
     scenario.emotion_profile = data.get("emotion_profile", {})
+    scenario.dialogue_policy = data.get("dialogue_policy", {})
     scenario.is_active = True
     db.flush()
     _upsert_pack_episodes(db, scenario, data["episodes"])
