@@ -16,6 +16,32 @@ export function jobRoleLabel(role: string): string {
   return JOB_ROLE_LABELS[role] ?? (role || '미지정');
 }
 
+/** 직무 한 줄 설명 — 가입 화면 직무 카드·시나리오 선택 안내 공용 (S-B2B-PACK) */
+export const JOB_ROLE_DESCRIPTIONS: Record<string, string> = {
+  cafe_crew: '주문 실수·컴플레인 등 매장 서비스 응대 상황을 연습해요.',
+  cs_agent: '고객센터 전화·채팅 상담의 응대 화법을 연습해요.',
+  office_admin: '보고·협조 요청 등 사무실 커뮤니케이션을 연습해요.',
+};
+
+/** 시나리오 팩 도메인 라벨 (GET /scenarios의 domain) */
+export const DOMAIN_LABELS: Record<string, string> = {
+  service: '서비스',
+  office: '오피스',
+};
+
+export function domainLabel(domain: string): string {
+  return DOMAIN_LABELS[domain] ?? domain;
+}
+
+/** 무대 브랜드 라벨 (GET /scenarios의 brand) — 마크 자산은 src/assets/brand/ */
+export const BRAND_LABELS: Record<string, string> = {
+  'cafe-ondo': '카페 온도',
+};
+
+export function brandLabel(brand: string): string {
+  return BRAND_LABELS[brand] ?? brand;
+}
+
 export const ORG_ROLE_LABELS: Record<string, string> = {
   trainee: '수강생',
   manager: '관리자',

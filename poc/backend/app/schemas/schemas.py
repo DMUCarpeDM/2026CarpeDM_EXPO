@@ -9,6 +9,14 @@ class SignupIn(BaseModel):
     name: str = ""
     # 초대 코드 가입 (S-B2B-ORG) — 있으면 가입과 동시에 기관 소속·역할이 결정된다
     invite_code: str = Field(default="", max_length=32)
+    # 직무 트랙 (S-B2B-PACK) — NFC 없는 웹앱은 가입 시 직무를 직접 고른다.
+    # 초대 코드 없이도 유효(개인 연습 사용자도 직무 기반 시나리오 추천을 받는다).
+    job_role: str = Field(default="", max_length=30)
+
+
+class JobRoleIn(BaseModel):
+    """본인 직무 변경 (PATCH /auth/me) — 웹앱 프로필의 직무 선택."""
+    job_role: str = Field(min_length=1, max_length=30)
 
 
 class LoginIn(BaseModel):
@@ -169,6 +177,10 @@ class ScenarioOut(BaseModel):
     episode_titles: dict[str, list[str]] = {}  # {"5": [...], "10": [...]}
     # 브리핑용 에피소드 상세: [{title, situation, intent, points, character_id, modes}]
     episodes: list = []
+    # ---- 시나리오 팩 메타 (S-B2B-PACK) — NFC 없는 웹앱의 '직무 선택' 축 ----
+    job_role: str = ""  # cafe_crew | cs_agent | office_admin
+    domain: str = ""  # office | service
+    brand: str = ""  # 무대 브랜드 (예: cafe-ondo)
 
 
 # ---- sessions / turns ----

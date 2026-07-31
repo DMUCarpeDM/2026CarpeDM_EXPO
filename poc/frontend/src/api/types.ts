@@ -21,6 +21,11 @@ export interface Scenario {
   slug: string;
   title: string;
   description: string;
+  // 팩 메타 (S-B2B-PACK) — NFC 없는 웹앱이 직무로 시나리오를 고르는 축.
+  // 구형(팩 이전) 시드 시나리오는 세 값 모두 빈 문자열 → "공통" 그룹으로 취급.
+  job_role: string; // 'cafe_crew' | 'cs_agent' | 'office_admin' | ''
+  domain: string; // 'service' | 'office' | ''
+  brand: string; // 'cafe-ondo' | ''
   world_setting: {
     company: string;
     service: string;

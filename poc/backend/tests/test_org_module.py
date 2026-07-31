@@ -188,6 +188,50 @@ def test_nfc_tap_polling_and_simulator():
     assert client.get(f"/api/nfc/tap?reader=kiosk&since=0").json()["uid"] == ""
 
 
+def test_job_role_selection_without_nfc():
+    """웹앱 직무 선택 계약 (NFC 없음) — 가입 시 직무, 본인 직무 변경, 시나리오 직무 태그."""
+    seed()
+    suffix = uuid.uuid4().hex[:8]
+
+    # 시나리오 목록에 직무 태그가 실린다 — 웹앱이 직무로 시나리오를 고르는 축
+    by_slug = {s["slug"]: s for s in client.get("/api/scenarios").json()}
+    assert by_slug["ondo-cafe-crew"]["job_role"] == "cafe_crew"
+    assert by_slug["ondo-cafe-crew"]["domain"] == "service"
+    assert by_slug["release-schedule-alignment"]["job_role"] == "office_admin"
+
+    # 초대 코드 없이도 가입 시 직무 지정 (개인 연습 사용자)
+    resp = client.post("/api/auth/signup", json={
+        "email": f"solo-{suffix}@test.kr", "password": "pass1234!", "job_role": "cs_agent",
+    })
+    assert resp.status_code == 200, resp.text
+    headers = {"Authorization": f"Bearer {resp.json()['access_token']}"}
+    assert client.get("/api/auth/me", headers=headers).json()["job_role"] == "cs_agent"
+
+    # 알 수 없는 직무는 가입 자체를 거부 (계정 미생성)
+    assert client.post("/api/auth/signup", json={
+        "email": f"bad-role-{suffix}@test.kr", "password": "pass1234!", "job_role": "pilot",
+    }).status_code == 422
+
+    # 본인 직무 변경 — 무인증 401, 잘못된 직무 422, 정상 200
+    assert client.patch("/api/auth/me", json={"job_role": "cafe_crew"}).status_code == 401
+    assert client.patch(
+        "/api/auth/me", headers=headers, json={"job_role": "pilot"}
+    ).status_code == 422
+    changed = client.patch("/api/auth/me", headers=headers, json={"job_role": "cafe_crew"})
+    assert changed.status_code == 200 and changed.json()["job_role"] == "cafe_crew"
+
+    # 초대 코드 + 직무 동시 가입
+    org = _create_org(suffix)
+    resp = client.post("/api/auth/signup", json={
+        "email": f"both-{suffix}@test.kr", "password": "pass1234!",
+        "invite_code": _invite_of(org, "trainee"), "job_role": "office_admin",
+    })
+    me = client.get(
+        "/api/auth/me", headers={"Authorization": f"Bearer {resp.json()['access_token']}"}
+    ).json()
+    assert me["institution_id"] == org["id"] and me["job_role"] == "office_admin"
+
+
 def test_my_sessions_listing():
     """수강생 본인 이력 — 본인 세션만, 등급 표기(S-B2B-SCORE) 포함."""
     seed()

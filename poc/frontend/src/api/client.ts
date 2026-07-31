@@ -72,10 +72,13 @@ export async function createSession(opts: {
   mode: number;
   difficulty: string;
   agreed: boolean;
+  // 직무 축 시나리오 선택 (S-B2B-PACK) — 미지정이면 서버 기본(첫) 시나리오
+  scenarioSlug?: string;
 }): Promise<RoleplaySession> {
   const { data } = await api.post('/sessions', {
     mode: opts.mode,
     difficulty: opts.difficulty,
+    ...(opts.scenarioSlug ? { scenario_slug: opts.scenarioSlug } : {}),
     client_key: clientKey(),
     consent: { agreed: opts.agreed, storage_policy: 'none' },
   });
@@ -180,14 +183,17 @@ export async function signup(
   password: string,
   name: string,
   inviteCode?: string,
+  jobRole?: string,
 ): Promise<void> {
   // 초대 코드가 있으면 가입과 동시에 기관 소속 (S-B2B-118).
   // 코드 불일치 시 서버가 404를 던지고 계정은 만들어지지 않는다.
+  // 직무는 선택 입력 (S-B2B-PACK) — 알 수 없는 직무면 422, 계정 미생성.
   const { data } = await api.post('/auth/signup', {
     email,
     password,
     name,
     ...(inviteCode ? { invite_code: inviteCode } : {}),
+    ...(jobRole ? { job_role: jobRole } : {}),
   });
   localStorage.setItem('mirror-ting-token', data.access_token);
 }
@@ -210,6 +216,11 @@ export function clearAuthToken(): void {
 
 export async function getMe(): Promise<Me> {
   return (await api.get('/auth/me')).data;
+}
+
+/** 본인 직무 변경 (S-B2B-PACK) — 무인증 401, 알 수 없는 직무 422 */
+export async function updateJobRole(jobRole: string): Promise<Me> {
+  return (await api.patch('/auth/me', { job_role: jobRole })).data;
 }
 
 export async function getOrgDetail(orgId: number): Promise<OrgDetail> {

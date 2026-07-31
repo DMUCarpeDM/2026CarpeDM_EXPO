@@ -3965,3 +3965,213 @@ h2 .icon {
 .invite-hint {
   margin: 0;
 }
+
+/* ---- 직무 축 (S-B2B-PACK) — 가입 직무 선택·시나리오 직무 탭·직무 변경 ---- */
+
+/* 가입 화면 직무 선택 카드 (라디오) */
+.job-role-picker {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--s-4);
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.job-role-picker legend {
+  color: var(--text-2);
+  font-size: 0.86rem;
+  font-weight: 600;
+  padding: 0 var(--s-2);
+}
+
+.job-role-option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: var(--s-3) var(--s-4);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.job-role-option:hover {
+  border-color: var(--border-strong);
+}
+
+.job-role-option.active {
+  border-color: var(--accent);
+  background: var(--accent-weak);
+}
+
+.job-role-option input {
+  flex-shrink: 0;
+  margin-top: 3px;
+  accent-color: var(--accent);
+}
+
+.job-role-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.job-role-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.job-role-desc {
+  color: var(--text-2);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+/* 연습 시작 화면 직무 탭 */
+.job-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  margin-bottom: var(--s-4);
+}
+
+.job-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  border-radius: var(--r-full);
+  padding: 8px 16px;
+  font-size: 0.86rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.job-tab.active {
+  background: var(--accent-weak);
+  border-color: var(--accent);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.myjob-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-full);
+  padding: 1px 8px;
+}
+
+/* 시나리오 카드 그리드 */
+.scenario-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: var(--s-3);
+}
+
+.scenario-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-2);
+  text-align: left;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--s-4);
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text);
+  transition: border-color 0.15s ease;
+}
+
+.scenario-card:hover {
+  border-color: var(--border-strong);
+}
+
+.scenario-card.active {
+  border-color: var(--accent);
+  background: var(--accent-weak);
+}
+
+.scenario-card strong {
+  font-size: 0.94rem;
+}
+
+.scenario-card p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.scenario-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+}
+
+.scenario-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-full);
+  padding: 1px 8px;
+}
+
+.scenario-chip.role {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.scenario-chip.brand img {
+  width: 12px;
+  height: 12px;
+}
+
+/* 내 결과 상단 — 현재 직무 표시·변경 */
+.job-role-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  flex-wrap: wrap;
+  margin-top: var(--s-3);
+  font-size: 0.86rem;
+  color: var(--text-2);
+}
+
+.job-role-row select {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  padding: 8px 12px;
+  font-size: 0.86rem;
+  font-family: inherit;
+  margin-left: var(--s-1);
+}
+
+.job-role-current strong {
+  color: var(--text);
+}
+
+.job-role-msg {
+  font-size: 0.8rem;
+  color: var(--good);
+  margin: 0;
+}
+
+.job-role-msg.bad {
+  color: var(--bad);
+}

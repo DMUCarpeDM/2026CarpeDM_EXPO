@@ -7,6 +7,8 @@ import type { Me } from '../api/types';
 interface AuthState {
   me: Me | null | undefined;
   load: () => Promise<void>;
+  /** 서버가 갱신된 사용자를 돌려준 직후 캐시 교체 (예: PATCH /auth/me 직무 변경) */
+  setMe: (me: Me) => void;
   signOut: () => void;
 }
 
@@ -30,6 +32,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       loading = false;
     }
   },
+  setMe: (me) => set({ me }),
   signOut: () => {
     clearAuthToken();
     set({ me: null });

@@ -3,6 +3,7 @@ from app.schemas.schemas import (
     ConsentIn,
     HistoryTurnOut,
     InviteOut,
+    JobRoleIn,
     LoginIn,
     NextTurnOut,
     NfcCardOut,
@@ -37,7 +38,7 @@ from app.schemas.schemas import (
 )
 
 __all__ = [
-    "AdminMetricsOut", "ConsentIn", "HistoryTurnOut", "InviteOut", "LoginIn", "NextTurnOut",
+    "AdminMetricsOut", "ConsentIn", "HistoryTurnOut", "InviteOut", "JobRoleIn", "LoginIn", "NextTurnOut",
     "NfcCardOut", "NfcIssueIn", "NfcResolveIn", "NfcResolveOut", "NfcSimulateTapIn",
     "NfcTapOut", "NonverbalIn", "OrgCreateIn", "OrgDetailOut", "OrgJoinIn", "OrgMemberOut",
     "OrgOut", "OrgSessionListOut", "OrgSessionOut", "ProgressOut", "ReportOut", "ResponseIn",

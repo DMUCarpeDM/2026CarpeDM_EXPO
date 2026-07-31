@@ -4,15 +4,20 @@
 import { isAxiosError } from 'axios';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { authToken, getMySessions } from '../../api/client';
+import { authToken, getMySessions, updateJobRole } from '../../api/client';
 import type { MySession } from '../../api/types';
 import { FitMiniBars, GradeBadge } from '../../components/GradeBadge';
-import { difficultyLabel, formatDateTime, jobRoleLabel, statusLabel } from '../../lib/b2b';
+import { JOB_ROLE_LABELS, difficultyLabel, formatDateTime, jobRoleLabel, statusLabel } from '../../lib/b2b';
+import { useAuthStore } from '../../stores/authStore';
 
 export default function MyResultsPage() {
+  const me = useAuthStore((s) => s.me);
   const [sessions, setSessions] = useState<MySession[] | null>(null);
   const [error, setError] = useState('');
   const [needLogin, setNeedLogin] = useState(!authToken());
+  const [jobSaving, setJobSaving] = useState(false);
+  const [jobMessage, setJobMessage] = useState('');
+  const [jobMessageOk, setJobMessageOk] = useState(true);
 
   useEffect(() => {
     if (!authToken()) return;
@@ -23,6 +28,30 @@ export default function MyResultsPage() {
         else setError('연습 이력을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
       });
   }, []);
+
+  // 직무 변경 (S-B2B-PACK) — 성공 시 authStore의 me를 서버 응답으로 교체해
+  // 연습 시작 화면의 "내 직무" 기본 탭이 즉시 따라온다
+  async function changeJobRole(value: string) {
+    if (!value || value === me?.job_role || jobSaving) return;
+    setJobSaving(true);
+    setJobMessage('');
+    try {
+      useAuthStore.getState().setMe(await updateJobRole(value));
+      setJobMessageOk(true);
+      setJobMessage('직무가 변경됐습니다. 다음 연습부터 새 직무 시나리오가 먼저 보여요.');
+    } catch (e: unknown) {
+      setJobMessageOk(false);
+      if (isAxiosError(e) && e.response?.status === 401) {
+        setJobMessage('로그인이 만료됐습니다. 다시 로그인한 뒤 직무를 변경해 주세요.');
+      } else if (isAxiosError(e) && e.response?.status === 422) {
+        setJobMessage('알 수 없는 직무예요. 목록에서 다시 선택해 주세요.');
+      } else {
+        setJobMessage('직무 변경에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
+    } finally {
+      setJobSaving(false);
+    }
+  }
 
   if (needLogin) {
     return (
@@ -45,6 +74,35 @@ export default function MyResultsPage() {
         <p className="section-sub">
           연습 회차별 결과입니다. 등급은 우수 · 양호 · 보통 · 연습 필요 4단계로 표기돼요.
         </p>
+        {/* 현재 직무 표시 + 변경 (S-B2B-PACK) — 직무는 시나리오 추천 축일 뿐 권한이 아니다 */}
+        {me && (
+          <div className="job-role-row">
+            <span className="job-role-current">
+              내 직무 <strong>{jobRoleLabel(me.job_role)}</strong>
+            </span>
+            <label>
+              직무 변경{' '}
+              <select
+                value={me.job_role}
+                disabled={jobSaving}
+                onChange={(e) => changeJobRole(e.target.value)}
+              >
+                <option value="" disabled>
+                  직무 선택…
+                </option>
+                {Object.entries(JOB_ROLE_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {jobSaving && <span className="section-sub job-role-msg">저장 중…</span>}
+            {!jobSaving && jobMessage && (
+              <span className={`job-role-msg${jobMessageOk ? '' : ' bad'}`}>{jobMessage}</span>
+            )}
+          </div>
+        )}
       </header>
       {error && <div className="error-banner">{error}</div>}
       {sessions && sessions.length === 0 && (
