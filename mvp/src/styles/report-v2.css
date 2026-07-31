@@ -1,0 +1,403 @@
+/* 리포트 계열 리스킨 v2 — 연습 화면(practice-live.css)의 디자인 언어로 통일.
+   원칙: 기존 시트(result/feedback/compare/share/dashboard.css)는 건드리지 않고
+   마지막 캐스케이드에서 덮어쓴다. 스코프는 리포트 계열 페이지로 한정해
+   홈·설정·연습 화면에는 새지 않는다.
+   다크 스테이지(점수 히어로·하루의 결말)는 미러 컨셉 UI(C-22)의 연출 계층 —
+   연습 스테이지와 같은 네이비 그라데이션 + 그리드 질감 + 글로우 문법을 쓴다. */
+
+.report-page,
+.feedback-page,
+.share-page {
+  --rv2-stage-bg:
+    radial-gradient(90% 64% at 50% 12%, rgba(64, 108, 180, 0.34) 0%, rgba(28, 46, 82, 0.12) 52%, transparent 100%),
+    radial-gradient(120% 100% at 50% 115%, rgba(14, 36, 66, 0.65) 0%, transparent 55%),
+    linear-gradient(180deg, #16233c 0%, #0e1830 54%, #0a1222 100%);
+  --rv2-card-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 10px 28px rgba(16, 24, 40, 0.07);
+  --rv2-glass: rgba(9, 16, 30, 0.45);
+  --rv2-accent-lum: #7d99ff;   /* 미러 토큰 --accent-lum — 다크 위 고휘도 액센트 */
+  --rv2-text-mirror: #f2f5ff;
+}
+
+/* ---------- 공통: 카드·헤드·버튼을 연습 카드 체계로 ---------- */
+
+.report-page .card,
+.feedback-page .card,
+.share-page .card {
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: var(--rv2-card-shadow);
+}
+
+.report-page .card h2,
+.feedback-page .card h2,
+.share-page .card h2 {
+  letter-spacing: -0.01em;
+  font-weight: 720;
+}
+
+.report-page button,
+.feedback-page button,
+.share-page button {
+  transition: transform 0.16s ease, box-shadow 0.2s ease, border-color 0.2s ease,
+    background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;
+}
+
+.report-page button:focus-visible,
+.feedback-page button:focus-visible,
+.share-page button:focus-visible {
+  outline: 2px solid rgba(0, 100, 255, 0.55);
+  outline-offset: 2px;
+}
+
+/* 툴바 필 — 연습 상단 유틸 버튼과 같은 문법 */
+.report-page .page-toolbar .ghost-pill,
+.feedback-page .page-toolbar .ghost-pill,
+.share-page .page-toolbar .ghost-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--color-graphite);
+  font-size: 13.5px;
+  font-weight: 640;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+.report-page .page-toolbar button.ghost-pill:hover,
+.feedback-page .page-toolbar button.ghost-pill:hover,
+.share-page .page-toolbar button.ghost-pill:hover {
+  border-color: var(--color-border-strong);
+  color: var(--color-ink);
+}
+
+/* 주 버튼 — 연습 '전달' 버튼과 같은 파란 필 */
+.report-page .primary-button,
+.feedback-page .primary-button,
+.share-page .primary-button {
+  min-height: 56px;
+  border-radius: var(--radius-pill);
+  font-size: 16px;
+  box-shadow: 0 10px 24px rgba(0, 100, 255, 0.24);
+}
+
+.report-page .primary-button:hover,
+.feedback-page .primary-button:hover,
+.share-page .primary-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(0, 100, 255, 0.3);
+}
+
+.report-page .secondary-button,
+.feedback-page .secondary-button,
+.share-page .secondary-button {
+  min-height: 56px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: #fff;
+  color: var(--color-ink);
+  font-size: 15.5px;
+  font-weight: 660;
+}
+
+.report-page .secondary-button:hover,
+.feedback-page .secondary-button:hover,
+.share-page .secondary-button:hover {
+  border-color: rgba(0, 100, 255, 0.4);
+  color: var(--color-blue);
+}
+
+/* ---------- Result: 종합 점수 = 다크 스테이지 히어로 ---------- */
+
+.report-page .overall-score-card {
+  position: relative;
+  overflow: hidden;
+  border: 0;
+  border-radius: 24px;
+  background: var(--rv2-stage-bg);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05), 0 18px 44px rgba(10, 22, 48, 0.18);
+}
+
+/* 미세 그리드 — 연습 스테이지 'AI 측정 공간'과 같은 질감 */
+.report-page .overall-score-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(140, 170, 220, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(140, 170, 220, 0.05) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(85% 75% at 50% 42%, rgba(0, 0, 0, 0.9), transparent 100%);
+  pointer-events: none;
+}
+
+.report-page .overall-score-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.report-page .overall-score-card h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-pill);
+  background: var(--rv2-glass);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  backdrop-filter: blur(10px);
+}
+
+.report-page .overall-score-card h2::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--rv2-accent-lum);
+  box-shadow: 0 0 8px rgba(125, 153, 255, 0.8);
+}
+
+.report-page .overall-score-card .score-ring {
+  color: var(--rv2-accent-lum);
+}
+
+.report-page .overall-score-card .score-ring .track {
+  stroke: rgba(255, 255, 255, 0.13);
+}
+
+.report-page .overall-score-card .score-ring .fill {
+  filter: drop-shadow(0 0 10px rgba(125, 153, 255, 0.45));
+}
+
+.report-page .overall-score-card .score-ring strong {
+  color: var(--rv2-text-mirror);
+}
+
+.report-page .overall-score-card .score-ring > span {
+  color: rgba(242, 245, 255, 0.55);
+}
+
+.report-page .overall-score-card .score-ring em {
+  padding: 5px 16px;
+  border-radius: var(--radius-pill);
+  background: rgba(125, 153, 255, 0.2);
+  color: var(--rv2-text-mirror);
+  font-size: 15px;
+}
+
+.report-page .overall-score-card .percentile-badge {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: var(--rv2-glass);
+  color: var(--rv2-text-mirror);
+  backdrop-filter: blur(10px);
+}
+
+.report-page .overall-score-card .score-note {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(9, 16, 30, 0.38);
+  color: rgba(242, 245, 255, 0.82);
+  backdrop-filter: blur(10px);
+}
+
+/* ---------- Result: 실측 스트립 → 신호 칩 열 (연습 LIVE 칩 문법) ---------- */
+
+.report-page .speech-stats-strip {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  gap: 8px;
+}
+
+.report-page .speech-stats-strip > div {
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+.report-page .speech-stats-strip dt {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.report-page .speech-stats-strip dd {
+  font-size: 13.5px;
+}
+
+/* ---------- Result: 카드 디테일 ---------- */
+
+.report-page .report-heading h1 {
+  font-size: 27px;
+  font-weight: 740;
+  letter-spacing: -0.02em;
+}
+
+.report-page .fit-key-bar {
+  height: 7px;
+}
+
+.report-page .fit-key-row {
+  border-radius: 14px;
+}
+
+.report-page .fit-key-row:hover {
+  background: rgba(0, 100, 255, 0.05);
+}
+
+.report-page .fit-key-row b {
+  font-variant-numeric: tabular-nums;
+}
+
+.report-page .report-detail-row {
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: var(--rv2-card-shadow);
+}
+
+.report-page .report-detail-row:hover {
+  transform: translateY(-1px);
+  border-color: rgba(0, 100, 255, 0.3);
+  box-shadow: 0 14px 32px rgba(16, 24, 40, 0.1);
+}
+
+/* ---------- Result: 하루의 결말 = 거울의 마무리 (다크) ---------- */
+
+.report-page .day-ending-card {
+  position: relative;
+  overflow: hidden;
+  border: 0;
+  border-radius: 20px;
+  background: var(--rv2-stage-bg);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05), 0 14px 36px rgba(10, 22, 48, 0.16);
+}
+
+.report-page .day-ending-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.report-page .day-ending-avatar {
+  border-color: rgba(125, 153, 255, 0.45);
+  box-shadow: 0 0 0 1px rgba(125, 153, 255, 0.25), 0 0 18px rgba(125, 153, 255, 0.3);
+}
+
+.report-page .day-ending-card h2 {
+  color: var(--rv2-text-mirror);
+}
+
+.report-page .day-ending-chip {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(125, 153, 255, 0.18);
+  color: var(--rv2-text-mirror);
+}
+
+.report-page .day-ending-card p {
+  color: var(--rv2-text-mirror);
+  font-size: 15.5px;
+}
+
+.report-page .day-ending-card small {
+  color: rgba(242, 245, 255, 0.55);
+}
+
+/* ---------- Compare (.report-page.compare-report + 레거시 카드) ---------- */
+
+.compare-report .attempt-column.current {
+  border-color: rgba(0, 100, 255, 0.3);
+  box-shadow: 0 0 0 2px rgba(0, 100, 255, 0.22), 0 0 24px rgba(0, 100, 255, 0.14), var(--rv2-card-shadow);
+}
+
+.compare-report .compare-table td {
+  font-variant-numeric: tabular-nums;
+}
+
+.compare-report .compare-table tbody tr:hover td {
+  background: rgba(0, 100, 255, 0.025);
+}
+
+.compare-page .attempt-card,
+.compare-page .history-card,
+.compare-page .growth-card,
+.compare-page .improved-card {
+  border-radius: 20px;
+  box-shadow: var(--rv2-card-shadow);
+}
+
+.compare-page .history-point.active span,
+.compare-report .history-point.active span {
+  box-shadow: 0 0 0 4px rgba(0, 100, 255, 0.16), 0 0 14px rgba(0, 100, 255, 0.35);
+}
+
+/* ---------- Feedback (심층 분석) ---------- */
+
+.feedback-page .deep-dash-panel,
+.feedback-page .moments-card,
+.feedback-page .insight-card,
+.feedback-page .fit-score-panel {
+  border-radius: 20px;
+}
+
+.feedback-page .accordion-row {
+  border-radius: 14px;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.feedback-page .accordion-row:hover {
+  border-color: rgba(0, 100, 255, 0.25);
+}
+
+.feedback-page .deep-rows dd,
+.feedback-page .mini-score-row b {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Share (체험 코드·QR) ---------- */
+
+.share-page .copy-field {
+  border-radius: var(--radius-pill);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+.share-page .copy-field span {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.share-page .copy-field button {
+  border-radius: var(--radius-pill);
+}
+
+.share-page .share-qr {
+  border-radius: 20px;
+  box-shadow: var(--rv2-card-shadow);
+}
+
+.share-page .export-card {
+  border-radius: 16px;
+}
+
+.share-page .export-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 32px rgba(16, 24, 40, 0.1);
+}
+
+/* ---------- 반응형 보정 ---------- */
+
+@media (max-width: 720px) {
+  .report-page .overall-score-card {
+    border-radius: 20px;
+  }
+
+  .report-page .speech-stats-strip > div {
+    padding: 7px 12px;
+  }
+}
