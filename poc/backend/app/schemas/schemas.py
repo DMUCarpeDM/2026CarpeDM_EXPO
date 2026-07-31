@@ -7,6 +7,8 @@ class SignupIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8)
     name: str = ""
+    # 초대 코드 가입 (S-B2B-ORG) — 있으면 가입과 동시에 기관 소속·역할이 결정된다
+    invite_code: str = Field(default="", max_length=32)
 
 
 class LoginIn(BaseModel):
@@ -23,8 +25,136 @@ class UserOut(BaseModel):
     id: int
     email: str
     name: str
+    institution_id: int | None = None
+    org_role: str = ""
+    job_role: str = ""
 
     model_config = {"from_attributes": True}
+
+
+# ---- orgs (S-B2B-ORG) ----
+
+class OrgCreateIn(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    code: str = Field(min_length=2, max_length=50, pattern=r"^[a-z0-9\-]+$")
+
+
+class InviteOut(BaseModel):
+    code: str
+    org_role: str
+    is_active: bool
+
+    model_config = {"from_attributes": True}
+
+
+class OrgOut(BaseModel):
+    id: int
+    name: str
+    code: str
+
+    model_config = {"from_attributes": True}
+
+
+class OrgDetailOut(OrgOut):
+    """관리자/매니저용 상세 — 초대 코드 포함 (수강생에게는 노출하지 않는다)."""
+    invites: list[InviteOut] = []
+    member_count: int = 0
+
+
+class OrgJoinIn(BaseModel):
+    invite_code: str = Field(min_length=1, max_length=32)
+    job_role: str = Field(default="", max_length=30)
+
+
+class OrgMemberOut(BaseModel):
+    id: int
+    email: str
+    name: str
+    org_role: str
+    job_role: str
+    session_count: int = 0
+    last_session_at: str | None = None
+
+
+class OrgSessionOut(BaseModel):
+    """기관 대시보드 세션 행 — 읽기 전용. 점수 표기 방침(S-B2B-SCORE)에 따라
+    관리자에게는 원점수와 등급을 함께 준다 (수강생 화면은 등급만)."""
+    id: int
+    user_id: int | None = None
+    user_name: str = ""
+    user_email: str = ""
+    job_role: str = ""
+    scenario_title: str = ""
+    mode: int = 5
+    difficulty: str = "basic"
+    status: str = ""
+    started_at: str = ""
+    total_score: float | None = None
+    grade: str | None = None  # 우수 | 양호 | 보통 | 연습 필요 (리포트 있을 때만)
+    fit_scores: dict = {}
+
+
+class OrgSessionListOut(BaseModel):
+    total: int
+    items: list[OrgSessionOut]
+
+
+# ---- NFC (S-B2B-NFC) ----
+
+class NfcIssueIn(BaseModel):
+    uid: str = Field(min_length=4, max_length=32, pattern=r"^[0-9A-Fa-f:\-]+$")
+    job_role: str = Field(min_length=1, max_length=30)
+    scenario_slug: str = Field(default="", max_length=50)
+    institution_id: int | None = None
+
+
+class NfcCardOut(BaseModel):
+    uid: str
+    job_role: str
+    scenario_slug: str
+    status: str
+    issued_count: int
+
+    model_config = {"from_attributes": True}
+
+
+class NfcResolveIn(BaseModel):
+    uid: str = Field(min_length=4, max_length=32)
+
+
+class NfcResolveOut(BaseModel):
+    uid: str
+    job_role: str
+    scenario_slug: str  # 발급 시 지정이 없으면 직무 기본 팩 슬러그
+    job_role_label: str = ""
+
+
+class NfcTapOut(BaseModel):
+    """PC/SC 브리지의 마지막 태그 이벤트 — 프론트는 since(단조 증가 seq)로 폴링한다."""
+    seq: int = 0
+    uid: str = ""
+    reader: str = ""  # kiosk | mirror
+    at: float = 0.0
+
+
+class NfcSimulateTapIn(BaseModel):
+    uid: str = Field(min_length=4, max_length=32)
+    reader: str = Field(default="mirror", pattern="^(kiosk|mirror)$")
+
+
+# ---- 세션 클레임 (S-B2B-CLAIM: 영수증 QR → 계정 귀속) ----
+
+class SessionClaimIn(BaseModel):
+    claim_token: str = Field(min_length=8, max_length=64)
+
+
+class SessionClaimOut(BaseModel):
+    session_id: int
+    scenario_title: str = ""
+    started_at: str = ""
+    total_score: float | None = None
+    grade: str | None = None
+    already_claimed: bool = False  # 같은 사용자가 이미 귀속한 경우 (멱등)
 
 
 # ---- scenarios ----
@@ -55,6 +185,11 @@ class SessionCreateIn(BaseModel):
     difficulty: str = Field(default="basic", pattern="^(basic|pressure|ultra_pressure)$")
     client_key: str = ""
     consent: ConsentIn = ConsentIn()
+    # ---- B2B 확장 (S-B2B-SESSION / S-B2B-NFC) ----
+    # 직무 트랙 — 수동 카드 선택 폴백이나 웹앱 연습에서 직접 지정
+    job_role: str = Field(default="", max_length=30)
+    # 미러 NFC 시작: 태그된 카드 uid — 카드의 직무·시나리오가 세션에 스탬프된다
+    nfc_uid: str = Field(default="", max_length=32)
 
 
 class TurnOut(BaseModel):
@@ -238,6 +373,9 @@ class TurnSignalsOut(BaseModel):
     case: str  # excellent | covered | missing | short | risky
     coverage: float
     risk_hits: int
+    # 감정 상태 머신 (S-B2B-EMOTION): {state, label, temperature, eased} —
+    # 프론트 온도 게이지·표정 연출용. 감정 프로파일이 없는 시나리오는 빈 dict.
+    emotion: dict = {}
 
 
 class NextTurnOut(BaseModel):
@@ -280,6 +418,11 @@ class ReportOut(BaseModel):
     mode: int
     difficulty: str
     previous: dict | None = None  # 직전 세션 비교 {total_score, fit_scores}
+    # ---- B2B 확장 ----
+    grade: str | None = None  # 점수 표기 방침(S-B2B-SCORE) — 4단계 등급
+    claim_url: str = ""  # 영수증 QR 클레임 링크 (S-B2B-CLAIM) — 프론트가 QR로 렌더
+    coaching: list = []  # Before→After 코칭 카드 [{quote, issue, suggestion, manual_ref}]
+    emotion_journey: dict = {}  # 감정 상태 머신 여정 {final_state, final_temperature, history}
 
 
 # ---- admin ----

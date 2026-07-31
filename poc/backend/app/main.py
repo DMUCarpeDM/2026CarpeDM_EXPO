@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import admin, auth, codes, reports, scenarios, sessions
+from app.api import admin, auth, codes, nfc, orgs, reports, scenarios, sessions
 from app.core.config import settings
 from app.seed.run import seed
 
@@ -51,6 +51,7 @@ def _purge_expired_quotes() -> None:
             report.rebuild = {}
             report.headline = {}
             report.deep_analysis = {}
+            report.coaching = []  # Before→After 카드도 발화 인용을 담는다 (S-B2B-COACH)
         if expired:
             db.commit()
             print(f"보관 기간 만료 미저장 리포트 인용 {len(expired)}건 파기")
@@ -100,6 +101,27 @@ def _prewarm_models() -> None:
             print(f"[prewarm] 임베딩 모델 상주: {settings.ollama_embed_model}")
         except Exception:
             print("[prewarm] Ollama 임베딩 없음 → 키워드 매칭만 사용")
+            return
+        # 시나리오 체크리스트 앵커를 미리 배치 임베딩 — 첫 체험자의 첫 턴이
+        # 앵커 전체의 콜드 임베딩 비용(요청당 고정 ~3s)을 내지 않게 한다.
+        try:
+            from app.ai import semantic_match
+            from app.core.database import SessionLocal
+            from app.models import Episode
+
+            db = SessionLocal()
+            try:
+                anchor_texts: list[str] = []
+                for episode in db.query(Episode).all():
+                    for item in episode.checklist or []:
+                        anchor_texts += semantic_match._anchors(item)
+            finally:
+                db.close()
+            if anchor_texts:
+                got = semantic_match._embed_many(anchor_texts, budget_sec=60.0)
+                print(f"[prewarm] 의미 앵커 캐시: {len(got)}/{len(dict.fromkeys(anchor_texts))}건")
+        except Exception as exc:
+            print(f"[prewarm] 앵커 임베딩 프리웜 실패(첫 턴에서 지연 가능): {exc}")
 
 
 def _recover_interrupted_analyses() -> None:
@@ -162,6 +184,9 @@ async def lifespan(app: FastAPI):
     import threading
 
     threading.Thread(target=_prewarm_models, daemon=True).start()
+    from app.services.nfc_bridge import start_bridge
+
+    start_bridge()  # NFC 리더 폴링 (S-B2B-NFC) — pyscard/리더 없으면 자동 휴면
     yield
 
 
@@ -175,7 +200,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-for router in (auth.router, scenarios.router, sessions.router, reports.router, admin.router, codes.router):
+for router in (
+    auth.router, scenarios.router, sessions.router, reports.router,
+    admin.router, codes.router, orgs.router, nfc.router,
+):
     app.include_router(router, prefix="/api")
 
 

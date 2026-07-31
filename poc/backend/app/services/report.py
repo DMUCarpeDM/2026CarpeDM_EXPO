@@ -8,6 +8,7 @@
 """
 from sqlalchemy import select
 
+from app.ai import manual_rag, paralinguistics
 from app.ai.scoring import ENGINE_VERSION
 from app.models import AnalysisResult, FitType, Report, RoleplaySession
 from app.services.deep_analysis import build_deep_analysis
@@ -567,6 +568,9 @@ def _build_speech_stats(turn_results: list[AnalysisResult], session: RoleplaySes
         "formal_pct": round(sum(formal_ratios) / len(formal_ratios) * 100) if formal_ratios else None,
         "avg_speech_rate": round(sum(rates) / len(rates), 1) if rates else None,
         "measurement": {"frames": frames, "audio_sec": round(audio_sec, 1), "level": level},
+        # 파라링귀스틱 요약 (S-B2B-PARA): 분당 음절·응답 지연·긴 멈춤·필러 —
+        # "말 속도: 분당 380음절 (긴장 시 빨라짐)" 류의 정량 피드백 재료
+        "paralinguistics": paralinguistics.summarize([r.raw_metrics for r in voice]),
     }
 
 
@@ -826,11 +830,98 @@ def _habit_segments(session: RoleplaySession) -> list[dict]:
     return segs[:2]  # 과잉 지적 방지 — 가장 중요한 것만
 
 
+def _manual_ref(issue_text: str, brand: str) -> dict | None:
+    """코칭 카드의 매뉴얼 근거 (S-B2B-RAG) — 브랜드 매뉴얼이 없으면 None."""
+    if not brand:
+        return None
+    sections = manual_rag.retrieve(issue_text, brand, top_k=1)
+    if not sections:
+        return None
+    section = sections[0]
+    return {"id": section["id"], "title": section["title"], "content": section["content"][:160]}
+
+
+def _build_coaching(
+    session: RoleplaySession, response_results: list[AnalysisResult],
+) -> list[dict]:
+    """Before→After 코칭 카드 (S-B2B-COACH) — 실제 발화 인용 → 모범 문장 처방.
+
+    "그래서 뭘 고치라고?"에 대한 답: 점수가 아니라 문장을 준다.
+    소스 우선순위: ① 위험 표현(가장 교정 가치 높음) ② 최저 커버리지 턴의
+    누락 항목(그 상황의 모범 문장을 시드 paraphrase에서 가져온다). 최대 3장.
+    """
+    brand = (getattr(session.scenario, "brand", "") or "") if session.scenario else ""
+    turn_by_id = {t.id: t for t in session.turns}
+    cards: list[dict] = []
+
+    # ① 위험 표현 — 발화 원문을 그대로 인용하고 대체 문장을 제시.
+    # 처방 문장은 위험 표현 사전의 reason 안에 든 교정 문구('...'로)를 우선 추출한다.
+    import re as _re
+
+    for result in sorted(response_results, key=lambda r: r.score):
+        turn = turn_by_id.get(result.turn_id)
+        if turn is None:
+            continue
+        for hit in (result.raw_metrics.get("banned_hits") or [])[:1]:
+            phrase = hit.get("phrase", "")
+            reason = hit.get("reason", "듣는 사람에게 부정적으로 들리는 표현이에요.")
+            quoted = _re.search(r"'([^']{4,60})'", reason)
+            suggestion = f"\"{quoted.group(1)}\"" if quoted else GENERIC_PRESCRIPTION
+            quote = turn.response_text[:80] + ("…" if len(turn.response_text) > 80 else "")
+            cards.append({
+                "turn_order": turn.order,
+                "fit_type": "response",
+                "quote": quote,
+                "issue": f"'{phrase}' — {reason}",
+                "suggestion": suggestion,
+                "manual_ref": _manual_ref(f"금지 표현 {phrase}", brand),
+            })
+            if len(cards) >= 2:
+                break
+        if len(cards) >= 2:
+            break
+
+    # ② 최저 커버리지 턴의 최고 가중치 누락 항목 — 시드의 모범 문장을 처방으로
+    uncovered = [
+        (result, turn_by_id.get(result.turn_id))
+        for result in sorted(response_results, key=lambda r: r.raw_metrics.get("coverage", 1.0))
+        if turn_by_id.get(result.turn_id) is not None
+    ]
+    for result, turn in uncovered:
+        if len(cards) >= 3:
+            break
+        if any(card["turn_order"] == turn.order for card in cards):
+            continue  # 같은 턴에 카드 중복 금지 — 한 턴 하나의 교정 포인트
+        checklist = (turn.episode.checklist if turn.episode else None) or []
+        missing_ids = {m["id"] for m in (result.raw_metrics.get("missing") or [])}
+        missing = sorted(
+            [item for item in checklist if item["id"] in missing_ids],
+            key=lambda item: item.get("weight", 1.0), reverse=True,
+        )
+        if not missing:
+            continue
+        item = missing[0]
+        example = (item.get("paraphrases") or [None])[0] or _prescription_for(item.get("label", ""))
+        example = str(example)
+        quote = turn.response_text[:80] + ("…" if len(turn.response_text) > 80 else "")
+        cards.append({
+            "turn_order": turn.order,
+            "fit_type": "response",
+            "quote": quote,
+            "issue": f"이 답변에는 '{item.get('label', '')}'이(가) 빠졌어요.",
+            "suggestion": example if example.startswith("\"") else f"\"{example}\"",
+            "manual_ref": _manual_ref(item.get("label", ""), brand),
+        })
+
+    return cards[:3]
+
+
 def build_report(
     db,
     session: RoleplaySession,
     session_scores: dict[FitType, float | None],
     analysis_ms: int,
+    judge_info: dict | None = None,
 ) -> Report:
     turn_results = db.scalars(
         select(AnalysisResult).where(
@@ -921,8 +1012,32 @@ def build_report(
                 "context": "모든 항목이 안정권이에요. 이제 디테일 싸움입니다.",
             }
 
-    available = [s for s in session_scores.values() if s is not None]
-    total = round(sum(available) / len(available), 1) if available else 0.0
+    # 종합 점수 — 직무별 루브릭 가중치 (S-B2B-PACK, C-11). 팩이 가중치를 정의하면
+    # 그 배점으로, 없으면(기존 전시 시나리오) 기존과 동일한 균등 평균 — 골든 회귀 호환.
+    measured_pairs = [(fit, s) for fit, s in session_scores.items() if s is not None]
+    rubric = (getattr(session.scenario, "rubric_weights", None) or {}) if session.scenario else {}
+    if rubric and measured_pairs:
+        weight_sum = sum(rubric.get(fit.value, 0.25) for fit, _ in measured_pairs)
+        total = round(
+            sum(s * rubric.get(fit.value, 0.25) for fit, s in measured_pairs) / weight_sum, 1,
+        ) if weight_sum else 0.0
+    else:
+        available = [s for _, s in measured_pairs]
+        total = round(sum(available) / len(available), 1) if available else 0.0
+
+    deep = build_deep_analysis(session, turn_results)
+    # judge 투명성 (S-B2B-JUDGE): 채점 근거·표본·혼합 비율을 리포트에 그대로 노출 —
+    # "LLM이 채점하면 믿을 수 있나요?"에 대한 답은 감추지 않는 것이다.
+    if judge_info:
+        deep["judge"] = {
+            "title": "AI 루브릭 채점 (검증 레이어)",
+            "n": judge_info.get("n"),
+            "median": judge_info.get("median"),
+            "deterministic": judge_info.get("deterministic"),
+            "blended": judge_info.get("blended"),
+            "blend_weight": judge_info.get("blend_weight"),
+            "reasonings": [s["reasoning"] for s in judge_info.get("samples", [])][:3],
+        }
 
     report = Report(
         session_id=session.id,
@@ -941,7 +1056,9 @@ def build_report(
         # 하루의 결말 — 수행도(rapport) 분기. "내 대답이 하루를 바꿨다"는 정서적 마침표
         day_ending=select_ending(session),
         # 심층 교차 분석 — 담화 구조·압박 내성·적응 곡선 (표본 부족 렌즈는 생략)
-        deep_analysis=build_deep_analysis(session, turn_results),
+        deep_analysis=deep,
+        # Before→After 코칭 카드 (S-B2B-COACH) — 실제 발화 인용 → 모범 문장 처방
+        coaching=_build_coaching(session, by_fit.get(FitType.response, [])),
         analysis_ms=analysis_ms,
     )
     db.add(report)

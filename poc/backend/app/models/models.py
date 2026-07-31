@@ -57,6 +57,15 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     name: Mapped[str] = mapped_column(String(100), default="")
     role: Mapped[str] = mapped_column(String(10), default="user")  # user | admin (기관 운영자)
+    # ---- B2B 온보딩 확장 (S-B2B-ORG) ----
+    # 기존 role의 CHECK 제약은 전시 DB에서 재작성할 수 없으므로(SQLite),
+    # 기관 내 역할은 별도 컬럼으로 둔다: "" (미소속) | trainee(수강생) | manager(교육 담당)
+    institution_id: Mapped[int | None] = mapped_column(
+        ForeignKey("institutions.id", ondelete="SET NULL"), nullable=True
+    )
+    org_role: Mapped[str] = mapped_column(String(20), default="")
+    # 직무 트랙 (cafe_crew | cs_agent | office_admin) — 시나리오 팩·루브릭 가중치 선택 기준
+    job_role: Mapped[str] = mapped_column(String(30), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     sessions: Mapped[list["RoleplaySession"]] = relationship(back_populates="user")
@@ -95,6 +104,14 @@ class Scenario(Base):
     # 등장인물 4인: [{id, name, role, personality, speech_style, tts: {rate, pitch}}]
     characters: Mapped[list] = mapped_column(JSON, default=list)
     is_active: Mapped[bool] = mapped_column(default=True)
+    # ---- 시나리오 팩 확장 (S-B2B-PACK) — JSON 팩(app/seed/packs/)에서 로드되는 메타 ----
+    domain: Mapped[str] = mapped_column(String(20), default="")  # office | service
+    job_role: Mapped[str] = mapped_column(String(30), default="")  # cafe_crew | cs_agent | office_admin
+    brand: Mapped[str] = mapped_column(String(50), default="")  # 무대 브랜드 (예: cafe-ondo)
+    # 직무별 4-Fit 루브릭 가중치 {response, voice, eye, posture} — 합 1.0, 비면 기본 가중치
+    rubric_weights: Mapped[dict] = mapped_column(JSON, default=dict)
+    # 감정 상태 머신 프로파일 {enabled, initial, temperature, deltas, lines} — 비면 비활성
+    emotion_profile: Mapped[dict] = mapped_column(JSON, default=dict)
 
     episodes: Mapped[list["Episode"]] = relationship(
         back_populates="scenario", order_by="Episode.order",
@@ -168,6 +185,15 @@ class RoleplaySession(Base):
     # nullable이라 _migrate_columns가 기존 DB에 무손실 추가하고 현행 동작은 바뀌지 않는다.
     institution_id: Mapped[int | None] = mapped_column(ForeignKey("institutions.id"), nullable=True)
     device_id: Mapped[int | None] = mapped_column(ForeignKey("devices.id"), nullable=True)
+    # ---- B2B 온보딩 확장 (S-B2B-SESSION) ----
+    # 직무 트랙 — 기관 대시보드의 직무별 집계 축 (NFC 카드/시나리오 팩에서 스탬프)
+    job_role: Mapped[str] = mapped_column(String(30), default="")
+    # 영수증 QR 클레임 토큰 — 익명 체험 세션을 나중에 계정으로 귀속시키는 능력 토큰.
+    # 생성 시 발급하며 URL에 실려도 세션 access_token(데이터 열람권)은 노출되지 않는다.
+    # UNIQUE는 기존 전시 DB에 ALTER로 추가할 수 없어 앱 레벨(충돌 무시 가능한 128bit 난수)로 보장.
+    claim_token: Mapped[str] = mapped_column(String(64), default="", index=True)
+    # 감정 상태 머신 (S-B2B-EMOTION): {"state", "temperature", "history": [...]}
+    emotion: Mapped[dict] = mapped_column(JSON, default=dict)
     mode: Mapped[int] = mapped_column(Integer, default=5)  # 5 | 10 (분)
     difficulty: Mapped[str] = mapped_column(String(20), default="basic")  # basic | pressure | ultra_pressure
     # 같은 참여자×시나리오×모드 내 회차 — KPI '2차 수행률'·'1차→2차 개선'의 집계 기반
@@ -277,6 +303,9 @@ class Report(Base):
     day_ending: Mapped[dict] = mapped_column(JSON, default=dict)
     # 심층 교차 분석: {delivery(담화 구조), composure(압박 내성), adaptation(적응 곡선)}
     deep_analysis: Mapped[dict] = mapped_column(JSON, default=dict)
+    # Before→After 코칭 카드 (S-B2B-COACH): [{quote, issue, suggestion, manual_ref, fit_type}]
+    # 실제 발화 인용 → 모범 문장 처방. 미저장 동의 만료 시 인용과 함께 파기된다.
+    coaching: Mapped[list] = mapped_column(JSON, default=list)
     analysis_ms: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
@@ -316,7 +345,7 @@ class AuditEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
-# ---- 기관 대시보드용 골격 (추후 확장) ----
+# ---- 기관(B2B 온보딩) 모듈 (S-B2B-ORG) ----
 
 class Institution(Base):
     __tablename__ = "institutions"
@@ -325,6 +354,60 @@ class Institution(Base):
     name: Mapped[str] = mapped_column(String(200))
     code: Mapped[str] = mapped_column(String(50), unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+    invites: Mapped[list["InviteCode"]] = relationship(
+        back_populates="institution", cascade="all, delete-orphan", passive_deletes=True,
+    )
+
+
+class InviteCode(Base):
+    """기관 초대 코드 — 가입 시 코드 하나로 기관 소속과 기관 내 역할이 결정된다.
+
+    Institution에 컬럼을 더하는 대신 새 테이블로 두는 이유: 기존 전시 DB의
+    institutions 테이블엔 SQLite ALTER로 UNIQUE 컬럼을 추가할 수 없고,
+    역할별 코드 발급·회전(rotate)·비활성화가 행 단위로 자연스럽다.
+    """
+    __tablename__ = "invite_codes"
+    __table_args__ = (
+        CheckConstraint("org_role IN ('trainee', 'manager')", name="ck_invites_role"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    institution_id: Mapped[int] = mapped_column(
+        ForeignKey("institutions.id", ondelete="CASCADE"), index=True
+    )
+    code: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    org_role: Mapped[str] = mapped_column(String(20), default="trainee")  # trainee | manager
+    is_active: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+    institution: Mapped["Institution"] = relationship(back_populates="invites")
+
+
+class NfcCard(Base):
+    """NFC 체험 카드 (S-B2B-NFC) — 발급 키오스크가 직무를 태그에 귀속하고,
+    미러가 태그 한 번으로 해당 직무의 롤플레이를 즉시 시작한다.
+
+    uid는 카드 하드웨어 UID(hex). 재발급(직무 변경)은 같은 uid 행을 덮어쓴다 —
+    전시 운영에서 카드는 회전 소모품이고 이력은 세션 쪽에 남는 것으로 충분하다.
+    """
+    __tablename__ = "nfc_cards"
+    __table_args__ = (
+        CheckConstraint("status IN ('active', 'revoked')", name="ck_nfc_status"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    uid: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    institution_id: Mapped[int | None] = mapped_column(
+        ForeignKey("institutions.id", ondelete="SET NULL"), nullable=True
+    )
+    job_role: Mapped[str] = mapped_column(String(30), default="")
+    # 발급 시 지정한 시나리오 — 비면 미러가 직무 기본 팩을 사용한다
+    scenario_slug: Mapped[str] = mapped_column(String(50), default="")
+    status: Mapped[str] = mapped_column(String(10), default="active")  # active | revoked
+    issued_count: Mapped[int] = mapped_column(Integer, default=0)  # 재발급 횟수 (운영 관측)
+    issued_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class Device(Base):

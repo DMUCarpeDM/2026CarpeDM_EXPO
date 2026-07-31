@@ -180,6 +180,7 @@ class TemplateDialogueProvider:
     def personalize_question(
         self, spec: QuestionSpec, situation: str, last_response: str,
         character: dict | None = None, difficulty: str = "basic",
+        emotion_directive: str = "",
     ) -> str | None:
         return None  # 템플릿 엔진은 개인화 없음 — 대본 그대로
 

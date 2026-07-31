@@ -16,6 +16,13 @@ def signup(body: SignupIn, db: Session = Depends(get_db)):
         raise HTTPException(status_code=409, detail="이미 가입된 이메일입니다")
     user = User(email=body.email, password_hash=hash_password(body.password), name=body.name)
     db.add(user)
+    # 초대 코드 가입 (S-B2B-ORG) — 코드가 틀리면 계정도 만들지 않는다 (혼란 방지:
+    # "가입은 됐는데 기관이 없다"보다 화면에서 코드를 고쳐 재시도하는 편이 낫다)
+    if body.invite_code:
+        from app.api.orgs import join_org_by_invite
+
+        db.flush()
+        join_org_by_invite(db, user, body.invite_code)
     db.commit()
     return TokenOut(access_token=create_access_token(str(user.id)))
 

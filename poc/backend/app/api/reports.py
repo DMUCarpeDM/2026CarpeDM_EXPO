@@ -146,6 +146,15 @@ def get_report(
                 ),
             }
 
+    # 영수증 QR (S-B2B-CLAIM): 아직 계정에 귀속되지 않은 세션만 클레임 링크를 준다
+    claim_url = ""
+    if session.claim_token and session.user_id is None:
+        from app.core.config import settings
+
+        claim_url = f"{settings.claim_base_url}?token={session.claim_token}"
+
+    from app.services.score_policy import grade_of
+
     return ReportOut(
         session_id=session.id,
         total_score=report.total_score,
@@ -164,4 +173,8 @@ def get_report(
         mode=session.mode,
         difficulty=session.difficulty,
         previous=previous,
+        grade=grade_of(report.total_score),
+        claim_url=claim_url,
+        coaching=list(getattr(report, "coaching", None) or []),
+        emotion_journey=dict(session.emotion or {}),
     )
