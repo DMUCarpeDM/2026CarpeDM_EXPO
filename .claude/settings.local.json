@@ -10,7 +10,12 @@
       "PowerShell(winget install --id Python.Python.3.12 -e --silent --accept-package-agreements --accept-source-agreements --disable-interactivity)",
       "PowerShell(git init 2>&1)",
       "PowerShell(git remote add origin https://github.com/DMUCarpeDM/2026CarpeDM_EXPO.git 2>&1)",
-      "PowerShell(git fetch origin 2>&1)"
+      "PowerShell(git fetch origin 2>&1)",
+      "Bash(git pull *)",
+      "Bash(lsof -iTCP -sTCP:LISTEN -P -n)",
+      "Bash(gh run *)",
+      "Bash(npx tsc *)",
+      "Bash(echo \"=== tsc exit: $? ===\")"
     ]
   }
 }
