@@ -1,0 +1,12 @@
+﻿# 측정 구성: semantic=off judge=on blend_weight=0.3 — system_score는 결정적 레이어 한정
+case_id,category,system_score,judge_median,blended,rater,human_score,response
+cafe-keyword-stuff,keyword_stuffing,92.0,65.0,83.9,,,죄송합니다 사과드립니다 불편 기다리 속상 바로 다시 만들어 새로 제조 즉시 교환 포인트 쿠폰 보상 무료 적립 재발 점검입니다.
+cafe-polite-empty,polite_empty,59.8,85.0,67.4,,,고객님 정말 죄송합니다. 저희가 항상 최선을 다하고 있는데 이런 일이 생겨서 마음이 아픕니다. 앞으로 더 노력하는 카페 온도가 되겠습니다. 감사합니다.
+cafe-filler-padded,filler_padded,92.0,65.0,83.9,,,어 그러니까 음 죄송합니다 어 온도라떼 그니까요 바로 다시 만들어 드릴게요 음 그리고 어 포인트로 보상해 드리겠습니다.
+cafe-rude-with-keywords,rude_with_keywords,84.0,65.0,78.3,,,아 네네 죄송합니다. 바로 다시 만들어 드리고 포인트 적립해 드리면 되잖아요. 근데 저희도 바쁘거든요.
+cafe-sincere-control,control_good,92.0,82.0,89.0,,,"오래 기다리셨는데 음료까지 잘못 나가서 정말 죄송합니다. 온도라떼 지금 바로 다시 만들어 드리고, 불편 드린 점은 온도 포인트로 보상해 드리겠습니다. 주문 확인 절차도 다시 점검하겠습니다."
+cs-keyword-stuff,keyword_stuffing,92.0,45.0,77.9,,,죄송 불편 기다리 생일 속상 확인하겠 배정 라이더 매장 조회 배달비 포인트 보상 환불 규정 분 안에 다시 연락 회신 문자입니다.
+cs-empty-promise,polite_empty,63.5,75.0,66.9,,,고객님 많이 속상하셨죠. 정말 죄송합니다. 저희가 확인해 보고 연락드리겠습니다. 조금만 기다려 주세요. 죄송합니다.
+cs-sincere-control,control_good,92.0,90.0,91.4,,,"생일인데 오래 기다리게 해서 정말 죄송합니다. 주문 상태를 지금 바로 조회하겠습니다. 30분 이상 지연이라 배달비 환불과 온도 포인트 보상을 먼저 처리하고, 매장 확인 즉시 10분 안에 이 번호로 다시 전화드리겠습니다."
+office-keyword-stuff,keyword_stuffing,92.0,45.0,77.9,,,입니다 신입 맡 담당 업무 역할 목표 파악 온보딩 셋업 계획 완료 부탁드 함께 도움 협업 배우겠 습니다.
+office-short-evasive,short_evasive,18.0,52.5,28.4,,,"네, 열심히 하겠습니다."

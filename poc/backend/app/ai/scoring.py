@@ -14,7 +14,14 @@ band_score: 이상 구간 안이면 100점, 한계 구간 밖이면 0점, 사이
 #   - 듣기/말하기 응시 분리·응시 리듬 전달 → score_eye가 v2 경로로 동작
 #   - 표정 판정을 개인 무표정 기저 대비로 전환 (v1은 절대 임계 → 사람마다 오판)
 #     smile_ratio·mouth_press_ratio·brow_down_ratio의 분포가 달라진다 (관찰 지표)
-ENGINE_VERSION = "2"
+#
+# v3 (2026-08-01): 산식이 아니라 '표본 로트'를 가르기 위한 버전 증가.
+#   2026-07-31에 LLM judge 혼합(0.7×결정적 + 0.3×judge 중앙값)이 기본 ON으로 들어가
+#   Response 세션 점수가 바뀌었는데 버전을 올리지 않아, 그 구간 표본이 순수 결정적
+#   v2 표본과 같은 백분위 풀에 섞였다(api/reports.py가 engine_version으로 거른다).
+#   judge를 기본 비활성으로 되돌리면서(config.judge_samples=0) 이후 표본을 그
+#   오염 구간과 분리한다. v3의 산식 자체는 v2의 결정적 경로와 동일하다.
+ENGINE_VERSION = "3"
 
 
 def clamp(v: float, lo: float = 0.0, hi: float = 100.0) -> float:

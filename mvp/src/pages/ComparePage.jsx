@@ -30,21 +30,22 @@ export function ComparePage({ onPrev, onRestart, onShare, history = [], report }
   const previousTotal = Math.round(previous?.total_score ?? 0);
   const previousScores = previous?.fit_scores || {};
 
-  // 비교 표/추이 데이터. 이전 기록이 있으면 실제 값, 없으면 화면을 볼 수 있도록 대표값으로 채워요.
+  // 비교 표/추이 데이터 — 실제 기록이 없으면 값을 만들어내지 않는다.
+  // 이전 기록이 없으면 before/delta는 null이고 화면에서 "—"로 표시한다.
+  // (이 화면은 FeedbackPage에서 조건 없이 진입 가능해서, 첫 관람객이 반드시 지난다.)
   const rows = FIT_META.map((fit) => {
     const after = currentFits.find((item) => item.key === fit.key)?.score ?? 0;
-    const before = hasPrevious ? fitValue(previousScores, fit.key) : Math.max(0, after - 12);
-    return { ...fit, before, after, delta: after - before };
+    const before = hasPrevious ? fitValue(previousScores, fit.key) : null;
+    return { ...fit, before, after, delta: before === null ? null : after - before };
   });
-  const prevRow = (fit) => rows.find((row) => row.key === fit.key)?.before ?? 0;
+  const prevRow = (fit) => rows.find((row) => row.key === fit.key)?.before ?? null;
 
-  const trendTotals = history.length >= 2
-    ? history.slice(-6).map((item) => Math.round(item.total_score))
-    : [64, 68, 72, 79, 83, currentTotal || 88];
-  const trendLabels = history.length >= 2
+  // 추이 곡선은 실제 기록이 2회 이상 쌓였을 때만 그린다.
+  const hasTrend = history.length >= 2;
+  const trendTotals = hasTrend ? history.slice(-6).map((item) => Math.round(item.total_score)) : [];
+  const trendLabels = hasTrend
     ? history.slice(-6).map((item) => (item.started_at || "").slice(5, 10).replace("-", ".") || "-")
-    : ["04.20", "04.27", "05.04", "05.11", "05.18", "05.24"];
-  const trendAvg = trendTotals.map((value) => Math.max(40, value - 6));
+    : [];
 
   return (
     <motion.section className="page report-page compare-report" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
@@ -58,7 +59,7 @@ export function ComparePage({ onPrev, onRestart, onShare, history = [], report }
         </div>
 
         <div className="compare-versus">
-          <AttemptColumn tone="prev" title="Previous Mirror-Ting" date={previous?.started_at?.slice(0, 10) || "이전 기록"} total={hasPrevious ? previousTotal : trendTotals[0]} rows={rows} which="before" prevRow={prevRow} muted={!hasPrevious} />
+          <AttemptColumn tone="prev" title="Previous Mirror-Ting" date={previous?.started_at?.slice(0, 10) || "기록 없음"} total={hasPrevious ? previousTotal : null} rows={rows} which="before" prevRow={prevRow} muted={!hasPrevious} />
           <span className="versus-badge">VS</span>
           <AttemptColumn tone="current" title="Current Mirror-Ting" date={attempts.at(-1)?.started_at?.slice(0, 10) || "방금 완료"} total={currentTotal} rows={rows} which="after" prevRow={prevRow} />
         </div>
@@ -71,29 +72,28 @@ export function ComparePage({ onPrev, onRestart, onShare, history = [], report }
               {rows.map((row) => (
                 <tr key={row.key}>
                   <td><span className={`compare-item ${row.tone}`}><IconGlyph icon={row.icon} size={18} /> {row.label} <em>({row.english})</em></span></td>
-                  <td>{row.before}</td>
+                  <td>{row.before ?? "—"}</td>
                   <td><strong>{row.after}</strong></td>
-                  <td><DeltaTag delta={row.delta} /></td>
+                  <td>{row.delta === null ? <em className="delta-tag flat">—</em> : <DeltaTag delta={row.delta} />}</td>
                 </tr>
               ))}
               <tr className="compare-total-row">
-                <td>종합 점수</td><td>{hasPrevious ? previousTotal : trendTotals[0]}</td><td><strong>{currentTotal}</strong></td>
-                <td><DeltaTag delta={currentTotal - (hasPrevious ? previousTotal : trendTotals[0])} /></td>
+                <td>종합 점수</td><td>{hasPrevious ? previousTotal : "—"}</td><td><strong>{currentTotal}</strong></td>
+                <td>{hasPrevious ? <DeltaTag delta={currentTotal - previousTotal} /> : <em className="delta-tag flat">—</em>}</td>
               </tr>
             </tbody>
           </table>
         </Panel>
 
-        <Panel className="trend-card">
-          <div className="trend-card-head"><h2>점수 추이 <em>(Trend Chart)</em></h2><span className="trend-range">최근 {trendTotals.length}회</span></div>
-          <TrendChart
-            xLabels={trendLabels}
-            series={[
-              { name: "종합 점수", color: "#0064ff", values: trendTotals },
-              { name: "4-Fit 평균", color: "#0ea5e9", values: trendAvg, fill: false },
-            ]}
-          />
-        </Panel>
+        {hasTrend && (
+          <Panel className="trend-card">
+            <div className="trend-card-head"><h2>점수 추이 <em>(Trend Chart)</em></h2><span className="trend-range">최근 {trendTotals.length}회</span></div>
+            <TrendChart
+              xLabels={trendLabels}
+              series={[{ name: "종합 점수", color: "#0064ff", values: trendTotals }]}
+            />
+          </Panel>
+        )}
 
         <div className="report-page-actions">
           <button type="button" className="secondary-button" onClick={onRestart}><Refresh3 size={20} /> Practice Again</button>
@@ -111,7 +111,10 @@ function AttemptColumn({ tone, title, date, total, rows, which, prevRow, muted =
   return (
     <Panel className={`attempt-column ${tone} ${muted ? "is-muted" : ""}`}>
       <div className="attempt-column-head"><strong>{title}</strong><small>{date}</small></div>
-      <ScoreRing value={total} size="md" label={grade} />
+      {/* total === null이면 비교할 이전 기록이 없다는 뜻 — 점수 링 대신 안내를 보여준다. */}
+      {total === null
+        ? <p className="attempt-empty-note">이전 기록이 아직 없어요.<br />두 번째 연습부터 비교할 수 있어요.</p>
+        : <ScoreRing value={total} size="md" label={grade} />}
       <div className="attempt-fit-bars">
         {rows.map((row) => <FitBarRow key={row.key} icon={row.icon} label={row.label} tone={row.tone} value={which === "before" ? prevRow(row) : row.after} />)}
       </div>

@@ -1,0 +1,11 @@
+sheet_no,case_id,category,expected_human
+1,cafe-rude-with-keywords,rude_with_keywords,low
+2,office-short-evasive,short_evasive,low
+3,cs-empty-promise,polite_empty,low
+4,cs-sincere-control,control_good,high
+5,cafe-polite-empty,polite_empty,low
+6,cs-keyword-stuff,keyword_stuffing,low
+7,cafe-keyword-stuff,keyword_stuffing,low
+8,cafe-filler-padded,filler_padded,mid
+9,cafe-sincere-control,control_good,high
+10,office-keyword-stuff,keyword_stuffing,low

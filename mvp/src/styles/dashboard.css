@@ -296,6 +296,9 @@
 .attempt-column.is-muted { opacity: 0.9; }
 .attempt-column-head strong { display: block; font-size: 17px; }
 .attempt-column-head small { color: var(--color-muted); }
+/* 이전 기록이 없을 때 점수 링(150×150) 자리에 들어가는 빈 상태 — 가짜 점수를 만들지
+   않기 위한 안내. 높이를 링과 맞춰 좌우 열 정렬이 흐트러지지 않게 한다. */
+.attempt-empty-note { display: grid; place-content: center; min-height: 150px; margin: 0; color: var(--color-muted); font-size: 14px; line-height: 1.6; }
 .attempt-fit-bars { display: flex; flex-direction: column; gap: 12px; width: 100%; }
 .fit-bar-row { display: grid; grid-template-columns: 88px 1fr 32px; align-items: center; gap: 10px; }
 .fit-bar-label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 560; color: var(--color-graphite); }

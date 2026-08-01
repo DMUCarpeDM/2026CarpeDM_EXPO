@@ -61,7 +61,10 @@ export function ResultPage({ onPrev, onPractice, onNext, report, selectedDifficu
   const total = Math.round(report.total_score ?? 0);
   // 서버 등급(S-B2B-SCORE: 우수/양호/보통/연습 필요)이 오면 그대로 쓰고, 없으면 기존 표기.
   const grade = report.grade || (total >= 80 ? "Great" : total >= 60 ? "Good" : "Try");
-  const percentile = report.percentile_top ? `상위 ${report.percentile_top}%` : total >= 80 ? "상위 18%" : "상위 40%";
+  // 백분위는 서버가 동일 ENGINE_VERSION 표본 5건 이상일 때만 계산해서 준다(api/reports.py).
+  // 표본이 모자라면 백엔드가 정직하게 null을 주므로, 여기서도 배지를 숨긴다 —
+  // 근거 없는 숫자를 화면에 만들지 않는다(전시 첫 관람객들에게 반드시 걸리는 경로다).
+  const percentile = report.percentile_top ? `상위 ${report.percentile_top}%` : null;
   const strengths = report.strengths?.length ? report.strengths : ["답변의 핵심을 먼저 정리하려는 흐름이 잘 보였어요.", "상대에게 다음 행동을 분명히 알렸어요.", "끝까지 차분한 목소리를 유지했어요."];
   const improvements = report.improvements?.length ? report.improvements : ["결론과 기한을 한 문장으로 먼저 말해 보세요.", "근거를 한 가지 덧붙이면 설득력이 높아져요."];
   const insight = report.headline?.sentence || improvements[0];
@@ -103,7 +106,7 @@ export function ResultPage({ onPrev, onPractice, onNext, report, selectedDifficu
             <Panel className="overall-score-card">
               <h2>종합 점수</h2>
               <ScoreRing value={total} label={grade} />
-              <span className="percentile-badge">{percentile}</span>
+              {percentile && <span className="percentile-badge">{percentile}</span>}
               <p className="score-note">종합 점수는 4-Fit 신호를 함께 반영한 결과예요. 아래 핵심 지표에서 영역별 흐름을 확인해 보세요.</p>
             </Panel>
             <Panel className="fit-key-card">

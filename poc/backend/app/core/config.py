@@ -73,7 +73,22 @@ class Settings(BaseSettings):
     # LLM judge (S-B2B-JUDGE): Response-Fit 한정 루브릭 CoT 채점 + self-consistency
     # (n회 채점 중앙값). 0이면 비활성. Ollama 미가동·실패 시 결정적 파이프라인 점수만
     # 사용한다 (폴백 계층 원칙 — judge는 가산 레이어지 의존점이 아니다).
-    judge_samples: int = 3
+    #
+    # 2026-08-01: 기본값 3 → 0. judge는 temperature 0.7 표본의 중앙값을 최종 Response
+    # 점수에 judge_blend_weight만큼 섞는데(analysis.py), 사람 평정자와의 일치도
+    # (Krippendorff α) 실측이 아직 0건이다. 검증되지 않은 생성 점수가 출고 값을
+    # 흔들면 "같은 답변 3회 = 같은 점수"라는 결정성 보증이 깨진다 — 골든 하네스의
+    # 결정성 테스트(test_golden_responses.py)는 use_semantic=False 결정적 경로만
+    # 검증하므로 이 혼합을 덮지 못한다. α 실측 후 되돌린다.
+    #
+    # 2026-08-01 적대 케이스 10건 실측(docs/studies/gaming-gap-result-2026-08-01.md)이
+    # 두 번째 근거를 더했다: 0.3 선형 혼합은 정확도 면에서도 명백한 이득이 아니다
+    # (5건 개선·3건 악화, 대조군 대비 분리도 17.8→19.6). 두 레이어가 서로 다른 것에
+    # 속하기 때문이다 — 결정적 레이어는 키워드 나열에, judge는 유창한 공백에 속는다.
+    # 따라서 문제는 judge가 아니라 '선형 평균'이라는 결합 규칙이다. 되돌릴 때는
+    # 가중치만 만지지 말고 보수적 결합(낮은 쪽 채택·감점 기반)으로 바꾼 뒤 재측정할 것.
+    # 켜려면 MIRROR_TING_JUDGE_SAMPLES=3.
+    judge_samples: int = 0
     judge_timeout_sec: float = 20.0
     # 최종 Response 점수 = (1-w)×결정적 + w×judge 중앙값 — 보수적 혼합(검증 전)
     judge_blend_weight: float = 0.3

@@ -156,8 +156,9 @@ export function FitBarRow({ icon, label, value, tone }) {
   return (
     <div className={`fit-bar-row ${tone}`}>
       <span className="fit-bar-label"><IconGlyph icon={icon} size={16} /> {label}</span>
-      <i className="fit-bar-track"><span style={{ width: `${value}%`, background: color }} /></i>
-      <b>{value}</b>
+      {/* value가 null이면 아직 기록이 없다는 뜻 — 0점으로 보이지 않게 "—"로 표시한다. */}
+      <i className="fit-bar-track"><span style={{ width: `${value ?? 0}%`, background: color }} /></i>
+      <b>{value ?? "—"}</b>
     </div>
   );
 }
