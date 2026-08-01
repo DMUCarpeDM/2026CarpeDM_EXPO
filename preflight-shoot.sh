@@ -56,6 +56,17 @@ fi
 head_ "2. 전시 화면 (포트 $MVP_PORT)"
 if curl -s --max-time 5 -o /dev/null -w '' "http://127.0.0.1:$MVP_PORT/" 2>/dev/null; then
   ok "mvp 응답"
+  # 어느 체크아웃이 5173을 서빙하는지 — 다른 워크트리의 dev 서버가 포트를 선점하면
+  # 겉보기엔 멀쩡한데 '다른 빌드'를 찍게 된다(2026-08-01 실측: 축 교체 전 화면이 떴다).
+  FPID="$(lsof -nP -iTCP:$MVP_PORT -sTCP:LISTEN -t 2>/dev/null | head -1)"
+  if [ -n "$FPID" ]; then
+    FCWD="$(lsof -a -p "$FPID" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | tail -1)"
+    case "$FCWD" in
+      "$ROOT"|"$ROOT/mvp") ok "이 체크아웃의 화면 (pid $FPID)" ;;
+      *) bad "다른 체크아웃의 dev 서버가 $MVP_PORT 점유: $FCWD (pid $FPID)"
+         bad "  → 그 서버를 끄고 ./start-dev-mac.sh 로 다시 띄울 것. 안 그러면 다른 빌드를 찍는다" ;;
+    esac
+  fi
   ok "촬영용 주소: http://localhost:$MVP_PORT/?idle=0  ← 리포트 방치 복귀 끔"
 else
   bad "mvp 무응답 — ./start-dev-mac.sh 실행"
