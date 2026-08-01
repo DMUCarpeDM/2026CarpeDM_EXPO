@@ -103,7 +103,7 @@ export interface Accumulator {
   asymSamples: number[]; // 시선 미세 안정성용 좌우 비대칭 시계열 (보정값)
   offStreaks: number[]; // 완료된 이탈 스트릭 길이들 — 회복 시간 분석
   shoulderWidths: number[]; // 어깨 픽셀 폭 시계열 — 앞/뒤 리닝 추세
-  // ---- Eye-Fit 심화 ----
+  // ---- 시선(관찰) 심화 ----
   irisFrames: number; // 홍채 추적이 실제로 쓰인 프레임 (능력 플래그)
   irisVFrames: number; // 수직 홍채가 상하 판정에 쓰인 프레임 (능력 플래그)
   contactBouts: number[]; // 완료된 연속 응시 구간 길이들 (응시 리듬)
@@ -494,7 +494,7 @@ export function finalizeTurnMetrics(acc: Accumulator, base: Baseline): Nonverbal
     hand_face_sec: Math.round((acc.handFaceFrames * SAMPLE_MS) / 100) / 10,
     arm_cross_ratio: Math.round((acc.armCrossFrames / acc.frames) * 100) / 100,
     gaze_dirs: { ...acc.offDirs },
-    // ---- Eye-Fit 심화 ----
+    // ---- 시선(관찰) 심화 ----
     // 홍채 추적 가동률 — 리포트가 "머리 추적"인지 "시선 추적"인지 밝힐 근거
     iris_ratio: Math.round((acc.irisFrames / acc.frames) * 100) / 100,
     // 수직 홍채가 상하 판정에 실제로 쓰인 프레임 비율 (능력 플래그)

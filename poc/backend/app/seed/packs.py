@@ -17,7 +17,9 @@ PACKS_DIR = Path(__file__).resolve().parent / "packs"
 
 REQUIRED_KEYS = ("slug", "title", "characters", "episodes")
 EPISODE_REQUIRED_KEYS = ("order", "title", "character_id", "initial_question")
-FIT_KEYS = {"response", "voice", "eye", "posture"}
+# 루브릭 가중치를 줄 수 있는 축 = 점수 축 4종. 시선(eye)은 점수 축이 아니라 관찰
+# 신호이므로 배점 대상이 아니다 (services.report.SCORED_FITS 참고).
+FIT_KEYS = {"response", "voice", "expression", "posture"}
 # 체크리스트 키워드 린트 — 부분 문자열 매칭에서 거의 모든 정상 발화에 명중하는
 # 기능어는 허위 커버(케이스·감정 온도·후속 질문·점수 오염)를 일으키므로 거부한다.
 # 문맥이 실린 형태("다음에는", "바로 다시", "확인 부탁")로 바꿔 쓸 것.

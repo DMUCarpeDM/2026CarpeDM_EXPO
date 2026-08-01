@@ -9,7 +9,7 @@
 from sqlalchemy import select
 
 from app.ai import manual_rag, paralinguistics
-from app.ai.scoring import ENGINE_VERSION
+from app.ai.scoring import ENGINE_VERSION, SCORED_FIT_WEIGHTS, weighted_mean
 from app.models import AnalysisResult, FitType, Report, RoleplaySession
 from app.services.deep_analysis import build_deep_analysis
 from app.services.dialogue.reactions import select_ending
@@ -17,14 +17,19 @@ from app.services.dialogue.reactions import select_ending
 FIT_LABELS = {
     FitType.response: "Response-Fit (응답 적절성)",
     FitType.voice: "Voice-Fit (발화 안정성)",
-    FitType.eye: "Eye-Fit (시선 유지)",
+    FitType.expression: "Expression-Fit (표정 표현력)",
     FitType.posture: "Posture-Fit (자세 안정)",
+    FitType.eye: "시선 (관찰 지표)",  # 점수 축 아님 — 관찰로만 노출
 }
+
+# 4-Fit 점수 축 (총점·강점·헤드라인·코호트에 들어가는 축). 시선(eye)은 관찰 신호라 제외.
+SCORED_FITS = (FitType.response, FitType.voice, FitType.expression, FitType.posture)
 
 NOT_MEASURED = {
     FitType.voice: "음성이 측정되지 않아 Voice-Fit은 이번 평가에서 제외했어요.",
-    FitType.eye: "카메라를 사용하지 않아 Eye-Fit은 이번 평가에서 제외했어요.",
+    FitType.expression: "카메라를 사용하지 않아 Expression-Fit은 이번 평가에서 제외했어요.",
     FitType.posture: "카메라를 사용하지 않아 Posture-Fit은 이번 평가에서 제외했어요.",
+    FitType.eye: "카메라를 사용하지 않아 시선 관찰은 이번 평가에서 제외했어요.",
 }
 
 # 체크리스트 라벨 → 따라 말할 수 있는 처방 문장 (missing 항목 기반 개인화)
@@ -249,7 +254,7 @@ def _voice_evidence(turn_results: list[AnalysisResult]) -> dict | None:
 
 
 # ---------------------------------------------------------------------------
-# Eye-Fit — 케이스: 심한 이탈 / 부족 / 순간 이탈 잦음 / 양호 / 우수
+# 시선(관찰 — 점수 축 아님) — 케이스: 심한 이탈 / 부족 / 순간 이탈 잦음 / 양호 / 우수
 # ---------------------------------------------------------------------------
 
 DIR_LABEL = {"down": "아래", "up": "위", "left": "옆", "right": "옆"}
@@ -325,6 +330,47 @@ def _eye_evidence(turn_results: list[AnalysisResult]) -> dict | None:
 
 
 # ---------------------------------------------------------------------------
+# Expression-Fit — 케이스: 무표정(경직) / 긴장(입술 압축) / 복구 지연 / 의례적 미소 / 우수
+# 설계서 프레이밍: 감정 분류가 아니라 '상황에 맞게 살아있고 반응하는가'. 부적절만 감점.
+# ⚠️ α 검증(10월) 전 참고용 지표.
+# ---------------------------------------------------------------------------
+
+def _expression_evidence(turn_results: list[AnalysisResult]) -> dict | None:
+    worst = min(turn_results, key=lambda r: r.score, default=None)
+    if worst is None:
+        return None
+    m = worst.raw_metrics
+    brow = m.get("brow_raise_ratio", 0)
+    press = m.get("mouth_press_ratio", 0)
+    recover = m.get("expr_recover_sec", 0)
+    smile = m.get("smile_ratio", 0)
+    duchenne = m.get("smile_duchenne_ratio")
+
+    if brow <= 0.03:
+        observed = f"답변 내내 표정 변화(눈썹 움직임)가 거의 없었어요 ({int(brow * 100)}%)"
+        interp = "무표정은 안정적으로 보일 수 있지만, 길어지면 상대는 '반응이 없다'고 느껴 대화가 일방적으로 흘러요."
+        sugg = "핵심 단어나 상대의 말에 눈썹만 살짝 올려보세요. 표정 하나로 '듣고 있다'는 신호가 전해져요."
+    elif press >= 0.3:
+        observed = f"입술을 꾹 누르는 긴장 표정이 {int(press * 100)}% 구간에서 관찰됐어요"
+        interp = "긴장 자체는 자연스러워요 — 다만 말 사이 침묵과 겹치면 위축돼 보일 수 있어요."
+        sugg = "답하기 전에 숨을 한 번 내쉬고 어깨를 내려보세요. 어깨가 내려가면 입가도 함께 풀립니다."
+    elif recover >= 1.5:
+        observed = f"긴장 표정이 풀리기까지 평균 {recover:.1f}초 걸렸어요 — 표정이 오래 굳었어요"
+        interp = "한 번 굳은 표정이 오래 유지되면, 다음 문장까지 그 인상이 따라붙어요."
+        sugg = "지적을 들은 뒤 답을 시작할 때, 첫 문장에서 의식적으로 눈썹을 한 번 풀어보세요."
+    elif smile >= 0.15 and duchenne is not None and duchenne <= 0.15:
+        observed = f"미소를 자주 지었는데({int(smile * 100)}%), 눈 주변 근육은 거의 함께 움직이지 않았어요"
+        interp = "입꼬리만 올라가는 미소는 상대에게 의례적인 표정으로 읽히기 쉬워요 — 표정이 아니라 전달의 문제예요."
+        sugg = "웃음을 억지로 늘릴 필요는 없어요. 진짜 반가운 지점(인사·감사)에서만 웃으면 눈은 저절로 따라옵니다."
+    else:
+        eye_note = ", 눈까지 함께 웃는 진정성 미소" if (duchenne is not None and duchenne >= 0.5) else ""
+        observed = f"표정이 상황에 맞게 살아 있었어요 (표정 생동 {int(brow * 100)}%{eye_note})"
+        interp = "표정 변화는 말에 생기를 더하고, 상대가 내용에 집중하게 만들어요 — 훈련으로 만들기 어려운 강점이에요."
+        sugg = "이 생동감을 유지하되, 중요한 결론에서는 잠깐 표정을 가라앉혀 무게를 실어보세요."
+    return _segment(worst, "expression", observed, interp, sugg)
+
+
+# ---------------------------------------------------------------------------
 # Posture-Fit — 케이스: 고개 숙임 / 어깨 기울기 / 흔들림 / 양호 / 우수
 # ---------------------------------------------------------------------------
 
@@ -369,8 +415,9 @@ def _posture_evidence(turn_results: list[AnalysisResult]) -> dict | None:
 EVIDENCE_BUILDERS = {
     FitType.response: _response_evidence,
     FitType.voice: _voice_evidence,
-    FitType.eye: _eye_evidence,
+    FitType.expression: _expression_evidence,
     FitType.posture: _posture_evidence,
+    FitType.eye: _eye_evidence,  # 관찰용 — SCORED_FITS 루프 밖에서 호출
 }
 
 # 점수 구간별 강점 문구 — 90+는 도전 과제형, 75+는 인정형
@@ -506,6 +553,20 @@ def _fit_detail_metrics(fit: FitType, results: list[AnalysisResult]) -> list[dic
         blink = _mean_metric(results, "blink_per_min")
         if blink:
             add("깜빡임", f"분당 {round(blink)}회")
+    elif fit == FitType.expression:
+        brow = _mean_metric(results, "brow_raise_ratio")
+        add("표정 생동감(눈썹)", f"{round(brow * 100)}%" if brow is not None else None)
+        smile = _mean_metric(results, "smile_ratio")
+        add("미소 비율", f"{round(smile * 100)}%" if smile is not None else None)
+        duch = _mean_metric(results, "smile_duchenne_ratio")
+        if duch is not None:
+            add("진정성 미소(눈 참여)", f"{round(duch * 100)}%")
+        press = _mean_metric(results, "mouth_press_ratio")
+        if press is not None and press >= 0.15:
+            add("입술 압축(긴장)", f"{round(press * 100)}%")
+        recover = _mean_metric(results, "expr_recover_sec")
+        if recover is not None and recover >= 0.8:
+            add("표정 복구", f"{recover:.1f}초")
     elif fit == FitType.posture:
         tilt = _mean_metric(results, "avg_shoulder_tilt_deg")
         add("어깨 기울기", f"{tilt:.1f}°" if tilt is not None else None)
@@ -583,9 +644,9 @@ STRENGTH_BY_BAND = {
         90: "발화 페이스가 프로 수준으로 안정적이에요. 이젠 '전략적 침묵'을 도구로 써보세요.",
         75: "말속도와 흐름이 안정적이라 내용이 잘 전달됐어요.",
     },
-    FitType.eye: {
-        90: "시선 처리가 훌륭해요. 듣는 동안의 시선까지 잡으면 완성이에요.",
-        75: "정면 응시가 잘 유지돼서 말에 신뢰가 실렸어요.",
+    FitType.expression: {
+        90: "표정이 상황에 맞게 살아 있어 말에 생기가 실렸어요. 결론에서만 잠깐 가라앉히면 완급까지 완성돼요.",
+        75: "표정 반응이 자연스러워 대화가 일방적으로 흐르지 않았어요.",
     },
     FitType.posture: {
         90: "자세가 발화 내내 반듯했어요. 손동작 하나를 더하면 무대가 됩니다.",
@@ -1021,7 +1082,7 @@ def build_report(
     evidence_segments: list[dict] = []
     segments_by_fit: dict[FitType, dict] = {}
 
-    for fit in FitType:
+    for fit in SCORED_FITS:
         score = session_scores.get(fit)
         if score is None:
             fit_scores[fit.value] = {
@@ -1033,12 +1094,17 @@ def build_report(
 
         segment = EVIDENCE_BUILDERS[fit](by_fit.get(fit, []))
         summary = segment["interpretation"] if segment else ""
-        fit_scores[fit.value] = {
+        card = {
             "score": round(score, 1),
             "label": FIT_LABELS[fit],
             "summary": summary,
             "metrics": _fit_detail_metrics(fit, by_fit.get(fit, [])),
         }
+        # 표정 축은 α 검증(10월) 전 참고용 지표임을 명시한다 (설계서 철칙)
+        if fit == FitType.expression:
+            card["provisional"] = True
+            card["note"] = "표정 점수는 아직 검증 중인 참고 지표예요 (α 검증 전)."
+        fit_scores[fit.value] = card
         if segment:
             segment["turn_order"] = turn_order.get(segment["turn_id"], 0)
             quote = turn_quote.get(segment["turn_id"], "")
@@ -1053,10 +1119,26 @@ def build_report(
             sugg = segment["suggestion"] if segment else ""
             improvements.append(f"{FIT_LABELS[fit]} — {sugg}")
 
-    # 시선 존 히트맵 — Eye 카드에 3×3 분포 지도 (표본 충분 + Eye 측정됨일 때만)
-    if fit_scores.get(FitType.eye.value, {}).get("score") is not None \
-            and (gaze_map := _gaze_map(session)) is not None:
-        fit_scores[FitType.eye.value]["gaze_map"] = gaze_map
+    # 시선(관찰) — 점수 축 아님. 시선 근거 카드 + 3×3 히트맵을 '관찰' 항목으로 노출한다
+    # (총점·강점·헤드라인·코호트에서 제외). 눈이 실제로 잡힌 턴(eye 결과 행)이 있을 때만.
+    eye_rows = by_fit.get(FitType.eye, [])
+    if eye_rows:
+        eye_score = sum(r.score for r in eye_rows) / len(eye_rows)
+        eye_segment = _eye_evidence(eye_rows)
+        fit_scores[FitType.eye.value] = {
+            "score": round(eye_score, 1),
+            "label": FIT_LABELS[FitType.eye],
+            "summary": eye_segment["interpretation"] if eye_segment else "",
+            "metrics": _fit_detail_metrics(FitType.eye, eye_rows),
+            "observation": True,  # 관찰 신호 — 4-Fit 총점·레이더·코호트에서 제외
+        }
+        if eye_segment:
+            eye_segment["turn_order"] = turn_order.get(eye_segment["turn_id"], 0)
+            quote = turn_quote.get(eye_segment["turn_id"], "")
+            eye_segment["quote"] = quote[:80] + ("…" if len(quote) > 80 else "")
+            evidence_segments.append(eye_segment)
+        if (gaze_map := _gaze_map(session)) is not None:
+            fit_scores[FitType.eye.value]["gaze_map"] = gaze_map
 
     # 오늘의 한 문장: 가장 낮은 측정 항목의 처방을 헤드라인으로
     headline: dict = {}
@@ -1077,18 +1159,16 @@ def build_report(
                 "context": "모든 항목이 안정권이에요. 이제 디테일 싸움입니다.",
             }
 
-    # 종합 점수 — 직무별 루브릭 가중치 (S-B2B-PACK, C-11). 팩이 가중치를 정의하면
-    # 그 배점으로, 없으면(기존 전시 시나리오) 기존과 동일한 균등 평균 — 골든 회귀 호환.
+    # 종합 점수 — 축별 가중 평균. 직무 팩이 루브릭 가중치를 정의하면(S-B2B-PACK, C-11)
+    # 그 배점을, 없으면 기본 배점(SCORED_FIT_WEIGHTS — 설계서: 표정·자세 최저)을 쓴다.
+    # 측정 안 된 축은 빠지고 남은 축의 가중치로 자동 재정규화된다(weighted_mean).
+    # 시선(eye)은 session_scores에 없으므로 총점에 들어가지 않는다.
     measured_pairs = [(fit, s) for fit, s in session_scores.items() if s is not None]
     rubric = (getattr(session.scenario, "rubric_weights", None) or {}) if session.scenario else {}
-    if rubric and measured_pairs:
-        weight_sum = sum(rubric.get(fit.value, 0.25) for fit, _ in measured_pairs)
-        total = round(
-            sum(s * rubric.get(fit.value, 0.25) for fit, s in measured_pairs) / weight_sum, 1,
-        ) if weight_sum else 0.0
-    else:
-        available = [s for _, s in measured_pairs]
-        total = round(sum(available) / len(available), 1) if available else 0.0
+    weights = {**SCORED_FIT_WEIGHTS, **rubric}
+    total = round(
+        weighted_mean([(s, weights.get(fit.value, 0.25)) for fit, s in measured_pairs]), 1,
+    ) if measured_pairs else 0.0
 
     deep = build_deep_analysis(session, turn_results)
     # judge 투명성 (S-B2B-JUDGE): 채점 근거·표본·혼합 비율을 리포트에 그대로 노출 —

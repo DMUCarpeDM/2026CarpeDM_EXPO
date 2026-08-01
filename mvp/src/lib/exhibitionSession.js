@@ -11,6 +11,20 @@ export function isReportFlowView(view) {
   return REPORT_FLOW_VIEWS.has(view);
 }
 
+/** 리포트 흐름 방치 복귀 대기 시간 — `?idle=<초>`로 조정한다 (AttractLoop의 `?attract=`와 같은 방침).
+ *
+ *  `?idle=0`(또는 off/none)이면 **복귀 자체를 끈다.** 시연 영상 촬영처럼 리포트 화면을
+ *  90초 넘게 띄워 두고 내레이션해야 하는 경우, 기본값이 세션까지 지우고 홈으로 보내버린다.
+ *  전시 운영에서는 쿼리를 붙이지 않아 기본 90초가 그대로 유지된다.
+ *  @returns {number|null} 대기 ms, 또는 복귀를 끄면 null */
+export function resolveReportIdleTimeoutMs(search = "") {
+  const raw = new URLSearchParams(search).get("idle");
+  if (raw === null) return REPORT_FLOW_IDLE_TIMEOUT_MS;
+  if (["0", "off", "none", "false"].includes(raw.trim().toLowerCase())) return null;
+  const seconds = Number(raw);
+  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : REPORT_FLOW_IDLE_TIMEOUT_MS;
+}
+
 export function retainedAudioReference(sessionId, turnId) {
   return `indexeddb://${AUDIO_DB}/${encodeURIComponent(sessionId)}/${encodeURIComponent(turnId)}`;
 }

@@ -61,7 +61,7 @@ def export_csv(
     writer = csv.writer(buf)
     writer.writerow([
         "session_id", "started_at", "mode_min", "difficulty", "attempt_no", "status",
-        "total_score", "response_fit", "voice_fit", "eye_fit", "posture_fit",
+        "total_score", "response_fit", "voice_fit", "expression_fit", "posture_fit",
         "engine_version", "analysis_ms",
     ])
     sessions = db.query(RoleplaySession).order_by(RoleplaySession.id).all()
@@ -77,7 +77,7 @@ def export_csv(
             s.status.value,
             report.total_score if report else "",
             *[fits.get(f, {}).get("score", "") if report else "" for f in
-              ("response", "voice", "eye", "posture")],
+              ("response", "voice", "expression", "posture")],
             report.engine_version if report else "",
             report.analysis_ms if report else "",
         ])

@@ -34,7 +34,7 @@
   "rubric_weights": {
     "response": 0.35,
     "voice": 0.3,
-    "eye": 0.2,
+    "expression": 0.2,
     "posture": 0.15
   },
   "dialogue_policy": {

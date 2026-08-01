@@ -23,7 +23,7 @@ interface Props {
   onFinish: () => void; // 대기 화면으로
 }
 
-const FIT_ORDER = ['response', 'voice', 'eye', 'posture'] as const;
+const FIT_ORDER = ['response', 'voice', 'expression', 'posture'] as const;
 
 export default function MirrorReportView({
   report, code, displayScore, gradeLabel, characterName,

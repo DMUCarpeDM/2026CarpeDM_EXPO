@@ -23,7 +23,7 @@ const DIFFICULTY_LABELS = {
   ultra_pressure: "초압박 모드",
 };
 // 4-Fit 키를 한글 이름으로 표시해요 (핵심 지표 행: 응답 (Response) 형태).
-const FIT_KOREAN = { "Response-Fit": "응답", "Voice-Fit": "목소리", "Eye-Fit": "시선", "Posture-Fit": "자세" };
+const FIT_KOREAN = { "Response-Fit": "응답", "Voice-Fit": "목소리", "Expression-Fit": "표정", "Posture-Fit": "자세" };
 
 // 점수대별 상태 라벨. 디자인의 '아주 좋음 / 좋음 / 보통' 표기를 따라요.
 function fitGrade(fit) {
@@ -219,7 +219,7 @@ export function ResultPage({ onPrev, onPractice, onNext, report, selectedDifficu
 
             <button className="report-detail-row" type="button" onClick={onNext}>
               <ChartBarTrendUp size={22} />
-              <span><b>상세 분석 보기</b><small>응답 패턴, 음성 분석, 시선 힌트와 자세 변화를 더 확인해 보세요.</small></span>
+              <span><b>상세 분석 보기</b><small>응답 패턴, 음성 분석, 표정 신호와 자세 변화를 더 확인해 보세요.</small></span>
               <ArrowRight size={20} />
             </button>
 

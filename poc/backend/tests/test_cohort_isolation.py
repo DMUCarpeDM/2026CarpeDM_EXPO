@@ -26,7 +26,7 @@ from app.seed.run import seed
 
 client = TestClient(app)
 
-FITS = ["response", "voice", "eye", "posture"]
+FITS = ["response", "voice", "expression", "posture"]
 
 
 def _insert_completed(db, scenario_id, client_key, per_fit_score, *, token=""):

@@ -225,6 +225,7 @@
 
 .mini-score-row.voice i span { background: var(--fit-voice); }
 .mini-score-row.eye i span { background: var(--fit-eye); }
+.mini-score-row.expression i span { background: var(--fit-expression); }
 .mini-score-row.posture i span { background: var(--fit-posture); }
 
 .fit-score-panel hr {

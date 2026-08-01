@@ -43,7 +43,8 @@ const reiconGlyphs = {
   pause: Pause,
   response: Soundwave,
   voice: Mic,
-  eye: Eye,
+  expression: FaceSmile,
+  eye: Eye,  // 시선 관찰(카메라·라이브 넛지)용 — 점수 축 아님
   posture: BodyShape2,
   roleplay: ChatRound,
   report: DocumentText2,

@@ -73,6 +73,7 @@
 .attract-fit.response { color: #7ab5ff; }
 .attract-fit.voice { color: #8ecbff; }
 .attract-fit.eye { color: #6ee7ff; }
+.attract-fit.expression { color: #a78bfa; }
 .attract-fit.posture { color: #5eeaa2; }
 @keyframes attract-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
 

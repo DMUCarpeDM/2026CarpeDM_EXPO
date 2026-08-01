@@ -1,11 +1,54 @@
-"""표정 관찰 레이어(마스터리 ⑤) — 진정성 미소 카드와 표본 보류 게이트.
+"""표정 축 — Expression-Fit 점수(시선→표정 교체)와 관찰 레이어(마스터리 ⑤).
 
 원칙 검증: 감점 없는 관찰, 표본 부족 시 판정 보류(null), 중간 지대 침묵,
 카드 상한에서 행동 교정형 카드가 우선.
 """
 from types import SimpleNamespace
 
+from app.ai.nonverbal import score_expression
 from app.services.report import _habit_segments
+
+
+# ---- Expression-Fit 점수 축 (시선→표정 교체, ⚠️ α 검증 전 참고용) ----
+
+def test_expression_score_lively_beats_rigid():
+    lively = score_expression({
+        "frames": 100, "blink_per_min": 15, "brow_raise_ratio": 0.3,
+        "mouth_press_ratio": 0.02, "expr_recover_sec": 0.2,
+        "smile_ratio": 0.2, "smile_duchenne_ratio": 0.7,
+    })
+    rigid = score_expression({
+        "frames": 100, "blink_per_min": 15, "brow_raise_ratio": 0.0,
+        "mouth_press_ratio": 0.5, "expr_recover_sec": 2.5,
+        "smile_ratio": 0.2, "smile_duchenne_ratio": 0.05,
+    })
+    assert lively is not None and rigid is not None
+    assert lively > rigid
+
+
+def test_expression_score_frame_gate():
+    # 표본 부족 → 미측정(None), 무표정 0점 아님
+    assert score_expression({"frames": 2, "blink_per_min": 15, "brow_raise_ratio": 0.3}) is None
+
+
+def test_expression_score_requires_tracked_face():
+    # 얼굴이 안 잡힌(깜빡임 0) 포즈-only 턴은 '무표정 0점'이 아니라 미측정(None)
+    assert score_expression({"frames": 100, "blink_per_min": 0, "brow_raise_ratio": 0.3}) is None
+
+
+def test_expression_score_old_payload_withheld():
+    # 표정 신호(brow_raise_ratio)가 없는 구 페이로드는 미측정 (무표정 오판 방지)
+    assert score_expression({"frames": 100, "blink_per_min": 15}) is None
+
+
+def test_expression_score_calm_face_not_penalized():
+    # 미소 없는 침착한 표정은 진정성 미소 부재로 감점되지 않는다 (미소 있을 때만 진정성 평가)
+    calm = score_expression({
+        "frames": 100, "blink_per_min": 15, "brow_raise_ratio": 0.2,
+        "mouth_press_ratio": 0.02, "expr_recover_sec": 0.2,
+        "smile_ratio": 0.0, "smile_duchenne_ratio": None,
+    })
+    assert calm is not None and calm >= 80
 
 
 def _turn(order=1, question_type="initial", **nv):

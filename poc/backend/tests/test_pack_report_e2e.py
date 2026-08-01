@@ -66,7 +66,7 @@ def test_cafe_crew_session_report_carries_b2b_fields():
     assert report["grade"] == grade_of(report["total_score"])
 
     # 루브릭 가중 총점 (S-B2B-PACK): 팩 가중치로 재계산한 값과 일치해야 한다
-    weights = {"response": 0.35, "voice": 0.3, "eye": 0.2, "posture": 0.15}
+    weights = {"response": 0.35, "voice": 0.3, "expression": 0.2, "posture": 0.15}
     measured = {
         fit: data["score"] for fit, data in report["fit_scores"].items()
         if data.get("score") is not None

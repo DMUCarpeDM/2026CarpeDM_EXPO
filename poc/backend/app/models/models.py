@@ -1,7 +1,8 @@
 """전체 도메인 모델.
 
 세션 상태 흐름: ready → in_progress → analyzing → completed (중단 시 aborted)
-4-Fit: response / voice / eye / posture
+4-Fit(점수 축): response / voice / expression / posture
+  (+ eye = 시선 보조 관찰 신호 — 실시간 넛지·리포트 관찰로만 쓰고 총점에서 제외)
 """
 import enum
 from datetime import datetime, timezone
@@ -42,8 +43,12 @@ class SessionStatus(str, enum.Enum):
 class FitType(str, enum.Enum):
     response = "response"
     voice = "voice"
-    eye = "eye"
+    expression = "expression"  # 표정 표현력 — 3번째 점수 축 (blendshape/AU 신호)
     posture = "posture"
+    # 시선(gaze)은 점수 축이 아니라 보조 관찰 신호다 — 실시간 넛지·리포트 관찰(gaze_map·
+    # 깜빡임)로만 쓰고 4-Fit 총점/코호트에서 제외한다(services.report.SCORED_FITS 참고).
+    # enum 멤버로 남겨 두어 관찰 결과 행과 과거 'eye' 데이터를 그대로 역직렬화한다.
+    eye = "eye"
 
 
 class User(Base):
@@ -246,7 +251,8 @@ class Turn(Base):
     response_duration_ms: Mapped[int] = mapped_column(Integer, default=0)
     audio_path: Mapped[str] = mapped_column(String(500), default="")
     # 클라이언트 MediaPipe 집계: {front_gaze_ratio, gaze_off_count, avg_shoulder_tilt_deg,
-    #                            head_down_ratio, posture_sway, frames}
+    #   head_down_ratio, posture_sway, frames, 표정: smile_ratio, smile_duchenne_ratio,
+    #   brow_raise_ratio, mouth_press_ratio, expr_recover_sec}
     nonverbal_metrics: Mapped[dict] = mapped_column(JSON, default=dict)
     asked_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     answered_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -291,7 +297,7 @@ class Report(Base):
     )
     total_score: Mapped[float] = mapped_column(Float, default=0.0, index=True)  # 백분위 계산용
     engine_version: Mapped[str] = mapped_column(String(20), default="1")
-    # {response: {score, summary}, voice: ..., eye: ..., posture: ...}
+    # {response, voice, expression, posture: {score, summary}} + eye(관찰, 총점 제외)
     fit_scores: Mapped[dict] = mapped_column(JSON, default=dict)
     strengths: Mapped[list] = mapped_column(JSON, default=list)
     improvements: Mapped[list] = mapped_column(JSON, default=list)

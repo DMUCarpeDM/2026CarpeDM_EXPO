@@ -21,7 +21,22 @@ band_score: 이상 구간 안이면 100점, 한계 구간 밖이면 0점, 사이
 #   v2 표본과 같은 백분위 풀에 섞였다(api/reports.py가 engine_version으로 거른다).
 #   judge를 기본 비활성으로 되돌리면서(config.judge_samples=0) 이후 표본을 그
 #   오염 구간과 분리한다. v3의 산식 자체는 v2의 결정적 경로와 동일하다.
-ENGINE_VERSION = "3"
+#
+# v4 (2026-08-01): 3번째 점수 축을 시선(eye)→표정(expression)으로 교체 +
+#   균등 평균이던 총점을 축별 가중 평균으로 전환(SCORED_FIT_WEIGHTS).
+#   축 세트와 총점 산식이 둘 다 바뀌므로 v3 이하 표본과 백분위·추이를 섞지 않는다.
+ENGINE_VERSION = "4"
+
+# 4-Fit 총점의 축별 가중치 (설계서: 표정·자세가 최저 가중치, 응답·음성이 상위).
+# 시선(gaze)은 점수 축이 아니라 보조 관찰 신호이므로 여기에 없다.
+# ⚠️ 정확한 가중치는 4fit-scoring-design.md에서 미확정(α 검증 후 확정) — 잠정값이다.
+# 측정 안 된 축이 있으면 weighted_mean이 남은 축의 가중치로 자동 재정규화한다.
+SCORED_FIT_WEIGHTS = {
+    "response": 0.35,
+    "voice": 0.30,
+    "expression": 0.175,
+    "posture": 0.175,
+}
 
 
 def clamp(v: float, lo: float = 0.0, hi: float = 100.0) -> float:

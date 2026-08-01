@@ -1,4 +1,7 @@
-"""Eye-Fit / Posture-Fit: 클라이언트 MediaPipe 집계 지표를 점수화 (S-FBTBXY, S-IPXYRD).
+"""비언어 점수화: 클라이언트 MediaPipe 집계 지표를 0~100으로 (S-FBTBXY, S-IPXYRD).
+
+점수 축: Expression(표정)·Posture(자세). 시선(score_eye)은 점수 축이 아니라 보조 관찰
+신호로 계산해 리포트 관찰(gaze_map·깜빡임)·실시간 넛지에만 쓴다(총점 제외).
 
 원본 영상은 서버로 전송하지 않고, 브라우저에서 계산한 집계값만 받는다
 (개인정보 최소화 원칙 — 기본 미저장·지표 중심).
@@ -43,11 +46,25 @@ SWAY_BANDS = (0.0, 0.05, 0.0, 0.22)
 # 10° 이상 무너지면 관찰자가 인지하는 명확한 붕괴. 음수(개선)는 감점하지 않는다.
 TILT_DRIFT_BANDS = (0.0, 3.0, 0.0, 10.0)
 
+# -- 표정(Expression) 밴드 근거 (설계서: '감정 분류' 아님, '경직↔생동' 반응성만) --
+# 눈썹 올림 비율 = 표정 생동감. 완전 무표정(0)은 경직 신호지만 '무표정≠무능'이므로
+# 넓은 이상 구간(0.05~0.6)을 두고 과도(>0.6)만 완만히 감점 — 부적절만 감점 원칙.
+BROW_RAISE_BANDS = (0.05, 0.6, 0.0, 0.95)
+# 입술 압축(긴장) 비율: 낮을수록 좋다. 12% 이내는 자연스러운 편차, 55%↑는 굳은 긴장.
+MOUTH_PRESS_BANDS = (0.0, 0.12, 0.0, 0.55)
+# 긴장 표정 복구 시간(초): 낮을수록 좋다. 0.8초 이내면 즉시 회복, 3초↑면 오래 굳음.
+EXPR_RECOVER_BANDS = (0.0, 0.8, 0.0, 3.0)
+# 진정성 미소(Duchenne 근사): 미소 중 눈둘레근 동시 활성 비율 — 미소가 있을 때만 평가.
+DUCHENNE_BANDS = (0.5, 1.0, 0.0, 1.01)
+MIN_SMILE_FOR_DUCHENNE = 0.1  # 미소 표본이 이보다 적으면 진정성 판정 보류(감점 아님)
+
 MIN_FRAMES = 5  # 이보다 적으면 신뢰 불가로 미측정 처리
 
 
 def score_eye(metrics: dict, duration_sec: float) -> float | None:
-    """Eye-Fit v2 — 듣기/말하기 분리 + 응시 리듬 + 개시 회피 관용.
+    """시선 관찰 v2 — 듣기/말하기 분리 + 응시 리듬 + 개시 회피 관용.
+
+    점수 축이 아니다(총점 제외) — 리포트 관찰 카드·gaze_map·실시간 넛지 전용.
 
     v1 페이로드(분리 지표 없음)에는 v1과 동일하게 동작한다(하위 호환).
     v2 페이로드에서는:
@@ -118,4 +135,40 @@ def score_posture(metrics: dict) -> float | None:
     if "tilt_drift_deg" in metrics:
         # 유지력: 좋게 시작해 무너지는 자세는 평균 기울기만으로는 안 보인다
         parts.append((band_score(max(0.0, metrics["tilt_drift_deg"]), *TILT_DRIFT_BANDS), 0.15))
+    return clamp(weighted_mean(parts))
+
+
+def score_expression(metrics: dict) -> float | None:
+    """Expression-Fit — 표정 표현력(생동감·긴장·복구·진정성 미소)을 0~100으로.
+
+    설계서 프레이밍: '감정 분류'가 아니라 '상황에 맞게 살아있고 반응하는가(경직↔생동)'.
+    감점은 부적절(경직·긴장·굳은 표정)만 하고 무표정을 무능으로 과벌하지 않는다
+    (이상 구간을 넓게 둔다). 미소는 있을 때만 진정성을 평가하고, 미소 부재는 감점하지 않는다.
+
+    입력은 이미 프론트가 보내는 blendshape 집계(brow_raise_ratio·mouth_press_ratio·
+    expr_recover_sec·smile_ratio·smile_duchenne_ratio)만 쓴다 — 프론트 변경 불필요.
+    ⚠️ 이 축은 α 검증(10월) 전 '참고용' 지표다 (설계서 철칙).
+    """
+    if not metrics or metrics.get("frames", 0) < MIN_FRAMES:
+        return None
+    # 얼굴이 실제로 잡힌 턴에서만 채점 — 포즈만 잡힌(카메라 오프/하체) 턴을 '무표정 0점'으로
+    # 오판하지 않는다. brow_raise_ratio는 표정 페이로드 존재 신호, 깜빡임은 얼굴 추적 신호.
+    brow = metrics.get("brow_raise_ratio")
+    if brow is None or metrics.get("blink_per_min", 0) <= 0:
+        return None
+
+    parts: list[tuple[float, float]] = [
+        (band_score(brow, *BROW_RAISE_BANDS), 0.35),
+    ]
+    press = metrics.get("mouth_press_ratio")
+    if press is not None:
+        parts.append((band_score(press, *MOUTH_PRESS_BANDS), 0.25))
+    recover = metrics.get("expr_recover_sec")
+    if recover is not None:
+        parts.append((band_score(recover, *EXPR_RECOVER_BANDS), 0.20))
+    # 진정성 미소: 실제로 미소가 있었던 턴만 평가 (미소 없는 침착한 표정을 감점하지 않는다)
+    smile = metrics.get("smile_ratio", 0.0)
+    duchenne = metrics.get("smile_duchenne_ratio")
+    if smile >= MIN_SMILE_FOR_DUCHENNE and duchenne is not None:
+        parts.append((band_score(duchenne, *DUCHENNE_BANDS), 0.20))
     return clamp(weighted_mean(parts))

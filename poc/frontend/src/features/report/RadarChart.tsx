@@ -3,7 +3,7 @@
 const AXES = [
   { key: 'response', label: '응답' },
   { key: 'voice', label: '발화' },
-  { key: 'eye', label: '시선' },
+  { key: 'expression', label: '표정' },
   { key: 'posture', label: '자세' },
 ] as const;
 

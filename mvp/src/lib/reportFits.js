@@ -1,7 +1,7 @@
 const fitPresentation = [
   ["Response-Fit", "Response", "response", "response"],
   ["Voice-Fit", "Voice", "voice", "voice"],
-  ["Eye-Fit", "Eye", "eye", "eye"],
+  ["Expression-Fit", "Expression", "expression", "expression"],
   ["Posture-Fit", "Posture", "posture", "posture"],
 ];
 

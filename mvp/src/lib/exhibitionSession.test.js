@@ -5,6 +5,7 @@ import {
   buildRetainedRecord,
   isReportFlowView,
   readRetainedRecords,
+  resolveReportIdleTimeoutMs,
   retainedAudioReference,
   saveRetainedRecord,
 } from "./exhibitionSession.js";
@@ -68,4 +69,20 @@ test("isReportFlowView limits kiosk idle reset to the report flow", () => {
   assert.equal(isReportFlowView("share"), true);
   assert.equal(isReportFlowView("practice"), false);
   assert.equal(isReportFlowView("home"), false);
+});
+
+test("?idle= overrides the report-flow idle return (0이면 복귀 자체를 끈다)", () => {
+  // 쿼리가 없으면 전시 기본값 — 운영 동작은 변하지 않는다
+  assert.equal(resolveReportIdleTimeoutMs(""), REPORT_FLOW_IDLE_TIMEOUT_MS);
+  assert.equal(resolveReportIdleTimeoutMs("?demo=result"), REPORT_FLOW_IDLE_TIMEOUT_MS);
+  // 촬영용: 복귀 끄기
+  for (const off of ["?idle=0", "?idle=off", "?idle=none", "?idle=FALSE", "?idle= off "]) {
+    assert.equal(resolveReportIdleTimeoutMs(off), null, off);
+  }
+  // 리허설용: 초 단위 단축·연장
+  assert.equal(resolveReportIdleTimeoutMs("?idle=5"), 5_000);
+  assert.equal(resolveReportIdleTimeoutMs("?idle=600&demo=result"), 600_000);
+  // 잘못된 값은 기본값으로 — 오타가 전시 중 복귀를 조용히 없애지 않게
+  assert.equal(resolveReportIdleTimeoutMs("?idle=abc"), REPORT_FLOW_IDLE_TIMEOUT_MS);
+  assert.equal(resolveReportIdleTimeoutMs("?idle=-3"), REPORT_FLOW_IDLE_TIMEOUT_MS);
 });

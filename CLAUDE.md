@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 개요
 
-**4-Fit 미러팅(Mirror-Ting)** — 취업 준비생용 AI 직장생활 시뮬레이션·코칭 시스템. 2026 동양미래EXPO 졸업작품전시회 출품작(동아리 CarpeDM). 사용자는 가상 회사 "㈜클라우드밋" 신입이 되어 AI 상사·선배·동료와 연속 역할극을 하고, 시스템이 발화·음성·시선·자세를 분석해 4-Fit 지표와 근거 기반 코칭 리포트를 낸다.
+**4-Fit 미러팅(Mirror-Ting)** — 취업 준비생용 AI 직장생활 시뮬레이션·코칭 시스템. 2026 동양미래EXPO 졸업작품전시회 출품작(동아리 CarpeDM). 사용자는 가상 회사 "㈜클라우드밋" 신입이 되어 AI 상사·선배·동료와 연속 역할극을 하고, 시스템이 발화·음성·표정·자세를 분석해 4-Fit 지표와 근거 기반 코칭 리포트를 낸다(시선은 관찰 신호).
 
 **작업 언어는 한국어다.** 코드 주석·문서·커밋 메시지·시드 콘텐츠가 전부 한국어이며, 신규 코드도 이를 따른다.
 
@@ -76,7 +76,7 @@ cd poc/backend
 
 브라우저와 서버의 역할 분리가 이 프로젝트의 큰 그림이다.
 
-**브라우저(React + Vite):** 역할극 UI, Web Speech STT, speechSynthesis TTS, MediaPipe 시선·자세 온디바이스 계산, WAV 인코딩. **영상 원본은 서버로 보내지 않고 집계된 지표만 REST로 전송한다.**
+**브라우저(React + Vite):** 역할극 UI, Web Speech STT, speechSynthesis TTS, MediaPipe 표정·시선·자세 온디바이스 계산, WAV 인코딩. **영상 원본은 서버로 보내지 않고 집계된 지표만 REST로 전송한다.**
 
 **서버(FastAPI):** 세션 FSM, 대화 엔진(템플릿/LLM), 4-Fit 분석 파이프라인·점수화, 코칭 리포트 생성, 서버 STT(faster-whisper → Vosk 폴백). SQLAlchemy → SQLite.
 
@@ -84,7 +84,7 @@ cd poc/backend
 
 **세션 FSM**(`app/models/models.py`의 `SessionStatus`): `ready → in_progress → analyzing → completed`, 중단 시 `aborted`.
 
-**4-Fit 분석**(`app/ai/`): Response-Fit(의미 매칭·담화 구조), Voice-Fit(음성 DSP·텍스트-음성 정렬), Eye-Fit·Posture-Fit(브라우저 MediaPipe 지표를 서버가 점수화), + 표정(관찰 레이어), + 심층 교차 분석(`app/services/deep_analysis.py`, `moments.py` — 비언어·음성·턴 맥락을 시간 정렬한 "결정적 순간" 감지). 모든 원시 지표는 `app/ai/scoring.py`의 `band_score`로 0~100 정규화 후 가중 평균한다.
+**4-Fit 분석**(`app/ai/`): Response-Fit(의미 매칭·담화 구조), Voice-Fit(음성 DSP·텍스트-음성 정렬), Expression-Fit·Posture-Fit(브라우저 MediaPipe blendshape·자세 지표를 서버가 점수화 — 표정은 α 검증 전 `provisional` 참고 지표), + 시선(점수 축이 아닌 관찰 신호 — 실시간 넛지·gaze_map), + 심층 교차 분석(`app/services/deep_analysis.py`, `moments.py` — 비언어·음성·턴 맥락을 시간 정렬한 "결정적 순간" 감지). 모든 원시 지표는 `app/ai/scoring.py`의 `band_score`로 0~100 정규화 후 가중 평균한다.
 
 **대화 엔진**(`app/services/dialogue/`): `template_provider`(항상 동작) 또는 `ollama_provider`(로컬 LLM 개인화). `MIRROR_TING_DIALOGUE_PROVIDER`로 선택하며 타임아웃·형식 오류 시 템플릿으로 폴백한다.
 
@@ -115,7 +115,7 @@ cd poc/backend
 
 두 프론트엔드가 전시 모드를 다르게 구현한다.
 
-- **mvp(실제 전시 화면)** — 라우터가 없으므로 경로가 아니라 상태로 동작한다. 홈에서 45초 무조작 시 `AttractLoop`가 가치 제안 슬라이드를 순환하고(`?attract=<초>`로 조정), 리포트 흐름은 90초 방치 시 복귀한다(`exhibitionSession.js`의 `REPORT_FLOW_IDLE_TIMEOUT_MS`). 운영 대시보드는 없다.
+- **mvp(실제 전시 화면)** — 라우터가 없으므로 경로가 아니라 상태로 동작한다. 홈에서 45초 무조작 시 `AttractLoop`가 가치 제안 슬라이드를 순환하고(`?attract=<초>`로 조정), 리포트 흐름은 90초 방치 시 복귀한다(`exhibitionSession.js`의 `REPORT_FLOW_IDLE_TIMEOUT_MS`, `?idle=<초>`로 조정하고 **`?idle=0`이면 복귀를 끈다** — 시연 영상 촬영처럼 리포트 화면을 오래 띄워야 할 때. 이 복귀는 세션까지 지우므로 촬영 중에는 반드시 꺼야 한다). 운영 대시보드는 없다.
 - **poc/frontend(레거시)** — `/kiosk` 키오스크 모드, `/admin` 운영 대시보드(지표 확인·CSV 내보내기·1클릭 초기화). 백엔드의 admin·auth 라우터를 쓰는 유일한 화면이다.
 
 리포트에서 4자리 익명 코드가 발급되고 재방문 시 최근 10회 점수 추이가 이어진다(`/api/codes`, `/api/reports/history`). 상세는 `poc/docs/`(demo-checklist.md, mirror-ux-plan.md, hardware-plan.md, pitch/), 부스 기획은 루트 `docs/plan/` 참고.

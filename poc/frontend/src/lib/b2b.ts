@@ -90,12 +90,12 @@ export function gradeTone(grade: string | null): 'good' | 'ok' | 'mid' | 'low' |
 }
 
 /** 4-Fit 축 순서·짧은 라벨 — 수강생 화면의 미니 게이지용 */
-export const FIT_ORDER = ['response', 'voice', 'eye', 'posture'] as const;
+export const FIT_ORDER = ['response', 'voice', 'expression', 'posture'] as const;
 
 export const FIT_SHORT_LABELS: Record<(typeof FIT_ORDER)[number], string> = {
   response: '응답',
   voice: '발화',
-  eye: '시선',
+  expression: '표정',
   posture: '자세',
 };
 

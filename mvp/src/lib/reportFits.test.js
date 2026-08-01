@@ -6,14 +6,14 @@ test("reportFits reads backend four-Fit top-level scores", () => {
   const fits = reportFits({
     response: { score: 91, summary: "clear response" },
     voice: { score: 82, summary: "steady voice" },
-    eye: { score: 73, summary: "camera engagement" },
+    expression: { score: 73, summary: "expressive face" },
     posture: { score: 64, summary: "upright posture" },
   });
 
   assert.deepEqual(fits.map((fit) => [fit.label, fit.score, fit.measured]), [
     ["Response", 91, true],
     ["Voice", 82, true],
-    ["Eye", 73, true],
+    ["Expression", 73, true],
     ["Posture", 64, true],
   ]);
 });
