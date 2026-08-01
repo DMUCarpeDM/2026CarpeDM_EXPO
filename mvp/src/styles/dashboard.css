@@ -201,6 +201,8 @@
 .fit-key-row.voice .fit-key-grade { color: var(--fit-voice); }
 .fit-key-row.eye .fit-key-grade { color: var(--fit-eye); }
 .fit-key-row.expression .fit-key-grade { color: var(--fit-expression); }
+/* α 검증 전 축임을 등급 옆에 조용히 붙인다 — 점수를 가리지 않되 확정 지표로 읽히지 않게 */
+.fit-key-note { margin-left: 6px; padding: 1px 6px; border-radius: 999px; font-size: 10px; font-weight: 600; color: var(--color-muted); background: rgba(15, 23, 42, 0.06); }
 .fit-key-row.posture .fit-key-grade { color: var(--fit-posture); }
 .fit-key-row > svg { color: var(--color-muted); }
 

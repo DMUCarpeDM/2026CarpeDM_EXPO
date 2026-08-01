@@ -18,6 +18,21 @@ test("reportFits reads backend four-Fit top-level scores", () => {
   ]);
 });
 
+test("reportFits surfaces the provisional flag so unvalidated axes aren't shown as final", () => {
+  const [, , expression, posture] = reportFits({
+    response: { score: 91 },
+    voice: { score: 82 },
+    expression: { score: 73, provisional: true, note: "표정 점수는 아직 검증 중인 참고 지표예요 (α 검증 전)." },
+    posture: { score: 64 },
+  });
+
+  assert.equal(expression.provisional, true);
+  assert.equal(expression.note, "표정 점수는 아직 검증 중인 참고 지표예요 (α 검증 전).");
+  // 검증된 축에는 아무 표기도 붙지 않는다
+  assert.equal(posture.provisional, false);
+  assert.equal(posture.note, "");
+});
+
 test("reportFits reads fit_scores without fabricating missing values", () => {
   const fits = reportFits({
     fit_scores: {

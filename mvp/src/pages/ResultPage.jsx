@@ -122,7 +122,7 @@ export function ResultPage({ onPrev, onPractice, onNext, report, selectedDifficu
                           <b>{fit.measured === false ? "—" : fit.score}<small>/100</small></b>
                         </span>
                         <i className="fit-key-bar"><span style={{ width: `${fit.measured === false ? 0 : fit.score}%` }} /></i>
-                        <em className="fit-key-grade">{fitGrade(fit)}</em>
+                        <em className="fit-key-grade">{fitGrade(fit)}{fit.provisional && <small className="fit-key-note" title={fit.note}>참고 지표</small>}</em>
                       </span>
                       <ChevronRight size={18} aria-hidden="true" />
                     </button>

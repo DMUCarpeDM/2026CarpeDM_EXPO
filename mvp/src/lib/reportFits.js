@@ -33,6 +33,9 @@ export function reportFits(report) {
     const text = typeof item === "object" && item !== null
       ? item.summary || item.comment || item.feedback || "이번 연습에서는 측정되지 않았어요."
       : "이번 연습에서는 측정되지 않았어요.";
+    // 검증 전 축(현재 표정)은 백엔드가 provisional/note로 내려준다 — 화면에도 그대로 노출한다.
+    // α 검증 전 점수를 확정 지표처럼 보여주지 않는다는 채점 설계서 철칙.
+    const provisional = Boolean(typeof item === "object" && item !== null && item.provisional);
     return {
       key,
       label: fitLabel,
@@ -42,6 +45,8 @@ export function reportFits(report) {
       measured,
       grade: measured ? (score >= 80 ? "GREAT" : score >= 60 ? "GOOD" : "TRY") : "N/A",
       text,
+      provisional,
+      note: provisional ? (item.note || "검증 중인 참고 지표예요.") : "",
     };
   });
 }
