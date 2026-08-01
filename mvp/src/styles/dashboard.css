@@ -69,6 +69,15 @@
   font-weight: 700;
 }
 
+/* 상단 내비만 키운다(.brand는 AppNavigation 전용) — 정장 아이콘은 디테일이 많아
+   34px에서 잘 안 읽힌다. 어트랙트·리포트 사이드바 마크는 34px 그대로 둔다. */
+.brand .brand-mark {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  font-size: 21px;
+}
+
 .sidebar-nav { display: flex; flex-direction: column; gap: 18px; flex: 1; }
 .sidebar-group { display: flex; flex-direction: column; gap: 4px; }
 .sidebar-group-label {
