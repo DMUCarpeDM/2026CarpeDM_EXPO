@@ -48,7 +48,7 @@ export function TopNav({ active, scenarioTitle, sessionMode, menuOpen, onMenuOpe
   return (
     <header className="top-nav glass-panel">
       <button className="brand" type="button" onClick={() => onNavigate("home")}>
-        <span className="brand-mark" aria-hidden="true">M</span><span>Mirror-Ting</span>
+        <span className="brand-mark" aria-hidden="true"><img src="/icons/app-icon-192.png" alt="" /></span><span>Mirror-Ting</span>
       </button>
       <nav aria-label="주요 화면">
         {Object.entries(navMap).map(([label, target]) => <button key={label} className={active === target ? "active" : ""} type="button" onClick={() => onNavigate(target)}>{label}</button>)}

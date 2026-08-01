@@ -84,7 +84,7 @@ export function AttractLoop({ active, onStart }) {
       aria-hidden={!visible}
     >
       <div className="attract-glow" aria-hidden="true" />
-      <div className="attract-brand"><span className="brand-mark" aria-hidden="true">M</span><strong>Mirror-Ting</strong></div>
+      <div className="attract-brand"><span className="brand-mark" aria-hidden="true"><img src="/icons/app-icon-192.png" alt="" /></span><strong>Mirror-Ting</strong></div>
       {visible && (
         <AnimatePresence mode="wait">
           <motion.div key={current.key} className="attract-slide" initial={{ opacity: 0, y: 26 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}>

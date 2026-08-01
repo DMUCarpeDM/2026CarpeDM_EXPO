@@ -51,7 +51,7 @@ export function DashboardSidebar({ active, onNavigate }) {
   return (
     <aside className="dashboard-sidebar">
       <button className="sidebar-brand" type="button" onClick={() => onNavigate("home")}>
-        <span className="brand-mark" aria-hidden="true">M</span>
+        <span className="brand-mark" aria-hidden="true"><img src="/icons/app-icon-192.png" alt="" /></span>
         <span>Mirror-Ting</span>
       </button>
       <nav className="sidebar-nav" aria-label="대시보드 메뉴">
