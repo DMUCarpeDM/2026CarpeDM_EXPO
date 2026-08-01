@@ -4,7 +4,8 @@ import { motion } from "framer-motion";
 // "상대가 화면에 존재하는" 감각을 채운다. 현재 배우 촬영분은 김서윤 팀장
 // 4클립(듣기/말하기/긍정/부정)뿐이라, 그 외 인물(팩 페르소나·선임·임원 등)은
 // 이 카드가 이름·역할·발화 상태·감정 온도 색을 실시간으로 보여준다.
-// 캐릭터별 영상이 촬영되면 TeamLeadVideo 쪽에 클립을 등록해 이 카드를 대체한다.
+// 캐릭터별 영상이 촬영되면 data/characterMedia.js 등록부에 추가하면 되고,
+// 그 순간부터 그 인물은 이 카드 대신 CounterpartVideo(반응 영상)를 쓴다.
 export function CounterpartAvatar({ name = "AI 상대", role = "", speaking = false, emotion = null }) {
   const stateLabel = speaking ? "말하는 중" : "듣는 중";
   const tint = emotion?.color;

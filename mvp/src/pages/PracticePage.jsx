@@ -9,7 +9,8 @@ import { Power } from "reicon-react/icons/Power";
 import { Refresh3 } from "reicon-react/icons/Refresh3";
 import { AnimatePresence, motion } from "framer-motion";
 import { IconGlyph } from "../components/ui/IconGlyph";
-import { TeamLeadVideo } from "../components/practice/TeamLeadVideo";
+import { CounterpartVideo } from "../components/practice/CounterpartVideo";
+import { hasCharacterVideo } from "../data/characterMedia";
 import { CounterpartAvatar } from "../components/practice/CounterpartAvatar";
 import { blobToWav, wavHasSpeech } from "../lib/audioWav";
 import { emotionVisual } from "../lib/emotionGauge";
@@ -49,10 +50,12 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
   const submitDraftRef = useRef(null);
   const character = scenario?.characters?.find((item) => item.id === turn?.character_id) || scenario?.characters?.[0];
   const characterName = character?.name || "AI 상대";
-  const isTeamLead = character?.id === "kim_teamlead";
+  // 반응 영상이 등록된 인물인가 — 등록부(data/characterMedia.js) 기준. 촬영분이 추가되면
+  // 그 인물도 자동으로 영상 스테이지·좌우 전환을 쓴다(이전엔 김서윤 팀장 하드코딩이었다).
+  const hasVideo = hasCharacterVideo(character?.id);
   // 스테이지 기본은 내 모습(거울) 분석 — AI 상대 영상은 PiP로 두고 토글로 서로 교체한다
   const [stageView, setStageView] = useState("mirror");
-  const mirrorMain = !isTeamLead || stageView === "mirror";
+  const mirrorMain = !hasVideo || stageView === "mirror";
 
   // 종료 오클릭 보호 — 촬영·체험 중 실수로 눌러 세션이 끊기지 않게 한 번 확인한다
   const [confirmEnd, setConfirmEnd] = useState(false);
@@ -93,7 +96,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
   const [teamLeadReaction, setTeamLeadReaction] = useState("");
   const teamLeadVideoState = aiSpeaking ? "speaking" : teamLeadReaction || "listening";
   useEffect(() => {
-    if (!isTeamLead || !turnSignals?.case) return undefined;
+    if (!hasVideo || !turnSignals?.case) return undefined;
     if (["excellent", "covered"].includes(turnSignals.case)) {
       setTeamLeadReaction("positive");
     } else if (turnSignals.case === "risky") {
@@ -101,7 +104,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
     } else {
       setTeamLeadReaction("");
     }
-  }, [isTeamLead, turnSignals]);
+  }, [hasVideo, turnSignals]);
   // TTS 진단 메시지는 세션당 한 번만 분석 로그에 남긴다 (턴마다 반복하면 소음)
   const ttsNotesRef = useRef(new Set());
   const ttsNoteOnce = (msg) => {
@@ -578,7 +581,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
             <button type="button" className="topbar-scenario">{scenario?.title || "업무 보고 및 피드백 논의"} <ChevronDown size={15} /></button>
           </div>
           <div className="topbar-item counterpart">
-            <span className="counterpart-avatar"><PersonaFace name={characterName} /></span>
+            <span className="counterpart-avatar"><PersonaFace characterId={character?.id} name={characterName} /></span>
             <span className="counterpart-meta">
               <span className="topbar-item-label">상대</span>
               <strong>{characterName} <i className="presence-dot" aria-hidden="true" /><em className="ai-tag">AI</em></strong>
@@ -594,7 +597,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
       </motion.div>
 
       <div className="practice-stage">
-        <motion.section className="practice-camera" aria-label={isTeamLead ? "팀장 반응 영상" : "연습 카메라"} ref={cameraRef} {...rise(0.06)}>
+        <motion.section className="practice-camera" aria-label={hasVideo ? `${characterName} 반응 영상` : "연습 카메라"} ref={cameraRef} {...rise(0.06)}>
           {mirrorMain ? <>
             <video ref={analysisVideoRef} className={`camera-video ${mediaStream ? "is-live" : ""}`} autoPlay muted playsInline aria-label="내 카메라 미러" />
             <canvas ref={overlayRef} className="tracking-canvas" aria-hidden="true" />
@@ -604,15 +607,15 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
               <small className={mediaHint.error ? "is-error" : ""}>{mediaHint.text}</small>
             </div>}
             <div className="camera-sidecol">
-              {isTeamLead && <CounterpartPip name={characterName} state={teamLeadVideoState} paused={paused} onReactionComplete={() => setTeamLeadReaction("")} onSwap={() => setStageView("counterpart")} />}
-              {!isTeamLead && character && (
+              {hasVideo && <CounterpartPip characterId={character?.id} name={characterName} state={teamLeadVideoState} paused={paused} onReactionComplete={() => setTeamLeadReaction("")} onSwap={() => setStageView("counterpart")} />}
+              {!hasVideo && character && (
                 <CounterpartAvatar name={characterName} role={character?.role || ""} speaking={aiSpeaking} emotion={emotion} />
               )}
               {emotion && <EmotionGauge emotion={emotion} name={characterName} />}
               {trackingLive && <AnalysisFeed feed={feed} track={track} sttMode={sttMode} />}
             </div>
           </> : <>
-            <TeamLeadVideo state={teamLeadVideoState} name={characterName} paused={paused} onReactionComplete={() => setTeamLeadReaction("")} />
+            <CounterpartVideo characterId={character?.id} state={teamLeadVideoState} name={characterName} paused={paused} onReactionComplete={() => setTeamLeadReaction("")} />
             <div className="camera-sidecol">
               <AnalysisPip videoRef={analysisVideoRef} canvasRef={overlayRef} track={track} live={trackingLive} hasCamera={hasCamera} onSwap={() => setStageView("mirror")} />
               {emotion && <EmotionGauge emotion={emotion} name={characterName} />}
@@ -631,7 +634,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
             {hasMicrophone && micSilent && <span className="camera-signal-chip warn" title={`${micDeviceLabel} — 신호 없음. Windows 소리 설정에서 입력 장치를 확인하세요`}><small>마이크</small><b>무음</b></span>}
           </div>
           <div className="camera-topline right">
-            {isTeamLead && <button type="button" className="camera-expand camera-swap" onClick={() => setStageView(mirrorMain ? "counterpart" : "mirror")}>{mirrorMain ? "상대 크게" : "내 분석 크게"}</button>}
+            {hasVideo && <button type="button" className="camera-expand camera-swap" onClick={() => setStageView(mirrorMain ? "counterpart" : "mirror")}>{mirrorMain ? "상대 크게" : "내 분석 크게"}</button>}
             <button type="button" className="camera-expand" onClick={toggleCameraFullscreen} aria-label="카메라 전체 화면">
               <Expand size={15} />
             </button>
@@ -708,7 +711,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
           <h2>{episode?.title || scenario?.title || "연습 상황"}</h2>
           <p className="briefing-situation">{briefingSituation}</p>
           <div className="briefing-counterpart">
-            <span className="briefing-avatar" aria-hidden="true"><PersonaFace name={characterName} /></span>
+            <span className="briefing-avatar" aria-hidden="true"><PersonaFace characterId={character?.id} name={characterName} /></span>
             <div><strong>{characterName}</strong><small>{character?.role || "상대"}{character?.personality ? ` · ${character.personality}` : ""}</small></div>
           </div>
           {briefingPoints.length > 0 && <div className="briefing-points">
@@ -755,12 +758,12 @@ function StagePip({ className = "", label, onSwap, children }) {
 }
 
 // 상대 영상 축소 PiP — 거울(내 분석) 모드에서 AI 상대의 반응·발화 영상을 계속 보여준다
-function CounterpartPip({ name, state, paused, onReactionComplete, onSwap }) {
+function CounterpartPip({ characterId, name, state, paused, onReactionComplete, onSwap }) {
   const stateLabel = { speaking: "말하는 중", positive: "끄덕이는 중", negative: "반응 중" }[state] || "듣는 중";
   return (
     <StagePip className="is-live counterpart-pip" label={`${name} 영상 — 클릭하면 크게 보기`} onSwap={onSwap}>
       <div className="analysis-pip-stage">
-        <TeamLeadVideo state={state} name={name} paused={paused} onReactionComplete={onReactionComplete} />
+        <CounterpartVideo characterId={characterId} state={state} name={name} paused={paused} onReactionComplete={onReactionComplete} />
       </div>
       <div className="analysis-pip-meta">
         <span className="analysis-pip-title"><i aria-hidden="true" />{name} · {stateLabel}</span>
