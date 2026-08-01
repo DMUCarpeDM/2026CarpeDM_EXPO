@@ -49,9 +49,21 @@ class Settings(BaseSettings):
     dialogue_require_ollama: bool = True
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "exaone3.5:2.4b"
-    # i7-8750H 실측: 워밍 상태 개인화 질문 생성 3.6~4.7s(평균 4.1s) — p95+여유로 7s.
     # 초과 시 템플릿 질문으로 즉시 폴백하므로 상한일 뿐 평균 지연이 아니다.
-    ollama_timeout_sec: float = 7.0
+    #
+    # 7.0s는 '단독 호출' 실측(질문 p95 5.3s·리액션 p95 3.6s)으로 잡은 값이라 실제 UX와
+    # 어긋났다. sessions.py는 턴마다 리액션+질문을 동시에 던지는데, CPU 추론이라 두 요청이
+    # 연산을 나눠 써 벽시계가 단독 max가 아니라 순차 합(p95 8.6s)에 가깝다. 그 결과
+    # 2026-08-01 맥북(i7-8750H) 실측에서 병렬 턴의 54~81%가 7.0s 천장에 정확히 걸려
+    # (폴백 턴은 예외 없이 7.02~7.04s) 다 만들어 놓은 문장을 버리고 있었다.
+    # 9.0s로 올리면 폴백이 절반 이하로 떨어진다. 순서를 뒤집어 두 번 측정해 확인했다:
+    #   7s → 81% / 81%   ·   9s → 31% / 44%   (대가: 평균 대기 6.9~7.0s → 7.8~8.4s)
+    # 남은 폴백은 사실상 전부 질문 호출이다(리액션 0~1건) — 더 줄이려면 다음 레버는
+    # 질문 num_predict(80) 축소다. scripts/bench_num_predict_sweep.py가 값별로 비교한다.
+    # ⚠️ 12.0s는 오히려 75%로 악화됐다(단조성 붕괴). 열 스로틀링은 아니었고
+    #    (CPU_Speed_Limit 100) 원인 미해명이라, 9s의 31~44%는 범위로만 읽는다.
+    #    전시 PC에서는 scripts/bench_dialogue_latency로 반드시 재실측한다.
+    ollama_timeout_sec: float = 9.0
     # 전시 중 세션 간격이 벌어져도 모델이 RAM에서 내려가지 않게 (기본 5m → 콜드 로드 방지)
     ollama_keep_alive: str = "2h"
 
