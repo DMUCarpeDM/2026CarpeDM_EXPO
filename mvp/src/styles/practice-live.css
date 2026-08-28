@@ -103,68 +103,44 @@
   pointer-events: none;
 }
 .practice-camera:fullscreen { border-radius: 0; }
-.practice-camera .camera-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-.practice-camera .counterpart-video { transform: none; object-position: center 30%; }
-/* 우측 사이드 컬럼 — 상대 PiP(또는 내 분석 PiP)와 분석 로그를 세로로 쌓는다 */
-.camera-sidecol {
-  position: absolute;
-  top: 64px;
-  right: 18px;
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: clamp(170px, 21%, 250px);
-}
-
-/* 분석 PiP — 팀장 영상 시나리오에서 내 카메라·실측 랜드마크를 우측 상단에 보여준다 */
-.analysis-pip {
-  width: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+.camera-user-feed { position: absolute; inset: 0; z-index: 1; overflow: hidden; }
+.camera-user-feed .camera-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+.camera-user-feed .tracking-canvas { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; transform: scaleX(-1); pointer-events: none; }
+.camera-user-feed.is-pip {
+  inset: 58px 18px auto auto;
+  z-index: 4;
+  width: clamp(156px, 18vw, 240px);
+  aspect-ratio: 4 / 3;
+  border: 1px solid rgba(255, 255, 255, 0.34);
   border-radius: 16px;
-  overflow: hidden;
-  background: var(--pl-overlay-bg);
-  box-shadow: 0 14px 32px rgba(3, 10, 22, 0.35);
-  backdrop-filter: blur(10px);
+  background: rgba(9, 16, 30, 0.62);
+  box-shadow: 0 12px 28px rgba(3, 10, 22, 0.34), inset 0 1px rgba(255, 255, 255, 0.18);
 }
-.analysis-pip-stage { position: relative; aspect-ratio: 4 / 5; }
-/* drawOverlay가 object-fit: cover 좌표계로 사상하므로 비디오·캔버스를 동일 미러로 겹친다 */
-.analysis-pip-stage video, .analysis-pip-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-.analysis-pip-empty { position: absolute; inset: 0; display: grid; place-items: center; color: rgba(255, 255, 255, 0.55); font-size: 12px; }
-.analysis-pip-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 8px 12px; }
-.analysis-pip-title { display: inline-flex; align-items: center; gap: 6px; width: 100%; color: rgba(255, 255, 255, 0.92); font-size: 11.5px; font-weight: 700; letter-spacing: 0.01em; }
-.analysis-pip-title i { width: 6px; height: 6px; border-radius: 50%; background: #64748b; }
-.analysis-pip.is-live .analysis-pip-title i { background: #22c55e; box-shadow: 0 0 6px rgba(34, 197, 94, 0.8); animation: rec-pulse 1.4s ease-in-out infinite; }
-.practice-screen.is-paused .analysis-pip-title i { animation: none; }
-.analysis-pip-signal { display: inline-flex; align-items: baseline; gap: 4px; font-size: 11px; }
-.analysis-pip-signal small { color: rgba(255, 255, 255, 0.55); font-size: 10px; }
-.analysis-pip-signal b { font-variant-numeric: tabular-nums; font-weight: 720; }
-.analysis-pip-signal.good b { color: #6ee7a0; }
-.analysis-pip-signal.warn b { color: #fca55f; }
-.analysis-pip-signal.pending b { color: #93c5fd; }
-.analysis-pip[role="button"] { cursor: pointer; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
-.analysis-pip[role="button"]:hover { border-color: rgba(126, 176, 255, 0.65); box-shadow: 0 14px 32px rgba(3, 10, 22, 0.5); }
-
-/* 실측 신호 칩 — LIVE 칩 옆에 시선·자세·추론 시간 (useFaceTracking 실제 출력) */
-.camera-signal-chip {
-  display: inline-flex; align-items: baseline; gap: 5px;
-  padding: 7px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+.camera-user-feed-label {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  z-index: 3;
+  padding: 5px 8px;
   border-radius: var(--radius-pill);
-  background: var(--pl-overlay-bg);
-  color: rgba(255, 255, 255, 0.92);
-  font-size: 12px;
-  backdrop-filter: blur(10px);
+  background: rgba(9, 16, 30, 0.64);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1;
+  backdrop-filter: blur(8px);
 }
-.camera-signal-chip small { color: rgba(255, 255, 255, 0.6); font-size: 10.5px; font-weight: 600; }
-.camera-signal-chip b { font-weight: 720; font-variant-numeric: tabular-nums; }
-.camera-signal-chip.good b { color: #6ee7a0; }
-.camera-signal-chip.warn b { color: #fca55f; }
-.camera-signal-chip.pending b { color: #93c5fd; }
-.camera-signal-chip.mic-retry { cursor: pointer; border-color: rgba(252, 165, 95, 0.55); font: inherit; }
-.camera-signal-chip.mic-retry b { color: #fca55f; }
-.camera-signal-chip.mic-retry:hover { border-color: #fca55f; background: rgba(60, 34, 12, 0.6); }
-
+.practice-camera .counterpart-video { transform: none; object-position: center 30%; }
+.practice-camera.is-cafe-counterpart {
+  background: center / cover no-repeat var(--counterpart-background);
+}
+.practice-camera.is-cafe-counterpart::before {
+  background: linear-gradient(180deg, rgba(22, 18, 14, 0.1), transparent 34%, rgba(22, 18, 14, 0.22));
+  mask-image: none;
+}
+.counterpart-video-stage { position: absolute; inset: 0; z-index: 1; }
+.counterpart-video-source { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.practice-camera .counterpart-video-canvas { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 30%; }
 /* 스테이지 전환 버튼 — 내 분석 ↔ AI 상대.
    .camera-expand(width: 33px)가 뒤에 선언돼 있어 특이도를 올려 폭 고정을 푼다 */
 .practice-camera .camera-swap { width: auto; height: 33px; display: inline-flex; align-items: center; padding: 0 13px; font-size: 12px; font-weight: 650; white-space: nowrap; }
@@ -175,29 +151,6 @@
 .camera-reconnect button:hover { background: rgba(20, 115, 255, 0.95); }
 .camera-reconnect small { max-width: 320px; color: rgba(255, 255, 255, 0.72); font-size: 11.5px; line-height: 1.5; }
 .camera-reconnect small.is-error { padding: 7px 12px; border-radius: 10px; background: rgba(229, 72, 77, 0.18); color: #ffb3b6; font-weight: 600; }
-
-/* 분석 로그 — 파이프라인 실이벤트 티커 (모노스페이스, 최신이 아래) */
-.analysis-feed {
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 14px;
-  overflow: hidden;
-  background: rgba(7, 13, 25, 0.72);
-  box-shadow: 0 14px 32px rgba(3, 10, 22, 0.35);
-  backdrop-filter: blur(10px);
-  font-family: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
-}
-.analysis-feed-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.09); }
-.analysis-feed-title { display: inline-flex; align-items: center; gap: 6px; color: rgba(190, 214, 255, 0.9); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; }
-.analysis-feed-title i { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 6px rgba(34, 197, 94, 0.8); animation: rec-pulse 1.4s ease-in-out infinite; }
-.practice-screen.is-paused .analysis-feed-title i { animation: none; }
-.analysis-feed-head b { color: #8ef7bc; font-size: 10.5px; font-weight: 650; font-variant-numeric: tabular-nums; }
-.analysis-feed ul { margin: 0; padding: 8px 12px; list-style: none; display: grid; gap: 5px; min-height: 96px; align-content: start; }
-.analysis-feed li { display: flex; gap: 7px; font-size: 10.5px; line-height: 1.45; animation: feed-in 0.3s ease-out both; }
-@keyframes feed-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-.analysis-feed li time { flex: none; color: rgba(148, 178, 224, 0.62); font-variant-numeric: tabular-nums; }
-.analysis-feed li span { color: rgba(226, 238, 255, 0.92); word-break: keep-all; }
-.analysis-feed li.empty span { color: rgba(148, 178, 224, 0.55); }
-.analysis-feed-foot { padding: 7px 12px; border-top: 1px solid rgba(255, 255, 255, 0.09); color: rgba(148, 178, 224, 0.66); font-size: 9.5px; letter-spacing: 0.02em; }
 
 /* 마이크 실파형 — AnalyserNode가 구동하는 막대 (기존 점 장식을 대체) */
 .control-wave.is-real i { width: 3px; height: 15px; border-radius: 2px; background: linear-gradient(180deg, #9cc3ff, #4a87ff); transform: scaleY(0.18); transform-origin: center; animation: none; will-change: transform; }
@@ -247,7 +200,7 @@
 .confirm-foot .confirm-leave:hover { background: rgba(229, 72, 77, 0.06); filter: none; }
 /* 실시간 랜드마크 캔버스 — 비디오와 동일하게 미러링해 좌표를 일치시킨다 */
 .tracking-canvas { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; transform: scaleX(-1); pointer-events: none; }
-.practice-camera > :not(.camera-video):not(.tracking-zone):not(.tracking-canvas) { z-index: 3; }
+.practice-camera > :not(.camera-video):not(.counterpart-video-stage):not(.tracking-zone):not(.tracking-canvas):not(.camera-user-feed) { z-index: 3; }
 
 /* 트래킹 오버레이 — 얼굴 영역 크기의 중앙 박스 안에만 그림 */
 .tracking-zone {

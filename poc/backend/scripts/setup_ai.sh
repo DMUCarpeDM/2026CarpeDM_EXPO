@@ -7,7 +7,7 @@
 #   1. uv 설치 → Python 3.12 venv (.venv) + 의존성 + faster-whisper
 #   2. Whisper 한국어 모델 사전 다운로드 (전시장 오프라인 대비)
 #   3. Vosk 한국어 모델 다운로드 (완전 오프라인 STT 폴백)
-#   4. Ollama + exaone3.5:2.4b(대화 개인화) + bge-m3(의미 매칭 임베딩)
+#   4. Ollama + exaone3.5:2.4b(대화 개인화). 의미 매칭은 프로젝트의 local E5 사용
 #      — EXAONE은 q8_0 KV 캐시와 비호환이라 f16을 강제한 LaunchAgent로 기동
 #   5. .env 생성 (없을 때만) — 대화 엔진 ollama 활성화
 set -euo pipefail
@@ -77,10 +77,9 @@ for i in $(seq 1 15); do
   sleep 2
 done
 ollama pull exaone3.5:2.4b
-ollama pull bge-m3
 
 echo "== [5/5] .env =="
-[ -f .env ] || printf '# 기준 문서: .env.example\nMIRROR_TING_DIALOGUE_PROVIDER=ollama\n' > .env
+[ -f .env ] || printf '# 기준 문서: .env.example\nMIRROR_TING_DIALOGUE_PROVIDER=ollama\nMIRROR_TING_SEMANTIC_PROVIDER=local_e5\n' > .env
 
 echo
 echo "완료. 확인:  .venv/bin/uvicorn app.main:app --reload  →  GET /api/health"

@@ -128,8 +128,24 @@ Ollama(EXAONE 3.5 2.4b)가 준비되면 후속·심화·압박 질문이 사용�
 폴백하고, 서버 기동 시 모델을 예열해 첫 체험자 지연을 없앤다.
 
 임베딩 모델은 의미 매칭(Response-Fit)을 활성화한다 — **임베딩이 없으면
-패러프레이즈 답변이 '누락' 판정될 수 있어** 전시 PC에는 대화·임베딩 모델을
-모두 설치하기를 권장한다(setup_ai.sh가 함께 캐시).
+패러프레이즈 답변이 '누락' 판정될 수 있어** 전시 PC에는 대화 모델과 아래 E5
+가중치를 모두 준비하기를 권장한다.
+
+### Colab fine-tuned E5 사용
+
+Colab에서 학습한 `final.zip`은 `backend/models/response_e5_v1/`에 풀어
+`backend/models/response_e5_v1/final/model.safetensors`가 존재하게 한다. 로컬 E5는
+Response-Fit 의미 매칭의 기본 제공자이며, 이전 Ollama `bge-m3` 경로는 실행하지 않는다.
+
+```bash
+MIRROR_TING_SEMANTIC_PROVIDER=local_e5
+MIRROR_TING_LOCAL_E5_MODEL_DIR=./models/response_e5_v1/final
+MIRROR_TING_LOCAL_E5_THRESHOLD=0.74
+```
+
+`sentence-transformers`는 `requirements.txt`에 포함되어 있다. 모델 가중치는 대용량
+실행 자산이므로 Git에 넣지 않는다. `0.74`는 현재 Colab 평가에서 얻은 값이며, 새
+검증 세트가 생기면 별도 hold-out 테스트를 건드리지 않고 검증 세트로 다시 보정한다.
 
 주의: EXAONE 3.5는 q8_0 KV 캐시와 비호환(head_dim=80) — setup_ai.sh가
 `OLLAMA_KV_CACHE_TYPE=f16`을 강제한 LaunchAgent(`com.mirror-ting.ollama`)로

@@ -37,9 +37,9 @@ DEFAULT_PACK_BY_ROLE = {
     "office_admin": "release-schedule-alignment",
 }
 JOB_ROLE_LABELS = {
-    "cafe_crew": "카페 매장 크루",
-    "cs_agent": "고객센터 상담",
-    "office_admin": "사무행정 신입",
+    "cafe_crew": "카페 파트너",
+    "cs_agent": "상담사",
+    "office_admin": "개발자",
 }
 
 

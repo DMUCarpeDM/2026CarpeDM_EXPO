@@ -7,16 +7,17 @@ import { Pause } from "reicon-react/icons/Pause";
 import { Play } from "reicon-react/icons/Play";
 import { Power } from "reicon-react/icons/Power";
 import { Refresh3 } from "reicon-react/icons/Refresh3";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { IconGlyph } from "../components/ui/IconGlyph";
 import { CounterpartVideo } from "../components/practice/CounterpartVideo";
 import { hasCharacterVideo } from "../data/characterMedia";
-import { CounterpartAvatar } from "../components/practice/CounterpartAvatar";
+import cafeCounterpartBackground from "../assets/cafe-counterpart-background.png";
 import { blobToWav, wavHasSpeech } from "../lib/audioWav";
-import { emotionVisual } from "../lib/emotionGauge";
+import { synthesizeSpeech } from "../lib/pocApi";
 import { shouldScheduleAutoSubmit } from "../lib/sttAutoSubmit";
 import { useFaceTracking } from "../lib/useFaceTracking";
 import { PersonaFace } from "../components/ui/PersonaFace";
+import { composeTurnSpeech } from "../lib/turnSpeech";
 
 function formatClock(totalSeconds) {
   const m = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
@@ -48,36 +49,26 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
   const stampsRef = useRef(new Map());
   const autoSubmitTimerRef = useRef(null);
   const submitDraftRef = useRef(null);
+  const entryMediaRequestedRef = useRef(false);
   const character = scenario?.characters?.find((item) => item.id === turn?.character_id) || scenario?.characters?.[0];
   const characterName = character?.name || "AI 상대";
-  // 반응 영상이 등록된 인물인가 — 등록부(data/characterMedia.js) 기준. 촬영분이 추가되면
-  // 그 인물도 자동으로 영상 스테이지·좌우 전환을 쓴다(이전엔 김서윤 팀장 하드코딩이었다).
-  const hasVideo = hasCharacterVideo(character?.id);
-  // 스테이지 기본은 내 모습(거울) 분석 — AI 상대 영상은 PiP로 두고 토글로 서로 교체한다
+  const isTeamLead = character?.id === "kim_teamlead";
+  const isCafeCounterpart = scenario?.slug === "ondo-cafe-crew" && character?.id === "angry_customer";
+  const hasCounterpartVideo = hasCharacterVideo(character?.id);
+  // 스테이지 기본은 내 모습(거울) 분석 — 전환 버튼으로 AI 상대 영상을 크게 본다.
   const [stageView, setStageView] = useState("mirror");
-  const mirrorMain = !hasVideo || stageView === "mirror";
+  const mirrorMain = !hasCounterpartVideo || stageView === "mirror";
+  useEffect(() => {
+    if (isCafeCounterpart) setStageView("counterpart");
+  }, [isCafeCounterpart]);
 
   // 종료 오클릭 보호 — 촬영·체험 중 실수로 눌러 세션이 끊기지 않게 한 번 확인한다
   const [confirmEnd, setConfirmEnd] = useState(false);
 
-  // ---- 상황 브리핑: 맥락 없이 첫 질문이 날아오면 당황하므로, 연습 진입 시
-  // 선택한 에피소드의 상황을 팝업으로 먼저 보여준다. 글량에 따라 5~10초 뒤
-  // 자동으로 닫히고(읽기 속도 기준), 닫히기 전에는 질문 TTS·타이머·녹음을 시작하지 않는다.
-  const [briefingOpen, setBriefingOpen] = useState(true);
-  const episode = scenario?.episodes?.find((item) => item.title && item.title === turn?.episode_title) || scenario?.episodes?.[0] || null;
-  const briefingSituation = episode?.situation || scenario?.description || "";
-  const briefingPoints = Array.isArray(episode?.points) ? episode.points.slice(0, 3) : [];
-  const showBriefing = briefingOpen && Boolean(briefingSituation) && Boolean(turn);
-  const briefingMs = Math.min(10000, Math.max(5000, 3000 + (briefingSituation.length + briefingPoints.join("").length) * 45));
-  useEffect(() => {
-    if (!showBriefing) return undefined;
-    const timer = window.setTimeout(() => setBriefingOpen(false), briefingMs);
-    return () => window.clearTimeout(timer);
-  }, [showBriefing, briefingMs]);
-  const aiReady = aiHealth?.dialogue_provider === "ollama" && aiHealth?.ollama?.dialogue;
-  // 감정 온도 게이지 (S-B2B-EMOTION) — 서버 감정 상태 머신의 신호. 감정 프로파일이 없는
-  // 시나리오는 emotion이 {}로 와서 null이 되고, 게이지를 아예 렌더하지 않는다(하위 호환).
-  const emotion = emotionVisual(turnSignals?.emotion);
+  // 시작 시 입력·카메라 분석을 막는 브리핑 팝업은 사용하지 않는다.
+  // 시나리오 정보는 이전 확인 화면에서 전달하고, 연습 화면은 바로 조작 가능해야 한다.
+  const entryOverlayOpen = false;
+  const aiReady = Boolean(aiHealth?.dialogue_ready);
   // MediaPipe 실시간 얼굴·상체 트래킹 (영상 미전송 — 브라우저 안에서만 분석)
   const track = useFaceTracking(mediaStream, analysisVideoRef, overlayRef);
   const trackingLive = track.status === "ready" && track.tracking;
@@ -93,18 +84,35 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
 
   // ---- AI 음성(TTS): 새 질문이 오면 AI 상대가 실제로 읽어준다 ----
   const [aiSpeaking, setAiSpeaking] = useState(false);
+  const [showQuestionOverlay, setShowQuestionOverlay] = useState(true);
+  const turnSpeech = composeTurnSpeech(turn);
   const [teamLeadReaction, setTeamLeadReaction] = useState("");
   const teamLeadVideoState = aiSpeaking ? "speaking" : teamLeadReaction || "listening";
   useEffect(() => {
-    if (!hasVideo || !turnSignals?.case) return undefined;
-    if (["excellent", "covered"].includes(turnSignals.case)) {
+    setShowQuestionOverlay(Boolean(turn));
+  }, [turn?.id]);
+  useEffect(() => {
+    if (!turnSignals?.case) return undefined;
+    if (isCafeCounterpart) {
+      const mood = turnSignals.emotion?.state;
+      if (mood === "agitated") {
+        // 격앙: 6초 불만 반응 뒤 불만 듣기 영상으로 이어진다.
+        setTeamLeadReaction("negative_reaction");
+      } else if (mood === "displeased") {
+        setTeamLeadReaction("negative");
+      } else if (turnSignals.observation?.issues?.length || turnSignals.case === "risky") {
+        setTeamLeadReaction("negative_reaction");
+      } else {
+        setTeamLeadReaction("");
+      }
+    } else if (isTeamLead && ["excellent", "covered"].includes(turnSignals.case)) {
       setTeamLeadReaction("positive");
-    } else if (turnSignals.case === "risky") {
+    } else if (isTeamLead && turnSignals.case === "risky") {
       setTeamLeadReaction("negative");
     } else {
       setTeamLeadReaction("");
     }
-  }, [hasVideo, turnSignals]);
+  }, [isCafeCounterpart, isTeamLead, turnSignals]);
   // TTS 진단 메시지는 세션당 한 번만 분석 로그에 남긴다 (턴마다 반복하면 소음)
   const ttsNotesRef = useRef(new Set());
   const ttsNoteOnce = (msg) => {
@@ -113,29 +121,28 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
     pushFeed(msg);
   };
   useEffect(() => {
-    const text = turn?.question_text;
+    const text = turnSpeech;
     const synth = window.speechSynthesis;
-    if (!text || paused || showBriefing) return undefined;
+    if (!text || paused || entryOverlayOpen) return undefined;
     let cancelled = false;
-    let spoke = false;
+    let browserSpeechStarted = false;
     let speakTimer = 0;
+    let audio = null;
+    let audioUrl = "";
     const finishSpeaking = () => {
-      if (!cancelled) setAiSpeaking(false);
-    };
-    // 음성 합성 시작 이벤트가 지연되는 브라우저에서도 질문과 동시에 준비된 발화 영상이 보이게 한다.
-    setAiSpeaking(true);
-    const fallbackTimer = window.setTimeout(finishSpeaking, Math.min(12000, Math.max(3000, text.length * 150)));
-    if (!synth) {
-      ttsNoteOnce("음성 합성 미지원 브라우저 — 질문은 자막으로 표시돼요");
-      return () => {
-        cancelled = true;
-        window.clearTimeout(fallbackTimer);
+      if (!cancelled) {
         setAiSpeaking(false);
-      };
-    }
-    const speakNow = () => {
-      if (cancelled || spoke) return;
-      spoke = true;
+        setShowQuestionOverlay(false);
+      }
+    };
+    const speakWithBrowser = () => {
+      if (cancelled || browserSpeechStarted) return;
+      browserSpeechStarted = true;
+      if (!synth) {
+        ttsNoteOnce("음성 재생을 지원하지 않는 브라우저예요 — 질문은 자막으로 표시돼요");
+        finishSpeaking();
+        return;
+      }
       const voices = synth.getVoices();
       const koVoice = voices.find((v) => v.lang?.startsWith("ko") && v.localService) || voices.find((v) => v.lang?.startsWith("ko")) || null;
       // 한국어 음성이 아예 없으면 무음·이상 발음의 원인 — 화면에 바로 알려 조치 가능하게 한다
@@ -157,39 +164,77 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
       };
       synth.speak(utter);
     };
-    const onVoicesChanged = () => speakNow();
-    synth.cancel();
-    if (synth.getVoices().length === 0 && typeof synth.addEventListener === "function") {
-      // Chrome은 음성 목록을 비동기로 채운다 — 목록이 오면 재생하고, 늦으면 400ms 뒤 기본 음성으로 재생
-      synth.addEventListener("voiceschanged", onVoicesChanged);
-      speakTimer = window.setTimeout(speakNow, 400);
+    const startBrowserSpeech = () => {
+      if (!synth) {
+        speakWithBrowser();
+        return;
+      }
+      const onVoicesChanged = () => speakWithBrowser();
+      if (synth.getVoices().length === 0 && typeof synth.addEventListener === "function") {
+        synth.addEventListener("voiceschanged", onVoicesChanged, { once: true });
+        speakTimer = window.setTimeout(speakWithBrowser, 400);
+      } else {
+        speakTimer = window.setTimeout(speakWithBrowser, 80);
+      }
+    };
+    const playElevenLabsSpeech = async () => {
+      try {
+        const blob = await synthesizeSpeech(text);
+        if (cancelled) return;
+        audioUrl = URL.createObjectURL(blob);
+        audio = new Audio(audioUrl);
+        audio.onplay = () => {
+          if (!cancelled) {
+            setAiSpeaking(true);
+            ttsNoteOnce("AI 음성 재생 시작");
+          }
+        };
+        audio.onended = finishSpeaking;
+        audio.onerror = () => {
+          if (!cancelled) {
+            ttsNoteOnce("AI 음성 재생에 실패해 브라우저 음성으로 전환해요");
+            startBrowserSpeech();
+          }
+        };
+        await audio.play();
+      } catch {
+        if (!cancelled) {
+          ttsNoteOnce("AI 음성 연결이 안 돼 브라우저 음성으로 전환해요");
+          startBrowserSpeech();
+        }
+      }
+    };
+    // 음성 재생이 시작되는 동안에도 상대 영상이 즉시 speaking 상태로 보인다.
+    setAiSpeaking(true);
+    synth?.cancel();
+    if (aiHealth?.tts_ready) {
+      void playElevenLabsSpeech();
     } else {
-      // Chrome의 cancel() 직후 speak() 무시 버그 회피 — 한 박자 늦춰 재생한다
-      speakTimer = window.setTimeout(speakNow, 80);
+      startBrowserSpeech();
     }
     return () => {
       cancelled = true;
-      window.clearTimeout(fallbackTimer);
       window.clearTimeout(speakTimer);
-      if (typeof synth.removeEventListener === "function") synth.removeEventListener("voiceschanged", onVoicesChanged);
-      synth.cancel();
+      if (audio) audio.pause();
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+      synth?.cancel();
       setAiSpeaking(false);
     };
-  }, [turn?.id, paused, showBriefing]);
+  }, [turn?.id, turnSpeech, paused, entryOverlayOpen, aiHealth?.tts_ready]);
 
   // 시선 페이즈: AI가 말하는 동안은 '듣기', 그 외 턴 진행 중은 '말하기'.
   // 듣는 시선과 말하는 시선은 다른 역량이라 서버가 각각 다른 기준으로 채점한다
   // (듣기 쪽 기대치가 더 높다 — 듣는 중의 시선 이탈은 무관심으로 읽히므로).
   useEffect(() => {
     // 브리핑을 읽는 동안은 페이즈 없음 — 팝업을 보는 시선을 이탈로 채점하지 않는다
-    track.setGazePhase?.(turn && !showBriefing ? (aiSpeaking ? "listening" : "answering") : null);
+    track.setGazePhase?.(turn && !entryOverlayOpen ? (aiSpeaking ? "listening" : "answering") : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aiSpeaking, turn?.id, showBriefing]);
+  }, [aiSpeaking, turn?.id, entryOverlayOpen]);
   useEffect(() => {
     // 브리핑이 닫히는 순간 그동안 쌓인 비언어 표본을 버려 집계 창을 정렬한다
-    if (!showBriefing) track.collectTurnStats?.();
+    if (!entryOverlayOpen) track.collectTurnStats?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showBriefing]);
+  }, [entryOverlayOpen]);
 
   // ---- 음성 답변(STT): 브라우저 음성 인식으로 말한 내용을 입력창에 받아 적는다 ----
   // AI가 말하는 동안은 마이크를 쉬어 스피커 소리가 답변으로 새는 걸 막는다.
@@ -210,6 +255,13 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
   const sttMode = sttSupported && !webSpeechFailed ? "webspeech" : serverSttReady ? "server" : "off";
   const hasCamera = Boolean(mediaStream?.getVideoTracks?.().some((item) => item.readyState === "live"));
   const hasMicrophone = Boolean(mediaStream?.getAudioTracks?.().some((item) => item.readyState === "live"));
+
+  // 준비 화면에서 권한 요청이 끝나기 전에 연습 화면이 열린 경우도 첫 진입에서 한 번 복구한다.
+  useEffect(() => {
+    if (hasCamera || entryMediaRequestedRef.current || !onRequestMedia) return;
+    entryMediaRequestedRef.current = true;
+    onRequestMedia().catch((err) => setMediaError(err.message));
+  }, [hasCamera, onRequestMedia]);
   // 실제 사용 중인 입력 장치 이름을 그대로 보여준다 — 잘못된 기본 장치(빈 잭 등)를
   // 현장에서 바로 알아볼 수 있게 (예: "Azure Kinect Microphone Array" vs "마이크(Realtek)")
   const micDeviceLabel = mediaStream?.getAudioTracks?.()[0]?.label || "";
@@ -232,7 +284,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
     }
   };
   const analysisTools = [
-    { label: "대화 AI", detail: "Ollama", ready: aiReady },
+    { label: "대화 AI", detail: aiHealth?.dialogue_provider === "openai" ? "GPT-4o" : "Ollama", ready: aiReady },
     { label: "음성 인식", detail: sttMode === "server" ? "서버 Whisper" : sttMode === "webspeech" ? "브라우저 STT" : "직접 입력", ready: sttMode !== "off" && micEnabled && hasMicrophone },
     { label: "카메라 분석", detail: "MediaPipe", ready: hasCamera && track.status === "ready" },
     { label: "마이크", detail: micSilent ? "신호 없음" : micDeviceLabel || "입력", title: micDeviceLabel, ready: hasMicrophone && !micSilent },
@@ -257,7 +309,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
 
   useEffect(() => {
     const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const shouldListen = Boolean(sttMode === "webspeech" && SpeechRecognitionImpl && micEnabled && mediaStream && turn && !busy && !paused && !aiSpeaking && !showBriefing);
+    const shouldListen = Boolean(sttMode === "webspeech" && SpeechRecognitionImpl && micEnabled && mediaStream && turn && !busy && !paused && !aiSpeaking && !entryOverlayOpen);
     if (!shouldListen) return undefined;
     const recognition = new SpeechRecognitionImpl();
     recognition.lang = "ko-KR";
@@ -307,13 +359,13 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
       setListening(false);
       setInterim("");
     };
-  }, [sttMode, micEnabled, mediaStream, turn?.id, busy, paused, aiSpeaking, turn, showBriefing]);
+  }, [sttMode, micEnabled, mediaStream, turn?.id, busy, paused, aiSpeaking, turn, entryOverlayOpen]);
 
   // ---- 서버 받아쓰기 폴백: Web Speech가 없거나 실패하면 3초 안팎의 조각을 서버
   // Whisper로 전사해 입력창을 채운다. 조각 사이 공백이 없도록 녹음기는 즉시 재시작하고
   // 전사는 병렬로 진행한다. 무음 조각은 보내지 않고, 초안이 쌓인 뒤의 무음은 자동 전송 신호다.
   useEffect(() => {
-    const shouldRun = sttMode === "server" && micEnabled && mediaStream && turn && !busy && !paused && !aiSpeaking && !showBriefing;
+    const shouldRun = sttMode === "server" && micEnabled && mediaStream && turn && !busy && !paused && !aiSpeaking && !entryOverlayOpen;
     if (!shouldRun || !window.MediaRecorder) return undefined;
     const audioTracks = mediaStream.getAudioTracks().filter((item) => item.readyState === "live");
     if (!audioTracks.length) return undefined;
@@ -367,7 +419,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
       if (recorder && recorder.state !== "inactive") { recorder.onstop = null; recorder.stop(); }
       setListening(false);
     };
-  }, [sttMode, micEnabled, mediaStream, turn?.id, busy, paused, aiSpeaking, turn, onTranscribe, showBriefing]);
+  }, [sttMode, micEnabled, mediaStream, turn?.id, busy, paused, aiSpeaking, turn, onTranscribe, entryOverlayOpen]);
   const inputValue = interim ? `${draft} ${interim}`.trim() : draft;
 
   // ---- 분석 로그 피드: 파이프라인의 실제 이벤트만 기록한다 (연출용 가짜 없음).
@@ -477,23 +529,23 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
 
   // 연습 경과 시간 (상단 타이머). 일시정지·브리핑 중에는 멈춰요.
   useEffect(() => {
-    if (paused || showBriefing) return undefined;
+    if (paused || entryOverlayOpen) return undefined;
     const timer = window.setInterval(() => setElapsed((value) => value + 1), 1000);
     return () => window.clearInterval(timer);
-  }, [paused, showBriefing]);
+  }, [paused, entryOverlayOpen]);
 
   // 현재 턴의 발화 시간 (하단 "말하는 중" 타이머).
   useEffect(() => {
     setRecSeconds(0);
-    if (!turn || paused || showBriefing) return undefined;
+    if (!turn || paused || entryOverlayOpen) return undefined;
     const timer = window.setInterval(() => setRecSeconds((value) => value + 1), 1000);
     return () => window.clearInterval(timer);
-  }, [turn?.id, paused, showBriefing]);
+  }, [turn?.id, paused, entryOverlayOpen]);
 
   useEffect(() => {
-    // mirrorMain 전환 시 비디오 노드가 재마운트되므로 스트림을 다시 붙인다
+    // AI 상대 영상을 크게 볼 때도 분석용 비디오는 숨긴 채 계속 유지한다.
     if (analysisVideoRef.current && mediaStream) analysisVideoRef.current.srcObject = mediaStream;
-  }, [mediaStream, mirrorMain]);
+  }, [mediaStream]);
 
   // 새 메시지가 쌓이면 대화 로그를 맨 아래로 내려요.
   useEffect(() => {
@@ -502,7 +554,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
   }, [history.length, turn?.id, busy]);
 
   useEffect(() => {
-    if (!mediaStream || !turn || showBriefing) return undefined;
+    if (!mediaStream || !turn || entryOverlayOpen) return undefined;
     if (!window.MediaRecorder) { setCaptureError("이 브라우저에서는 마이크 녹음을 시작할 수 없어요."); return undefined; }
     const audioTracks = mediaStream.getAudioTracks();
     if (audioTracks.length === 0) { setCaptureError("마이크 권한이 필요해요."); return undefined; }
@@ -515,7 +567,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
     recorder.start();
     setCaptureError("");
     return () => { if (recorder.state !== "inactive") recorder.stop(); };
-  }, [mediaStream, turn, showBriefing]);
+  }, [mediaStream, turn, entryOverlayOpen]);
 
   const stopTurnRecorder = () => new Promise((resolve, reject) => {
     const recorder = recorderRef.current;
@@ -581,7 +633,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
             <button type="button" className="topbar-scenario">{scenario?.title || "업무 보고 및 피드백 논의"} <ChevronDown size={15} /></button>
           </div>
           <div className="topbar-item counterpart">
-            <span className="counterpart-avatar"><PersonaFace characterId={character?.id} name={characterName} /></span>
+            <span className="counterpart-avatar"><PersonaFace name={characterName} /></span>
             <span className="counterpart-meta">
               <span className="topbar-item-label">상대</span>
               <strong>{characterName} <i className="presence-dot" aria-hidden="true" /><em className="ai-tag">AI</em></strong>
@@ -597,50 +649,38 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
       </motion.div>
 
       <div className="practice-stage">
-        <motion.section className="practice-camera" aria-label={hasVideo ? `${characterName} 반응 영상` : "연습 카메라"} ref={cameraRef} {...rise(0.06)}>
-          {mirrorMain ? <>
+        <motion.section
+          className={`practice-camera ${isCafeCounterpart && !mirrorMain ? "is-cafe-counterpart" : ""}`}
+          style={isCafeCounterpart && !mirrorMain ? { "--counterpart-background": `url(${cafeCounterpartBackground})` } : undefined}
+          aria-label={hasCounterpartVideo ? "AI 상대 반응 영상" : "연습 카메라"}
+          ref={cameraRef}
+          {...rise(0.06)}
+        >
+          <div className={`camera-user-feed ${mirrorMain ? "is-main" : "is-pip"}`} aria-label={mirrorMain ? "내 카메라 미러" : "내 모습 미리보기"}>
             <video ref={analysisVideoRef} className={`camera-video ${mediaStream ? "is-live" : ""}`} autoPlay muted playsInline aria-label="내 카메라 미러" />
             <canvas ref={overlayRef} className="tracking-canvas" aria-hidden="true" />
+            {!mirrorMain && <span className="camera-user-feed-label">내 모습</span>}
+          </div>
+          {mirrorMain ? <>
             {!trackingLive && <TrackingOverlay silhouette={!mediaStream} />}
             {!hasCamera && onRequestMedia && <div className="camera-reconnect">
               <button type="button" onClick={retryMedia}>{hasMicrophone ? "카메라 연결" : "카메라·마이크 연결"}</button>
               <small className={mediaHint.error ? "is-error" : ""}>{mediaHint.text}</small>
             </div>}
-            <div className="camera-sidecol">
-              {hasVideo && <CounterpartPip characterId={character?.id} name={characterName} state={teamLeadVideoState} paused={paused} onReactionComplete={() => setTeamLeadReaction("")} onSwap={() => setStageView("counterpart")} />}
-              {!hasVideo && character && (
-                <CounterpartAvatar name={characterName} role={character?.role || ""} speaking={aiSpeaking} emotion={emotion} />
-              )}
-              {emotion && <EmotionGauge emotion={emotion} name={characterName} />}
-              {trackingLive && <AnalysisFeed feed={feed} track={track} sttMode={sttMode} />}
-            </div>
           </> : <>
-            <CounterpartVideo characterId={character?.id} state={teamLeadVideoState} name={characterName} paused={paused} onReactionComplete={() => setTeamLeadReaction("")} />
-            <div className="camera-sidecol">
-              <AnalysisPip videoRef={analysisVideoRef} canvasRef={overlayRef} track={track} live={trackingLive} hasCamera={hasCamera} onSwap={() => setStageView("mirror")} />
-              {emotion && <EmotionGauge emotion={emotion} name={characterName} />}
-              {trackingLive && <AnalysisFeed feed={feed} track={track} sttMode={sttMode} />}
-            </div>
+            <CounterpartVideo characterId={character?.id} state={teamLeadVideoState} name={characterName} paused={paused} onReactionComplete={() => setTeamLeadReaction(isCafeCounterpart ? "negative" : "")} />
           </>}
           <div className="camera-topline left">
             <span className="camera-live-chip"><b><i aria-hidden="true" />LIVE</b>{mirrorMain ? "내 모습 분석" : "AI 상대"}</span>
-            {mirrorMain && trackingLive && liveSignals(track).map((item) => (
-              <span key={item.key} className={`camera-signal-chip ${item.ok === null ? "pending" : item.ok ? "good" : "warn"}`}>
-                <small>{item.label}</small><b>{item.value}</b>
-              </span>
-            ))}
-            {mirrorMain && !trackingLive && hasCamera && <span className="camera-signal-chip pending"><small>MediaPipe</small><b>{track.status === "failed" ? "미가동" : "로딩 중"}</b></span>}
-            {hasCamera && !hasMicrophone && onRequestMedia && <button type="button" className="camera-signal-chip mic-retry" onClick={retryMedia} title={mediaError || "마이크가 연결되지 않았어요 — 클릭해서 다시 요청"}><small>마이크</small><b>연결하기</b></button>}
-            {hasMicrophone && micSilent && <span className="camera-signal-chip warn" title={`${micDeviceLabel} — 신호 없음. Windows 소리 설정에서 입력 장치를 확인하세요`}><small>마이크</small><b>무음</b></span>}
           </div>
           <div className="camera-topline right">
-            {hasVideo && <button type="button" className="camera-expand camera-swap" onClick={() => setStageView(mirrorMain ? "counterpart" : "mirror")}>{mirrorMain ? "상대 크게" : "내 분석 크게"}</button>}
+            {hasCounterpartVideo && <button type="button" className="camera-expand camera-swap" onClick={() => setStageView(mirrorMain ? "counterpart" : "mirror")}>{mirrorMain ? "상대 크게" : "내 분석 크게"}</button>}
             <button type="button" className="camera-expand" onClick={toggleCameraFullscreen} aria-label="카메라 전체 화면">
               <Expand size={15} />
             </button>
           </div>
           {turn && <div className="camera-dialogue">
-            <AiPromptOverlay name={characterName} speaking={aiSpeaking} text={turn.question_text} />
+            {showQuestionOverlay && <AiPromptOverlay name={characterName} speaking={aiSpeaking} text={turnSpeech} />}
             <div className="control-speak">
               <button type="button" className={`control-speak-label ${listening ? "listening" : ""}`} onClick={() => setMicEnabled((value) => !value)} disabled={sttMode === "off"} title={sttMode === "server" ? "서버 음성 인식 사용 중 — 켜기/끄기" : sttMode === "webspeech" ? "음성 입력 켜기/끄기" : "음성 인식을 사용할 수 없어 직접 입력해요"}>
                 <Mic size={18} /> {busy ? "분석 중..." : listening ? "듣는 중..." : sttMode === "off" || !micEnabled || !hasMicrophone ? "직접 입력" : "말하는 중..."}
@@ -705,155 +745,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
         </motion.div>
       </div>}
 
-      {showBriefing && <div className="practice-briefing" role="dialog" aria-label="상황 브리핑">
-        <motion.div className="practice-briefing-card" initial={{ opacity: 0, y: 18, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}>
-          <span className="briefing-kicker">상황 브리핑</span>
-          <h2>{episode?.title || scenario?.title || "연습 상황"}</h2>
-          <p className="briefing-situation">{briefingSituation}</p>
-          <div className="briefing-counterpart">
-            <span className="briefing-avatar" aria-hidden="true"><PersonaFace characterId={character?.id} name={characterName} /></span>
-            <div><strong>{characterName}</strong><small>{character?.role || "상대"}{character?.personality ? ` · ${character.personality}` : ""}</small></div>
-          </div>
-          {briefingPoints.length > 0 && <div className="briefing-points">
-            <small>답변에 담아볼 내용</small>
-            <ul>{briefingPoints.map((point) => <li key={point}>{point}</li>)}</ul>
-          </div>}
-          <div className="briefing-foot">
-            <span className="briefing-progress" aria-hidden="true"><i style={{ animationDuration: `${briefingMs}ms` }} /></span>
-            <button type="button" onClick={() => setBriefingOpen(false)}>바로 시작 <ChevronRight size={15} /></button>
-          </div>
-        </motion.div>
-      </div>}
     </motion.section>
-  );
-}
-
-// useFaceTracking 실측값 → 표시용 라이브 신호 (전부 실제 파이프라인 출력 —
-// 심사 중 "실측이냐" 질문에 그대로 방어된다. 연출용 가짜 값 없음)
-function liveSignals(track) {
-  return [
-    { key: "gaze", label: "시선", value: track.calibrating ? "기준 측정" : track.eyeFront ? "정면" : "이탈", ok: track.calibrating ? null : track.eyeFront },
-    { key: "posture", label: "자세", value: !track.poseTracked ? "인식 중" : track.postureLevel ? "안정" : "기울어짐", ok: !track.poseTracked ? null : track.postureLevel },
-    // 미소는 개인 무표정 기저 대비 AU12 판정 (blendshape 실측) — 중립도 정상 상태라 경고색을 쓰지 않는다
-    { key: "expression", label: "표정", value: track.calibrating ? "기준 측정" : track.smiling ? "미소" : "중립", ok: track.calibrating ? null : track.smiling ? true : null },
-    { key: "infer", label: "추론", value: `${track.inferMs}ms`, ok: true },
-  ];
-}
-
-// PiP 공통 껍데기 — 클릭(또는 Enter/Space)하면 큰 화면과 서로 교체된다
-function StagePip({ className = "", label, onSwap, children }) {
-  return (
-    <aside
-      className={`analysis-pip ${className}`}
-      aria-label={label}
-      role={onSwap ? "button" : undefined}
-      tabIndex={onSwap ? 0 : undefined}
-      title={onSwap ? "클릭하면 크게 보기" : undefined}
-      onClick={onSwap}
-      onKeyDown={onSwap ? (event) => { if (["Enter", " "].includes(event.key)) { event.preventDefault(); onSwap(); } } : undefined}
-    >
-      {children}
-    </aside>
-  );
-}
-
-// 상대 영상 축소 PiP — 거울(내 분석) 모드에서 AI 상대의 반응·발화 영상을 계속 보여준다
-function CounterpartPip({ characterId, name, state, paused, onReactionComplete, onSwap }) {
-  const stateLabel = { speaking: "말하는 중", positive: "끄덕이는 중", negative: "반응 중" }[state] || "듣는 중";
-  return (
-    <StagePip className="is-live counterpart-pip" label={`${name} 영상 — 클릭하면 크게 보기`} onSwap={onSwap}>
-      <div className="analysis-pip-stage">
-        <CounterpartVideo characterId={characterId} state={state} name={name} paused={paused} onReactionComplete={onReactionComplete} />
-      </div>
-      <div className="analysis-pip-meta">
-        <span className="analysis-pip-title"><i aria-hidden="true" />{name} · {stateLabel}</span>
-      </div>
-    </StagePip>
-  );
-}
-
-// 내 모습 분석 PiP — 상대 영상을 크게 볼 때도 내 카메라·랜드마크와
-// useFaceTracking 실측 신호(시선·자세·추론 시간)가 계속 보인다.
-function AnalysisPip({ videoRef, canvasRef, track, live, hasCamera, onSwap }) {
-  return (
-    <StagePip className={live ? "is-live" : ""} label="내 모습 실시간 분석 — 클릭하면 크게 보기" onSwap={onSwap}>
-      <div className="analysis-pip-stage">
-        <video ref={videoRef} autoPlay muted playsInline aria-hidden="true" />
-        <canvas ref={canvasRef} aria-hidden="true" />
-        {!hasCamera && <span className="analysis-pip-empty">카메라 대기</span>}
-      </div>
-      <div className="analysis-pip-meta">
-        <span className="analysis-pip-title"><i aria-hidden="true" />{live ? "내 모습 분석 중" : "MediaPipe 로딩"}</span>
-        {live && liveSignals(track).map((item) => (
-          <span key={item.key} className={`analysis-pip-signal ${item.ok === null ? "pending" : item.ok ? "good" : "warn"}`}>
-            <small>{item.label}</small><b>{item.value}</b>
-          </span>
-        ))}
-      </div>
-    </StagePip>
-  );
-}
-
-// 감정 온도 게이지 (S-B2B-EMOTION) — 상대의 감정 온도(0~100)를 실시간으로 보여주는 연출 핵심.
-// 좋은 응대는 온도를 내린다: 서버 감정 상태 머신(평온→불만→격앙)의 값을 그대로 시각화하고,
-// 한 턴에 온도가 크게 떨어지면(eased) "화가 풀리고 있어요" 완화 연출을 띄운다.
-function EmotionGauge({ emotion, name }) {
-  return (
-    <div
-      className={`emotion-gauge state-${emotion.state}`}
-      style={{ "--emotion-color": emotion.color, "--emotion-soft": emotion.soft }}
-      aria-label={`${name}의 감정 온도 ${Math.round(emotion.pct)}도 — ${emotion.label}`}
-    >
-      <div className="emotion-gauge-head">
-        <span className="emotion-gauge-title"><i aria-hidden="true" />감정 온도</span>
-        <b>{Math.round(emotion.pct)}°</b>
-      </div>
-      <div className="emotion-gauge-track" aria-hidden="true">
-        <motion.span
-          className="emotion-gauge-fill"
-          initial={false}
-          animate={{ width: `${emotion.pct}%` }}
-          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-        />
-        <span className="emotion-gauge-ticks"><i /><i /><i /></span>
-      </div>
-      <div className="emotion-gauge-foot">
-        <em className="emotion-gauge-state">{emotion.label}</em>
-        <AnimatePresence>
-          {emotion.eased && (
-            <motion.span
-              className="emotion-gauge-eased"
-              initial={{ opacity: 0, y: 6, scale: 0.94 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-            >
-              화가 풀리고 있어요
-            </motion.span>
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
-  );
-}
-
-// 분석 로그 피드 — 파이프라인이 실제로 낸 이벤트를 시각화한다. 헤더의 프레임 추론
-// 시간(ms)도 useFaceTracking 실측값이라, 관람객·심사위원이 "지금 재고 있는 것"을 그대로 본다.
-function AnalysisFeed({ feed, track, sttMode }) {
-  return (
-    <div className="analysis-feed" aria-label="실시간 분석 로그">
-      <div className="analysis-feed-head">
-        <span className="analysis-feed-title"><i aria-hidden="true" />ANALYSIS LOG</span>
-        <b>{track.inferMs}ms/frame</b>
-      </div>
-      <ul>
-        {feed.length === 0 && <li className="empty"><span>분석 이벤트 대기 중…</span></li>}
-        {feed.map((item) => <li key={item.id}><time>{item.time}</time><span>{item.text}</span></li>)}
-      </ul>
-      <div className="analysis-feed-foot">
-        STT {sttMode === "server" ? "서버 Whisper" : sttMode === "webspeech" ? "브라우저" : "직접 입력"} · 영상 미전송 — 브라우저 안에서만 분석
-      </div>
-    </div>
   );
 }
 

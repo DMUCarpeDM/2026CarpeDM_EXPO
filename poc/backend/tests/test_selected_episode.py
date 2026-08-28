@@ -2,31 +2,38 @@
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.api import sessions
-from app.core.config import settings
 from app.seed.run import seed
-from app.services.dialogue.ollama_provider import OllamaDialogueProvider
 
 
 client = TestClient(app)
 CONSENT = {"agreed": True, "storage_policy": "none"}
 
 
-def test_selected_episode_starts_with_that_episode(monkeypatch) -> None:
-    # Given: 활성 시나리오의 5분용 고객성공 담당자 장면
+def test_developer_track_exposes_three_active_episodes() -> None:
+    # Given: 전시용 시드를 다시 적재한 상태
     seed()
-    monkeypatch.setattr(settings, "dialogue_provider", "ollama")
-    monkeypatch.setattr(sessions, "ollama_dialogue_ready", lambda: True)
-    monkeypatch.setattr(
-        OllamaDialogueProvider,
-        "personalize_question",
-        lambda _self, spec, *_args, **_kwargs: spec.question_text,
-    )
+
+    # When: 개발자 직무 시나리오를 조회하면
+    response = client.get("/api/scenarios/release-schedule-alignment")
+
+    # Then: 선택 화면에 쓸 세 장면만 노출된다.
+    assert response.status_code == 200
+    titles = [episode["title"] for episode in response.json()["episodes"]]
+    assert titles == [
+        "프로젝트 시작 준비하기",
+        "추가 기능 우선순위 정하기",
+        "출시 범위와 일정 정하기",
+    ]
+
+
+def test_selected_episode_starts_with_that_episode() -> None:
+    # Given: 개발자 직무에서 선택한 5분용 장면
+    seed()
     scenarios = client.get("/api/scenarios").json()
-    scenario = scenarios[0]
+    scenario = next(item for item in scenarios if item["slug"] == "release-schedule-alignment")
     episode = next(
         item for item in scenario["episodes"]
-        if item["character_id"] == "han_cs" and 5 in item["modes"]
+        if item["title"] == "추가 기능 우선순위 정하기" and 5 in item["modes"]
     )
 
     # When: 해당 장면을 지정해 세션을 시작하면
@@ -46,4 +53,4 @@ def test_selected_episode_starts_with_that_episode(monkeypatch) -> None:
     body = response.json()
     assert body["selected_episode_id"] == episode["id"]
     assert body["current_turn"]["episode_id"] == episode["id"]
-    assert body["current_turn"]["character_id"] == "han_cs"
+    assert body["current_turn"]["character_id"] == "park_senior"

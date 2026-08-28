@@ -11,6 +11,7 @@ import pytest
 from app.ai import semantic_match
 from app.ai.discourse import analyze_discourse
 from app.ai.response_fit import analyze_response
+from app.core.config import settings
 
 CHECKLIST = [
     {"id": "apology", "label": "상황 인정과 공감 표현",
@@ -64,6 +65,22 @@ def test_semantic_rejects_unrelated(fake_embedder):
 def test_semantic_none_when_unavailable(monkeypatch):
     monkeypatch.setattr(semantic_match, "available", lambda: False)
     assert semantic_match.semantic_checklist_ids("아무 답", CHECKLIST) is None
+
+
+def test_local_e5_provider_uses_its_calibrated_threshold(monkeypatch):
+    monkeypatch.setattr(settings, "semantic_provider", "local_e5", raising=False)
+    monkeypatch.setattr(settings, "local_e5_threshold", 0.74, raising=False)
+    monkeypatch.setattr(semantic_match, "available", lambda: True)
+    monkeypatch.setattr(semantic_match, "_e5_embed_many", lambda texts: {
+        "상황 인정과 공감 표현 (죄송 불편)": (1.0, 0.0),
+        "고객께 사과드립니다": (0.73, 0.68),
+    })
+
+    result = semantic_match.semantic_checklist_ids(
+        "고객께 사과드립니다", CHECKLIST[:1], sentences=["고객께 사과드립니다"],
+    )
+
+    assert result == (set(), {})
 
 
 def test_analyze_response_merges_semantic(fake_embedder, monkeypatch):

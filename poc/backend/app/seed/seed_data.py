@@ -199,7 +199,8 @@ RECOMMENDED_PHRASES = [p for group in RECOMMENDED_PHRASES_BY_CONTEXT.values() fo
 EPISODES = [
     {
         "order": 1,
-        "title": "출시 준비 킥오프 — 역할과 우선순위 정리",
+        "selection_order": 1,
+        "title": "프로젝트 시작 준비하기",
         "modes": [5, 10],
         "character_id": "kim_teamlead",
         "virtual_time": "09:04",
@@ -256,7 +257,8 @@ EPISODES = [
     {
         "order": 2,
         "title": "기능 일정 지연 — 고객 안내 방향 조율",
-        "modes": [5, 10],
+        # 이전 체험 기록을 보존하기 위한 은퇴 장면. 새 선택 화면에는 노출하지 않는다.
+        "modes": [],
         "character_id": "han_cs",
         "virtual_time": "10:12",
         "intro_variants": {},
@@ -312,7 +314,8 @@ EPISODES = [
     },
     {
         "order": 3,
-        "title": "출시 범위 조정 — 팀장에게 진행 상황 보고",
+        "selection_order": 3,
+        "title": "출시 범위와 일정 정하기",
         "modes": [5, 10],
         "character_id": "kim_teamlead",
         "virtual_time": "14:30",
@@ -367,8 +370,9 @@ EPISODES = [
     },
     {
         "order": 4,
-        "title": "추가 기능 요청 — 우선순위 협의",
-        "modes": [10],
+        "selection_order": 2,
+        "title": "추가 기능 우선순위 정하기",
+        "modes": [5, 10],
         "character_id": "park_senior",
         "virtual_time": "17:10",
         "intro_variants": {},
@@ -416,7 +420,8 @@ EPISODES = [
     {
         "order": 5,
         "title": "고객사 일정 협의 — 다음 행동 합의",
-        "modes": [10],
+        # 이전 체험 기록을 보존하기 위한 은퇴 장면. 새 선택 화면에는 노출하지 않는다.
+        "modes": [],
         "character_id": "lee_peer",
         "virtual_time": "18:02",
         "intro_variants": {},
@@ -455,7 +460,8 @@ EPISODES = [
     {
         "order": 6,
         "title": "출시 범위 조정 — 임원에게 사업 영향 보고",
-        "modes": [5, 10],
+        # 이전 체험 기록을 보존하기 위한 은퇴 장면. 새 선택 화면에는 노출하지 않는다.
+        "modes": [],
         "character_id": "cho_executive",
         "virtual_time": "15:20",
         "intro_variants": {},

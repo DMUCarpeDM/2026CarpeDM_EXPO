@@ -69,7 +69,7 @@ def test_org_end_to_end():
     resolved = client.post("/api/nfc/resolve", json={"uid": uid}).json()
     assert resolved["job_role"] == "office_admin"
     assert resolved["scenario_slug"] == "release-schedule-alignment"
-    assert resolved["job_role_label"] == "사무행정 신입"
+    assert resolved["job_role_label"] == "개발자"
 
     # 수강생 로그인 상태로 세션 생성 → 기관·직무 스탬프
     resp = client.post("/api/sessions", headers=trainee, json={

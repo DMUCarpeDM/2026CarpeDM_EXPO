@@ -5,7 +5,9 @@
  */
 
 export const LOCAL_WASM = "/mediapipe-wasm";
-export const CDN_WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
+// package.json의 tasks-vision과 같은 버전을 사용한다. wasm과 JS 런타임의 버전이
+// 다르면 Face/Pose Landmarker 초기화가 실패할 수 있다.
+export const CDN_WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm";
 
 export const MODELS = {
   face: {
@@ -15,6 +17,10 @@ export const MODELS = {
   pose: {
     local: "/models/pose_landmarker_lite.task",
     cdn: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+  },
+  hand: {
+    local: "/models/hand_landmarker.task",
+    cdn: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
   },
 };
 

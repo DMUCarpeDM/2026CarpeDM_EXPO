@@ -9,27 +9,27 @@
 export const JOB_ROLES = [
   {
     id: "cafe_crew",
-    label: "카페 매장 크루",
+    label: "카페 파트너",
     scenarioSlug: "ondo-cafe-crew",
     text: "카운터 응대와 컴플레인 대응을 연습해요",
     brand: "cafe-ondo",
-    counterpartProfileId: "partner",
+    counterpartProfileId: "cafe_crew",
   },
   {
     id: "cs_agent",
-    label: "고객센터 상담",
+    label: "상담사",
     scenarioSlug: "ondo-cs-agent",
     text: "환불·배달 지연 비대면 응대를 연습해요",
     brand: "cafe-ondo",
-    counterpartProfileId: "partner",
+    counterpartProfileId: "cs_agent",
   },
   {
     id: "office_admin",
-    label: "사무행정 신입",
+    label: "개발자",
     scenarioSlug: "release-schedule-alignment",
     text: "일정 조율과 결론 우선 보고를 연습해요",
     brand: "cloudmeet",
-    counterpartProfileId: "manager",
+    counterpartProfileId: "office_admin",
   },
 ];
 

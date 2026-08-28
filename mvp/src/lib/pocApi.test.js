@@ -7,7 +7,7 @@ globalThis.localStorage = {
   getItem: (key) => storage.get(key) || null,
   setItem: (key, value) => storage.set(key, String(value)),
 };
-const { createSession, getNfcTap, issueNfcCard, resolveApiBase, resolveNfcCard, submitResponse } = await import("./pocApi.js");
+const { createSession, getNfcTap, issueNfcCard, resolveApiBase, resolveNfcCard, submitResponse, synthesizeSpeech } = await import("./pocApi.js");
 
 test("resolveApiBase keeps exhibition traffic on the local PC", () => {
   assert.equal(resolveApiBase("https://remote.example.com/api"), "/api");
@@ -15,6 +15,21 @@ test("resolveApiBase keeps exhibition traffic on the local PC", () => {
   assert.equal(resolveApiBase("http://127.0.0.1:8000/api"), "http://127.0.0.1:8000/api");
   assert.equal(resolveApiBase("http://localhost:8000/api"), "http://localhost:8000/api");
   assert.equal(resolveApiBase("/api"), "/api");
+});
+
+test("synthesizeSpeech sends only the AI line to the local speech route", async () => {
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    return new Response("mp3", { status: 200, headers: { "Content-Type": "audio/mpeg" } });
+  };
+
+  const audio = await synthesizeSpeech("안녕하세요.");
+
+  assert.equal(calls[0].url, "http://127.0.0.1:8000/api/tts");
+  assert.equal(calls[0].options.method, "POST");
+  assert.deepEqual(JSON.parse(calls[0].options.body), { text: "안녕하세요." });
+  assert.equal(audio.type, "audio/mpeg");
 });
 
 test("createSession preserves the PoC setup payload", async () => {
@@ -212,6 +227,28 @@ test("submitResponse still posts the answer when the audio upload fails", async 
   assert.equal(calls.length, 2);
   assert.ok(calls[0].url.endsWith("/response"));
   assert.ok(calls[1].url.endsWith("/audio"));
+});
+
+test("submitResponse returns the dialogue result when optional audio upload never settles", async () => {
+  globalThis.fetch = async (url) => {
+    if (url.endsWith("/audio")) return new Promise(() => {});
+    return new Response(JSON.stringify({ finished: false, next_turn: { id: "turn-2" } }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  const result = await Promise.race([
+    submitResponse(
+      { id: "session-1", access_token: "token-1" },
+      "turn-1",
+      { text: "typed answer", audio: new Blob(["x"], { type: "audio/wav" }), durationMs: 10, nonverbal: null },
+    ),
+    new Promise((_, reject) => setTimeout(() => reject(new Error("audio upload stalled the turn submission")), 30)),
+  ]);
+
+  assert.equal(result.finished, false);
+  assert.equal(result.next_turn.id, "turn-2");
 });
 
 test("submitResponse skips the audio route when there is no recording", async () => {

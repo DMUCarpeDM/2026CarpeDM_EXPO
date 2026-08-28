@@ -66,6 +66,18 @@ export function getHealth() {
   return request("/health");
 }
 
+export async function synthesizeSpeech(text) {
+  const response = await fetch(`${API_BASE}/tts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  if (!response.ok) {
+    throw new PocApiError("AI 음성을 만들 수 없어요.", response.status);
+  }
+  return response.blob();
+}
+
 export function createSession({ difficulty, mode, scenarioSlug, selectedEpisodeId, consent, jobRole, nfcUid }) {
   return request("/sessions", {
     method: "POST",
@@ -143,7 +155,8 @@ export async function submitResponse(session, turnId, input) {
   });
   if (input.text?.trim()) {
     const result = await postResponse();
-    await uploadAudio();
+    // 녹음 보관은 대화 진행의 조건이 아니다. 업로드가 지연돼도 다음 턴을 막지 않는다.
+    void uploadAudio();
     return result;
   }
   await uploadAudio();

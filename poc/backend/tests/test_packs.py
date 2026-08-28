@@ -63,8 +63,8 @@ def test_seed_packs_idempotent_and_active():
         assert scenario.brand == "cafe-ondo"
         assert scenario.emotion_profile.get("enabled") is True
         assert scenario.world_setting.get("endings"), "팩 자체 결말 분기가 있어야 한다"
-        # 각본 고정 정책 — 질문은 팩 문장 그대로, LLM은 리액션만 다듬는다
-        assert scenario.dialogue_policy.get("personalize_questions") is False
+        assert scenario.characters, "역할극에 사용할 상대 페르소나가 있어야 한다"
+        assert all(character.get("role") for character in scenario.characters)
         episodes = db.query(Episode).filter_by(scenario_id=scenario.id).order_by(Episode.order).all()
         assert len(episodes) == 3
         # 기존 전시 시나리오도 여전히 활성 + 직무 태그

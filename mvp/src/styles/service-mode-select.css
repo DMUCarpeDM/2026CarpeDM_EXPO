@@ -1,0 +1,80 @@
+.setup-flow-page:has(.service-mode-page) {
+  width: 100%;
+  min-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow-x: clip;
+  background: var(--color-snow);
+}
+
+.service-mode-page {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: clamp(var(--space-8), 8vh, var(--space-20)) clamp(var(--space-4), 6vw, var(--space-12));
+  background: var(--color-snow);
+}
+
+.service-mode-main {
+  width: min(100%, 1160px);
+}
+
+.setup-flow-main .service-mode-card {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto 1fr;
+  align-items: stretch;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  text-align: left;
+}
+
+.setup-flow-main .service-mode-card .choice-asset {
+  display: block;
+  width: 100%;
+  height: clamp(180px, 21vw, 248px);
+  object-fit: cover;
+  object-position: center;
+  background: var(--color-blue-soft);
+}
+
+.setup-flow-main .service-mode-card .choice-copy {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: var(--space-2);
+  padding: var(--space-6);
+}
+
+.setup-flow-main .service-mode-card strong {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: clamp(18px, 2vw, 22px);
+}
+
+.setup-flow-main .service-mode-card:hover {
+  border-color: var(--color-blue);
+  box-shadow: var(--shadow-light);
+}
+
+@media (max-width: 760px) {
+  .service-mode-page {
+    place-items: start center;
+    padding: var(--space-8) var(--space-4);
+  }
+
+  .service-mode-main {
+    width: 100%;
+  }
+
+  .setup-flow-main .service-mode-card {
+    min-height: 0;
+  }
+
+  .setup-flow-main .service-mode-card .choice-asset {
+    height: clamp(180px, 52vw, 224px);
+  }
+
+  .setup-flow-main .service-mode-card .choice-copy { padding: var(--space-5); }
+}

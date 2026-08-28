@@ -12,6 +12,7 @@ bcrypt
 numpy
 soundfile
 kiwipiepy
+sentence-transformers
 vosk              # 서버 STT (오프라인 폴백) — 모델은 scripts/setup_offline_stt.py로 준비
 faster-whisper; python_version < "3.13"   # 서버 STT 1순위 — 한국어 CER 4.8%(small 실측). 3.13+는 ctranslate2 휠 부재로 제외
 

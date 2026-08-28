@@ -31,17 +31,19 @@ import pytest  # noqa: E402
 
 @pytest.fixture
 def ready_ollama(monkeypatch):
-    """세션 API 테스트용 로컬 Ollama 준비 상태. 실제 네트워크 호출은 하지 않는다."""
-    from app.api import sessions
-    from app.core.config import settings
-    from app.services.dialogue.ollama_provider import OllamaDialogueProvider
+    """세션 API 테스트용 역할극 응답. 실제 GPT-4o 호출은 하지 않는다."""
+    from app.services.dialogue.base import QuestionSpec
+    from app.services.dialogue.openai_provider import OpenAIDialogueProvider
 
-    monkeypatch.setattr(settings, "dialogue_provider", "ollama")
-    monkeypatch.setattr(sessions, "ollama_dialogue_ready", lambda: True)
     monkeypatch.setattr(
-        OllamaDialogueProvider,
-        "personalize_question",
-        lambda _self, spec, *_args, **_kwargs: spec.question_text,
+        OpenAIDialogueProvider,
+        "next_question",
+        lambda _self, _session, _scenario, _episodes, turns: QuestionSpec(
+            episode_id=turns[-1].episode_id,
+            question_type="ai_roleplay",
+            question_text="말씀하신 내용을 확인했습니다. 이어서 설명해 주시겠어요?",
+            character_id=turns[-1].character_id,
+        ),
     )
 
 

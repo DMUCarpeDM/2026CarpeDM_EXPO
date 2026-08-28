@@ -3,6 +3,10 @@ import teamLeadListening from "../assets/team-lead-videos/team-lead-listening.mp
 import teamLeadNegative from "../assets/team-lead-videos/team-lead-negative.mp4";
 import teamLeadPositive from "../assets/team-lead-videos/team-lead-positive.mp4";
 import teamLeadSpeaking from "../assets/team-lead-videos/team-lead-speaking.mp4";
+import cafeComplaintListening from "../assets/team-lead-videos/team-lead-complaint-listening.mp4";
+import cafeComplaintReaction from "../assets/team-lead-videos/team-lead-complaint-reaction.mp4";
+import cafeListening from "../assets/team-lead-videos/team-lead-listening-smile.mp4";
+import cafeSpeaking from "../assets/team-lead-videos/team-lead-speaking-smile.mp4";
 
 /** 캐릭터별 실사 자산 등록부 — 촬영분이 준비되면 **이 파일 한 곳만** 고치면
  *  연습 화면 영상(CounterpartVideo)과 전 화면 초상(PersonaFace)에 동시에 반영된다.
@@ -11,8 +15,8 @@ import teamLeadSpeaking from "../assets/team-lead-videos/team-lead-speaking.mp4"
  *  하루의 결말)이 있어서 `name`도 함께 둔다 — byName이 이 값으로 찾는다.
  *
  *  등록 규칙:
- *  - `videos`는 speaking/listening/positive/negative **4종을 모두 갖췄을 때만** 넣는다.
- *    일부만 넣으면 상태 전환에서 끊긴 클립으로 되돌아가 부자연스럽다.
+ *  - `videos`는 해당 인물이 사용하는 상태별 클립을 모두 갖췄을 때만 넣는다.
+ *    상태 클립이 빠지면 listening으로 돌아가므로 전환이 부자연스러울 수 있다.
  *  - `portrait`만 있어도 된다. 그 경우 연습 화면은 이름 카드(CounterpartAvatar)를 쓰고
  *    초상이 필요한 자리에는 사진이 나간다.
  *  - 아무것도 없는 인물은 이니셜 아바타로 그린다 — 고객 대사 옆에 팀장 사진이 붙던
@@ -30,6 +34,17 @@ export const CHARACTER_MEDIA = {
       listening: teamLeadListening,
       positive: teamLeadPositive,
       negative: teamLeadNegative,
+    },
+  },
+  angry_customer: {
+    name: "강선우",
+    chromaKey: true,
+    reactionStates: ["negative_reaction"],
+    videos: {
+      speaking: cafeSpeaking,
+      listening: cafeListening,
+      negative_reaction: cafeComplaintReaction,
+      negative: cafeComplaintListening,
     },
   },
 };

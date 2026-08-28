@@ -8,9 +8,10 @@ import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { reportFits } from "../lib/reportFits";
+import { NEW_PRACTICE_TARGET } from "../components/navigation/navigationConfig";
 import { Chip, ExportCard, FitColumn, PageToolbar, Panel, PrimaryButton, ScoreRing } from "../components/report/ResultPrimitives";
 
-export function SharePage({ onHome, onPractice, report, onIssueCode }) {
+export function SharePage({ onHome, onPractice, onNavigate, report, onIssueCode }) {
   const [shareNotice, setShareNotice] = useState("체험 코드를 발급하면 다른 방문에서도 같은 익명 기록을 이어갈 수 있어요.");
   const [code, setCode] = useState("");
   const [qrDataUrl, setQrDataUrl] = useState("");
@@ -24,6 +25,7 @@ export function SharePage({ onHome, onPractice, report, onIssueCode }) {
   }, [code]);
   const updateNotice = async (message, copyText) => { try { if (copyText && navigator.clipboard?.writeText) await navigator.clipboard.writeText(copyText); } catch {} setShareNotice(message); };
   const issueCode = async () => { try { const result = await onIssueCode(); setCode(result.code); setShareNotice("체험 코드를 만들었어요."); } catch (error) { setShareNotice(error.message); } };
+  const startNewPractice = () => (onNavigate ? onNavigate(NEW_PRACTICE_TARGET) : onPractice?.());
   const fits = reportFits(report);
 
   return <motion.section className="page share-page" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
@@ -39,7 +41,7 @@ export function SharePage({ onHome, onPractice, report, onIssueCode }) {
           <ExportCard icon="share" title="체험 코드 만들기" text="체험 코드를 만들면 같은 기록을 이어볼 수 있어요." tone="blue" onClick={issueCode} />
         </div>
         <PrimaryButton icon={Home3} label="홈으로 돌아가기" onClick={onHome} wide />
-        <button className="link-button" type="button" onClick={onPractice}>다른 연습하기 <ArrowRight size={16} /></button>
+        <button className="link-button" type="button" onClick={startNewPractice}>다른 연습하기 <ArrowRight size={16} /></button>
       </div>
       <section className="share-preview card" aria-label="공유 기록 미리보기"><h2>기록 미리보기</h2><p>이번 분석 결과를 한눈에 볼 수 있어요.</p><Panel className="mini-report"><h3>연습 리포트</h3><span>방금 마친 연습</span><div className="mini-report-body"><ScoreRing value={Math.round(report?.total_score || 0)} size="xs" label="점수" /><div className="preview-fit-grid">{fits.map((fit) => <FitColumn key={fit.key} fit={fit} compact />)}</div></div></Panel><h3>체험 코드</h3><p className="share-notice">{shareNotice}</p><div className="copy-field"><span>{shareUrl}</span><button type="button" onClick={code ? () => updateNotice("체험 코드를 복사했어요.", code) : issueCode}>{code ? "복사" : "발급"}</button></div>{qrDataUrl && <figure className="share-qr"><img src={qrDataUrl} alt={`체험 코드 ${code} QR`} /><figcaption>휴대폰 카메라로 찍어<br />코드를 가져가세요</figcaption></figure>}</section>
     </div>

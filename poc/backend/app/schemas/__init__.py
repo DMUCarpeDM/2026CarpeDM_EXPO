@@ -32,6 +32,7 @@ from app.schemas.schemas import (
     SignupIn,
     SurveyIn,
     TokenOut,
+    TtsIn,
     TurnOut,
     TurnSignalsOut,
     UserOut,
@@ -43,6 +44,6 @@ __all__ = [
     "NfcTapOut", "NonverbalIn", "OrgCreateIn", "OrgDetailOut", "OrgJoinIn", "OrgMemberOut",
     "OrgOut", "OrgSessionListOut", "OrgSessionOut", "ProgressOut", "ReportOut", "ResponseIn",
     "ScenarioOut", "SessionClaimIn", "SessionClaimOut", "SessionCreateIn", "SessionOut",
-    "SessionResumeOut", "SignupIn", "SurveyIn", "TokenOut", "TurnOut", "TurnSignalsOut",
+    "SessionResumeOut", "SignupIn", "SurveyIn", "TokenOut", "TtsIn", "TurnOut", "TurnSignalsOut",
     "UserOut",
 ]

@@ -98,7 +98,7 @@ export function KioskIssuePage() {
   return (
     <main className="kiosk-issue-screen" data-stage={stage}>
       <header className="kiosk-issue-brand">
-        <img src={cafeOndoLogo} alt="카페 온도 (CAFE ONDO) — 가상 프랜차이즈" />
+        <img src={cafeOndoLogo} alt="카페 온도 (CAFE ONDO)" />
         <span className="kiosk-issue-badge">직무 카드 발급</span>
       </header>
 
@@ -208,7 +208,7 @@ export function KioskIssuePage() {
       </AnimatePresence>
 
       <footer className="kiosk-issue-foot">
-        <span>한 잔의 온도를 지키는 사람들 — 카페 온도는 훈련용 가상 프랜차이즈예요.</span>
+        <span>카페 온도에서 손님 응대 대화를 연습해요.</span>
       </footer>
     </main>
   );

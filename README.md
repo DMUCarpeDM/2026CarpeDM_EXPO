@@ -32,34 +32,28 @@ Mirror-Ting은 업무 대화를 역할극으로 연습하고, 응답·목소리�
 
 ### 1. 필요한 환경
 
-- macOS 기준: Python 3.12, Node.js 20 이상, Ollama
+- macOS 기준: Python 3.12, Node.js 20 이상, 인터넷 연결
 - 전시 PC의 카메라와 마이크
-- 인터넷이 없는 환경까지 대비하려면 처음 한 번 모델을 내려받은 뒤 동일한 PC에서 실행합니다.
+- 대화용 OpenAI API 키와 상대 음성용 ElevenLabs API 키
 
-### 2. 로컬 AI 모델 준비 (최초 1회)
+### 2. 서버 환경 변수 준비 (최초 1회)
 
 ```bash
 cd poc/backend
-bash scripts/setup_ai.sh
+cp .env.example .env
 ```
 
-스크립트가 준비하는 모델은 아래와 같습니다.
+`.env`에 아래 값을 채웁니다. 이 파일은 Git에 올리지 않습니다.
 
-| 구성 | 모델/도구 | 용도 | 필수 여부 |
+| 구성 | 환경 변수 | 용도 | 필수 여부 |
 | --- | --- | --- | --- |
-| 대화 AI | `exaone3.5:2.4b` (Ollama) | 상대 역할의 질문 생성 | **필수** |
-| 의미 매칭 | `bge-m3` (Ollama) | 답변이 체크 항목을 얼마나 담았는지 보조 판단 | 권장 |
+| 대화 AI | `MIRROR_TING_OPENAI_API_KEY` | GPT-4o로 상대 역할 대화 생성 | **필수** |
+| 상대 음성 | `MIRROR_TING_ELEVENLABS_API_KEY`, `MIRROR_TING_ELEVENLABS_VOICE_ID` | AI 상대 발화를 자연스러운 음성으로 재생 | 권장 |
 | 서버 STT | faster-whisper `small` | 업로드 음성을 한국어 텍스트로 변환 | 권장 |
 | 오프라인 STT 폴백 | Vosk 한국어 모델 | Whisper를 쓸 수 없을 때의 보조 경로 | 권장 |
 | 자세·얼굴 분석 | MediaPipe Face/Pose 모델 | 브라우저 안에서 표정·시선·자세 지표 계산 | 권장 |
 
-실제 시뮬레이션은 Ollama 연결이 확인돼야 시작됩니다. API 키는 필요하지 않습니다. Ollama를 직접 준비했다면 아래 명령도 사용할 수 있습니다.
-
-```bash
-ollama serve
-ollama pull exaone3.5:2.4b
-ollama pull bge-m3
-```
+ElevenLabs 설정이 없거나 재생에 실패하면 화면은 브라우저 기본 음성으로 자동 전환합니다.
 
 ### 3. 분석 서버 실행
 
@@ -70,7 +64,7 @@ cd poc/backend
 .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8001
 ```
 
-정상 여부는 `http://127.0.0.1:8001/api/health`에서 확인합니다. `ollama.dialogue`가 `true`여야 실제 연습을 시작할 수 있습니다.
+정상 여부는 `http://127.0.0.1:8001/api/health`에서 확인합니다. `dialogue_ready`가 `true`면 실제 연습을 시작할 수 있고, `tts_ready`가 `true`면 ElevenLabs 음성을 사용합니다.
 
 ### 4. MVP 프론트엔드 실행
 
@@ -90,9 +84,10 @@ npm run dev
 1. 브라우저의 `localhost:5173` 카메라·마이크 권한을 **허용**합니다.
 2. macOS에서는 **시스템 설정 → 개인정보 보호 및 보안 → 카메라 / 마이크**에서 사용하는 브라우저를 허용합니다.
 3. 브라우저 음성 인식(Web Speech API)은 브라우저별 지원 범위가 다릅니다. 사용할 수 없으면 입력창에 직접 작성하고 **전송**을 누르면 됩니다.
-4. Ollama는 `http://localhost:11434`에서 실행되어야 합니다. 다른 PC나 외부 네트워크에 서버를 열 경우 `.env`의 `MIRROR_TING_JWT_SECRET`, `MIRROR_TING_ADMIN_TOKEN`, `MIRROR_TING_REQUIRE_SECURE=true`를 반드시 설정합니다.
+4. ElevenLabs 키·Voice ID와 OpenAI 키는 `poc/backend/.env`에만 저장합니다. 프론트 코드·브라우저 환경 변수·Git에는 넣지 않습니다.
+5. 다른 PC나 외부 네트워크에 서버를 열 경우 `.env`의 `MIRROR_TING_JWT_SECRET`, `MIRROR_TING_ADMIN_TOKEN`, `MIRROR_TING_REQUIRE_SECURE=true`를 반드시 설정합니다.
 
-기본 전시는 로컬 PC에서 실행하므로 별도 외부 API 권한이나 API 키를 요구하지 않습니다.
+AI 상대 음성과 대화에는 외부 API가 사용됩니다. 카메라 영상과 MediaPipe 관절·얼굴 분석은 계속 브라우저 안에서 처리됩니다.
 
 ## 점검 명령
 

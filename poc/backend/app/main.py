@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import admin, auth, codes, nfc, orgs, reports, scenarios, sessions
+from app.api import admin, auth, codes, nfc, orgs, reports, scenarios, sessions, tts
 from app.core.config import settings
 from app.seed.run import seed
 
@@ -62,8 +62,8 @@ def _purge_expired_quotes() -> None:
 def _prewarm_models() -> None:
     """모델 예열 — 첫 체험자가 로드 비용(수십 초)을 내지 않게 한다 (전시 운영).
 
-    백그라운드 스레드에서 실행: STT(whisper/vosk) 로드 + Ollama 대화/임베딩
-    모델을 RAM에 올린다(keep_alive 적용). 없는 구성 요소는 조용히 건너뛴다.
+    백그라운드 스레드에서 실행: STT(whisper/vosk)와 Response-Fit 임베딩 모델을
+    준비한다. GPT-4o 역할극 대사는 요청 시에만 호출한다.
     """
     import httpx
 
@@ -72,38 +72,9 @@ def _prewarm_models() -> None:
     provider = get_stt_provider()
     print(f"[prewarm] 서버 STT: {provider.name if provider else '없음 (Web Speech 전용)'}")
 
-    if settings.dialogue_provider == "ollama":
-        try:
-            httpx.post(
-                f"{settings.ollama_base_url}/api/chat",
-                json={
-                    "model": settings.ollama_model,
-                    "messages": [{"role": "user", "content": "준비"}],
-                    "stream": False,
-                    "keep_alive": settings.ollama_keep_alive,
-                    "options": {"num_predict": 1},
-                },
-                timeout=120,  # 콜드 로드 허용 — 예열이므로 요청 경로와 무관
-            )
-            print(f"[prewarm] 대화 모델 상주: {settings.ollama_model}")
-        except Exception:
-            print("[prewarm] Ollama 대화 모델 없음 → 템플릿 엔진으로 동작")
     if settings.semantic_match_enabled:
-        try:
-            httpx.post(
-                f"{settings.ollama_base_url}/api/embeddings",
-                json={
-                    "model": settings.ollama_embed_model, "prompt": "준비",
-                    "keep_alive": settings.ollama_keep_alive,
-                },
-                timeout=120,
-            )
-            print(f"[prewarm] 임베딩 모델 상주: {settings.ollama_embed_model}")
-        except Exception:
-            print("[prewarm] Ollama 임베딩 없음 → 키워드 매칭만 사용")
-            return
         # 시나리오 체크리스트 앵커를 미리 배치 임베딩 — 첫 체험자의 첫 턴이
-        # 앵커 전체의 콜드 임베딩 비용(요청당 고정 ~3s)을 내지 않게 한다.
+        # 로컬 E5 로드·앵커 임베딩 비용을 내지 않게 한다.
         try:
             from app.ai import semantic_match
             from app.core.database import SessionLocal
@@ -119,7 +90,7 @@ def _prewarm_models() -> None:
                 db.close()
             if anchor_texts:
                 got = semantic_match._embed_many(anchor_texts, budget_sec=60.0)
-                print(f"[prewarm] 의미 앵커 캐시: {len(got)}/{len(dict.fromkeys(anchor_texts))}건")
+                print(f"[prewarm] Response-Fit E5 앵커 캐시: {len(got)}/{len(dict.fromkeys(anchor_texts))}건")
         except Exception as exc:
             print(f"[prewarm] 앵커 임베딩 프리웜 실패(첫 턴에서 지연 가능): {exc}")
 
@@ -202,7 +173,7 @@ app.add_middleware(
 
 for router in (
     auth.router, scenarios.router, sessions.router, reports.router,
-    admin.router, codes.router, orgs.router, nfc.router,
+    admin.router, codes.router, orgs.router, nfc.router, tts.router,
 ):
     app.include_router(router, prefix="/api")
 
@@ -243,9 +214,12 @@ def health():
     from app.ai.stt import get_stt_provider
     from app.ai.text_match import kiwi_available
     from app.core.database import engine
+    from app.services.dialogue.availability import dialogue_ready
+    from app.services.tts import elevenlabs_ready
 
     provider = get_stt_provider()
     ollama = _ollama_status()
+    dialogue = dialogue_ready()
     # 실제 판정 경로의 상태 — ollama.embedding(모델 존재)과 달리 브레이커
     # 개방·TTL 캐시까지 반영된, "지금 이 순간 의미 매칭이 도는가"
     semantic = semantic_match.available()
@@ -261,8 +235,8 @@ def health():
     degraded_reasons = []
     if provider is None:
         degraded_reasons.append("서버 STT 없음 — 오프라인 음성 인식 폴백 불가")
-    if settings.dialogue_provider == "ollama" and not ollama["dialogue"]:
-        degraded_reasons.append("Ollama 대화 모델 미가동 — 시뮬레이션을 시작할 수 없음")
+    if not dialogue:
+        degraded_reasons.append("대화 AI 미가동 — 시뮬레이션을 시작할 수 없음")
     if settings.semantic_match_enabled and not semantic:
         degraded_reasons.append("의미 매칭 미가동 — 키워드 판정만 사용 (패러프레이즈 누락 오판 주의)")
     if not kiwi:
@@ -275,6 +249,9 @@ def health():
         "app": settings.app_name,
         "server_stt": provider.name if provider else None,
         "dialogue_provider": settings.dialogue_provider,
+        "dialogue_ready": dialogue,
+        "tts_provider": "elevenlabs" if elevenlabs_ready() else "browser",
+        "tts_ready": elevenlabs_ready(),
         # 관측성: 지금 이 부스가 폴백으로 강등된 상태인지 즉시 확인 (60초 캐시)
         "ollama": ollama,
         "semantic_match": semantic,

@@ -189,6 +189,8 @@ describe('finalizeTurnMetrics — 턴 직렬화', () => {
     acc.listenFrames = 9; // 표본 2초 미만 → 보류
     acc.answerFrames = 10;
     acc.answerFront = 5;
+    acc.hunchedFrames = 8;
+    acc.leanBackFrames = 4;
     const m = finalizeTurnMetrics(acc, emptyBaseline());
     assert.ok(m);
     assert.equal(m.front_gaze_ratio, 0.8);
@@ -196,6 +198,8 @@ describe('finalizeTurnMetrics — 턴 직렬화', () => {
     assert.equal(m.gaze_off_dir, 'down');
     assert.equal(m.listening_front_ratio, null);
     assert.equal(m.answering_front_ratio, 0.5);
+    assert.equal(m.hunched_ratio, 0.4);
+    assert.equal(m.lean_back_ratio, 0.2);
     assert.equal(m.calibrated, false);
   });
 

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { test } from "node:test";
+import { CHROMELESS_VIEWS } from "./serviceEntryRoute.js";
 
 const stylesheetFiles = [
   "../styles.css",
@@ -28,13 +29,15 @@ const styles = stylesheetFiles.map((file) => readFileSync(new URL(file, import.m
 const appSource = readFileSync(new URL("../App.jsx", import.meta.url), "utf8");
 const setupCatalogSource = readFileSync(new URL("../data/setupCatalog.js", import.meta.url), "utf8");
 const setupAssetFiles = [
-  "setup-role-colleague-realistic.png",
-  "setup-role-manager-realistic.png",
-  "setup-role-executive-realistic.png",
-  "setup-role-partner-realistic.png",
-  "setup-difficulty-basic.webp",
-  "setup-difficulty-pressure.webp",
-  "setup-difficulty-ultra-pressure.png",
+  "setup-icons/job-developer.webp",
+  "setup-icons/job-cafe-partner.webp",
+  "setup-icons/job-counselor.webp",
+  "setup-icons/difficulty-basic.webp",
+  "setup-icons/difficulty-rude-customer.webp",
+  "setup-icons/difficulty-extreme-rude-customer.webp",
+  "setup-icons/scenario-kickoff.webp",
+  "setup-icons/scenario-feature-priority.webp",
+  "setup-icons/scenario-scope-schedule.webp",
 ];
 const componentSources = [
   appSource,
@@ -107,8 +110,9 @@ test("Analysis views reuse the app navigation and shared component system", () =
     assert.doesNotMatch(functionBody(routeName), /<ReportShell\b/, `${routeName} avoids the dashboard shell`);
     assert.match(functionBody(routeName), /<PageToolbar\b/, `${routeName} uses the shared page toolbar`);
   }
-  assert.match(sourceBundle, /const CHROMELESS_VIEWS = new Set\(\);/, "all pages keep the shared TopNav");
+  assert.deepEqual([...CHROMELESS_VIEWS], ["service"], "only the service selector omits shared navigation chrome");
   assert.match(functionBody("PracticePage"), /practice-contextbar/, "PracticePage keeps only its live context controls");
+  assert.match(functionBody("PracticePage"), /finishSpeaking[\s\S]*setShowQuestionOverlay\(false\)/, "PracticePage closes the AI question overlay when TTS finishes");
   // 저장·공유 화면은 기존 공용 툴바를 유지해요.
   assert.match(functionBody("SharePage"), /<PageToolbar\b/, "SharePage keeps the shared toolbar");
 

@@ -28,6 +28,7 @@ import {
   framesFor,
   gazeZoneIndex,
   HAND_ACTIVE_MIN,
+  POSTURE_LEAN_DELTA,
   resolveGaze,
   resolveHeadDown,
   SAMPLE_MS,
@@ -459,6 +460,11 @@ export function useNonverbal(
               : null;
             const rollAdj = rollDeg !== null && base.set ? rollDeg - base.roll : rollDeg;
             const headDown = resolveHeadDown(headGap, base);
+            const shoulderScaleDelta = shoulderWidth !== null && base.width
+              ? shoulderWidth / base.width - 1
+              : 0;
+            const hunched = headDown || shoulderScaleDelta > POSTURE_LEAN_DELTA;
+            const leanBack = base.width !== null && shoulderScaleDelta < -POSTURE_LEAN_DELTA;
 
             drawOverlay(overlayRef?.current, lm, plm);
             setLive({
@@ -569,6 +575,8 @@ export function useNonverbal(
                 acc.tiltSamples.push(tiltAdj);
                 acc.shoulderXs.push(shoulderX);
                 if (headDown) acc.headDownFrames += 1;
+                if (hunched) acc.hunchedFrames += 1;
+                if (leanBack) acc.leanBackFrames += 1;
                 if (tiltAdj > 8) maybeCoach('어깨를 수평으로 펴보세요');
               }
               // 실시간 코칭: 최근 3초 창에서 이탈이 70% 이상이면 안내 (시간 기준)

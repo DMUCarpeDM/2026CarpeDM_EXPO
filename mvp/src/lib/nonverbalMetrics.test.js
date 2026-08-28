@@ -65,6 +65,27 @@ test("posture_sway는 표본 2개 이하에서 표준편차를 만들어내지 �
   assert.equal(m.avg_shoulder_tilt_deg, 0);
 });
 
+test("손·상체 관절 지표는 자세 코칭에 쓸 수 있는 비율과 시간으로 직렬화한다", () => {
+  const acc = makeTurnAcc();
+  feed(acc, framesFor(2000), {
+    ...FRONT,
+    hunched: true,
+    handTracked: true,
+    handNearFace: true,
+  });
+  feed(acc, framesFor(2000), {
+    ...FRONT,
+    leanBack: true,
+    handTracked: true,
+  });
+  const metrics = finalizeTurnMetrics(acc);
+
+  assert.equal(metrics.hunched_ratio, 0.5);
+  assert.equal(metrics.lean_back_ratio, 0.5);
+  assert.equal(metrics.hands_visible_ratio, 1);
+  assert.equal(metrics.hand_face_sec, 2);
+});
+
 test("tilt_drift_deg는 후반부 자세 붕괴를 양수로, 개선을 음수로 낸다", () => {
   const half = framesFor(3000);
 

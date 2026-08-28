@@ -38,8 +38,8 @@
     "posture": 0.15
   },
   "dialogue_policy": {
-    "personalize_questions": false,
-    "personalize_reactions": false
+    "personalize_questions": true,
+    "personalize_reactions": true
   },
   "emotion_profile": {
     "enabled": true,

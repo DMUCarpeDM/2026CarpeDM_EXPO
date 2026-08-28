@@ -1,7 +1,6 @@
 import secrets
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
@@ -39,9 +38,9 @@ from app.schemas import (
     TurnSignalsOut,
 )
 from app.services.analysis import run_analysis
-from app.services.dialogue import QuestionSpec, get_dialogue_provider
-from app.services.dialogue.availability import ollama_dialogue_ready
-from app.services.dialogue import emotion, expression, reactions
+from app.ai.live_coaching import analyze_live_coaching
+from app.services.dialogue import DialogueGenerationError, QuestionSpec, get_dialogue_provider
+from app.services.dialogue import emotion, reactions
 from app.services.session_fsm import InvalidTransition, transition
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -71,37 +70,6 @@ def _selected_episodes(session: RoleplaySession, scenario: Scenario) -> list[Epi
     if not session.selected_episode_id:
         return list(scenario.episodes)
     return [episode for episode in scenario.episodes if episode.id == session.selected_episode_id]
-
-
-def _character_for(scenario: Scenario, character_id: str) -> dict:
-    """시나리오에 저장된 캐릭터 페르소나를 찾는다."""
-    return next((character for character in scenario.characters if character["id"] == character_id), {})
-
-
-def _scripted_questions(scenario: Scenario | None) -> bool:
-    """질문을 각본 그대로 쓰는 시나리오인가 — 팩 정책 또는 감정 프로파일 활성.
-
-    소형 LLM의 재작성은 캐릭터 말맛(진상 고객의 다급함 등)을 안내문 격식체로
-    뭉개는 경향이 있다(리허설·플레이 실측). 각본이 가장 자연스러운 자산이므로
-    팩은 질문을 각본으로 고정하고, LLM은 직전 답변을 언급하는 짧은 리액션만
-    다듬는다 — '개인화 체감'은 리액션과 감정 게이지가 담당한다.
-    """
-    if scenario is None:
-        return False
-    policy = (getattr(scenario, "dialogue_policy", None) or {})
-    if policy.get("personalize_questions") is False:
-        return True
-    return bool((getattr(scenario, "emotion_profile", None) or {}).get("enabled"))
-
-
-def _scripted_reactions(scenario: Scenario | None) -> bool:
-    """리액션도 각본 풀 그대로 쓰는 시나리오 — 팩의 케이스별 리액션은 캐릭터
-    말맛이 완성된 문장이라, 소형 LLM 재작성이 역할을 흐리는(고객이 직원 말투로
-    "신경 써 볼게요" — 실측) 것보다 원문이 낫다."""
-    if scenario is None:
-        return False
-    policy = (getattr(scenario, "dialogue_policy", None) or {})
-    return policy.get("personalize_reactions") is False
 
 
 def _create_turn(
@@ -144,11 +112,8 @@ def create_session(
     # 개인정보 처리 동의 게이트 (PIPA — 수집 전 동의). 정상 흐름은 항상 동의 후 호출된다.
     if not body.consent.agreed:
         raise HTTPException(status_code=400, detail="개인정보 처리에 대한 동의가 필요합니다")
-    # 시작 게이트(설정 가능): 개인화 없는 시작을 막을지는 운영 정책이다. 단 이 게이트를
-    # 통과한 뒤에는 Ollama가 죽어도 세션이 끊기지 않는다 — 아래 개인화 실패는 전부
-    # 템플릿 폴백으로 계속 진행한다 (부스에서 진행 중 체험이 벽돌이 되는 것이 최악).
-    if settings.dialogue_require_ollama and not ollama_dialogue_ready():
-        raise HTTPException(status_code=503, detail="Ollama 대화 모델을 준비한 뒤 연습을 시작해 주세요")
+    # Ollama·GPT-4o가 준비되지 않아도 체험은 시작한다. 개인화 요청이 실패하면
+    # DialogueProvider가 준비된 시나리오 질문으로 폴백하므로 전시 흐름이 멈추지 않는다.
 
     # NFC 시작 (S-B2B-NFC): 태그된 카드가 직무·시나리오를 결정한다.
     # 등록되지 않은 카드는 404 — 프론트가 수동 카드 선택 폴백을 띄운다.
@@ -246,19 +211,8 @@ def create_session(
 
     provider = get_dialogue_provider()
     spec = provider.first_question(session, _selected_episodes(session, scenario))
-    first_episode = db.get(Episode, spec.episode_id)
-    # 각본 고정 시나리오(팩·감정 프로파일)는 도입부터 개인화하지 않는다 —
-    # 역할 반전 사고(격앙한 고객이 직원처럼 사과 — 리허설 실측)와 격식체
-    # 재작성으로 말맛이 죽는 문제의 구조적 차단 (_scripted_questions 참조).
-    personalized = None
-    if not _scripted_questions(scenario):
-        personalized = provider.personalize_question(
-            spec, first_episode.situation if first_episode else "", "", _character_for(scenario, spec.character_id), session.difficulty,
-        )
-    # 개인화 실패(Ollama 다운·타임아웃·형식 불량)는 오류가 아니다 — 전문가가 쓴
-    # 템플릿 문장을 그대로 쓴다. 체험 시작을 LLM에 인질로 잡히게 하지 않는다.
-    if personalized:
-        spec.question_text = personalized
+    # 첫 대사는 시나리오가 정한 역할·상황을 방문객에게 정확히 전달해야 한다.
+    # 따라서 LLM은 첫 응답을 받은 다음 질문부터만 문장을 개인화한다.
     turn = _create_turn(db, session, spec, order=1)
 
     return SessionOut(
@@ -445,69 +399,36 @@ def submit_response(
     # 리액션 비트 + 수행도 갱신 — 이 답변이 상대의 반응과 하루의 전개를 결정한다
     episode = db.get(Episode, turn.episode_id)
     signals = reactions.classify(turn.response_text, episode.checklist if episode else [])
+    observation = analyze_live_coaching(
+        turn.nonverbal_metrics, turn.response_text, turn.response_duration_ms,
+    )
     reactions.update_rapport(session, signals["case"])
     # 감정 상태 전이 (S-B2B-EMOTION) — 대응 품질이 상대의 감정 온도를 실제로 움직인다
     emotion.update(session, signals["case"], turn.order)
     db.flush()
 
     provider = get_dialogue_provider()
-    spec = provider.plan_next(session, _selected_episodes(session, session.scenario), list(session.turns))
+    turns = list(session.turns)
     signals_out = TurnSignalsOut(
         case=signals["case"], coverage=signals["coverage"], risk_hits=signals["risk_hits"],
-        emotion=emotion.signals_payload(session),
+        emotion=emotion.signals_payload(session), observation=observation,
     )
+    try:
+        spec = provider.next_question(
+            session,
+            session.scenario,
+            _selected_episodes(session, session.scenario),
+            turns,
+        )
+    except DialogueGenerationError as error:
+        db.rollback()
+        raise HTTPException(status_code=503, detail=str(error)) from error
     if spec is None:
         db.commit()
         return NextTurnOut(finished=True, turn_signals=signals_out)
 
-    next_episode = db.get(Episode, spec.episode_id)
-    personalized = None
-    if not _scripted_questions(session.scenario):
-        personalized = provider.personalize_question(
-            spec,
-            next_episode.situation if next_episode else "",
-            turn.response_text,
-            _character_for(session.scenario, spec.character_id),
-            session.difficulty,
-            emotion_directive=emotion.directive_for(session, spec.character_id),
-        )
-    # 진행 중 개인화 실패 → 템플릿 대본으로 계속. 예전처럼 rollback+503으로 끊으면
-    # 방금 말한 답변이 통째로 버려지고, Ollama가 죽어 있는 동안 체험이 벽돌이 된다.
-    if personalized:
-        spec.question_text = personalized
-
-    # 반응하는 인물 = 방금 답변을 들은 사람 (에피소드가 넘어가도 반응은 직전 화자의 몫)
-    reaction = reactions.pick_reaction(session, turn.character_id, signals["case"])
-    character = _character_for(session.scenario, turn.character_id) if reaction else {}
-    # 표정 인지 (S-EXPR-ACK): 이번 턴 표정 집계를 판정 — Ollama 다듬기 뒤 apply로 합성한다
-    expr_state = expression.classify(turn.nonverbal_metrics)
-    db.commit()  # pick_reaction이 갱신한 used_reactions 저장
-
-    # 질문은 위에서 Ollama로 생성했다. 짧은 반응 문장만 병렬로 다듬는다.
-    # ORM 객체는 스레드에 넘기지 않고 평문 데이터만 사용한다.
-    response_text = turn.response_text
-    reaction_directive = emotion.directive_for(session, turn.character_id)
-    # 무례한 답변에는 준비된 단호한 문장을 그대로 사용한다. Ollama가 말투를
-    # 완화해 버리면 사용자가 받아야 할 경계 신호가 사라질 수 있다.
-    # 각본 리액션 정책(팩)이면 풀 문장을 그대로 쓴다 (_scripted_reactions 참조).
-    if (settings.dialogue_provider == "ollama" and reaction and signals["case"] != "risky"
-            and not _scripted_reactions(session.scenario)):
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            reaction_future = pool.submit(
-                reactions.personalize_reaction, reaction, character, response_text,
-                reaction_directive,
-            )
-            reaction = reaction_future.result()
-
-    # 표정 인지 한마디 합성 — 리액션 확정 뒤(Ollama 다듬기 포함) 결정적으로 얹는다.
-    # 케이스 게이트·세션 상한·같은 상태 연속 금지는 apply가 처리한다. rapport 변경은
-    # 바로 아래 _create_turn의 commit으로 저장된다.
-    reaction, acked = expression.apply(session, character, reaction, expr_state, signals["case"])
-    signals_out.expression = expression.signals_payload(acked)
-
     next_turn = _create_turn(
         db, session, spec, order=turn.order + 1,
-        reaction_text=reaction, reaction_character_id=turn.character_id if reaction else "",
     )
     return NextTurnOut(finished=False, next_turn=_turn_out(db, next_turn), turn_signals=signals_out)
 

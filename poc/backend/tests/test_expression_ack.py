@@ -7,7 +7,6 @@ turn_signals 노출의 전 구간을 고정한다.
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.core.config import settings
 from app.models import RoleplaySession
 from app.seed.run import seed
 from app.seed.seed_data import CHARACTERS
@@ -129,12 +128,22 @@ def test_signals_payload_shape():
 
 # ---- API 통합: 턴 제출 → 리액션 합성 → turn_signals ----
 
-def test_submit_response_carries_expression_ack(monkeypatch):
-    # Given: 팀장 장면으로 시작한 세션 (템플릿 제공자 — 외부 의존 없이 결정적).
-    # 전시 PC .env가 시작 게이트를 켜 두었어도 이 테스트는 영향받지 않게 명시로 끈다.
+def test_submit_response_ignores_expression_payload_when_expression_analysis_is_disabled(monkeypatch):
+    # Given: 팀장 장면으로 시작한 세션 (역할극 대사는 테스트 더블로 고정).
+    from app.services.dialogue.base import QuestionSpec
+    from app.services.dialogue.openai_provider import OpenAIDialogueProvider
+
     seed()
-    monkeypatch.setattr(settings, "dialogue_provider", "template")
-    monkeypatch.setattr(settings, "dialogue_require_ollama", False)
+    monkeypatch.setattr(
+        OpenAIDialogueProvider,
+        "next_question",
+        lambda _self, _session, _scenario, _episodes, turns: QuestionSpec(
+            episode_id=turns[-1].episode_id,
+            question_type="ai_roleplay",
+            question_text="말씀하신 내용을 확인하겠습니다.",
+            character_id=turns[-1].character_id,
+        ),
+    )
     scenario = client.get("/api/scenarios").json()[0]
     episode = next(
         item for item in scenario["episodes"]
@@ -148,7 +157,7 @@ def test_submit_response_carries_expression_ack(monkeypatch):
     body = started.json()
     turn = body["current_turn"]
 
-    # When: 긴장 표정 집계와 함께 정중한 답변을 제출하면
+    # When: 예전 클라이언트가 표정 값을 보내도
     submitted = client.post(
         f"/api/sessions/{body['id']}/turns/{turn['id']}/response",
         headers={"X-Session-Token": body["access_token"]},
@@ -159,10 +168,9 @@ def test_submit_response_carries_expression_ack(monkeypatch):
         },
     )
 
-    # Then: 팀장 리액션 앞에 긴장 인지 한마디가 붙고, turn_signals에도 노출된다.
+    # Then: 표정 분류·리액션 합성은 하지 않는다.
     assert submitted.status_code == 200
     result = submitted.json()
-    assert result["turn_signals"]["expression"] == {"state": "tense", "label": "긴장한 표정"}
-    reaction = result["next_turn"]["reaction_text"]
-    assert any(reaction.startswith(line) for line in TENSE_POOL)
-    assert result["next_turn"]["reaction_character_id"] == "kim_teamlead"
+    assert result["turn_signals"]["expression"] == {}
+    assert result["next_turn"]["reaction_text"] == ""
+    assert result["next_turn"]["reaction_character_id"] == ""

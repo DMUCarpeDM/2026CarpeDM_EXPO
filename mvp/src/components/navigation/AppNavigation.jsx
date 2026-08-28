@@ -7,7 +7,7 @@ import { Menu4 } from "reicon-react/icons/Menu4";
 import { X } from "reicon-react/icons/X";
 import { motion } from "framer-motion";
 import { IconGlyph } from "../ui/IconGlyph";
-import { navMap } from "./navigationConfig";
+import { navMap, NEW_PRACTICE_TARGET } from "./navigationConfig";
 
 export function TopNav({ active, scenarioTitle, sessionMode, menuOpen, onMenuOpen, onNavigate, scenarios = [], onScenarioSelect }) {
   const [bellOpen, setBellOpen] = useState(false);
@@ -68,7 +68,7 @@ export function TopNav({ active, scenarioTitle, sessionMode, menuOpen, onMenuOpe
         </div>
         <div className="nav-dropdown-wrapper">
           <button className={`profile-button ${profileOpen ? "active" : ""}`} type="button" onClick={toggleProfile}><Avatar size="sm" /><strong>체험자</strong><ChevronDown size={16} /></button>
-          {profileOpen && <div className="nav-dropdown profile-dropdown glass-panel" onClick={(event) => event.stopPropagation()}><div className="user-info"><strong>체험자님</strong><span>mirror-ting-user@kiosk</span></div><hr /><ul><li onClick={() => { onNavigate("compare"); setProfileOpen(false); }}>나의 기록 비교</li><li onClick={() => { onNavigate("setup"); setProfileOpen(false); }}>새 연습 시작</li><li onClick={() => { window.location.href = "/admin"; setProfileOpen(false); }}>운영 대시보드</li></ul></div>}
+          {profileOpen && <div className="nav-dropdown profile-dropdown glass-panel" onClick={(event) => event.stopPropagation()}><div className="user-info"><strong>체험자님</strong><span>mirror-ting-user@kiosk</span></div><hr /><ul><li onClick={() => { onNavigate("compare"); setProfileOpen(false); }}>나의 기록 비교</li><li onClick={() => { onNavigate(NEW_PRACTICE_TARGET); setProfileOpen(false); }}>새 연습 시작</li><li onClick={() => { window.location.href = "/admin"; setProfileOpen(false); }}>운영 대시보드</li></ul></div>}
         </div>
         <button className="mobile-menu-button" type="button" aria-label="메뉴 열기" aria-expanded={menuOpen} onClick={() => onMenuOpen(true)}><Menu4 size={22} /></button>
       </div>
@@ -83,7 +83,7 @@ export function MobileMenuSheet({ open, active, onClose, onNavigate }) {
       <motion.section className="mobile-menu-sheet" role="dialog" aria-modal="true" aria-label="모바일 메뉴" variants={{ open: { y: 0 }, closed: { y: 28 } }} transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}>
         <div className="sheet-handle" />
         <div className="sheet-head"><strong>Mirror-Ting</strong><button type="button" aria-label="메뉴 닫기" onClick={onClose}><X size={20} /></button></div>
-        <nav aria-label="모바일 주요 화면">{Object.entries(navMap).map(([label, target]) => <button key={label} className={active === target ? "active" : ""} type="button" onClick={() => onNavigate(target)}><IconGlyph icon={target === "role" ? "roleplay" : target === "result" ? "report" : target === "compare" ? "retry" : "coach"} size={23} /><span>{label}</span><ArrowRight size={17} /></button>)}</nav>
+        <nav aria-label="모바일 주요 화면">{Object.entries(navMap).map(([label, target]) => <button key={label} className={active === target ? "active" : ""} type="button" onClick={() => onNavigate(target)}><IconGlyph icon={target === NEW_PRACTICE_TARGET ? "roleplay" : target === "result" ? "report" : target === "compare" ? "retry" : "coach"} size={23} /><span>{label}</span><ArrowRight size={17} /></button>)}</nav>
       </motion.section>
     </motion.div>
   );

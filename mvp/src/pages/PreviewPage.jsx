@@ -3,29 +3,32 @@ import { Check } from "reicon-react/icons/Check";
 import { motion } from "framer-motion";
 import { IconGlyph } from "../components/ui/IconGlyph";
 import { Panel } from "../components/report/ResultPrimitives";
-import { getScenarioImage } from "../data/setupCatalog";
+import { getEpisodeImage, getScenarioDescription } from "../data/setupCatalog";
+import { resolveServiceMode } from "../lib/serviceModeContext";
 
-export function PreviewPage({ onNext, starting, scenario, selectedEpisode, counterpartProfile, difficulty, aiHealth, consented, onConsent, error, permissionState, mode = 5 }) {
+export function PreviewPage({ serviceMode, onNext, starting, scenario, selectedEpisode, counterpartProfile, difficulty, aiHealth, consented, onConsent, error, permissionState, mode = 5 }) {
+  const resolvedServiceMode = resolveServiceMode(serviceMode?.id);
   const episode = selectedEpisode || scenario?.episodes?.[0];
   const lead = scenario?.characters?.find((character) => character.id === episode?.character_id) || scenario?.characters?.[0];
   const permissionsGranted = permissionState.camera === "granted" && permissionState.microphone === "granted";
-  const aiReady = aiHealth?.dialogue_provider === "ollama" && aiHealth?.ollama?.dialogue;
-  const canStart = consented && aiReady && !starting;
+  const aiReady = Boolean(aiHealth?.dialogue_ready);
+  const dialogueName = aiHealth?.dialogue_provider === "openai" ? "GPT-4o 대화 AI" : "Ollama 대화 AI";
+  const canStart = consented && !starting;
   const objectives = episode?.points?.length ? episode.points : ["대화의 핵심을 먼저 말해요", "상대가 다음에 할 일을 분명히 요청해요", "마무리 전에 합의 내용을 확인해요"];
   const facts = [
-    { label: "상대 역할", value: counterpartProfile?.title || lead?.role || "AI 역할", subtext: counterpartProfile?.text || lead?.name || "AI가 대화를 이어가요", image: counterpartProfile?.image },
-    { label: "연습 상황", value: episode?.title || scenario?.title || "상황을 불러오고 있어요", subtext: episode?.situation || scenario?.description || "선택한 업무 상황을 바탕으로 연습해요", image: getScenarioImage(scenario?.slug), icon: "briefcase" },
+    { label: "직무", value: counterpartProfile?.title || "선택한 직무", subtext: counterpartProfile?.text || "선택한 업무 상황을 바탕으로 연습해요", image: counterpartProfile?.image },
+    { label: "연습 상황", value: episode?.title || scenario?.title || "상황을 불러오고 있어요", subtext: getScenarioDescription(episode?.situation || scenario?.description || "선택한 업무 상황을 바탕으로 연습해요"), image: getEpisodeImage(scenario?.slug, episode?.id), icon: "briefcase" },
     { label: "난이도", value: difficulty?.title || "기본 모드", subtext: difficulty?.text || "편안한 질문 흐름으로 시작해요.", image: difficulty?.image, icon: "normal" },
   ];
   const readiness = [
-    { icon: "chat", label: "Ollama 대화 AI", value: aiReady ? "준비됨" : "실행 필요" },
+    { icon: "chat", label: dialogueName, value: aiReady ? "준비됨" : "실행 필요" },
     { icon: "voice", label: "음성 인식", value: permissionState.microphone === "granted" ? "권한 허용됨" : "시작할 때 확인" },
     { icon: "eye", label: "카메라", value: permissionState.camera === "granted" ? "권한 허용됨" : "시작할 때 확인" },
   ];
 
   return <motion.section className="page preview-page preview-redesign" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
     <header className="preview-heading">
-      <div><p>시뮬레이션 준비</p><h1>상황을 미리 확인해요</h1><span>선택한 설정을 확인하고, 바로 연습을 시작해요.</span></div>
+      <div><p>{resolvedServiceMode.previewEyebrow}</p><h1>상황을 미리 확인해요</h1><span>선택한 {resolvedServiceMode.label} 연습 설정을 확인하고, 바로 시작해요.</span></div>
       <dl className="preview-duration"><dt>예상 소요 시간</dt><dd>약 {mode}분</dd></dl>
     </header>
     <div className="preview-layout">
@@ -39,6 +42,6 @@ export function PreviewPage({ onNext, starting, scenario, selectedEpisode, count
         <Panel className="preview-readiness-card"><div className="preview-panel-heading"><span>시스템 준비 상태</span><p>{permissionsGranted ? "카메라와 마이크가 준비됐어요." : "시작할 때 권한을 확인해요."}</p></div><ul>{readiness.map((item) => <li key={item.label}><IconGlyph icon={item.icon} size={20} /><span>{item.label}</span><strong>{item.value}</strong></li>)}</ul></Panel>
       </aside>
     </div>
-    <div className="preview-start-area"><label className="consent-check"><input type="checkbox" checked={consented} onChange={(event) => onConsent(event.target.checked)} /><span>카메라·음성 분석을 위해 개인정보 처리에 동의해요. 이 연습은 계정에 저장하지 않아요.</span></label>{!aiReady && <p className="preview-error">Ollama 대화 모델을 실행한 뒤 다시 시작해 주세요.</p>}{error && <p className="preview-error">{error}</p>}<button className="primary-bar" type="button" onClick={onNext} disabled={!canStart}>{starting ? "연습을 준비하고 있어요" : "동의하고 시작하기"}<ArrowRight size={24} /></button></div>
+    <div className="preview-start-area"><label className="consent-check"><input type="checkbox" checked={consented} onChange={(event) => onConsent(event.target.checked)} /><span>카메라·음성 분석에 동의해요. AI 상대 음성은 외부 음성 서비스로 만들 수 있고, 이 연습은 계정에 저장하지 않아요.</span></label>{error && <p className="preview-error">{error}</p>}<button className="primary-bar" type="button" onClick={onNext} disabled={!canStart}>{starting ? "연습을 준비하고 있어요" : "동의하고 시작하기"}<ArrowRight size={24} /></button></div>
   </motion.section>;
 }

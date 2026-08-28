@@ -19,8 +19,8 @@ import { PageToolbar, Panel, ScoreRing } from "../components/report/ResultPrimit
 
 const DIFFICULTY_LABELS = {
   basic: "기본 모드",
-  pressure: "압박 모드",
-  ultra_pressure: "초압박 모드",
+  pressure: "진상 모드",
+  ultra_pressure: "왕진상 모드",
 };
 // 4-Fit 키를 한글 이름으로 표시해요 (핵심 지표 행: 응답 (Response) 형태).
 const FIT_KOREAN = { "Response-Fit": "응답", "Voice-Fit": "목소리", "Expression-Fit": "표정", "Posture-Fit": "자세" };

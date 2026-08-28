@@ -10,6 +10,7 @@ import { Target } from "reicon-react/icons/Target";
 import { User } from "reicon-react/icons/User";
 import { UserCircle } from "reicon-react/icons/UserCircle";
 import { Widget } from "reicon-react/icons/Widget";
+import { NEW_PRACTICE_TARGET } from "../navigation/navigationConfig";
 
 // 좌측 사이드바 대시보드 골격. 성과 리포트/비교 분석 화면을 감싸는 공용 셸이에요.
 // 피그마의 대시보드 레이아웃(사이드바 + 상단 브레드크럼)을 그대로 옮겼습니다.
@@ -18,7 +19,7 @@ const NAV_GROUPS = [
     label: "연습",
     items: [
       { id: "home", label: "대시보드", Icon: Widget },
-      { id: "role", label: "연습 목표", Icon: Target },
+      { id: NEW_PRACTICE_TARGET, label: "연습 목표", Icon: Target },
       { id: "role", label: "시나리오", Icon: Briefcase4, key: "scenario" },
       { id: "role", label: "맞춤 캐릭터", Icon: UserCircle, key: "character" },
     ],
@@ -108,7 +109,7 @@ export function ReportTopBar({ trail, onNavigate, onDownload, newPracticeLabel =
         <button type="button" className="topbar-ghost" onClick={onDownload}>
           <Download size={18} aria-hidden="true" /> 리포트 다운로드
         </button>
-        <button type="button" className="topbar-primary" onClick={() => onNavigate("role")}>
+        <button type="button" className="topbar-primary" onClick={() => onNavigate(NEW_PRACTICE_TARGET)}>
           {newPracticeLabel}
         </button>
       </div>

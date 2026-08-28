@@ -185,6 +185,9 @@ class ScenarioOut(BaseModel):
 
 # ---- sessions / turns ----
 
+class TtsIn(BaseModel):
+    text: str = Field(min_length=1, max_length=700)
+
 class ConsentIn(BaseModel):
     agreed: bool = False
     storage_policy: str = "none"  # none | anonymous | account
@@ -249,6 +252,7 @@ _NV_RATIO_FIELDS = (
     "mouth_press_ratio", "brow_down_ratio", "arm_cross_ratio", "iris_ratio",
     "iris_v_ratio", "listening_front_ratio", "answering_front_ratio", "world_ratio",
     "gesture_active_ratio", "hands_visible_ratio", "lower_visible_ratio",
+    "hunched_ratio", "lean_back_ratio",
     "gesture_two_handed_ratio", "brow_raise_ratio",
 )
 _NV_RANGE_FIELDS = {
@@ -313,6 +317,8 @@ class NonverbalIn(BaseModel):
     gaze_off_count: int = 0
     avg_shoulder_tilt_deg: float = 0.0
     head_down_ratio: float = 0.0
+    hunched_ratio: float = 0.0  # 고개·상체를 앞으로 숙인 프레임 비율
+    lean_back_ratio: float = 0.0  # 골반 기준으로 등을 뒤로 기댄 프레임 비율
     posture_sway: float = 0.0
     frames: int = 0
     longest_off_sec: float = 0.0  # 최장 연속 시선 이탈
@@ -430,9 +436,10 @@ class TurnSignalsOut(BaseModel):
     # 감정 상태 머신 (S-B2B-EMOTION): {state, label, temperature, eased} —
     # 프론트 온도 게이지·표정 연출용. 감정 프로파일이 없는 시나리오는 빈 dict.
     emotion: dict = {}
-    # 표정 인지 (S-EXPR-ACK): {state, label} — 관람객 표정이 상대 리액션에 실렸을 때만.
-    # 판정 보류·미보정·상한 초과 턴은 빈 dict.
+    # 하위 호환용 빈 필드. 표정 분석은 비활성화되어 값을 채우지 않는다.
     expression: dict = {}
+    # MediaPipe·음성 측정값으로 확정된 즉시 코칭 근거. LLM은 이 값을 해석만 한다.
+    observation: dict = {}
 
 
 class NextTurnOut(BaseModel):

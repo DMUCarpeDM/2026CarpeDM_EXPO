@@ -120,6 +120,7 @@
 .choice-badge { display: inline-flex; align-items: center; min-height: 23px; margin-left: 8px; padding: 0 8px; border-radius: var(--radius-pill); vertical-align: 2px; font-size: 11px; font-style: normal; font-weight: 700; }
 .choice-badge.blue { color: var(--color-blue); background: var(--color-blue-soft); }
 .choice-badge.accent { color: var(--accent-warm); background: var(--accent-warm-soft); }
+.choice-badge.danger { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--color-snow)); }
 
 .choice-card.scenario-catalog {
   display: grid;
@@ -141,6 +142,7 @@
 .choice-card.scenario-catalog .choice-icon { width: 58px; height: 58px; border-radius: 50%; }
 .choice-card.scenario-catalog .choice-copy { display: grid; gap: 6px; padding-right: 42px; }
 .choice-card.scenario-catalog strong { word-break: keep-all; }
+.choice-card.scenario-catalog small { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 .scenario-empty { grid-column: 1 / -1; margin: 0; padding: var(--space-5); border: 1px dashed var(--color-selection-border); border-radius: 16px; color: var(--color-graphite); line-height: 1.6; }
 
 .setup-flow-actions { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); margin-top: 6px; }

@@ -1,5 +1,7 @@
 from pathlib import Path
+from typing import Literal
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings
 
 
@@ -41,12 +43,8 @@ class Settings(BaseSettings):
         "클라우드밋, 플로우데스크, 에스컬레이션, 러시타임"
     )
 
-    # 대화 엔진: 전시 시뮬레이션은 로컬 Ollama를 기본으로 사용한다.
-    dialogue_provider: str = "ollama"
-    # 세션 시작 게이트: True면 Ollama 미가동 시 새 체험 시작을 막는다(운영자가 즉시
-    # 인지·복구하도록). False면 템플릿 대본으로 시작을 허용한다(무인 운영 우선).
-    # 어느 쪽이든 진행 중 세션은 Ollama가 죽어도 템플릿 폴백으로 끊기지 않는다.
-    dialogue_require_ollama: bool = True
+    # 역할극 대사 생성은 서버 측 GPT-4o만 사용한다. 템플릿·Ollama 폴백은 사용하지 않는다.
+    dialogue_provider: Literal["openai"] = "openai"
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "exaone3.5:2.4b"
     # 초과 시 템플릿 질문으로 즉시 폴백하므로 상한일 뿐 평균 지연이 아니다.
@@ -66,12 +64,28 @@ class Settings(BaseSettings):
     ollama_timeout_sec: float = 9.0
     # 전시 중 세션 간격이 벌어져도 모델이 RAM에서 내려가지 않게 (기본 5m → 콜드 로드 방지)
     ollama_keep_alive: str = "2h"
+    # OpenAI 키는 서버 환경변수에서만 읽는다. 프론트 코드·API 응답·로그에 노출하지 않는다.
+    openai_api_key: SecretStr = SecretStr("")
+    openai_model: str = "gpt-4o"
+    openai_base_url: str = "https://api.openai.com/v1"
+    openai_timeout_sec: float = 15.0
+    # AI 상대의 발화 음성은 ElevenLabs를 서버에서만 호출한다. 키는 어떤 API 응답에도
+    # 포함하지 않고, 설정이 없으면 프론트가 브라우저 TTS로 폴백한다.
+    elevenlabs_api_key: SecretStr = SecretStr("")
+    elevenlabs_voice_id: str = ""
+    elevenlabs_model: str = "eleven_multilingual_v2"
+    elevenlabs_timeout_sec: float = 20.0
 
-    # 의미 매칭 (마스터리 ②): 로컬 임베딩으로 패러프레이즈 커버리지 인식.
-    # Ollama가 없으면 자동으로 키워드 매칭만 사용 (완전 폴백, API 키 무관).
-    # 준비: ollama pull bge-m3  (한국어 포함 다국어 임베딩 — nomic-embed-text 대비 한국어 우수)
+    # 의미 매칭 (마스터리 ②): Response-Fit 데이터로 fine-tuning한 로컬 E5로
+    # 패러프레이즈 커버리지를 인식한다. 모델 파일이 없으면 키워드 매칭만 사용한다.
     semantic_match_enabled: bool = True
+    semantic_provider: Literal["local_e5"] = "local_e5"
+    # 비활성화된 Ollama 경로의 회귀 테스트·긴급 롤백용 식별자. 제품 설정에서는
+    # semantic_provider가 local_e5만 허용하므로 이 모델을 실행하지 않는다.
     ollama_embed_model: str = "bge-m3"
+    local_e5_model_dir: Path = Path("./models/response_e5_v1/final")
+    # 2026-07 Colab response_threshold_test 평가의 최적 F1 기준값. 새 데이터로 재보정할 것.
+    local_e5_threshold: float = 0.74
 
     # ---- B2B 온보딩 확장 ----
     # NFC 리더 브리지 (S-B2B-NFC) — ACR122U PC/SC 폴링. pyscard 미설치·리더 미연결이면

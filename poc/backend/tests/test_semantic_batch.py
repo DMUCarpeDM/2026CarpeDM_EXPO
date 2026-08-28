@@ -12,10 +12,15 @@ import httpx
 import pytest
 
 from app.ai import semantic_match
+from app.core.config import settings
 
 
 @pytest.fixture(autouse=True)
 def _reset_state():
+    # Ollama 구현은 비활성화됐지만, 롤백 경로의 배치·브레이커 계약은 분리해 보존한다.
+    # 제품 설정은 local_e5만 허용한다.
+    original_provider = settings.semantic_provider
+    settings.semantic_provider = "ollama"
     semantic_match._cache.clear()
     semantic_match._fail_streak = 0
     semantic_match._blocked_until = 0.0
@@ -25,6 +30,7 @@ def _reset_state():
     semantic_match._fail_streak = 0
     semantic_match._blocked_until = 0.0
     semantic_match._avail_state = None
+    settings.semantic_provider = original_provider
 
 
 def _ok_batch_response(url: str, texts: list[str]) -> httpx.Response:

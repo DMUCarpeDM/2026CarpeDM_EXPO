@@ -16,7 +16,7 @@ test("job role catalog matches the backend default scenario packs", () => {
   assert.equal(scenarioSlugForJobRole("cs_agent"), "ondo-cs-agent");
   assert.equal(scenarioSlugForJobRole("office_admin"), "release-schedule-alignment");
   assert.equal(scenarioSlugForJobRole("unknown"), "");
-  assert.equal(jobRoleLabel("cafe_crew"), "카페 매장 크루");
+  assert.equal(jobRoleLabel("cafe_crew"), "카페 파트너");
   assert.equal(jobRoleLabel("mystery_role"), "mystery_role");
   assert.equal(findJobRole("nope"), null);
 });

@@ -117,6 +117,10 @@ export const makeTurnAcc = () => ({
   shoulderXs: [],
   worldFrames: 0,
   headDown: 0,
+  hunched: 0,
+  leanBack: 0,
+  handsVisible: 0,
+  handNearFace: 0,
   rollSum: 0,
   // 표정·시선 관찰 지표
   blinks: 0,
@@ -160,6 +164,10 @@ export function accumulateSample(acc, sample) {
     tiltAdj = null,
     shoulderX = null,
     headDown = false,
+    hunched = false,
+    leanBack = false,
+    handTracked = false,
+    handNearFace = false,
     worldUsed = false,
   } = sample;
 
@@ -208,7 +216,11 @@ export function accumulateSample(acc, sample) {
     acc.shoulderXs.push(shoulderX);
     if (worldUsed) acc.worldFrames += 1;
     if (headDown) acc.headDown += 1;
+    if (hunched) acc.hunched += 1;
+    if (leanBack) acc.leanBack += 1;
   }
+  if (handTracked) acc.handsVisible += 1;
+  if (handNearFace) acc.handNearFace += 1;
 
   // ---- 타임라인 빈 누적 (턴 시작 = 0초, 프레임 서수 기반) ----
   const binIdx = Math.floor(((acc.frames - 1) * SAMPLE_MS) / TIMELINE_BIN_MS);
@@ -253,6 +265,10 @@ export function finalizeTurnMetrics(acc, calibrated = false) {
     gaze_off_count: acc.offCount,
     avg_shoulder_tilt_deg: acc.tiltSamples.length ? mean(acc.tiltSamples) : 0,
     head_down_ratio: acc.headDown / acc.frames,
+    hunched_ratio: ratio(acc.hunched),
+    lean_back_ratio: ratio(acc.leanBack),
+    hands_visible_ratio: ratio(acc.handsVisible),
+    hand_face_sec: secs(acc.handNearFace),
     // 상체 흔들림: 어깨 중심 x(어깨너비 정규화)의 표준편차 — 서버 SWAY_BANDS 입력.
     // 표본 2개 이하는 표준편차가 무의미하므로 0.
     posture_sway: acc.shoulderXs.length > 2 ? stdDev(acc.shoulderXs) : 0,

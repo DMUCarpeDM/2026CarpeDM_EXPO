@@ -117,9 +117,7 @@ class Scenario(Base):
     rubric_weights: Mapped[dict] = mapped_column(JSON, default=dict)
     # 감정 상태 머신 프로파일 {enabled, initial, temperature, deltas, lines} — 비면 비활성
     emotion_profile: Mapped[dict] = mapped_column(JSON, default=dict)
-    # 대화 정책 {personalize_questions: bool} — false면 질문은 각본 그대로 쓰고
-    # LLM은 리액션만 다듬는다. 소형 LLM의 격식체 재작성이 캐릭터(진상 고객 등)의
-    # 말맛을 죽이는 문제의 구조적 해법: 각본이 가장 자연스러운 자산이다.
+    # 구버전 템플릿 엔진의 정책 값. 기존 SQLite 시드 호환을 위해 보관하지만 역할극에는 사용하지 않는다.
     dialogue_policy: Mapped[dict] = mapped_column(JSON, default=dict)
 
     episodes: Mapped[list["Episode"]] = relationship(
@@ -137,6 +135,8 @@ class Episode(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     scenario_id: Mapped[int] = mapped_column(ForeignKey("scenarios.id", ondelete="CASCADE"))
     order: Mapped[int] = mapped_column(Integer)
+    # 기존 턴이 참조하는 order는 보존하면서, 선택 화면의 노출 순서만 정한다.
+    selection_order: Mapped[int] = mapped_column(Integer, default=0)
     title: Mapped[str] = mapped_column(String(200))
     situation: Mapped[str] = mapped_column(Text, default="")
     character_id: Mapped[str] = mapped_column(String(50))  # scenario.characters[].id

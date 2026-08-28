@@ -65,6 +65,8 @@ export interface NonverbalMetrics {
   gaze_off_count: number;
   avg_shoulder_tilt_deg: number;
   head_down_ratio: number;
+  hunched_ratio: number; // 고개 숙임 또는 기준 대비 상체 전진 프레임 비율
+  lean_back_ratio: number; // 기준 대비 어깨폭이 줄어 뒤로 기대는 프레임 비율
   posture_sway: number;
   frames: number;
   longest_off_sec: number; // 최장 연속 시선 이탈
@@ -147,6 +149,8 @@ export interface TurnSignals {
   // 표정 인지 (S-EXPR-ACK) — {state, label}. 관람객 표정이 상대 리액션에
   // 실렸을 때만 채워지고, 판정 보류·상한 초과 턴은 빈 객체.
   expression: Record<string, unknown>;
+  // 자세·표정·목소리·응답에서 감지된 즉시 코칭 근거와 문구.
+  observation: Record<string, unknown>;
 }
 
 export interface NextTurnResult {

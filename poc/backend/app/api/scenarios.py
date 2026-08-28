@@ -10,7 +10,11 @@ router = APIRouter(prefix="/scenarios", tags=["scenarios"])
 
 def to_scenario_out(scenario: Scenario) -> ScenarioOut:
     titles: dict[str, list[str]] = {"5": [], "10": []}
-    for ep in scenario.episodes:
+    active_episodes = sorted(
+        (ep for ep in scenario.episodes if ep.modes),
+        key=lambda ep: ep.selection_order or ep.order,
+    )
+    for ep in active_episodes:
         for mode in (5, 10):
             if mode in ep.modes:
                 titles[str(mode)].append(ep.title)
@@ -37,7 +41,7 @@ def to_scenario_out(scenario: Scenario) -> ScenarioOut:
                 "character_id": ep.character_id,
                 "modes": ep.modes,
             }
-            for ep in scenario.episodes
+            for ep in active_episodes
         ],
     )
 

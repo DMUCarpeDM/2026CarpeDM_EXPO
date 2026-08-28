@@ -18,16 +18,17 @@ export function PageTitle({ eyebrow, title, subtitle }) {
   );
 }
 
-export function SetupMotionPage({ children }) {
+export function SetupMotionPage({ children, as = "section" }) {
+  const MotionPage = as === "div" ? motion.div : motion.section;
   return (
-    <motion.section
+    <MotionPage
       className="page selection-page setup-flow-page"
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
     >
       {children}
-    </motion.section>
+    </MotionPage>
   );
 }
 
@@ -84,7 +85,7 @@ export function ChoiceSection({ icon, image, title, description, children, colum
   );
 }
 
-export function ChoiceCard({ icon, image, title, text, detail, badge, selected = false, compact = false, tone = "blue", variant = "default", onClick }) {
+export function ChoiceCard({ icon, image, title, text, detail, badge, selected = false, compact = false, minimalContent = false, tone = "blue", variant = "default", onClick }) {
   return (
     <button
       className={`choice-card ${variant} ${selected ? "selected" : ""} ${compact ? "compact" : ""}`}
@@ -95,7 +96,7 @@ export function ChoiceCard({ icon, image, title, text, detail, badge, selected =
       {image ? <img className="choice-asset" src={image} alt="" aria-hidden="true" width="256" height="256" loading="lazy" decoding="async" /> : <span className={`choice-icon ${tone}`}><IconGlyph icon={icon} size={36} /></span>}
       <span className="choice-copy">
         <strong>{title}{badge && <i className={`choice-badge ${tone}`}>{badge}</i>}</strong>
-        <small>{text}</small>
+        {!minimalContent && <small>{text}</small>}
         {detail && <em>{detail}</em>}
       </span>
       {selected && <b><Check size={16} /></b>}
@@ -124,7 +125,7 @@ export function SetupSelectionSummary({ counterpart, scenario, scenarioImage, di
     <SummaryPanel className="setup-summary-panel">
       <h2><Sparkles size={21} /> 선택 요약</h2>
       <p>현재 선택한 설정을 확인해요.</p>
-      <SummaryItem image={counterpart.image} label="상대 역할" value={counterpart.title} tone="blue" />
+      <SummaryItem image={counterpart.image} label="직무" value={counterpart.title} tone="blue" />
       <SummaryItem image={scenarioImage} icon="briefcase" label="연습 상황" value={scenario?.title?.replace(" — ", " —\n") || "다음 단계에서 선택"} tone="blue" />
       <SummaryItem image={difficulty?.image} icon="normal" label="난이도" value={difficulty?.title || "다음 단계에서 선택"} tone={difficulty?.tone || "blue"} />
       <div className="time-box setup-summary-time">

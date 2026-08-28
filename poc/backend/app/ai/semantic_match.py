@@ -23,6 +23,7 @@ from concurrent.futures import TimeoutError as FutureTimeoutError
 import httpx
 import numpy as np
 
+from app.ai import e5_embedder
 from app.core.config import settings
 
 # 2026-07-07 bge-m3 + 다중 앵커(예시문) + 절 단위 골든 셋 보정:
@@ -86,6 +87,8 @@ def available() -> bool:
     global _avail_state
     if not settings.semantic_match_enabled:
         return False
+    if settings.semantic_provider == "local_e5":
+        return e5_embedder.available()
     now = time.monotonic()
     if now < _blocked_until:
         return False
@@ -168,6 +171,13 @@ def _embed_many(
     unique = list(dict.fromkeys(t for t in texts if t.strip()))
     with _cache_lock:
         missing = [t for t in unique if t not in _cache]
+    if settings.semantic_provider == "local_e5":
+        if missing:
+            vectors = _e5_embed_many(missing)
+            if vectors:
+                _cache_put(vectors)
+        with _cache_lock:
+            return {t: _cache[t] for t in unique if t in _cache}
     if missing and time.monotonic() >= _blocked_until:
         future = _embed_pool.submit(_post_embed_batch, missing)
         try:
@@ -192,6 +202,16 @@ def _embed_many(
 def _embed(text: str) -> tuple[float, ...] | None:
     """단건 임베딩 + 브레이커 (배치 경로 재사용) — 보정 스크립트·외부 호출용."""
     return _embed_many([text]).get(text)
+
+
+def _e5_embed_many(texts: list[str]) -> dict[str, tuple[float, ...]]:
+    """로컬 E5 모델로 문장을 배치 임베딩한다."""
+    return e5_embedder.embed_many(texts)
+
+
+def _semantic_threshold() -> float:
+    """현재 임베딩 제공자에 맞는 검증 완료 임계값을 선택한다."""
+    return settings.local_e5_threshold if settings.semantic_provider == "local_e5" else SEMANTIC_THRESHOLD
 
 
 def _cosine(a: tuple[float, ...], b: tuple[float, ...]) -> float:
@@ -259,7 +279,7 @@ def semantic_checklist_ids(
             continue
         matched = [
             i for v, i in sent_vecs
-            if max(_cosine(av, v) for av in anchor_vecs) >= SEMANTIC_THRESHOLD
+            if max(_cosine(av, v) for av in anchor_vecs) >= _semantic_threshold()
         ]
         if matched:
             covered.add(item["id"])

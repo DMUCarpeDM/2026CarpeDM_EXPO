@@ -29,6 +29,7 @@ export const HEAD_DROP_THRESHOLD = 0.1; // 고개 숙임: 코-어깨 거리(어�
 // 캘리브레이션이 없을 때(직접 URL 진입 등) 쓰는 절대 폴백 임계값
 export const YAW_ABS_THRESHOLD = 0.3;
 export const HEAD_DOWN_ABS_THRESHOLD = 0.3;
+export const POSTURE_LEAN_DELTA = 0.16; // 캘리브레이션 어깨폭 대비 앞/뒤 거리 변화
 // 눈-머리 편향을 머리 비대칭 스케일로 환산하는 계수 (홍채 가동폭 ~±0.35)
 export const EYE_COMP_GAIN = 0.8;
 export const EYE_COMP_CLAMP = 0.18; // 보상 상한 — 보상이 판정을 뒤집는 폭주 방지
@@ -82,6 +83,8 @@ export interface Accumulator {
   lastFront: boolean;
   tiltSamples: number[]; // 전/후반 추세 분석용 시계열 (보정값)
   headDownFrames: number;
+  hunchedFrames: number;
+  leanBackFrames: number;
   shoulderXs: number[];
   frontFlags: boolean[]; // 전/후반 정면 비율 비교용
   offDirs: Record<OffDir, number>; // 이탈 방향 분포
@@ -150,6 +153,8 @@ export const emptyAcc = (): Accumulator => ({
   lastFront: true,
   tiltSamples: [],
   headDownFrames: 0,
+  hunchedFrames: 0,
+  leanBackFrames: 0,
   shoulderXs: [],
   frontFlags: [],
   offDirs: { down: 0, up: 0, left: 0, right: 0 },
@@ -464,6 +469,8 @@ export function finalizeTurnMetrics(acc: Accumulator, base: Baseline): Nonverbal
     gaze_off_count: acc.gazeOffCount,
     avg_shoulder_tilt_deg: acc.tiltSamples.length ? mean(acc.tiltSamples) : 0,
     head_down_ratio: acc.headDownFrames / acc.frames,
+    hunched_ratio: Math.round((acc.hunchedFrames / acc.frames) * 100) / 100,
+    lean_back_ratio: Math.round((acc.leanBackFrames / acc.frames) * 100) / 100,
     posture_sway: sway,
     frames: acc.frames,
     longest_off_sec: Math.round((acc.maxOffStreak * SAMPLE_MS) / 100) / 10,

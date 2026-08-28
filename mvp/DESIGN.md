@@ -8,7 +8,7 @@ Apple HIG interpretation for this product: keep the interface clear, defer decor
 
 ### Reference-fidelity direction
 
-The supplied Mirror-Ting desktop boards are the visual contract for the exhibition flow. They use a bright, translucent floating header that becomes clearly visible on hover or keyboard focus; generous 24–32px gutters; thin cool-gray dividers; blue rectangular CTAs with a restrained 10–12px radius; and white cards with a soft blue-gray lift. Setup is a two-column decision surface with a pale-blue selection summary. Its three steps are `상대 역할 선택`, `시나리오 선택`, and `난이도 선택`: each step asks for one decision only. Analysis is a dense but calm desktop report: a score rail, coaching overview, metric rows, and a compact radar visual. Practice is the one intentionally dark surface, with the live camera as the primary object and glass feedback panels around it.
+The supplied Mirror-Ting desktop boards are the visual contract for the exhibition flow. They use a bright, translucent floating header that becomes clearly visible on hover or keyboard focus; generous 24–32px gutters; thin cool-gray dividers; blue rectangular CTAs with a restrained 10–12px radius; and white cards with a soft blue-gray lift. Setup is a two-column decision surface with a pale-blue selection summary. Its three steps are `직무 선택`, `시나리오 선택`, and `난이도 선택`: each step asks for one decision only. Analysis is a dense but calm desktop report: a score rail, coaching overview, metric rows, and a compact radar visual. Practice is the one intentionally dark surface, with the live camera as the primary object and glass feedback panels around it.
 
 The remembered moment is the transition from live camera practice to a precise 4-Fit coaching report. Decorative photos are subordinate to that flow: use the real camera when permission is granted, and use a neutral camera state when it is not. The home hero is a single-column canvas with the supplied high-resolution device render fixed as its right-side background rather than as a separate media column. No sidebar is used anywhere; the shared top header carries navigation and utilities.
 
@@ -33,7 +33,7 @@ The remembered moment is the transition from live camera practice to a precise 4
 | Glass/light | `--color-glass` | `rgba(255,255,255,0.78)` | Floating glass surfaces |
 | Status/success | `--success` | `#0ea5e9` | Positive states, kept in the blue analog ramp |
 | Status/warning | `--warning` | `#ff8a00` | Caution states |
-| Status/error | `--danger` | `#d95f00` | Recoverable errors, reserved and not used for ordinary emphasis |
+| Status/error | `--danger` | `#d93843` | Recoverable errors and the highest-difficulty badge, reserved and not used for ordinary emphasis |
 | Fit/response | `--fit-response` | `#0064ff` | Response-Fit |
 | Fit/voice | `--fit-voice` | `#2f7cff` | Voice-Fit |
 | Fit/eye | `--fit-eye` | `#0ea5e9` | Eye-Fit |
@@ -97,16 +97,16 @@ Flow rule: setup pages may show compact step context, but practice, feedback, an
 - Default: white surface, 1px cool-gray border, 16px internal padding.
 - Selected: blue border, pale-blue wash, blue check badge in the top-right corner.
 - A card remains a button, so the full card is keyboard-operable.
-- Setup role cards use the generated portrait as a decorative, cropped image with a text title and explanation below it. Difficulty cards use the generated blue smile or orange flame as a decorative medallion. The text remains the accessible label; the image must use empty alt text.
+- Setup job cards use generated, person-free 3D profession icons as decorative images with a text title and explanation below them. Scenario and difficulty cards use the same generated 3D icon family. The text remains the accessible label; every decorative image must use empty alt text.
 
 ### Setup Selection Catalog
-- The setup state is direct: `상대 역할 → 시나리오 → 난이도`. Each catalog is independent, so a choice never silently replaces a later choice.
-- Scenario cards are populated from the active PoC scenario API. Their title and description remain the accessible name and outcome.
+- The setup state is direct: `직무 → 시나리오 → 난이도`. Each catalog is independent, so a choice never silently replaces a later choice.
+- Scenario cards are populated from the active PoC scenario API. Their title and description remain the accessible name and outcome; an initial day/time stamp is not repeated in the card description.
 - The existing PoC `difficulty`, `mode`, and `scenario_slug` payload remains unchanged. The selected scenario card supplies the `scenario_slug` used to start the backend session.
 
 ### Setup Flow
 - Three reusable pieces work together: `MiniStepper` for the current step, `ChoiceSection` plus `ChoiceCard` for each decision, and `SetupFlowActions` for the bottom back/next pair.
-- Desktop uses a left content column and a sticky right `SelectionSummary` panel. The right panel immediately reflects the counterpart, situation, difficulty, and expected duration, while the main column exposes only decisions for the current step.
+- Desktop uses a left content column and a sticky right `SelectionSummary` panel. The right panel immediately reflects the job, situation, difficulty, and expected duration, while the main column exposes only decisions for the current step.
 - The interaction state is direct: click a full card to select it, then use “다음 단계로” to continue. The setup screen does not expose a separate situation catalog.
 
 ### Fit Metric
@@ -145,8 +145,10 @@ Flow rule: setup pages may show compact step context, but practice, feedback, an
 - Behavior: panels can collapse to their header when the practice screen becomes crowded, without changing the primary recording action.
 - Desktop placement: panels live inside the camera frame, leave room for the recording controls, and should not exceed roughly one third of the frame width.
 - The tool status panel is one desktop row of four equal tool cards. Each card uses a real connection-derived ON/OFF switch state; it is status only, not a fake control.
-- The current AI question lives in a semi-transparent dark glass panel inside the video so the counterpart remains visible. It shows the prepared `speaking` video while browser TTS is active, and the waveform animates only in that state.
+- The current AI question lives in a semi-transparent dark glass panel inside the video so the counterpart remains visible. It shows the prepared `speaking` video while ElevenLabs TTS is active; if that service is unavailable, browser TTS is the fallback. The waveform animates only in that state.
+- When the AI counterpart is the main stage, the learner camera and MediaPipe markers remain visible in a compact top-right PiP, matching a familiar video-call layout without interrupting analysis.
 - The answer input stays directly below the question panel, with a named `전송` button. When browser speech recognition finalizes an utterance, wait three seconds for continued speech, then submit the answer automatically. Typing, pausing, or another interim result cancels that pending submission.
+- When the AI TTS finishes, the on-video AI question panel closes with it; the persisted question remains in the side log.
 - The side log shows the persisted AI question and learner answer. It does not repeat the hidden template reaction text as a second AI message.
 
 ### Disclosure Panel

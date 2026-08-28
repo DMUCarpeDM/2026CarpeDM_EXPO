@@ -5,6 +5,7 @@ import { Refresh3 } from "reicon-react/icons/Refresh3";
 import { Share3 } from "reicon-react/icons/Share3";
 import { motion } from "framer-motion";
 import { reportFits, scoreFromFit } from "../lib/reportFits";
+import { NEW_PRACTICE_TARGET } from "../components/navigation/navigationConfig";
 import { FitBarRow, TrendChart } from "../components/report/Charts";
 import { IconGlyph } from "../components/ui/IconGlyph";
 import { PageToolbar, Panel, ScoreRing } from "../components/report/ResultPrimitives";
@@ -20,7 +21,8 @@ function fitValue(scores, key) {
   return scoreFromFit(scores?.[key] ?? scores?.[key.replace("-Fit", "").toLowerCase()]);
 }
 
-export function ComparePage({ onPrev, onRestart, onShare, history = [], report }) {
+export function ComparePage({ onPrev, onRestart, onShare, onNavigate, history = [], report }) {
+  const startNewPractice = () => (onNavigate ? onNavigate(NEW_PRACTICE_TARGET) : onRestart?.());
 
   const attempts = history.slice(-2);
   const currentFits = reportFits(report);
@@ -96,7 +98,7 @@ export function ComparePage({ onPrev, onRestart, onShare, history = [], report }
         )}
 
         <div className="report-page-actions">
-          <button type="button" className="secondary-button" onClick={onRestart}><Refresh3 size={20} /> Practice Again</button>
+          <button type="button" className="secondary-button" onClick={startNewPractice}><Refresh3 size={20} /> Practice Again</button>
           <div className="compare-share-group">
             <button type="button" className="ghost-outline" onClick={onShare}><Download size={19} /> 저장</button>
             <button type="button" className="primary-button" onClick={onShare}><Share3 size={20} /> Save &amp; Share</button>
