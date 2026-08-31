@@ -9,7 +9,15 @@ import { motion } from "framer-motion";
 import { IconGlyph } from "../ui/IconGlyph";
 import { navMap, NEW_PRACTICE_TARGET } from "./navigationConfig";
 
-export function TopNav({ active, scenarioTitle, sessionMode, menuOpen, onMenuOpen, onNavigate, scenarios = [], onScenarioSelect }) {
+const homeNavMap = {
+  interview: { "AI와 연습하기": "service", "코칭 리포트": "result", "성장 기록": "compare", "이용 방법": "feedback" },
+  training: { "AI와 연습하기": "service", "훈련 결과": "result", "성장 기록": "compare", "이용 방법": "feedback" },
+  workplace: { "AI와 연습하기": "service", "대화 리포트": "result", "성장 기록": "compare", "이용 방법": "feedback" },
+};
+
+const homeModeLabel = { interview: "면접", training: "직업훈련", workplace: "직장대화" };
+
+export function TopNav({ active, serviceMode, scenarioTitle, sessionMode, menuOpen, onMenuOpen, onNavigate, scenarios = [], onScenarioSelect }) {
   const [bellOpen, setBellOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [scenarioOpen, setScenarioOpen] = useState(false);
@@ -45,13 +53,16 @@ export function TopNav({ active, scenarioTitle, sessionMode, menuOpen, onMenuOpe
     setProfileOpen(false);
   };
 
+  const modeId = serviceMode?.id || "workplace";
+  const currentNavMap = active === "home" ? homeNavMap[modeId] : navMap;
+
   return (
     <header className="top-nav glass-panel">
       <button className="brand" type="button" onClick={() => onNavigate("home")}>
-        <span className="brand-mark" aria-hidden="true"><img src="/icons/app-icon-192.png" alt="" /></span><span>Mirror-Ting</span>
+        <span className="brand-mark" aria-hidden="true"><img src="/icons/app-icon-192.png" alt="" /></span><span>Mirror-Ting{active === "home" ? <small>{homeModeLabel[modeId]}</small> : null}</span>
       </button>
       <nav aria-label="주요 화면">
-        {Object.entries(navMap).map(([label, target]) => <button key={label} className={active === target ? "active" : ""} type="button" onClick={() => onNavigate(target)}>{label}</button>)}
+        {Object.entries(currentNavMap).map(([label, target]) => <button key={label} className={active === target ? "active" : ""} type="button" onClick={() => onNavigate(target)}>{label}</button>)}
       </nav>
       <div className="nav-actions">
         {active === "practice" && (

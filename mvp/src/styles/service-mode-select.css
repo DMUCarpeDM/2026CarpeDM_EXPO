@@ -3,78 +3,67 @@
   min-height: 100dvh;
   margin: 0;
   padding: 0;
-  overflow-x: clip;
-  background: var(--color-snow);
+  overflow: clip;
+  background: #fff;
 }
 
 .service-mode-page {
   display: grid;
-  place-items: center;
   min-height: 100dvh;
-  padding: clamp(var(--space-8), 8vh, var(--space-20)) clamp(var(--space-4), 6vw, var(--space-12));
-  background: var(--color-snow);
+  place-items: center;
+  padding: clamp(32px, 7vh, 88px) clamp(20px, 5vw, 72px);
+  background: #fff;
 }
 
-.service-mode-main {
-  width: min(100%, 1160px);
-}
+.service-mode-main { width: min(100%, 1180px); }
 
-.setup-flow-main .service-mode-card {
+.service-mode-grid {
   display: grid;
-  grid-template-columns: 1fr;
-  grid-template-rows: auto 1fr;
-  align-items: stretch;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.service-mode-card-v2 {
+  overflow: hidden;
+  border-color: #d9dce2;
+  border-radius: 12px;
+}
+
+.service-mode-page .service-mode-card-button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  gap: 0;
+  width: 100%;
   min-height: 0;
   padding: 0;
-  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  color: #1d1d1f;
   text-align: left;
 }
 
-.setup-flow-main .service-mode-card .choice-asset {
+.service-mode-page .service-mode-card-button:hover { transform: none; box-shadow: none; }
+.service-mode-page .service-mode-card-button:focus { outline: 0; }
+.service-mode-page .service-mode-card-button:focus-visible { outline: 3px solid color-mix(in srgb, #0071e3 25%, transparent); outline-offset: -3px; }
+.service-mode-page .service-mode-card-button:hover .service-mode-card-title { color: #0071e3; }
+
+.service-mode-visual {
   display: block;
   width: 100%;
-  height: clamp(180px, 21vw, 248px);
-  object-fit: cover;
-  object-position: center;
-  background: var(--color-blue-soft);
+  height: clamp(300px, 34vw, 440px);
+  border-bottom: 1px solid #d9dce2;
+  background: #fff;
+  object-fit: contain;
 }
 
-.setup-flow-main .service-mode-card .choice-copy {
-  display: grid;
-  align-content: center;
-  justify-items: start;
-  gap: var(--space-2);
-  padding: var(--space-6);
-}
+.service-mode-visual--interview { object-fit: cover; object-position: center 47%; }
+.service-mode-page .service-mode-card-title { display: flex; min-height: 88px; align-items: center; justify-content: center; padding: 0 26px; color: #1d1d1f; font-size: 21px; font-weight: 780; letter-spacing: -.04em; transition: color 160ms ease; }
 
-.setup-flow-main .service-mode-card strong {
-  margin: 0;
-  color: var(--color-ink);
-  font-size: clamp(18px, 2vw, 22px);
-}
-
-.setup-flow-main .service-mode-card:hover {
-  border-color: var(--color-blue);
-  box-shadow: var(--shadow-light);
-}
-
-@media (max-width: 760px) {
-  .service-mode-page {
-    place-items: start center;
-    padding: var(--space-8) var(--space-4);
-  }
-
-  .service-mode-main {
-    width: 100%;
-  }
-
-  .setup-flow-main .service-mode-card {
-    min-height: 0;
-  }
-
-  .setup-flow-main .service-mode-card .choice-asset {
-    height: clamp(180px, 52vw, 224px);
-  }
-
-  .setup-flow-main .service-mode-card .choice-copy { padding: var(--space-5); }
+@media (max-width: 820px) {
+  .service-mode-page { place-items: start center; }
+  .service-mode-grid { grid-template-columns: 1fr; }
+  .service-mode-visual { height: min(84vw, 390px); }
+  .service-mode-card-title { min-height: 74px; }
 }

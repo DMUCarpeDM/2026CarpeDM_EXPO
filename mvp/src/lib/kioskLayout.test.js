@@ -24,6 +24,8 @@ const stylesheetFiles = [
   "../styles/fidelity-responsive.css",
   "../styles/setup-flow.css",
   "../styles/dashboard.css",
+  "../styles/shadcn-ui.css",
+  "../styles/mode-home.css",
 ];
 const styles = stylesheetFiles.map((file) => readFileSync(new URL(file, import.meta.url), "utf8")).join("\n");
 const appSource = readFileSync(new URL("../App.jsx", import.meta.url), "utf8");
@@ -130,19 +132,21 @@ test("Analysis views reuse the app navigation and shared component system", () =
   assert.match(sourceBundle, /<aside className="dashboard-sidebar"/);
 });
 
-test("home uses the radial four-Fit summary and concise, action-led writing", () => {
-  assert.match(sourceBundle, /function HomeRadarChart\(/);
-  assert.match(sourceBundle, /mini-line-fill-\$\{tone\}/);
-  assert.match(sourceBundle, /className="mini-line-area"/);
-  assert.match(sourceBundle, /stopOpacity="\.36"/);
-  assert.match(sourceBundle, /AI와 함께/);
-  assert.match(sourceBundle, /연습해요/);
-  assert.doesNotMatch(sourceBundle, /home-trust-row/);
-  assert.match(styles, /\.home-radar-chart/);
-  assert.match(styles, /\.mini-line-chart\s*\{[^}]*height:\s*80px/s);
-  assert.match(styles, /\.home-page\s*\{[^}]*--home-content-rail:\s*1560px/s);
-  assert.match(styles, /\.home-fit-card > span\s*\{[^}]*font-size:\s*16px[^}]*font-weight:\s*600/s);
-  assert.match(styles, /\.top-nav:hover/);
+test("home uses three mode layouts on one shared Shadcn-style component system", () => {
+  assert.match(sourceBundle, /function InterviewHome\(/);
+  assert.match(sourceBundle, /function TrainingHome\(/);
+  assert.match(sourceBundle, /function WorkplaceHome\(/);
+  assert.match(sourceBundle, /<Button\b/);
+  assert.match(sourceBundle, /<Card\b/);
+  assert.match(sourceBundle, /<Progress\b/);
+  assert.match(sourceBundle, /<Accordion\b/);
+  assert.match(styles, /--accent-blue:\s*#0071e3/);
+  assert.match(styles, /--accent-orange:\s*#f05a24/);
+  assert.match(styles, /--accent-violet:\s*#6e5ed2/);
+  assert.doesNotMatch(styles, /--accent-green:/);
+  assert.match(styles, /\.interview-hero/);
+  assert.match(styles, /\.training-task-board/);
+  assert.match(styles, /\.workplace-workspace/);
 });
 
 test("setup catalog keeps every rendered role and difficulty image available", () => {
@@ -152,15 +156,16 @@ test("setup catalog keeps every rendered role and difficulty image available", (
   }
 });
 
-test("home keeps one primary practice action and centers the benefit explanation", () => {
+test("home keeps each mode action-led and reuses shared section primitives", () => {
   const homePage = functionBody("HomePage");
-  assert.doesNotMatch(homePage, /4-Fit 살펴보기/);
-  assert.doesNotMatch(homePage, /화면 미리 보기/);
-  assert.match(homePage, /leadingIcon=\{false\}/);
-  assert.doesNotMatch(homePage, /home-visual/);
-  assert.match(styles, /\.hero-actions \.primary-button\s*\{[^}]*justify-content:\s*center/s);
-  assert.match(styles, /\.hero-actions \.primary-button svg\s*\{[^}]*position:\s*absolute[^}]*right:\s*28px/s);
-  assert.match(styles, /\.home-hero\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)[^}]*hero-device-background\.png/s);
-  assert.match(styles, /\.home-advantage-card\s*\{[^}]*align-items:\s*center/s);
-  assert.match(styles, /\.home-advantage-card\s*\{[^}]*text-align:\s*center/s);
+  assert.match(homePage, /mode-home-page--\$\{mode\.id\}/);
+  assert.match(homePage, /<InterviewHome onNext=\{onNext\}/);
+  assert.match(homePage, /<TrainingHome onNext=\{onNext\}/);
+  assert.match(homePage, /<WorkplaceHome onNext=\{onNext\}/);
+  assert.match(sourceBundle, /function SectionIntro\(/);
+  assert.match(sourceBundle, /function ProcessCard\(/);
+  assert.match(sourceBundle, /function FitMetric\(/);
+  assert.match(sourceBundle, /function FooterCta\(/);
+  assert.match(styles, /\.mode-footer-cta\s*\{/);
+  assert.match(styles, /\.mode-actions\s*\{/);
 });

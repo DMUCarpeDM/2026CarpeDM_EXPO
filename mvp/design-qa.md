@@ -1,102 +1,96 @@
-**Current Visual QA - 2026-07-04**
+# Design QA — 3-way selector and mode homes
 
-**Scope**
-- Current app surface: Vite React web app at `http://127.0.0.1:5173/`.
-- Main source files reviewed: `src/App.jsx`, `src/styles.css`, `DESIGN.md`.
-- Checked pages/states: home, role selection, difficulty selection, scenario setup, preview, practice, practice collapsed states, result, feedback, share, compare.
-- Checked responsive sizes: desktop `1280x900`, tablet `768x900`, mobile `390x900`.
+Date: 2026-08-31
 
-**Fresh Screenshot Evidence**
-- `artifacts/visual-qa-current/desktop-01-home.png`
-- `artifacts/visual-qa-current/desktop-02-role.png`
-- `artifacts/visual-qa-current/desktop-03-difficulty.png`
-- `artifacts/visual-qa-current/desktop-04-setup.png`
-- `artifacts/visual-qa-current/desktop-05-preview.png`
-- `artifacts/visual-qa-current/desktop-06-practice-open.png`
-- `artifacts/visual-qa-current/desktop-07-practice-status-collapsed.png`
-- `artifacts/visual-qa-current/desktop-08-practice-both-collapsed.png`
-- `artifacts/visual-qa-current/desktop-09-result.png`
-- `artifacts/visual-qa-current/desktop-10-feedback.png`
-- `artifacts/visual-qa-current/desktop-11-share.png`
-- `artifacts/visual-qa-current/desktop-12-compare.png`
-- `artifacts/visual-qa-current/tablet-01-home.png`
-- `artifacts/visual-qa-current/tablet-02-practice.png`
-- `artifacts/visual-qa-current/mobile-01-home.png`
-- `artifacts/visual-qa-current/mobile-02-practice.png`
+## Scope
 
-**Automated Layout Evidence**
-- Captures produced after the latest source edits.
-- `captured`: 16
-- `horizontalOverflow`: `false` on all 16 captures.
-- `overflowNodes`: empty on all 16 captures after the CSS correction pass.
-- Screen reader status text changed correctly across the driven flow, for example `현재 화면은 메인입니다.`, `현재 화면은 AI 대화 연습입니다.`, `현재 화면은 저장·공유입니다.`
-- Action check:
-  - Result page `같은 상황 다시 연습` moves back to `AI 대화 연습`.
-  - Feedback page `다시 연습하기` moves back to `AI 대화 연습`.
-  - Compare page `공유하기` moves to `저장·공유`.
-  - Share page export/copy controls update the share notice to `공유 링크를 복사했어요.`
+- Three-column service selector.
+- Interview, vocational training, and workplace conversation Home pages only.
+- Existing scenario selection, practice, report, backend, and analysis routes were treated as protected behavior.
 
-**Improvements Applied During This QA Pass**
-- Added undergraduate-readable Korean comments to `src/App.jsx` for app flow, 4-Fit data, selection data, motion sections, practice screen panels, reusable primitives, score ring math, and custom SVG icon strategy.
-- Added undergraduate-readable Korean comments to `src/styles.css` for design tokens, CJK line breaking, Liquid Glass surfaces, navigation, home hero, product benefits, choice cards, custom icons, primary CTA, practice camera frame, result layout, and responsive breakpoints.
-- Fixed internal overflow found during the first capture pass:
-  - Result page 4-Fit detailed cards now use a safer two-column grid inside the analysis card.
-  - Share page report preview and mini report fit columns now wrap into compact two-column groups.
-  - Compare page rows now use smaller flexible columns so score bars and values stay inside the card.
-  - Mobile practice live status grid now uses one column so `Response` and its value do not squeeze.
-- Fixed issues found by the follow-up visual review:
-  - Home benefit sections stay visible in full-page screenshots instead of depending on scroll-triggered initial opacity.
-  - Compare score values keep `/100` on one line.
-  - Previously decorative retry/share/export controls now provide a real navigation or feedback path.
-  - Share notice has a dedicated `.share-notice` target so button feedback can be tested directly.
+## Source visual truth
 
-**Current Verdict**
-- Automated layout check: passed.
-- Manual representative screenshot check: passed for home desktop, practice desktop, home mobile, and practice mobile.
-- Follow-up visual review findings: addressed in code and rechecked through browser automation.
+- `docs/design-targets/mode-selector-target-v1.png` — 1672 × 941.
+- `docs/design-targets/interview-home-target-v1.png` — 864 × 1821.
+- `docs/design-targets/training-home-target-v1.png` — 864 × 1821.
+- `docs/design-targets/workplace-home-target-v1.png` — 864 × 1821.
 
----
+## Implementation surfaces
 
-**Source Visual Truth**
-- `/Users/yanghyojae/Downloads/expo 디자인/ChatGPT Image 2026년 6월 7일 오후 08_30_25 (1).png`
-- Additional supplied references: images `(2)` through `(6)` in the same folder.
-- Design system: `/Users/yanghyojae/Downloads/expo 디자인/DESIGN_Mirrorting_LiquidGlass.md`
+- `src/pages/setup/ServiceModeSelectPage.jsx`
+- `src/pages/HomePage.jsx`
+- `src/components/ui/shadcn.jsx`
+- `src/components/navigation/AppNavigation.jsx`
+- `src/pages/ServiceEntryShell.jsx`
+- `src/styles/service-mode-select.css`
+- `src/styles/mode-home.css`
+- `src/styles/shadcn-ui.css`
 
-**Implementation Screenshot**
-- `/Users/yanghyojae/Documents/Expo Design/artifacts/final-desktop-foundation.png`
-- `/Users/yanghyojae/Documents/Expo Design/artifacts/final-mobile-responsive.png`
-- `/Users/yanghyojae/Documents/Expo Design/artifacts/final-mobile-reports-desktop.png`
+## Viewports and state
 
-**Viewport**
-- Desktop comparison: 1448 x 1086
-- Responsive check: 390 x 1100
+- Desktop visual pass: 1440 × 900, fresh selector and fresh Home for each selected mode.
+- Mobile visual pass: 390 × 844, fresh selector and fresh Home for each selected mode.
+- Desktop full-page evidence uses three fixed 1440 × 900 segments per Home. The in-app browser full-page compositor duplicated sticky sections, so the report uses fixed segments rather than accepting invalid stitched output.
+- Target and implementation were normalized into the same combined comparison images before judgment.
 
-**State**
-- Desktop Foundations tab selected for primary source comparison.
-- All six tabs clicked during runtime verification.
+## Combined comparison evidence
 
-**Full-View Comparison Evidence**
-- Header, version pills, glass tab switcher, global navigation, segmented controls, icon buttons, inputs, dropdown, chips, scenario cards, camera overlay, record controls, 4-Fit score cards, and token panels were implemented as React UI rather than a static screenshot.
-- Palette follows the design system: fog canvas, white/glass panels, Azure primary action, semantic green/orange/red/purple chips, and 4-Fit colors.
+- `artifacts/design-qa/compare-mode-selector-final-v3.jpg`
+- `artifacts/design-qa/compare-interview-home-final.jpg`
+- `artifacts/design-qa/compare-training-home-final.jpg`
+- `artifacts/design-qa/compare-workplace-home-final.jpg`
+- Mobile evidence:
+  - `artifacts/design-qa/selector-mobile-final.jpg`
+  - `artifacts/design-qa/interview-mobile-final.jpg`
+  - `artifacts/design-qa/training-mobile-final.jpg`
+  - `artifacts/design-qa/workplace-mobile-final.jpg`
 
-**Focused Region Comparison Evidence**
-- Typography: large blue `Mirror-Ting` title and dark heading hierarchy match the supplied boards; small UI labels use compact bold weights.
-- Spacing/layout: 1448px-wide board uses dense card rows with 16px grid gaps and soft elevation similar to the mockups.
-- Colors/tokens: primary blue, fog canvas, white card surfaces, and muted graphite labels map to the design document.
-- Images/assets: camera overlay is recreated as a code-native UI stage with icon-library outline, guide lines, and glass fit overlay; profile photos are represented as avatar chips rather than real portraits.
-- Copy/content: Korean labels and component section names are copied from the supplied boards where practical; tabs group the six board families.
+## Fidelity review
 
-**Findings**
-- No remaining P0/P1/P2 findings after final pass.
-- P3: source mockups include realistic headshot avatars; the implementation uses generated initials avatars to avoid introducing unrelated photo assets.
-- P3: the six references are grouped behind a top tab control rather than rendered as six separate full boards on one long canvas. This keeps the component page usable while preserving each board family.
+- Layout: selector retains a white canvas, one-row equal cards, restrained borders, and image-over-title hierarchy. Each Home uses a distinct composition while reusing the same section, card, button, progress, badge, and accordion primitives.
+- Spacing: desktop content rails, section spacing, card gaps, and mobile stacking preserve hierarchy without overlap or horizontal clipping.
+- Typography: Korean display copy uses deliberate keep-all wrapping, strong weight contrast, and readable body line height on desktop and mobile.
+- Color: the only accent families are blue `#0071e3`, orange `#f05a24`, and violet `#6e5ed2`. Neutral whites, grays, and pale tints are not additional accents.
+- Imagery: all selector cards now use actual raster assets. Runtime div/CSS preview illustrations were removed. The training asset was corrected from green to orange, and the workplace asset uses blue/violet only.
+- Icons: product UI uses one consistent Reicon family. Selector imagery does not add separate decorative icons.
+- Responsive behavior: measured `scrollWidth === innerWidth` at 1440 px and 390 px for the selector and all three Home variants.
+- Accessibility: selector cards have exact accessible names, stable `aria-pressed="false"`, visible keyboard focus, descriptive image alt text, and no nested interactive elements. Interview numbered question tabs now expose the full question in their accessible names.
 
-**Patches Made Since Previous QA Pass**
-- Fixed runtime blank screen by importing `React` in `src/App.jsx`.
-- Removed first-frame board fade animation so screenshot and initial render are immediately visible.
-- Fixed reports/profile row layout and save/share row layout in narrow cards.
-- Adjusted reports mid-grid proportions so 4-Fit cards have more room.
-- Verified `npm run build` after changes.
+## Interaction checks
 
-**Final Result**
+- Selector cards activate by mouse and keyboard, retain the chosen Home through navigation, and clear focus/selection when returning.
+- Interview question 2 updates the console heading to `지원한 직무를 선택한 이유는 무엇인가요?`.
+- Training step selection updates the active heading to `처리 순서 안내` and progress to 75%.
+- Training FAQ expands with `aria-expanded="true"`.
+- Primary Home actions continue to the existing setup flow for all three modes.
+- Browser integration runs reported no page errors.
+
+## Findings and fixes
+
+- P1 fixed: selector title and preview were laid out side-by-side because a legacy `.choice-card` rule won the cascade. Added a scoped grid reset so image and title return to the target's vertical hierarchy.
+- P1 fixed: training and workplace previews were runtime div art. Replaced both with generated raster UI assets and preserved the one-image-per-card accessibility contract.
+- P1 fixed: route regression selectors no longer identified the redesigned Home. Restored the stable `.home-page`, `.hero-actions`, `.choice-card`, and `.service-mode-card` contracts without reverting the new design.
+- P2 fixed: selector title alignment differed from the target. Centered the title band.
+- P2 fixed: the training preview introduced a fourth green accent. Recolored that asset to the approved orange family.
+- P2 fixed: numbered interview tabs lacked descriptive accessible names. Added the full question label.
+- No remaining P0, P1, or P2 findings.
+
+## Verification
+
+- `npm test`: 114 passed, 0 failed.
+- `npm run build`: passed.
+- Build warning: the existing production bundle still exceeds Vite's 500 kB advisory threshold; this is outside the requested Home/selector visual scope and does not block the build.
+
+## Final Result
+
 passed
+
+## UX writing and heading-weight pass — 2026-08-31
+
+- Applied the Toss writing principles relevant to this screen: short spoken sentences, `해요체`, active and positive phrasing, one key message per sentence, and CTA labels that predict the next `직무 선택` screen.
+- Reduced the shared Home display-heading weight from `750` to `650` for hero H1, section H2, and footer H2. Component-level card headings were intentionally unchanged.
+- Verified all three Home variants at 1280 px and 390 px with `scrollWidth === innerWidth` and computed display-heading weight `650`.
+- Verified the primary Home CTA opens the existing `직무 선택` step.
+- Comparison evidence: `.lazyweb/lazyweb-growth-report/ux-writing-2026-08-31/references/before-after.jpg`.
+- `npm test`: 114 passed, 0 failed.
+- `npm run build`: passed; only the existing Vite chunk-size advisory remains.

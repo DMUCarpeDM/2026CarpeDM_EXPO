@@ -18,13 +18,13 @@ export async function runFreshSelection(pageHarness, runDir) {
     await nfcRequest;
     assert.equal(await page.locator(".attract-overlay").count(), 1);
     await capture(page, join(runDir, "selected-home.png"), ".home-page");
-    await page.locator(".hero-actions button").click();
+    await page.locator(".hero-actions button").first().click();
     await page.locator(".role-choice-section").waitFor();
     await capture(page, join(runDir, "selected-role.png"), ".selection-page");
     await page.locator(".setup-back-button").click();
     await page.locator(".home-page").waitFor();
 
-    await page.locator(".hero-actions button").click();
+    await page.locator(".hero-actions button").first().click();
     await page.locator(".role-choice-section").waitFor();
     await page.goBack();
     await page.locator(".home-page").waitFor();
@@ -33,7 +33,7 @@ export async function runFreshSelection(pageHarness, runDir) {
     assert.equal(await page.getByRole("button", { name: "면접", exact: true }).getAttribute("aria-pressed"), "false");
 
     await page.getByRole("button", { name: "면접", exact: true }).click();
-    await page.locator(".hero-actions button").click();
+    await page.locator(".hero-actions button").first().click();
     await page.getByRole("button", { name: /개발자/ }).click();
     await page.locator(".setup-next-button").click();
     await page.getByRole("button", { name: /피드백 대화/ }).click();
@@ -43,7 +43,7 @@ export async function runFreshSelection(pageHarness, runDir) {
     await page.getByRole("checkbox").check();
     await page.locator(".brand").click();
     await page.locator(".home-page").waitFor();
-    await page.locator(".hero-actions button").click();
+    await page.locator(".hero-actions button").first().click();
     assert.equal(await page.getByRole("button", { name: /개발자/ }).getAttribute("aria-pressed"), "true");
 
     await page.locator(".top-nav nav button").filter({ hasText: "AI와 연습하기" }).click();
@@ -53,7 +53,7 @@ export async function runFreshSelection(pageHarness, runDir) {
     await capture(page, join(runDir, "reset-service.png"), ".setup-flow-page");
 
     await page.getByRole("button", { name: "직업훈련", exact: true }).click();
-    await page.locator(".hero-actions button").click();
+    await page.locator(".hero-actions button").first().click();
     assert.equal(await page.locator('.role-choice-section [aria-pressed="true"]').count(), 0);
     await page.getByRole("button", { name: /개발자/ }).click();
     await page.locator(".setup-next-button").click();
@@ -81,7 +81,7 @@ export async function runServiceCards(pageHarness) {
       await page.locator(".service-mode-page").waitFor();
       await page.getByRole("button", { name: label, exact: true }).click();
       await page.locator(".home-page").waitFor();
-      await page.locator(".hero-actions button").click();
+      await page.locator(".hero-actions button").first().click();
       await page.locator(".role-choice-section").waitFor();
       await page.locator(".setup-back-button").click();
       await page.locator(".home-page").waitFor();

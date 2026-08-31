@@ -1,186 +1,277 @@
-# Mirror-Ting Design System
+# Mirror-Ting Design System — Apple Light Reference
 
-## 1. Atmosphere & Identity
+## 0. 적용 범위
 
-Mirror-Ting feels like a calm AI coaching studio for workplace conversations. The signature is a bright Apple-like canvas with selective Liquid Glass overlays around camera, AI question, action, and 4-Fit feedback moments. The product should feel supportive and precise, not evaluative or noisy.
+이 문서는 Mirror-Ting의 **목표 디자인 시스템 정보**를 정의한다. 이번 변경은 문서에만 적용되며 CSS, React 컴포넌트, 이미지, 화면 구조와 사용자 흐름은 변경하지 않는다.
 
-Apple HIG interpretation for this product: keep the interface clear, defer decoration behind the user's task, and make every control feel directly manipulable. A screen should present one main decision, one primary next action, and secondary details only when they help the current step.
+- 현재 화면 구현은 별도의 적용 작업 전까지 그대로 유지한다.
+- 이 문서의 토큰은 이후 구현 시 사용할 기준값이다.
+- 제품 고유의 분석 로직과 시나리오 구조는 디자인 시스템 범위에 포함하지 않는다.
 
-### Reference-fidelity direction
+## 1. 디자인 원칙
 
-The supplied Mirror-Ting desktop boards are the visual contract for the exhibition flow. They use a bright, translucent floating header that becomes clearly visible on hover or keyboard focus; generous 24–32px gutters; thin cool-gray dividers; blue rectangular CTAs with a restrained 10–12px radius; and white cards with a soft blue-gray lift. Setup is a two-column decision surface with a pale-blue selection summary. Its three steps are `직무 선택`, `시나리오 선택`, and `난이도 선택`: each step asks for one decision only. Analysis is a dense but calm desktop report: a score rail, coaching overview, metric rows, and a compact radar visual. Practice is the one intentionally dark surface, with the live camera as the primary object and glass feedback panels around it.
+Mirror-Ting은 넓은 흰 공간 안에서 하나의 파란 행동만 또렷하게 보이는 인터페이스를 지향한다. 시각적 인상은 조용하고 정밀하며, 장식보다 정보와 제품 경험이 먼저 보여야 한다.
 
-The remembered moment is the transition from live camera practice to a precise 4-Fit coaching report. Decorative photos are subordinate to that flow: use the real camera when permission is granted, and use a neutral camera state when it is not. The home hero is a single-column canvas with the supplied high-resolution device render fixed as its right-side background rather than as a separate media column. No sidebar is used anywhere; the shared top header carries navigation and utilities.
+1. 한 화면에는 한 가지 핵심 메시지와 한 가지 주요 행동을 둔다.
+2. 파란색은 선택과 실행에만 사용한다.
+3. 위계는 그림자나 장식이 아니라 타이포그래피와 여백으로 만든다.
+4. 섹션은 화면 폭을 충분히 사용하고, 읽는 글은 좁은 레일에 담는다.
+5. 제품 화면과 실제 사용 장면이 가장 강한 시각 요소가 된다.
+6. 표면을 여러 겹의 카드로 나누지 않는다.
 
-## 2. Color
+## 2. 색상
 
-| Role | Token | Light | Usage |
+### 2.1 핵심 토큰
+
+| 역할 | 토큰 | 값 | 사용 |
 |---|---|---:|---|
-| Text/primary | `--color-ink` | `#191f28` | Headings, primary labels |
-| Text/secondary | `--color-graphite` | `#4e5968` | Body and secondary labels |
-| Text/muted | `--color-muted` | `#8b95a1` | Metadata, helper text |
-| Surface/canvas | `--color-fog` | `#f4f6f8` | Page background |
-| Surface/card | `--color-snow` | `#ffffff` | Cards and panels |
-| Accent/primary | `--color-blue` | `#0064ff` | Primary CTA, active state |
-| Accent/soft | `--color-blue-soft` | `#eaf2ff` | Selected soft surface |
-| Accent/analog | `--color-sky` | `#0ea5e9` | Secondary emphasis, supportive positive state |
-| Accent/analog soft | `--color-sky-soft` | `#e8f7ff` | Secondary soft surface |
-| Accent/warm | `--accent-warm` | `#ff8a00` | Single warm emphasis for caution, posture, harder difficulty |
-| Accent/warm soft | `--accent-warm-soft` | `#fff3e3` | Warm soft surface |
-| Selection/canvas | `--color-selection-wash` | `#f5f8ff` | Setup page and summary backdrop |
-| Selection/border | `--color-selection-border` | `#dce6f4` | Setup cards and summary rows |
-| Border/default | `--color-border` | `rgba(25,31,40,0.08)` | Cards, dividers |
-| Glass/light | `--color-glass` | `rgba(255,255,255,0.78)` | Floating glass surfaces |
-| Status/success | `--success` | `#0ea5e9` | Positive states, kept in the blue analog ramp |
-| Status/warning | `--warning` | `#ff8a00` | Caution states |
-| Status/error | `--danger` | `#d93843` | Recoverable errors and the highest-difficulty badge, reserved and not used for ordinary emphasis |
-| Fit/response | `--fit-response` | `#0064ff` | Response-Fit |
-| Fit/voice | `--fit-voice` | `#2f7cff` | Voice-Fit |
-| Fit/eye | `--fit-eye` | `#0ea5e9` | Eye-Fit |
-| Fit/posture | `--fit-posture` | `#ff8a00` | Posture-Fit |
+| Primary action | `--color-apple-blue` | `#0071e3` | 채워진 주요 버튼, 선택 상태 |
+| Link action | `--color-link-blue` | `#0066cc` | 링크, 외곽선 보조 버튼 |
+| Decorative signal | `--color-signal-blue` | `#2997ff` | 제한적인 시각 신호와 장식 |
+| Primary text | `--color-carbon` | `#1d1d1f` | 제목, 핵심 본문 |
+| Secondary text | `--color-smoke` | `#333333` | 보조 제목, 강조 본문 |
+| Tertiary text | `--color-graphite` | `#474747` | 설명 문구 |
+| Muted text | `--color-ash` | `#707070` | 메타 정보, 보조 설명 |
+| Quiet text | `--color-mist` | `#858585` | 캡션, 비활성 정보 |
+| Strong contrast | `--color-onyx` | `#000000` | 필요한 경우의 최고 대비 |
+| Canvas | `--color-frost` | `#f5f5f7` | 기본 페이지 배경 |
+| Elevated wash | `--color-ice` | `#f4f8fb` | 부드러운 섹션 구분 |
+| Divider | `--color-pebble` | `#e2e2e5` | 구분선, 입력 테두리 |
+| Pure surface | `--color-white` | `#ffffff` | 주요 콘텐츠 표면 |
 
-Rules: use blue and sky as the analogous emphasis ramp, keep `--accent-warm` as the only non-blue emphasis, and extend this table before adding new semantic colors. Green/purple/red tone names may remain as legacy class aliases, but their rendered colors must map back to this table.
+### 2.2 파란색 역할 구분
 
-## 3. Typography
+- `#0071e3`: 채워진 주요 행동과 선택 상태에만 사용한다.
+- `#0066cc`: 텍스트 링크와 외곽선 보조 행동에 사용한다.
+- `#2997ff`: 기능을 방해하지 않는 제한적인 시각 신호에만 사용한다.
+- 파란색 세 종류를 같은 역할에 섞어 쓰지 않는다.
+- 일반 본문, 카드 테두리, 넓은 배경에는 Apple Blue를 사용하지 않는다.
 
-Primary font stack: `"SF Pro Text", "Inter", "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif`.
+## 3. 타이포그래피
 
-| Level | Size | Weight | Line Height | Usage |
+### 3.1 글꼴
+
+```css
+--font-display: "SF Pro Display", "Pretendard", "Apple SD Gothic Neo", Inter, system-ui, sans-serif;
+--font-text: "SF Pro Text", "Pretendard", "Apple SD Gothic Neo", Inter, system-ui, sans-serif;
+```
+
+- 큰 제목에는 Display 스택을 사용한다.
+- 본문, 버튼, 내비게이션에는 Text 스택을 사용한다.
+- 큰 제품 제목도 과도하게 굵게 만들지 않는다.
+- 본문은 기본 `17px`, `400`으로 읽기 편하게 유지한다.
+- 보조 제목과 설명은 필요할 때 `300`, 내비게이션은 `600`을 사용한다.
+
+### 3.2 타입 스케일
+
+| 이름 | 크기 | 줄 높이 | 자간 | 권장 용도 |
 |---|---:|---:|---:|---|
-| Display | `clamp(48px, 5.6vw, 70px)` | 680 | 1.13 | Home hero |
-| H1 | `clamp(34px, 4vw, 52px)` | 680 | 1.14 | Page titles |
-| H2 | `28px` | 620 | 1.25 | Section headings |
-| H3 | `20px` | 560-620 | 1.35 | Card titles |
-| Body | `17px` | 430 | 1.6 | Main copy |
-| Body/sm | `14px` | 430 | 1.5 | Helper copy |
-| Caption | `12px` | 560 | 1.4 | Labels |
+| Caption | `12px` | `1.33` | `-0.264px` | 캡션, 메타 정보 |
+| Body small | `14px` | `1.29` | `-0.224px` | 보조 설명, 작은 제어 |
+| Body | `17px` | `1.47` | `-0.272px` | 기본 본문 |
+| Subheading | `21px` | `1.24` | `-0.105px` | 섹션 설명, 카드 제목 |
+| Heading small | `28px` | `1.18` | `0.196px` | 하위 섹션 제목 |
+| Heading | `40px` | `1.14` | `0.44px` | 주요 섹션 제목 |
+| Heading large | `44px` | `1.18` | `-0.44px` | 페이지 제목 |
+| Display | `56px` | `1.07` | `0.616px` | 핵심 Hero 메시지 |
 
-Korean text uses `word-break: keep-all`, `line-break: strict`, and `text-wrap: pretty` where supported.
+한국어 제목은 형태소가 어색하게 끊기지 않도록 문장 단위로 줄바꿈한다. 본문 한 줄은 지나치게 길게 늘이지 않고 약 `980px` 이하의 읽기 폭을 권장한다.
 
-## 4. Spacing & Layout
+## 4. 간격과 형태
 
-Base unit: `4px`.
+### 4.1 간격
 
-| Token | Value | Usage |
+기본 단위는 `4px`이다.
+
+| 토큰 | 값 | 용도 |
 |---|---:|---|
-| `--space-2` | `8px` | Inline icon gaps |
-| `--space-3` | `12px` | Compact padding |
-| `--space-4` | `16px` | Standard UI padding |
-| `--space-5` | `20px` | Card inner rhythm |
-| `--space-6` | `24px` | Card padding |
-| `--space-8` | `32px` | Group gaps |
-| `--space-12` | `48px` | Section gaps |
-| `--space-20` | `80px` | Hero rhythm |
+| `--space-1` | `4px` | 작은 내부 간격 |
+| `--space-2` | `8px` | 아이콘과 라벨 |
+| `--space-3` | `12px` | 인접 요소 |
+| `--space-4` | `16px` | 기본 컴포넌트 패딩 |
+| `--space-5` | `20px` | 조밀한 콘텐츠 블록 |
+| `--space-6` | `24px` | 페이지 좌우 패딩 |
+| `--space-10` | `40px` | 콘텐츠 그룹 |
+| `--space-12` | `48px` | 큰 콘텐츠 그룹 |
+| `--space-14` | `56px` | 섹션 내부 여백 |
+| `--section-gap` | `64px` | 주요 섹션 사이 |
 
-Desktop maximum width is `1484px` for standard browser review and `1720px` for the 1920x1080 kiosk exhibition viewport. Mobile collapses to one column, with the global navigation becoming a hamburger-triggered bottom sheet.
+### 4.2 모서리와 그림자
 
-Home sections keep a larger display rhythm: 80px top separation on desktop, 56–58px on mobile. The hero visual is a 16:10 high-resolution product render; analysis and benefit boards are intentionally taller than ordinary content cards.
+| 역할 | 값 |
+|---|---:|
+| 버튼, 태그 | `980px` |
+| 카드, 이미지, 입력 | `8px` |
+| 제품 이미지 그림자 | `rgba(0, 0, 0, 0.22) 3px 5px 30px` |
 
-The home hero, 4-Fit board, and five-method benefit board share the same centered `1560px` content rail on desktop, matching the floating navigation width. The hero background carries through to the first section divider; the primary home CTA stays left-aligned within this rail, with its label centered inside the button and its trailing arrow at the far edge.
+- 카드, 버튼, 내비게이션에는 그림자를 사용하지 않는다.
+- 모서리 값은 컴포넌트 역할별로 일관되게 유지한다.
+- 제품 이미지 그림자는 실제 제품 또는 데모 이미지를 분리할 때만 사용한다.
 
-Flow rule: setup pages may show compact step context, but practice, feedback, and report pages should not repeat large step pills. Those pages use page title, toolbar, and one clear CTA instead.
+## 5. 레이아웃
 
-## 5. Components
+### 5.1 페이지 구조
 
-### Global Navigation
-- Structure: a floating circular-end translucent bar with brand, desktop nav links, right utility actions, and mobile hamburger.
-- States: resting header is subtle; hover and keyboard focus increase white opacity, border contrast, and shadow. Active nav item uses blue, mobile menu opens a bottom sheet.
-- Accessibility: menu button exposes expanded state and the sheet has a close button.
+- 주요 섹션은 화면 가장자리까지 이어지는 full-bleed 구조를 사용한다.
+- `1440px`은 내비게이션이나 밀도 높은 콘텐츠의 선택적 내부 기준선이지, 전체 페이지를 가두는 고정 폭이 아니다.
+- 읽는 글과 제목은 약 `980px` 이하의 별도 텍스트 레일을 사용한다.
+- 데스크톱 기본 좌우 패딩은 `24px`이며, 화면 크기에 맞춰 충분한 호흡을 확보한다.
+- 구성은 중앙 정렬, 수직 적층, 좌우 대칭을 기본으로 한다.
+- 메인 화면에 고정 사이드바, 상시 우측 상태 패널, 불필요한 비대칭 열을 두지 않는다.
 
-### Primary CTA
-- One primary CTA per screen.
-- Pill shape, blue fill, white text, clear next-action label.
-- Press state scales subtly.
+### 5.2 표면과 깊이
 
-### Selection Card
-- Used for role, counterpart, difficulty, scenario, and time choices.
-- Default: white surface, 1px cool-gray border, 16px internal padding.
-- Selected: blue border, pale-blue wash, blue check badge in the top-right corner.
-- A card remains a button, so the full card is keyboard-operable.
-- Setup job cards use generated, person-free 3D profession icons as decorative images with a text title and explanation below them. Scenario and difficulty cards use the same generated 3D icon family. The text remains the accessible label; every decorative image must use empty alt text.
+깊이는 그림자 대신 표면의 미세한 변화로 표현한다.
 
-### Setup Selection Catalog
-- The setup state is direct: `직무 → 시나리오 → 난이도`. Each catalog is independent, so a choice never silently replaces a later choice.
-- Scenario cards are populated from the active PoC scenario API. Their title and description remain the accessible name and outcome; an initial day/time stamp is not repeated in the card description.
-- The existing PoC `difficulty`, `mode`, and `scenario_slug` payload remains unchanged. The selected scenario card supplies the `scenario_slug` used to start the backend session.
+1. `#ffffff`: 핵심 콘텐츠와 제품 데모
+2. `#f5f5f7`: 기본 캔버스
+3. `#f4f8fb`: 기능을 나누는 부드러운 워시
+4. `#e2e2e5`: 구분선과 입력 경계
 
-### Setup Flow
-- Three reusable pieces work together: `MiniStepper` for the current step, `ChoiceSection` plus `ChoiceCard` for each decision, and `SetupFlowActions` for the bottom back/next pair.
-- Desktop uses a left content column and a sticky right `SelectionSummary` panel. The right panel immediately reflects the job, situation, difficulty, and expected duration, while the main column exposes only decisions for the current step.
-- The interaction state is direct: click a full card to select it, then use “다음 단계로” to continue. The setup screen does not expose a separate situation catalog.
+회색 섹션 안에 다시 여러 겹의 카드 패널을 쌓지 않는다. 콘텐츠 그룹은 간격, 얇은 선, 배경 전환으로 구분한다.
 
-### Fit Metric
-- Used in home snapshot, live practice feedback, report, and comparison.
-- Home snapshot uses enlarged generated 3D metric medallions, a numeric value, and a compact line trend; its aggregate is a four-axis radar chart with score and average series. The explanatory copy sits directly below the 4-Fit title, without a competing CTA.
-- Keep Response, Voice, Eye, and Posture colors stable across every route.
+## 6. 공통 컴포넌트
 
-### UX Writing
-- Use casual Korean `해요체`, active voice, and positive wording.
-- Prefer a direct action and outcome: “대화를 연습해요”, “다음에 바꿔볼 점을 알려드려요”.
-- Avoid formal honorifics, passive phrasing, and stacked noun phrases when a simple verb explains the same action.
+### 6.1 Filled Pill Button
 
-### Product Benefit Section
-- Home closes with a five-column benefit board: AI roleplay, custom report, comparison, growth history, and confident communication.
-- Each chapter uses one generated blue 3D medallion asset, centered heading and two-level explanatory copy, and shared card primitives. Cards do not add a competing CTA; the primary practice action stays in the hero.
-- Desktop keeps five equal columns; mobile stacks them in one column.
+- 배경: `#0071e3`
+- 텍스트: `#ffffff`
+- 반지름: `980px`
+- 주요 다음 행동은 화면 또는 섹션당 하나를 원칙으로 한다.
 
-### Service Demo Section
-- Structure: centered benefit headline, two large live-assist demo cards, three calm advantage visuals, and a split transcript/metric block.
-- Reference principle: Cluely-like progressive information density, adapted to Mirror-Ting coaching ethics and existing tokens.
-- Copy rule: describe what the AI helps the user do, not what the AI does secretly or instead of the user.
+### 6.2 Outlined Pill Button
 
-### Reicon SVG Icon
-- Mirror-Ting uses the public Reicon React set for interactive utilities, role, scenario, difficulty, section, and 4-Fit icons. The five home benefit icons are generated 3D image assets to match the supplied marketing board.
-- Icons use Reicon's 24px grid, Outline weight, 1.5px stroke override where supported, and inherit current color.
-- `IconGlyph` owns semantic mapping such as `response`, `voice`, `eye`, `posture`, `interview`, `presentation`, `negotiation`, `feedback`, `easy`, `normal`, and `hard`.
-- Direct utility icons must stay secondary and use geometric precision rendering.
+- 배경: 투명 또는 흰색
+- 테두리와 텍스트: `#0066cc`
+- 반지름: `980px`
+- 주요 버튼과 나란히 놓는 보조 행동에 사용한다.
 
-### Liquid Glass Panel
-- Used only for camera overlays, floating controls, nav, live status, and compact feedback surfaces.
-- Not every card should be glass.
+### 6.3 Ghost Link
 
-### Practice Glass Panel
-- Used in the AI practice screen for live status and roleplay chat panels so they visually belong to the camera surface.
-- Surface: dark translucent glass, white text hierarchy, muted inner cards, and one chevron disclosure control in the header.
-- Behavior: panels can collapse to their header when the practice screen becomes crowded, without changing the primary recording action.
-- Desktop placement: panels live inside the camera frame, leave room for the recording controls, and should not exceed roughly one third of the frame width.
-- The tool status panel is one desktop row of four equal tool cards. Each card uses a real connection-derived ON/OFF switch state; it is status only, not a fake control.
-- The current AI question lives in a semi-transparent dark glass panel inside the video so the counterpart remains visible. It shows the prepared `speaking` video while ElevenLabs TTS is active; if that service is unavailable, browser TTS is the fallback. The waveform animates only in that state.
-- When the AI counterpart is the main stage, the learner camera and MediaPipe markers remain visible in a compact top-right PiP, matching a familiar video-call layout without interrupting analysis.
-- The answer input stays directly below the question panel, with a named `전송` button. When browser speech recognition finalizes an utterance, wait three seconds for continued speech, then submit the answer automatically. Typing, pausing, or another interim result cancels that pending submission.
-- When the AI TTS finishes, the on-video AI question panel closes with it; the persisted question remains in the side log.
-- The side log shows the persisted AI question and learner answer. It does not repeat the hidden template reaction text as a second AI message.
+- 텍스트: `#0066cc`
+- 배경과 그림자 없음
+- 상세 보기, 이전 단계, 부가 탐색에 사용한다.
 
-### Disclosure Panel
-- Used for secondary report, coaching, and recommendation details after the primary result is already visible.
-- Header is a full-width semantic button with a chevron and clear `aria-expanded` state.
-- Default state: keep the next action and the most important insight visible; collapse supporting metadata or optional learning recommendations.
+### 6.4 Global Navigation
 
-### Simulation Readiness Board
-- Used only on the pre-practice confirmation screen. It replaces toolbar pills with a clear heading, a plain duration summary, and one bottom primary action.
-- Desktop is a wide main scenario board plus a compact right readiness rail; mobile stacks the same reading order without hiding context.
-- Main board uses numbered role facts and three objective rows; verbose time/location/background context is omitted. The side rail uses the existing Reicon semantic icons for AI counterpart and device readiness; no new icon set or generated icon asset is introduced.
+- 흰색 또는 Frost 표면을 사용한다.
+- 그림자 없이 얇은 구분선만 허용한다.
+- 브랜드, 핵심 탐색, 최소한의 사용자 도구만 둔다.
 
-## 6. Motion & Interaction
+### 6.5 Sticky Mini Navigation
 
-| Type | Duration | Easing | Usage |
-|---|---:|---|---|
-| Micro | `120ms` | ease-out | Button press |
-| Standard | `240ms` | ease-in-out | Menu, tabs |
-| Emphasis | `520ms` | cubic-bezier(0.16, 1, 0.3, 1) | Section reveal |
-| Scroll | scroll-linked | linear | Sticky/parallax benefit sections |
+- 긴 페이지에서 현재 섹션과 핵심 행동을 짧게 유지할 때 사용한다.
+- 높이와 정보량을 최소화하고 Global Navigation과 시각적으로 경쟁하지 않는다.
 
-Only animate `transform`, `opacity`, and `filter`. Respect `prefers-reduced-motion`.
+### 6.6 Product Hero
 
-## 7. Depth & Surface
+- 한 개의 명확한 제목, 짧은 설명, 주요/보조 행동으로 구성한다.
+- 제품 데모 이미지 또는 실제 사용 장면을 중심 시각 요소로 사용한다.
+- 장식용 일러스트가 제품 설명을 대신하지 않는다.
 
-Strategy: mixed restrained depth.
+### 6.7 Feature Banner
 
-Cards use soft blue-gray shadows and thin borders. Liquid panels use translucent white, blur, and inner highlight. Dark camera surfaces use contrast and guide overlays instead of heavy decoration.
+- 하나의 기능과 하나의 결과를 연결한다.
+- 넓은 이미지와 짧은 텍스트를 사용한다.
+- 중첩 카드나 장식용 배지를 늘리지 않는다.
 
-## 8. Accessibility, Personas & Accepted Debt
+### 6.8 Service Card Grid
 
-- Primary kiosk visitor: an employee who needs quick, low-stress practice; success means they can understand the current step, make one selection, and continue without decoding system jargon.
-- Keyboard users can tab through every selection card and receive a visible selected/focus state. Generated portraits and medallions are decorative so their text alternative stays on the card title and description.
-- The stepper communicates progress with text as well as color. Motion is limited to the existing opacity/transform page transition and respects `prefers-reduced-motion`.
-- Accepted debt: the generated role portraits are representative illustrations, not a live character identity. The real local PoC character name and role remain the source of truth when the practice session begins.
+- 동일한 정보 위계와 `8px` 반지름을 사용한다.
+- 카드는 기능 선택이나 서비스 비교가 실제로 필요할 때만 사용한다.
+- 카드 자체에 그림자를 넣지 않는다.
+
+### 6.9 Typography-only CTA
+
+- 큰 문장과 하나의 행동만으로 다음 단계를 제안한다.
+- 이미지나 패널 없이도 여백과 타이포그래피만으로 구분할 수 있어야 한다.
+
+### 6.10 Form Input
+
+- 배경: `#ffffff`
+- 테두리: `#e2e2e5`
+- 반지름: `8px`
+- 포커스는 명확한 파란색 외곽선으로 표시한다.
+
+### 6.11 Footer
+
+- 내비게이션, 정책, 연락 정보만 간결하게 구성한다.
+- 본문보다 낮은 대비를 사용하되 읽을 수 있는 수준을 유지한다.
+
+## 7. 이미지와 아이콘
+
+- 제품 화면, 실제 대화 환경, 카메라 기반 연습 장면을 우선한다.
+- 제품 이미지는 필요할 때 배경 없는 독립 오브젝트로 사용할 수 있다.
+- 생활 장면은 넓게 자른 full-bleed 사진을 사용한다.
+- 아이콘은 기능 이해에 꼭 필요한 최소한의 선형 아이콘만 사용한다.
+- 장식용 아이콘 묶음, 캐릭터 일러스트, 의미 없는 추상 그래픽은 사용하지 않는다.
+- 3D 이미지는 제품 또는 실제 기능 데모를 표현할 때만 제한적으로 사용한다.
+
+## 8. 사용 규칙
+
+### Do
+
+- `#0071e3`을 채워진 행동과 선택 상태에만 사용한다.
+- Filled Primary와 Outlined Secondary를 짝으로 사용한다.
+- 본문 기본값을 `17px`로 유지한다.
+- 넓은 제품 이미지와 충분한 여백을 사용한다.
+- 버튼과 태그에 `980px` 반지름을 일관되게 적용한다.
+- 표면 변화와 타이포그래피로 정보 위계를 만든다.
+- 설명은 간결하게 쓰고 한 섹션에 하나의 핵심 메시지를 둔다.
+
+### Don't
+
+- Apple Blue를 일반 텍스트, 카드 테두리, 넓은 장식 배경에 사용하지 않는다.
+- 카드, 버튼, 내비게이션에 드롭 섀도를 사용하지 않는다.
+- 제품 제목을 무조건 `700` 이상으로 만들지 않는다.
+- Frost 섹션 안에 카드와 패널을 여러 겹 중첩하지 않는다.
+- 메인 콘텐츠 전체를 좁은 고정 폭에 가두지 않는다.
+- 같은 역할의 컴포넌트에 서로 다른 반지름을 섞지 않는다.
+- 세 종류의 파란색 역할을 혼용하지 않는다.
+- 아이콘을 장식 목적으로 과도하게 생성하거나 배치하지 않는다.
+
+## 9. CSS 기준 토큰
+
+아래 값은 구현 전환 시 사용할 기준이며, 이번 문서 변경만으로 현재 런타임 토큰이 바뀌지는 않는다.
+
+```css
+:root {
+  --color-apple-blue: #0071e3;
+  --color-link-blue: #0066cc;
+  --color-signal-blue: #2997ff;
+
+  --color-carbon: #1d1d1f;
+  --color-smoke: #333333;
+  --color-graphite: #474747;
+  --color-ash: #707070;
+  --color-mist: #858585;
+  --color-onyx: #000000;
+
+  --color-white: #ffffff;
+  --color-frost: #f5f5f7;
+  --color-ice: #f4f8fb;
+  --color-pebble: #e2e2e5;
+
+  --font-display: "SF Pro Display", "Pretendard", "Apple SD Gothic Neo", Inter, system-ui, sans-serif;
+  --font-text: "SF Pro Text", "Pretendard", "Apple SD Gothic Neo", Inter, system-ui, sans-serif;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-14: 56px;
+  --section-gap: 64px;
+
+  --radius-pill: 980px;
+  --radius-content: 8px;
+  --shadow-product: rgba(0, 0, 0, 0.22) 3px 5px 30px;
+
+  --page-reference-width: 1440px;
+  --text-max-width: 980px;
+  --page-padding: 24px;
+}
+```

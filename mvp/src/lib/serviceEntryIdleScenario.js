@@ -21,7 +21,7 @@ export async function runReportIdleReset(pageHarness) {
     assert.equal(await page.evaluate(() => localStorage.getItem("keep-me")), "yes");
     assert.equal(calls.filter((path) => path === "/api/nfc/tap").length, 0);
     assert.deepEqual(pageErrors, []);
-    const selectorLabels = await page.locator(".service-mode-card").allTextContents();
+    const selectorLabels = await page.locator(".service-mode-card").evaluateAll((cards) => cards.map((card) => card.getAttribute("aria-label")));
     assert.deepEqual(selectorLabels, ["면접", "직업훈련", "직장대화"]);
     return {
       clock: { firstBoundaryMs: 89_999, activity: "pointerdown", secondBoundaryMs: 89_999, resetAtMs: 90_000 },
