@@ -1,5 +1,6 @@
 // Local fixtures keep the exhibition's direct demo routes usable without a backend.
 export const DEMO_REPORT = {
+  session_id: "d6",
   total_score: 88, percentile_top: 18, mode: 5, difficulty: "pressure",
   finished_label: "2024.05.24 14:32", character_name: "팀장 김민수", scenario_title: "서버 장애 보고",
   fit_scores: {

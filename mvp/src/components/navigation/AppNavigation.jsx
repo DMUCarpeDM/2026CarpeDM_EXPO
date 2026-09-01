@@ -7,17 +7,17 @@ import { Menu4 } from "reicon-react/icons/Menu4";
 import { X } from "reicon-react/icons/X";
 import { motion } from "framer-motion";
 import { IconGlyph } from "../ui/IconGlyph";
-import { navMap, NEW_PRACTICE_TARGET } from "./navigationConfig";
+import { navMap, NEW_PRACTICE_TARGET, practiceNavMap } from "./navigationConfig";
 
 const homeNavMap = {
-  interview: { "AI와 연습하기": "service", "코칭 리포트": "result", "성장 기록": "compare", "이용 방법": "feedback" },
-  training: { "AI와 연습하기": "service", "훈련 결과": "result", "성장 기록": "compare", "이용 방법": "feedback" },
-  workplace: { "AI와 연습하기": "service", "대화 리포트": "result", "성장 기록": "compare", "이용 방법": "feedback" },
+  interview: { "AI와 연습하기": "service", "면접 결과": "result", "서비스 홈": "home" },
+  training: { "AI와 연습하기": "service", "훈련 결과": "result", "서비스 홈": "home" },
+  workplace: { "AI와 연습하기": "service", "대화 결과": "result", "서비스 홈": "home" },
 };
 
 const homeModeLabel = { interview: "면접", training: "직업훈련", workplace: "직장대화" };
 
-export function TopNav({ active, serviceMode, scenarioTitle, sessionMode, menuOpen, onMenuOpen, onNavigate, scenarios = [], onScenarioSelect }) {
+export function TopNav({ active, serviceMode, scenarioTitle, sessionMode, menuOpen, onMenuOpen, onNavigate, scenarios = [], onScenarioSelect, practiceMode = false }) {
   const [bellOpen, setBellOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [scenarioOpen, setScenarioOpen] = useState(false);
@@ -54,7 +54,7 @@ export function TopNav({ active, serviceMode, scenarioTitle, sessionMode, menuOp
   };
 
   const modeId = serviceMode?.id || "workplace";
-  const currentNavMap = active === "home" ? homeNavMap[modeId] : navMap;
+  const currentNavMap = practiceMode ? practiceNavMap : active === "home" ? homeNavMap[modeId] : navMap;
 
   return (
     <header className="top-nav glass-panel">
@@ -75,11 +75,11 @@ export function TopNav({ active, serviceMode, scenarioTitle, sessionMode, menuOp
         <span className="divider" />
         <div className="nav-dropdown-wrapper">
           <button className={`bell-button ${bellOpen ? "active" : ""}`} type="button" aria-label="알림" onClick={toggleBell}><Bell size={20} /><b>3</b></button>
-          {bellOpen && <div className="nav-dropdown bell-dropdown glass-panel" onClick={(event) => event.stopPropagation()}><h3>최신 알림</h3><ul><li onClick={() => { onNavigate("compare"); setBellOpen(false); }}><strong>[기록 비교]</strong> 첫 출근 연습 기록의 성장 추이를 확인해 보세요.</li><li onClick={() => { onNavigate("feedback"); setBellOpen(false); }}><strong>[코칭 안내]</strong> 새로운 난이도 [압박 질문]에 대한 대응 팁이 추가되었습니다.</li><li onClick={() => { onNavigate("result"); setBellOpen(false); }}><strong>[분석 완료]</strong> ㈜클라우드밋 신입 백엔드 개발자 시뮬레이션 분석 완료!</li></ul></div>}
+          {bellOpen && <div className="nav-dropdown bell-dropdown glass-panel" onClick={(event) => event.stopPropagation()}><h3>최신 알림</h3><ul>{practiceMode ? <><li onClick={() => { onNavigate("compare"); setBellOpen(false); }}><strong>[기록 비교]</strong> 첫 출근 연습 기록의 성장 추이를 확인해 보세요.</li><li onClick={() => { onNavigate("feedback"); setBellOpen(false); }}><strong>[코칭 안내]</strong> 새로운 난이도 [압박 질문]에 대한 대응 팁이 추가되었습니다.</li><li onClick={() => { onNavigate("result"); setBellOpen(false); }}><strong>[분석 완료]</strong> ㈜클라우드밋 신입 백엔드 개발자 시뮬레이션 분석 완료!</li></> : <><li onClick={() => { onNavigate("result"); setBellOpen(false); }}><strong>[분석 완료]</strong> 이번 연습의 코칭 보고서를 확인해 보세요.</li><li onClick={() => { onNavigate("result"); setBellOpen(false); }}><strong>[성장 기록]</strong> 이전 연습과 달라진 점을 한 화면에 정리했어요.</li></>}</ul></div>}
         </div>
         <div className="nav-dropdown-wrapper">
           <button className={`profile-button ${profileOpen ? "active" : ""}`} type="button" onClick={toggleProfile}><Avatar size="sm" /><strong>체험자</strong><ChevronDown size={16} /></button>
-          {profileOpen && <div className="nav-dropdown profile-dropdown glass-panel" onClick={(event) => event.stopPropagation()}><div className="user-info"><strong>체험자님</strong><span>mirror-ting-user@kiosk</span></div><hr /><ul><li onClick={() => { onNavigate("compare"); setProfileOpen(false); }}>나의 기록 비교</li><li onClick={() => { onNavigate(NEW_PRACTICE_TARGET); setProfileOpen(false); }}>새 연습 시작</li><li onClick={() => { window.location.href = "/admin"; setProfileOpen(false); }}>운영 대시보드</li></ul></div>}
+          {profileOpen && <div className="nav-dropdown profile-dropdown glass-panel" onClick={(event) => event.stopPropagation()}><div className="user-info"><strong>체험자님</strong><span>mirror-ting-user@kiosk</span></div><hr /><ul><li onClick={() => { onNavigate(practiceMode ? "compare" : "result"); setProfileOpen(false); }}>{practiceMode ? "나의 기록 비교" : "나의 결과 보고서"}</li><li onClick={() => { onNavigate(NEW_PRACTICE_TARGET); setProfileOpen(false); }}>새 연습 시작</li><li onClick={() => { window.location.href = "/admin"; setProfileOpen(false); }}>운영 대시보드</li></ul></div>}
         </div>
         <button className="mobile-menu-button" type="button" aria-label="메뉴 열기" aria-expanded={menuOpen} onClick={() => onMenuOpen(true)}><Menu4 size={22} /></button>
       </div>
@@ -87,14 +87,14 @@ export function TopNav({ active, serviceMode, scenarioTitle, sessionMode, menuOp
   );
 }
 
-export function MobileMenuSheet({ open, active, onClose, onNavigate }) {
+export function MobileMenuSheet({ open, active, onClose, onNavigate, practiceMode = false }) {
   return (
     <motion.div className={`mobile-menu-layer ${open ? "open" : ""}`} aria-hidden={!open} initial={false} animate={open ? "open" : "closed"} variants={{ open: { opacity: 1, pointerEvents: "auto" }, closed: { opacity: 0, pointerEvents: "none" } }}>
       <button className="mobile-menu-backdrop" type="button" aria-label="메뉴 닫기" onClick={onClose} />
       <motion.section className="mobile-menu-sheet" role="dialog" aria-modal="true" aria-label="모바일 메뉴" variants={{ open: { y: 0 }, closed: { y: 28 } }} transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}>
         <div className="sheet-handle" />
         <div className="sheet-head"><strong>Mirror-Ting</strong><button type="button" aria-label="메뉴 닫기" onClick={onClose}><X size={20} /></button></div>
-        <nav aria-label="모바일 주요 화면">{Object.entries(navMap).map(([label, target]) => <button key={label} className={active === target ? "active" : ""} type="button" onClick={() => onNavigate(target)}><IconGlyph icon={target === NEW_PRACTICE_TARGET ? "roleplay" : target === "result" ? "report" : target === "compare" ? "retry" : "coach"} size={23} /><span>{label}</span><ArrowRight size={17} /></button>)}</nav>
+        <nav aria-label="모바일 주요 화면">{Object.entries(practiceMode ? practiceNavMap : navMap).map(([label, target]) => <button key={label} className={active === target ? "active" : ""} type="button" onClick={() => onNavigate(target)}><IconGlyph icon={target === NEW_PRACTICE_TARGET ? "roleplay" : target === "result" ? "report" : target === "compare" ? "retry" : "coach"} size={23} /><span>{label}</span><ArrowRight size={17} /></button>)}</nav>
       </motion.section>
     </motion.div>
   );

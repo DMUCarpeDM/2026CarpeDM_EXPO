@@ -2,6 +2,8 @@ export const ENTRY_LOOKUP_TIMEOUT_MS = 3_000;
 
 export const CHROMELESS_VIEWS = new Set(["service"]);
 
+export const LEGACY_REPORT_VIEWS = new Set(["feedback", "compare", "share"]);
+
 export const SERVICE_ENTRY_FLOW = [
   { id: "home", label: "메인" },
   { id: "service", label: "서비스 모드 선택" },
@@ -10,13 +12,10 @@ export const SERVICE_ENTRY_FLOW = [
   { id: "difficulty", label: "난이도 선택" },
   { id: "preview", label: "시나리오 미리보기" },
   { id: "practice", label: "AI와 연습하기" },
-  { id: "result", label: "결과 보기" },
-  { id: "feedback", label: "자세히 보기" },
-  { id: "compare", label: "다시 비교하기" },
-  { id: "share", label: "저장하고 공유하기" },
+  { id: "result", label: "결과 보고서" },
 ];
 
-const DIRECT_DEMO_VIEWS = new Set(["result", "feedback", "compare", "share"]);
+const DIRECT_DEMO_VIEWS = new Set(["result", ...LEGACY_REPORT_VIEWS]);
 
 export function isKioskIssue(search = window.location.search) {
   return new URLSearchParams(search).get("kiosk") === "issue";
@@ -25,7 +24,7 @@ export function isKioskIssue(search = window.location.search) {
 export function demoDestination(search = window.location.search) {
   const demo = new URLSearchParams(search).get("demo");
   if (demo === "practice") return "practice";
-  return DIRECT_DEMO_VIEWS.has(demo) ? demo : null;
+  return DIRECT_DEMO_VIEWS.has(demo) ? "result" : null;
 }
 
 export function savedSessionDestination(status) {
@@ -35,11 +34,12 @@ export function savedSessionDestination(status) {
 }
 
 export function normalizeDestination(target, selectedServiceModeId) {
+  if (LEGACY_REPORT_VIEWS.has(target)) return "result";
   return target === "home" && !selectedServiceModeId ? "service" : target;
 }
 
 export function isKnownView(view) {
-  return SERVICE_ENTRY_FLOW.some((item) => item.id === view);
+  return LEGACY_REPORT_VIEWS.has(view) || SERVICE_ENTRY_FLOW.some((item) => item.id === view);
 }
 
 export function isChromelessView(view) {

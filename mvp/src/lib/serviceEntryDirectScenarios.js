@@ -12,9 +12,9 @@ export async function runDirectDemos(pageHarness, runDir) {
   const demos = [
     ["practice", ".practice-screen", ".chat-log-card"],
     ["result", ".report-page", ".report-page"],
-    ["feedback", ".feedback-page", ".feedback-page"],
-    ["compare", ".compare-report", ".compare-report"],
-    ["share", ".share-page", ".share-page"],
+    ["feedback", ".report-page", ".report-page"],
+    ["compare", ".report-page", ".report-page"],
+    ["share", ".report-page", ".report-page"],
   ];
   for (const [demo, selector, stableSelector] of demos) {
     observations.push(await withPage(pageHarness, { query: `?demo=${demo}`, storage: savedStorage }, async ({ page, calls, pageErrors }) => {
@@ -26,18 +26,13 @@ export async function runDirectDemos(pageHarness, runDir) {
       assert.equal(nfcCalls, 0, `${demo} does not poll NFC`);
       assert.deepEqual(pageErrors, []);
       await capture(page, join(runDir, `direct-demo-${demo}.png`), stableSelector);
-      if (demo === "feedback") {
-        await page.getByRole("button", { name: "다시 연습하기", exact: true }).click();
-        await page.locator(".preview-page").waitFor();
-        assert.equal((await routeTrace(page)).some((entry) => entry.selector), false, "feedback retry retains setup and skips selector");
+      if (demo !== "practice") {
+        assert.equal(await page.locator(".feedback-page, .compare-report, .share-page").count(), 0, `${demo} uses the single report surface`);
+        assert.equal(trace.some((entry) => entry.route === "result"), true, `${demo} normalizes to result`);
       }
-      if (demo === "compare") await page.getByRole("button", { name: /Practice Again/ }).click();
-      if (demo === "share") await page.getByRole("button", { name: /다른 연습하기/ }).click();
-      if (["compare", "share"].includes(demo)) await page.locator(".service-mode-page").waitFor();
       return {
         demo, trace, nfcCalls,
-        sameScenarioDestination: demo === "feedback" ? "preview" : null,
-        newPracticeDestination: ["compare", "share"].includes(demo) ? "service" : null,
+        normalizedDestination: demo === "practice" ? "practice" : "result",
       };
     }));
   }

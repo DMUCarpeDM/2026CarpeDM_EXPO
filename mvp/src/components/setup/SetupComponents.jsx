@@ -7,6 +7,7 @@ import { Sparkles } from "reicon-react/icons/Sparkles";
 import { ArrowRight } from "reicon-react/icons/ArrowRight";
 import { motion } from "framer-motion";
 import { IconGlyph } from "../ui/IconGlyph";
+import { Badge, Button, Card } from "../ui/shadcn";
 
 export function PageTitle({ eyebrow, title, subtitle }) {
   return (
@@ -33,22 +34,22 @@ export function SetupMotionPage({ children, as = "section" }) {
 }
 
 export function Panel({ children, className = "" }) {
-  return <section className={`card ${className}`}>{children}</section>;
+  return <Card className={`card ${className}`}>{children}</Card>;
 }
 
 function PrimaryBar({ label, onClick, className = "", disabled = false }) {
   return (
-    <button className={`primary-bar ${className}`} type="button" onClick={onClick} disabled={disabled}>
+    <Button className={`primary-bar ${className}`} size="lg" type="button" onClick={onClick} disabled={disabled}>
       {label}
       <ArrowRight size={24} />
-    </button>
+    </Button>
   );
 }
 
 export function SetupFlowActions({ onPrev, label, onNext, nextDisabled = false }) {
   return (
     <div className="setup-flow-actions">
-      <button className="setup-back-button" type="button" onClick={onPrev}>이전</button>
+      <Button className="setup-back-button" variant="outline" size="lg" type="button" onClick={onPrev}>이전</Button>
       <PrimaryBar className="setup-next-button" label={label} onClick={onNext} disabled={nextDisabled} />
     </div>
   );
@@ -57,7 +58,7 @@ export function SetupFlowActions({ onPrev, label, onNext, nextDisabled = false }
 export function MiniStepper({ items, active }) {
   return (
     <div className="mini-stepper">
-      <strong>Step {active + 1} / {items.length}</strong>
+      <Badge className="setup-step-count">Step {active + 1} / {items.length}</Badge>
       <div className="mini-step-track">
         {items.map(([num, label], index) => (
           <React.Fragment key={label}>
@@ -87,7 +88,8 @@ export function ChoiceSection({ icon, image, title, description, children, colum
 
 export function ChoiceCard({ icon, image, title, text, detail, badge, selected = false, compact = false, minimalContent = false, tone = "blue", variant = "default", onClick }) {
   return (
-    <button
+    <Button
+      variant="outline"
       className={`choice-card ${variant} ${selected ? "selected" : ""} ${compact ? "compact" : ""}`}
       type="button"
       onClick={onClick}
@@ -100,7 +102,7 @@ export function ChoiceCard({ icon, image, title, text, detail, badge, selected =
         {detail && <em>{detail}</em>}
       </span>
       {selected && <b><Check size={16} /></b>}
-    </button>
+    </Button>
   );
 }
 
@@ -117,29 +119,35 @@ function SummaryItem({ icon, image, label, value, tone = "blue" }) {
 }
 
 function SummaryPanel({ children, className = "" }) {
-  return <section className={`summary-panel card ${className}`} aria-label="선택 요약">{children}</section>;
+  return <Card className={`summary-panel card ${className}`} role="region" aria-label="선택 요약">{children}</Card>;
 }
 
 export function SetupSelectionSummary({ counterpart, scenario, scenarioImage, difficulty, modeLabel, tip }) {
   return (
     <SummaryPanel className="setup-summary-panel">
-      <h2><Sparkles size={21} /> 선택 요약</h2>
-      <p>현재 선택한 설정을 확인해요.</p>
-      <SummaryItem image={counterpart.image} label="직무" value={counterpart.title} tone="blue" />
-      <SummaryItem image={scenarioImage} icon="briefcase" label="연습 상황" value={scenario?.title?.replace(" — ", " —\n") || "다음 단계에서 선택"} tone="blue" />
-      <SummaryItem image={difficulty?.image} icon="normal" label="난이도" value={difficulty?.title || "다음 단계에서 선택"} tone={difficulty?.tone || "blue"} />
-      <div className="time-box setup-summary-time">
-        <Clock3 size={20} />
-        <div><span>예상 소요 시간</span><strong>{modeLabel}</strong></div>
-      </div>
-      <div className="tip-box setup-summary-tip">
-        <Bulb2 size={22} />
-        <div>
-          <strong>팁</strong>
-          <p>{tip}</p>
+      <header className="setup-summary-heading">
+        <h2><Sparkles size={21} /> 선택 요약</h2>
+        <p>현재 선택한 설정을 확인해요.</p>
+      </header>
+      <div className="setup-summary-selections">
+        <SummaryItem image={counterpart.image} label="직무" value={counterpart.title} tone="blue" />
+        <SummaryItem image={scenarioImage} icon="briefcase" label="연습 상황" value={scenario?.title?.replace(" — ", " —\n") || "다음 단계에서 선택"} tone="blue" />
+        <SummaryItem image={difficulty?.image} icon="normal" label="난이도" value={difficulty?.title || "다음 단계에서 선택"} tone={difficulty?.tone || "blue"} />
+        <div className="time-box setup-summary-time">
+          <Clock3 size={20} />
+          <div><span>예상 소요 시간</span><strong>{modeLabel}</strong></div>
         </div>
       </div>
-      <p className="setup-summary-note"><ShieldCheck size={17} /> 설정은 연습을 시작하기 전까지 바꿀 수 있어요.</p>
+      <footer className="setup-summary-guidance">
+        <div className="tip-box setup-summary-tip">
+          <Bulb2 size={22} />
+          <div>
+            <strong>팁</strong>
+            <p>{tip}</p>
+          </div>
+        </div>
+        <p className="setup-summary-note"><ShieldCheck size={17} /> 설정은 연습을 시작하기 전까지 바꿀 수 있어요.</p>
+      </footer>
     </SummaryPanel>
   );
 }

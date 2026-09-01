@@ -25,9 +25,9 @@ export function RoleSelectPage({ serviceMode, counterpartProfile, onCounterpart,
               <ChoiceCard key={item.id} {...item} variant="portrait" selected={counterpartProfile === item.id} onClick={() => onCounterpart(item.id)} />
             ))}
           </ChoiceSection>
+          <SetupSelectionSummary counterpart={profile} modeLabel="다음 단계에서 선택" tip={resolvedServiceMode.setupDescription} />
           <SetupFlowActions onPrev={onPrev} label="다음 단계로" onNext={onNext} />
         </div>
-        <SetupSelectionSummary counterpart={profile} modeLabel="다음 단계에서 선택" tip={resolvedServiceMode.setupDescription} />
       </div>
     </SetupMotionPage>
   );

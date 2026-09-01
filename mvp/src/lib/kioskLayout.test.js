@@ -10,9 +10,6 @@ const stylesheetFiles = [
   "../styles/selection-setup-base.css",
   "../styles/practice-base.css",
   "../styles/result.css",
-  "../styles/feedback.css",
-  "../styles/share.css",
-  "../styles/compare.css",
   "../styles/responsive-legacy.css",
   "../styles/navigation.css",
   "../styles/desktop-dashboard.css",
@@ -26,6 +23,10 @@ const stylesheetFiles = [
   "../styles/dashboard.css",
   "../styles/shadcn-ui.css",
   "../styles/mode-home.css",
+  "../styles/design-system-runtime.css",
+  "../styles/setup-refresh.css",
+  "../styles/preflight-refresh.css",
+  "../styles/report-unified.css",
 ];
 const styles = stylesheetFiles.map((file) => readFileSync(new URL(file, import.meta.url), "utf8")).join("\n");
 const appSource = readFileSync(new URL("../App.jsx", import.meta.url), "utf8");
@@ -41,6 +42,11 @@ const setupAssetFiles = [
   "setup-icons/scenario-feature-priority.webp",
   "setup-icons/scenario-scope-schedule.webp",
 ];
+const homeSceneAssetFiles = [
+  "home-scenes/interview-practice-scene.webp",
+  "home-scenes/training-work-scene.webp",
+  "home-scenes/workplace-conversation-scene.webp",
+];
 const componentSources = [
   appSource,
   readFileSync(new URL("../data/homeContent.js", import.meta.url), "utf8"),
@@ -48,9 +54,6 @@ const componentSources = [
   readFileSync(new URL("../pages/PracticePage.jsx", import.meta.url), "utf8"),
   readFileSync(new URL("../pages/PreviewPage.jsx", import.meta.url), "utf8"),
   readFileSync(new URL("../pages/ResultPage.jsx", import.meta.url), "utf8"),
-  readFileSync(new URL("../pages/FeedbackPage.jsx", import.meta.url), "utf8"),
-  readFileSync(new URL("../pages/SharePage.jsx", import.meta.url), "utf8"),
-  readFileSync(new URL("../pages/ComparePage.jsx", import.meta.url), "utf8"),
   readFileSync(new URL("../components/report/ResultPrimitives.jsx", import.meta.url), "utf8"),
   readFileSync(new URL("../components/report/DashboardShell.jsx", import.meta.url), "utf8"),
   readFileSync(new URL("../components/report/Charts.jsx", import.meta.url), "utf8"),
@@ -82,16 +85,13 @@ test("kiosk 1920 layout reserves desktop canvas for supplied PC mockup views", (
     ".setup-page",
     ".practice-page",
     ".result-page",
-    ".compare-page",
+    ".preview-page",
   ]) {
     assert.match(styles, new RegExp(`${selector.replace(".", "\\.")}[\\s\\S]*?`, "m"));
   }
-
-  assert.match(styles, /\.preview-page,\s*\.share-page\s*\{[^}]*max-width:\s*1720px/s);
-  assert.match(styles, /\.share-layout\s*\{[^}]*max-width:\s*1484px/s);
 });
 
-test("Analysis views reuse the app navigation and shared component system", () => {
+test("the unified report reuses app navigation and shared components", () => {
   for (const componentName of [
     "PageToolbar",
     "PrimaryButton",
@@ -107,16 +107,17 @@ test("Analysis views reuse the app navigation and shared component system", () =
     assert.match(sourceBundle, new RegExp(`function ${componentName}\\(`));
   }
 
-  // 분석 계열 화면은 설정 화면과 같은 전역 상단 네비게이션을 사용하고, 전용 사이드바는 쓰지 않아요.
-  for (const routeName of ["ResultPage", "FeedbackPage", "ComparePage"]) {
-    assert.doesNotMatch(functionBody(routeName), /<ReportShell\b/, `${routeName} avoids the dashboard shell`);
-    assert.match(functionBody(routeName), /<PageToolbar\b/, `${routeName} uses the shared page toolbar`);
-  }
+  const resultPage = functionBody("ResultPage");
+  assert.doesNotMatch(resultPage, /<ReportShell\b/, "ResultPage avoids the dashboard shell");
+  assert.match(resultPage, /<PageToolbar\b/, "ResultPage uses the shared page toolbar");
+  assert.match(resultPage, /<ScoreRing\b/, "ResultPage uses the shared score visualization");
+  assert.match(resultPage, /<Card\b/, "ResultPage uses the shared Card primitive");
+  assert.match(resultPage, /<Button\b/, "ResultPage uses the shared Button primitive");
+  assert.match(styles, /\.report-page\.unified-report/);
+  assert.match(styles, /--report-blue:\s*var\(--color-apple-blue\)/);
   assert.deepEqual([...CHROMELESS_VIEWS], ["service"], "only the service selector omits shared navigation chrome");
   assert.match(functionBody("PracticePage"), /practice-contextbar/, "PracticePage keeps only its live context controls");
   assert.match(functionBody("PracticePage"), /finishSpeaking[\s\S]*setShowQuestionOverlay\(false\)/, "PracticePage closes the AI question overlay when TTS finishes");
-  // 저장·공유 화면은 기존 공용 툴바를 유지해요.
-  assert.match(functionBody("SharePage"), /<PageToolbar\b/, "SharePage keeps the shared toolbar");
 
   const previewPage = functionBody("PreviewPage");
   assert.doesNotMatch(previewPage, /<PageToolbar\b/, "PreviewPage removes toolbar pill controls");
@@ -166,6 +167,18 @@ test("home keeps each mode action-led and reuses shared section primitives", () 
   assert.match(sourceBundle, /function ProcessCard\(/);
   assert.match(sourceBundle, /function FitMetric\(/);
   assert.match(sourceBundle, /function FooterCta\(/);
+  assert.match(sourceBundle, /function ProductStage\(/);
+  assert.match(sourceBundle, /function ContextVisual\(/);
+  assert.match(sourceBundle, /function EvidenceStrip\(/);
+  assert.match(sourceBundle, /function DialogueComparison\(/);
   assert.match(styles, /\.mode-footer-cta\s*\{/);
   assert.match(styles, /\.mode-actions\s*\{/);
+  assert.match(styles, /\.product-stage\s*\{/);
+  assert.match(styles, /\.mode-context-visual\s*\{/);
+  assert.match(styles, /\.mode-evidence-strip\s*\{/);
+
+  for (const assetName of homeSceneAssetFiles) {
+    assert.match(sourceBundle, new RegExp(assetName.replace(".", "\\.")), `${assetName} is imported by HomePage`);
+    assert.ok(existsSync(new URL(`../assets/${assetName}`, import.meta.url)), `${assetName} exists for Vite to bundle`);
+  }
 });

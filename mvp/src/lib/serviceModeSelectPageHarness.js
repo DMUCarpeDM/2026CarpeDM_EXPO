@@ -128,7 +128,9 @@ export class ServiceModeSelectAssertions {
   async returnClearsFocusAndSelection() {
     await this.page.locator(cardSelector).nth(1).focus();
     assert.equal(await this.page.evaluate(() => document.activeElement?.matches("button.choice-card.service-mode-card")), true, "selector card receives keyboard focus");
+    const previousFirstCard = await this.page.locator(cardSelector).first().elementHandle();
     await this.page.evaluate(() => window.__serviceModeSelectReturn?.());
+    await this.page.waitForFunction((node) => !node?.isConnected, previousFirstCard);
     await waitForServiceModeCards(this.page);
     const returned = await inspectRenderedPage(this.page);
     assert.equal(await this.page.evaluate(() => document.activeElement?.matches("button.choice-card.service-mode-card")), false, "return does not restore card focus");

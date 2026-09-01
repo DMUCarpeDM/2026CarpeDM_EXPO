@@ -1,96 +1,52 @@
-# Design QA — 3-way selector and mode homes
+# Design QA — 3개 모드 Home 장문 랜딩 개편
 
-Date: 2026-08-31
+## 비교 기준
 
-## Scope
+- source visual truth: 사용자가 제공한 PLCO Coach 메인 페이지 스크린샷 14장
+- 대표 소스:
+  - `/var/folders/7_/hvbb4n0509q5cl8rb3fvlmch0000gn/T/TemporaryItems/NSIRD_screencaptureui_Kqfc09/스크린샷 2026-09-01 오전 11.57.05.png`
+  - `/var/folders/7_/hvbb4n0509q5cl8rb3fvlmch0000gn/T/TemporaryItems/NSIRD_screencaptureui_bOHYPW/스크린샷 2026-09-01 오전 11.57.52.png`
+  - `/var/folders/7_/hvbb4n0509q5cl8rb3fvlmch0000gn/T/TemporaryItems/NSIRD_screencaptureui_SYQXdN/스크린샷 2026-09-01 오전 11.58.07.png`
+- source dimensions: 3024×1964 원본(대화 입력에서는 1971×1280으로 축소 표시)
+- implementation target: `http://127.0.0.1:5175/`
+- implementation screenshot: 확보하지 못함
+- implementation viewport: 확인하지 못함
+- states to compare:
+  - 면접 Home
+  - 직업훈련 Home
+  - 직장대화 Home
+  - 데스크톱 우선, 모바일 반응형 보조
 
-- Three-column service selector.
-- Interview, vocational training, and workplace conversation Home pages only.
-- Existing scenario selection, practice, report, backend, and analysis routes were treated as protected behavior.
+## 구현 확인
 
-## Source visual truth
+- 세 모드가 공통 장문 랜딩 골격을 사용하면서 모드별 시각 계층과 콘텐츠 구성을 다르게 유지함
+- 서비스 UI를 설명하는 제품 프리뷰, 수치 근거, 맥락 이미지, 마지막 CTA를 추가함
+- 기존 Apple Light 토큰과 기존 진입·CTA 동작을 유지함
+- 실제 시뮬레이션 화면은 변경하지 않음
+- 생성 이미지는 WebP로 최적화하여 모드별 1장씩 적용함
 
-- `docs/design-targets/mode-selector-target-v1.png` — 1672 × 941.
-- `docs/design-targets/interview-home-target-v1.png` — 864 × 1821.
-- `docs/design-targets/training-home-target-v1.png` — 864 × 1821.
-- `docs/design-targets/workplace-home-target-v1.png` — 864 × 1821.
+## 자동 검증
 
-## Implementation surfaces
+- `npm test`: 119/119 통과
+- `npm run build`: 통과
+- `git diff --check`: 통과
+- 자동 검증은 렌더링 정상 여부와 픽셀 일치 여부를 보증하지 않음
 
-- `src/pages/setup/ServiceModeSelectPage.jsx`
-- `src/pages/HomePage.jsx`
-- `src/components/ui/shadcn.jsx`
-- `src/components/navigation/AppNavigation.jsx`
-- `src/pages/ServiceEntryShell.jsx`
-- `src/styles/service-mode-select.css`
-- `src/styles/mode-home.css`
-- `src/styles/shadcn-ui.css`
+## 시각 비교 증거
 
-## Viewports and state
+- full-page source capture: 확보됨(사용자 제공 14장)
+- full-page implementation capture: 미확보
+- focused comparison input: 미생성
+- same-viewport comparison: 미실행
+- iteration history: 구현 전 소스 분석 → 코드 구현 → 자동 검증 완료. 브라우저 캡처 단계에서 중단됨
 
-- Desktop visual pass: 1440 × 900, fresh selector and fresh Home for each selected mode.
-- Mobile visual pass: 390 × 844, fresh selector and fresh Home for each selected mode.
-- Desktop full-page evidence uses three fixed 1440 × 900 segments per Home. The in-app browser full-page compositor duplicated sticky sections, so the report uses fixed segments rather than accepting invalid stitched output.
-- Target and implementation were normalized into the same combined comparison images before judgment.
+## 미완료 사유
 
-## Combined comparison evidence
+선택된 인앱 브라우저에서 로컬 URL 접근·캡처가 URL 정책으로 차단되었습니다. 정책상 다른 브라우저, Playwright CLI, raw CDP, 우회 URL 등으로 같은 결과를 시도할 수 없어 실제 구현 화면과 참조 화면을 동일 뷰포트로 합성 비교하지 못했습니다.
 
-- `artifacts/design-qa/compare-mode-selector-final-v3.jpg`
-- `artifacts/design-qa/compare-interview-home-final.jpg`
-- `artifacts/design-qa/compare-training-home-final.jpg`
-- `artifacts/design-qa/compare-workplace-home-final.jpg`
-- Mobile evidence:
-  - `artifacts/design-qa/selector-mobile-final.jpg`
-  - `artifacts/design-qa/interview-mobile-final.jpg`
-  - `artifacts/design-qa/training-mobile-final.jpg`
-  - `artifacts/design-qa/workplace-mobile-final.jpg`
+시각 QA를 완료하려면 아래 중 하나가 필요합니다.
 
-## Fidelity review
+1. 현재 면접·직업훈련·직장대화 Home의 동일한 창 크기 데스크톱 스크린샷 3장
+2. 브라우저 정책에서 허용되는 접근 가능한 프리뷰 URL
 
-- Layout: selector retains a white canvas, one-row equal cards, restrained borders, and image-over-title hierarchy. Each Home uses a distinct composition while reusing the same section, card, button, progress, badge, and accordion primitives.
-- Spacing: desktop content rails, section spacing, card gaps, and mobile stacking preserve hierarchy without overlap or horizontal clipping.
-- Typography: Korean display copy uses deliberate keep-all wrapping, strong weight contrast, and readable body line height on desktop and mobile.
-- Color: the only accent families are blue `#0071e3`, orange `#f05a24`, and violet `#6e5ed2`. Neutral whites, grays, and pale tints are not additional accents.
-- Imagery: all selector cards now use actual raster assets. Runtime div/CSS preview illustrations were removed. The training asset was corrected from green to orange, and the workplace asset uses blue/violet only.
-- Icons: product UI uses one consistent Reicon family. Selector imagery does not add separate decorative icons.
-- Responsive behavior: measured `scrollWidth === innerWidth` at 1440 px and 390 px for the selector and all three Home variants.
-- Accessibility: selector cards have exact accessible names, stable `aria-pressed="false"`, visible keyboard focus, descriptive image alt text, and no nested interactive elements. Interview numbered question tabs now expose the full question in their accessible names.
-
-## Interaction checks
-
-- Selector cards activate by mouse and keyboard, retain the chosen Home through navigation, and clear focus/selection when returning.
-- Interview question 2 updates the console heading to `지원한 직무를 선택한 이유는 무엇인가요?`.
-- Training step selection updates the active heading to `처리 순서 안내` and progress to 75%.
-- Training FAQ expands with `aria-expanded="true"`.
-- Primary Home actions continue to the existing setup flow for all three modes.
-- Browser integration runs reported no page errors.
-
-## Findings and fixes
-
-- P1 fixed: selector title and preview were laid out side-by-side because a legacy `.choice-card` rule won the cascade. Added a scoped grid reset so image and title return to the target's vertical hierarchy.
-- P1 fixed: training and workplace previews were runtime div art. Replaced both with generated raster UI assets and preserved the one-image-per-card accessibility contract.
-- P1 fixed: route regression selectors no longer identified the redesigned Home. Restored the stable `.home-page`, `.hero-actions`, `.choice-card`, and `.service-mode-card` contracts without reverting the new design.
-- P2 fixed: selector title alignment differed from the target. Centered the title band.
-- P2 fixed: the training preview introduced a fourth green accent. Recolored that asset to the approved orange family.
-- P2 fixed: numbered interview tabs lacked descriptive accessible names. Added the full question label.
-- No remaining P0, P1, or P2 findings.
-
-## Verification
-
-- `npm test`: 114 passed, 0 failed.
-- `npm run build`: passed.
-- Build warning: the existing production bundle still exceeds Vite's 500 kB advisory threshold; this is outside the requested Home/selector visual scope and does not block the build.
-
-## Final Result
-
-passed
-
-## UX writing and heading-weight pass — 2026-08-31
-
-- Applied the Toss writing principles relevant to this screen: short spoken sentences, `해요체`, active and positive phrasing, one key message per sentence, and CTA labels that predict the next `직무 선택` screen.
-- Reduced the shared Home display-heading weight from `750` to `650` for hero H1, section H2, and footer H2. Component-level card headings were intentionally unchanged.
-- Verified all three Home variants at 1280 px and 390 px with `scrollWidth === innerWidth` and computed display-heading weight `650`.
-- Verified the primary Home CTA opens the existing `직무 선택` step.
-- Comparison evidence: `.lazyweb/lazyweb-growth-report/ux-writing-2026-08-31/references/before-after.jpg`.
-- `npm test`: 114 passed, 0 failed.
-- `npm run build`: passed; only the existing Vite chunk-size advisory remains.
+final result: blocked

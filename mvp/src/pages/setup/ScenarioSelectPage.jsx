@@ -32,9 +32,9 @@ export function ScenarioSelectPage({ serviceMode, counterpartProfile, scenarios,
               </p>
             )}
           </ChoiceSection>
+          <SetupSelectionSummary counterpart={profile} scenario={selectedScenario} scenarioImage={getEpisodeImage(selectedScenario?.scenarioSlug, selectedScenario?.episodeId)} modeLabel="다음 단계에서 선택" tip={resolvedServiceMode.detail} />
           <SetupFlowActions onPrev={onPrev} label="다음 단계로" onNext={onNext} nextDisabled={!selectedScenario} />
         </div>
-        <SetupSelectionSummary counterpart={profile} scenario={selectedScenario} scenarioImage={getEpisodeImage(selectedScenario?.scenarioSlug, selectedScenario?.episodeId)} modeLabel="다음 단계에서 선택" tip={resolvedServiceMode.detail} />
       </div>
     </SetupMotionPage>
   );

@@ -1,0 +1,167 @@
+.app-shell:not(.practice-mode),
+.chromeless {
+  --color-apple-blue: #0071e3;
+  --color-link-blue: #0066cc;
+  --color-signal-blue: #2997ff;
+  --color-carbon: #1d1d1f;
+  --color-smoke: #333333;
+  --color-graphite: #474747;
+  --color-ash: #707070;
+  --color-mist: #858585;
+  --color-onyx: #000000;
+  --color-white: #ffffff;
+  --color-frost: #f5f5f7;
+  --color-ice: #f4f8fb;
+  --color-pebble: #e2e2e5;
+  --font-display: "SF Pro Display", "Pretendard", "Apple SD Gothic Neo", Inter, system-ui, sans-serif;
+  --font-text: "SF Pro Text", "Pretendard", "Apple SD Gothic Neo", Inter, system-ui, sans-serif;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-14: 56px;
+  --section-gap: 64px;
+  --radius-pill: 980px;
+  --radius-content: 8px;
+  --shadow-product: rgba(0, 0, 0, 0.22) 3px 5px 30px;
+  --page-reference-width: 1440px;
+  --text-max-width: 980px;
+  --page-padding: 24px;
+}
+
+body:has(.app-shell:not(.practice-mode)),
+body:has(.chromeless) {
+  background: white;
+}
+
+.app-shell:not(.practice-mode),
+.chromeless {
+  --mode-accent: var(--color-apple-blue);
+  --mode-accent-soft: var(--color-ice);
+  --mode-ink: var(--color-carbon);
+  --mode-muted: var(--color-ash);
+  --mode-surface: var(--color-frost);
+  --mode-card: var(--color-white);
+  --mode-border: var(--color-pebble);
+  --mode-radius: var(--radius-content);
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  background: var(--color-white);
+  color: var(--color-carbon);
+  font-family: var(--font-text);
+}
+
+.app-shell:not(.practice-mode) > .top-nav {
+  top: 0;
+  width: 100%;
+  min-height: 64px;
+  margin: 0;
+  padding: 8px max(var(--page-padding), calc((100vw - var(--page-reference-width)) / 2 + var(--page-padding)));
+  border: 0;
+  border-bottom: 1px solid var(--color-pebble);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: none;
+  backdrop-filter: saturate(180%) blur(18px);
+}
+
+.app-shell:not(.practice-mode) > .top-nav .brand {
+  color: var(--color-carbon);
+  font-size: 21px;
+  font-weight: 600;
+}
+
+.app-shell:not(.practice-mode) > .top-nav nav {
+  gap: 28px;
+  padding-left: 28px;
+}
+
+.app-shell:not(.practice-mode) > .top-nav nav button {
+  color: var(--color-graphite);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.app-shell:not(.practice-mode) > .top-nav nav button.active {
+  color: var(--color-link-blue);
+  box-shadow: none;
+}
+
+.app-shell:not(.practice-mode) .glass-panel,
+.app-shell:not(.practice-mode) .card,
+.chromeless .glass-panel,
+.chromeless .card {
+  border-color: var(--color-pebble);
+  background: var(--color-white);
+  box-shadow: none;
+}
+
+.app-shell:not(.practice-mode) .nav-dropdown {
+  border-radius: var(--radius-content);
+  background: var(--color-white);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.app-shell:not(.practice-mode) .timer-pill,
+.app-shell:not(.practice-mode) .scenario-select {
+  border-color: var(--color-pebble);
+  border-radius: var(--radius-pill);
+  background: var(--color-white);
+}
+
+.app-shell:not(.practice-mode) .screen-frame {
+  min-height: calc(100vh - 65px);
+}
+
+.app-shell:not(.practice-mode) .ui-button,
+.chromeless .ui-button {
+  border-radius: var(--radius-pill);
+  box-shadow: none;
+  font-weight: 600;
+}
+
+.app-shell:not(.practice-mode) .ui-button--default,
+.chromeless .ui-button--default {
+  background: var(--color-apple-blue);
+  color: var(--color-white);
+}
+
+.app-shell:not(.practice-mode) .ui-button--outline,
+.chromeless .ui-button--outline {
+  border-color: var(--color-link-blue);
+  background: var(--color-white);
+  color: var(--color-link-blue);
+}
+
+.app-shell:not(.practice-mode) .ui-button--ghost,
+.chromeless .ui-button--ghost {
+  color: var(--color-link-blue);
+}
+
+.app-shell:not(.practice-mode) .ui-card,
+.chromeless .ui-card {
+  border-color: var(--color-pebble);
+  border-radius: var(--radius-content);
+  background: var(--color-white);
+  box-shadow: none;
+}
+
+.app-shell:not(.practice-mode) .ui-badge,
+.chromeless .ui-badge {
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .app-shell:not(.practice-mode) > .top-nav {
+    padding-inline: 16px;
+  }
+}

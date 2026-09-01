@@ -27,6 +27,9 @@ import {
   Progress,
 } from "../components/ui/shadcn";
 import { resolveServiceHomeContent } from "../data/serviceHomeContent";
+import interviewPracticeScene from "../assets/home-scenes/interview-practice-scene.webp";
+import trainingWorkScene from "../assets/home-scenes/training-work-scene.webp";
+import workplaceConversationScene from "../assets/home-scenes/workplace-conversation-scene.webp";
 
 const questionFlow = [
   { icon: ChatDots, title: "핵심 질문", text: "지원 동기와 강점을 한 문장으로 정리해요." },
@@ -93,6 +96,13 @@ function InterviewHome({ onNext }) {
         </div>
       </section>
 
+      <section className="mode-section mode-section--canvas interview-report-showcase">
+        <SectionIntro eyebrow="연습 직후 리포트" title={<>한 번의 답변에서도<br />다음 행동을 찾아요</>} text="점수만 보여주지 않고 잘한 점, 놓친 부분, 바로 바꿀 행동을 한 흐름으로 설명해요." align="center" />
+        <ProductStage label="면접 코칭 리포트 미리보기">
+          <InterviewReportPreview />
+        </ProductStage>
+      </section>
+
       <section className="mode-section interview-process">
         <SectionIntro eyebrow="연습 방법" title="세 단계로 연습해요" text="직무를 고르고, 실제처럼 답한 뒤 바로 코칭을 확인해요." align="center" />
         <div className="process-grid">
@@ -108,6 +118,20 @@ function InterviewHome({ onNext }) {
           {fitMetrics.map((metric) => <FitMetric key={metric.label} {...metric} />)}
         </div>
       </section>
+
+      <EvidenceStrip items={[
+        ["4가지", "한 번에 보는 말하기 신호"],
+        ["1개", "다음 답변의 우선 행동"],
+        ["기기 안", "영상·음성 분석 방식"],
+      ]} />
+
+      <ContextVisual
+        image={interviewPracticeScene}
+        alt="밝은 공간에서 노트북 카메라를 보며 면접 답변을 연습하는 사람"
+        eyebrow="실전 전 반복 연습"
+        title={<>낯선 질문도<br />내 답변으로 바꿔보세요</>}
+        text="실수해도 괜찮은 환경에서 여러 번 말해보면, 실제 면접에서도 답변의 중심을 더 빨리 찾을 수 있어요."
+      />
 
       <FooterCta title="다음 답변을 더 또렷하게 말해보세요" text="직무를 고르면 면접 연습을 바로 시작할 수 있어요." button="연습할 직무 고르기" onNext={onNext} />
     </>
@@ -177,6 +201,15 @@ function TrainingHome({ onNext }) {
         </div>
       </section>
 
+      <ContextVisual
+        image={trainingWorkScene}
+        alt="밝은 직업훈련 공간에서 태블릿을 참고하며 과업을 수행하는 사람"
+        eyebrow="현장에서 쓰는 방식으로"
+        title={<>설명만 듣지 않고<br />직접 끝까지 해봐요</>}
+        text="해야 할 일을 눈으로 확인하고 손으로 수행하면서, 빠뜨린 단계는 AI 코치의 안내로 바로 보완해요."
+        align="right"
+      />
+
       <section className="mode-section training-faq">
         <SectionIntro eyebrow="자주 묻는 질문" title="훈련 전에 궁금한 점을 확인해요" />
         <Accordion type="single" collapsible>
@@ -235,6 +268,11 @@ function WorkplaceHome({ onNext }) {
         <ProcessCard number="03" icon={FileText} title="피드백 받기" text="다음 대화에 쓸 표현을 확인해요." compact />
       </section>
 
+      <section className="mode-section mode-section--canvas workplace-compare-section">
+        <SectionIntro eyebrow="표현 비교" title={<>같은 내용도<br />더 편하게 전달할 수 있어요</>} text="대화 전후 표현을 나란히 보며 상대가 이해하기 쉬운 순서와 말투를 익혀요." />
+        <DialogueComparison />
+      </section>
+
       <section className="mode-section workplace-feedback">
         <div>
           <SectionIntro eyebrow="4-Fit 피드백" title={<>대화 습관 네 가지를<br />함께 살펴봐요</>} text="응답, 목소리, 표정, 자세를 하나의 대화 맥락으로 설명해요." />
@@ -260,6 +298,20 @@ function WorkplaceHome({ onNext }) {
           <GrowthItem label="대안 제시하기" value={81} />
         </div>
       </section>
+
+      <EvidenceStrip items={[
+        ["3단계", "목표·대화·코칭 흐름"],
+        ["4-Fit", "말과 비언어 신호 분석"],
+        ["매회", "저장되는 성장 기록"],
+      ]} />
+
+      <ContextVisual
+        image={workplaceConversationScene}
+        alt="밝은 회의실에서 차분하게 업무 대화를 나누는 두 직장인"
+        eyebrow="어려운 대화 전 리허설"
+        title={<>상대와 마주하기 전에<br />먼저 말해볼 수 있어요</>}
+        text="보고, 요청, 조율처럼 부담되는 대화를 미리 연습하면 실제 자리에서는 핵심과 근거에 더 집중할 수 있어요."
+      />
 
       <FooterCta title="어려운 대화 전에 먼저 연습해보세요" text="직무를 고르면 AI 동료와 대화를 시작할 수 있어요." button="연습할 직무 고르기" onNext={onNext} />
     </>
@@ -376,6 +428,85 @@ function WorkplaceWorkspace() {
         <blockquote>“일정에 영향을 줄 수 있어 오늘 확인이 필요합니다.”</blockquote>
       </div>
     </Card>
+  );
+}
+
+function ProductStage({ label, children }) {
+  return (
+    <div className="product-stage" aria-label={label}>
+      <div className="product-stage__label"><span>{label}</span><Badge variant="neutral">서비스 화면</Badge></div>
+      <div className="product-stage__body">{children}</div>
+    </div>
+  );
+}
+
+function InterviewReportPreview() {
+  return (
+    <div className="interview-report-preview">
+      <div className="report-preview-summary">
+        <Badge variant="outline">연습 완료</Badge>
+        <small>개발자 직무 · 실무 면접</small>
+        <strong>82</strong>
+        <span>/ 100</span>
+        <h3>핵심부터 답한 점이 좋았어요</h3>
+        <p>이제 경험을 한 가지 덧붙이면 답변의 근거가 더 또렷해져요.</p>
+      </div>
+      <div className="report-preview-fits">
+        {fitMetrics.map((metric) => (
+          <div className="report-preview-fit" key={metric.label}>
+            <div><span>{metric.label}</span><b>{metric.value}</b></div>
+            <Progress value={metric.value} />
+            <small>{metric.detail}</small>
+          </div>
+        ))}
+      </div>
+      <div className="report-preview-action">
+        <span><Sparkles size={16} /> 다음 답변에서 바꿀 한 가지</span>
+        <h3>결론 뒤에 구체적인 경험을 한 문장으로 붙여보세요</h3>
+        <p>“프로젝트 일정이 늦어졌을 때 우선순위를 다시 정해 마감일을 지킨 경험이 있습니다.”</p>
+      </div>
+    </div>
+  );
+}
+
+function DialogueComparison() {
+  return (
+    <div className="dialogue-comparison">
+      <div className="dialogue-version dialogue-version--before">
+        <Badge variant="neutral">연습 전</Badge>
+        <h3>“일정이 조금 어려울 것 같은데요…”</h3>
+        <p>상황과 필요한 결정이 드러나지 않아 상대가 다시 물어봐야 해요.</p>
+      </div>
+      <ArrowRight className="dialogue-comparison__arrow" size={28} aria-hidden="true" />
+      <div className="dialogue-version dialogue-version--after">
+        <Badge variant="outline">코칭 반영</Badge>
+        <h3>“현재 일정은 이틀 조정이 필요합니다. 오늘 우선순위를 함께 정하고 싶어요.”</h3>
+        <p>결론, 이유, 요청을 순서대로 말해 상대가 바로 판단할 수 있어요.</p>
+      </div>
+    </div>
+  );
+}
+
+function EvidenceStrip({ items }) {
+  return (
+    <section className="mode-evidence-strip" aria-label="서비스 강점 요약">
+      {items.map(([value, label]) => (
+        <div key={label}><strong>{value}</strong><span>{label}</span></div>
+      ))}
+    </section>
+  );
+}
+
+function ContextVisual({ image, alt, eyebrow, title, text, align = "left" }) {
+  return (
+    <section className={`mode-context-visual mode-context-visual--${align}`}>
+      <img src={image} alt={alt} />
+      <div className="mode-context-visual__copy">
+        <span>{eyebrow}</span>
+        <h2>{title}</h2>
+        <p>{text}</p>
+      </div>
+    </section>
   );
 }
 

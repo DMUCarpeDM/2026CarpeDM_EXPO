@@ -24,9 +24,9 @@ export function DifficultyPage({ serviceMode, counterpartProfile, scenario, sele
           <ChoiceSection icon="normal" title="난이도 선택" description={`이 모드에서 만날 대화의 복잡도와 질문 강도를 선택해 주세요.`} columns="three" className="difficulty-choice-section">
             {difficulties.map((item) => <ChoiceCard key={item.id} {...item} variant="difficulty" selected={difficulty === item.id} onClick={() => onDifficulty(item.id)} />)}
           </ChoiceSection>
+          <SetupSelectionSummary counterpart={profile} scenario={selectedEpisode || scenario} scenarioImage={getEpisodeImage(scenario?.slug, selectedEpisode?.id)} difficulty={selectedDifficulty} modeLabel="약 5분" tip={`${resolvedServiceMode.label}: ${resolvedServiceMode.detail}`} />
           <SetupFlowActions onPrev={onPrev} label="다음 단계로" onNext={onNext} />
         </div>
-        <SetupSelectionSummary counterpart={profile} scenario={selectedEpisode || scenario} scenarioImage={getEpisodeImage(scenario?.slug, selectedEpisode?.id)} difficulty={selectedDifficulty} modeLabel="약 5분" tip={`${resolvedServiceMode.label}: ${resolvedServiceMode.detail}`} />
       </div>
     </SetupMotionPage>
   );
