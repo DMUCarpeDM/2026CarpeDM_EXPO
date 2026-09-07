@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "fits": {
+    "response": {
+      "docx": "docs/word/model-plans/readable/response-fit-읽기쉬운-개발계획서.docx",
+      "summary": "_workspace/2026-09-05-013/final.md",
+      "change_rate": 0.17579588014981273,
+      "grade": "A"
+    },
+    "voice": {
+      "docx": "docs/word/model-plans/readable/voice-fit-읽기쉬운-개발계획서.docx",
+      "summary": "_workspace/2026-09-05-014/final.md",
+      "change_rate": 0.19486055291681892,
+      "grade": "A"
+    },
+    "expression": {
+      "docx": "docs/word/model-plans/readable/expression-fit-읽기쉬운-개발계획서.docx",
+      "summary": "_workspace/2026-09-05-015/final.md",
+      "change_rate": 0.18131110178132315,
+      "grade": "A"
+    },
+    "posture": {
+      "docx": "docs/word/model-plans/readable/posture-fit-읽기쉬운-개발계획서.docx",
+      "summary": "_workspace/2026-09-05-016/final.md",
+      "change_rate": 0.1724382042357383,
+      "grade": "A"
+    }
+  }
+}
