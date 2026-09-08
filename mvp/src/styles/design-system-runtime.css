@@ -110,7 +110,6 @@ body:has(.chromeless) {
   backdrop-filter: none;
 }
 
-.app-shell:not(.practice-mode) .timer-pill,
 .app-shell:not(.practice-mode) .scenario-select {
   border-color: var(--color-pebble);
   border-radius: var(--radius-pill);

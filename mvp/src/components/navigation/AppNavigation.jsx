@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { ArrowRight } from "reicon-react/icons/ArrowRight";
 import { Bell } from "reicon-react/icons/Bell";
 import { ChevronDown } from "reicon-react/icons/ChevronDown";
-import { Clock3 } from "reicon-react/icons/Clock3";
 import { Menu4 } from "reicon-react/icons/Menu4";
 import { X } from "reicon-react/icons/X";
 import { motion } from "framer-motion";
@@ -17,7 +16,7 @@ const homeNavMap = {
 
 const homeModeLabel = { interview: "면접", training: "직업훈련", workplace: "직장대화" };
 
-export function TopNav({ active, serviceMode, scenarioTitle, sessionMode, menuOpen, onMenuOpen, onNavigate, scenarios = [], onScenarioSelect, practiceMode = false }) {
+export function TopNav({ active, serviceMode, scenarioTitle, menuOpen, onMenuOpen, onNavigate, scenarios = [], onScenarioSelect, practiceMode = false }) {
   const [bellOpen, setBellOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [scenarioOpen, setScenarioOpen] = useState(false);
@@ -71,8 +70,6 @@ export function TopNav({ active, serviceMode, scenarioTitle, sessionMode, menuOp
             {scenarioOpen && scenarios.length > 0 && <div className="nav-dropdown scenario-dropdown glass-panel" onClick={(event) => event.stopPropagation()}><h3>시나리오 전환</h3><ul>{scenarios.map((scenario) => <li key={scenario.slug} onClick={() => { onScenarioSelect(scenario.slug); setScenarioOpen(false); }} className={scenario.title === scenarioTitle ? "active" : ""}>{scenario.title}</li>)}</ul></div>}
           </div>
         )}
-        <span className="timer-pill"><Clock3 size={17} /> {sessionMode ? `${sessionMode}분 모드` : "연습 준비"}</span>
-        <span className="divider" />
         <div className="nav-dropdown-wrapper">
           <button className={`bell-button ${bellOpen ? "active" : ""}`} type="button" aria-label="알림" onClick={toggleBell}><Bell size={20} /><b>3</b></button>
           {bellOpen && <div className="nav-dropdown bell-dropdown glass-panel" onClick={(event) => event.stopPropagation()}><h3>최신 알림</h3><ul>{practiceMode ? <><li onClick={() => { onNavigate("compare"); setBellOpen(false); }}><strong>[기록 비교]</strong> 첫 출근 연습 기록의 성장 추이를 확인해 보세요.</li><li onClick={() => { onNavigate("feedback"); setBellOpen(false); }}><strong>[코칭 안내]</strong> 새로운 난이도 [압박 질문]에 대한 대응 팁이 추가되었습니다.</li><li onClick={() => { onNavigate("result"); setBellOpen(false); }}><strong>[분석 완료]</strong> ㈜클라우드밋 신입 백엔드 개발자 시뮬레이션 분석 완료!</li></> : <><li onClick={() => { onNavigate("result"); setBellOpen(false); }}><strong>[분석 완료]</strong> 이번 연습의 코칭 보고서를 확인해 보세요.</li><li onClick={() => { onNavigate("result"); setBellOpen(false); }}><strong>[성장 기록]</strong> 이전 연습과 달라진 점을 한 화면에 정리했어요.</li></>}</ul></div>}

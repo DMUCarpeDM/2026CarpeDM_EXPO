@@ -309,7 +309,6 @@
 .app-shell:has(.mode-home-page) .top-nav nav { gap: 22px; padding-left: 4px; }
 .app-shell:has(.mode-home-page) .top-nav nav button { min-height: 64px; color: var(--mode-muted, #6e6e73); font-size: 13px; font-weight: 650; }
 .app-shell:has(.mode-home-page) .top-nav nav button.active { color: var(--mode-accent, #0071e3); box-shadow: inset 0 -2px 0 var(--mode-accent, #0071e3); }
-.app-shell:has(.mode-home-page) .timer-pill { min-height: 34px; border-radius: 999px; background: #fff; font-size: 12px; }
 
 @media (max-width: 1000px) {
   .mode-section,

@@ -32,7 +32,6 @@
   .top-nav nav { gap: 18px; padding-left: 4px; }
   .top-nav nav button { min-width: auto; padding: 0 3px; font-size: 14px; }
   .nav-actions { gap: 7px; }
-  .timer-pill { padding: 0 10px; font-size: 13px; }
   .profile-button strong { display: none; }
 }
 
@@ -41,7 +40,7 @@
   .top-nav { top: 10px; width: calc(100% - 28px); min-height: 56px; margin-top: 10px; padding: 0 16px; }
   .brand { min-width: 0; min-height: 38px; padding: 0; border-right: 0; font-size: 19px; }
   .brand-mark { width: 28px; height: 28px; margin-right: 8px; border-radius: 50%; font-size: 15px; }
-  .top-nav nav,.timer-pill,.divider,.bell-button,.profile-button { display: none; }
+  .top-nav nav,.divider,.bell-button,.profile-button { display: none; }
   .nav-actions { justify-content: flex-end; }
   .mobile-menu-button { display: grid; }
   .page,.selection-page,.setup-page,.home-page,.result-page,.compare-page,.practice-page { width: min(100% - 28px, 100%); padding-top: 26px; }
@@ -89,4 +88,3 @@
   .camera-panel-stack { right: 14px; bottom: 99px; left: 14px; width: auto; }
   .record-control-strip { right: 14px; left: 14px; bottom: 16px; min-height: 65px; padding: 12px 15px; }
 }
-

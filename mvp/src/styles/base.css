@@ -198,8 +198,7 @@ button:active {
   white-space: nowrap;
 }
 
-.scenario-select,
-.timer-pill {
+.scenario-select {
   display: inline-flex;
   align-items: center;
   gap: 8px;

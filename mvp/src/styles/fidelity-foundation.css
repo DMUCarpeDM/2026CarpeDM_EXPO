@@ -91,7 +91,6 @@ body {
 }
 
 .nav-actions { gap: 8px; }
-.timer-pill,
 .scenario-select { min-height: 40px; border-color: var(--line-cool); border-radius: 10px; background: #fff; font-size: 14px; }
 .divider { background: var(--line-cool); }
 .bell-button b { background: var(--blue-strong); }
@@ -203,4 +202,3 @@ body {
 .tip-box { margin-top: 30px; border: 1px solid #b8d3ff; border-radius: 16px; background: linear-gradient(135deg, #eef6ff, #fff); }
 .time-box { margin-top: 26px; padding-top: 24px; border-top-color: #e1e9f4; }
 .time-box strong { color: #17243b; }
-
