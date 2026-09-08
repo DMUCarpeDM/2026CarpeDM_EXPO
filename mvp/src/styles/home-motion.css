@@ -1,0 +1,39 @@
+.mode-home-page .home-scroll-content {
+  position: relative;
+  z-index: 1;
+  display: flow-root;
+  background: var(--mode-card);
+}
+.mode-home-page .home-site-footer {
+  position: relative;
+  background: var(--mode-surface);
+  color: var(--mode-ink);
+  padding: 64px 24px 28px;
+}
+.mode-home-page .home-site-footer--reveal { position: sticky; bottom: 0; }
+.home-site-footer__inner { max-width: 1180px; margin: 0 auto; }
+.home-site-footer__brand { max-width: 420px; padding-bottom: 28px; border-bottom: 1px solid var(--mode-border); }
+.home-site-footer__brand strong { font-size: 24px; font-weight: 600; letter-spacing: -.04em; }
+.home-site-footer__brand p { margin: 20px 0 0; font-size: 17px; line-height: 1.7; color: var(--mode-muted); word-break: keep-all; overflow-wrap: anywhere; }
+.home-site-footer__links { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; padding: 44px 0; }
+.home-site-footer__links h2 { margin: 0 0 18px; font-size: 13px; font-weight: 600; color: var(--mode-muted); }
+.home-site-footer button { display: block; width: fit-content; padding: 10px 0; border: 0; border-radius: 0; background: transparent; color: inherit; font: inherit; font-size: 16px; line-height: 1.5; text-align: left; cursor: pointer; }
+.home-site-footer button:hover { color: var(--mode-accent); text-decoration: underline; text-underline-offset: 5px; }
+.home-site-footer button:focus-visible { outline: 2px solid var(--mode-accent); outline-offset: 5px; }
+.home-site-footer__bottom { display: flex; align-items: center; justify-content: space-between; gap: 24px; border-top: 1px solid var(--mode-border); padding-top: 24px; color: var(--mode-muted); }
+.home-site-footer__bottom small, .home-site-footer__bottom button { font-size: 13px; }
+.home-reveal-target:focus-within { opacity: 1 !important; transform: none !important; }
+@media (max-width: 599px) {
+  .mode-home-page .home-site-footer { padding: 40px 24px 24px; }
+  .home-site-footer__links { grid-template-columns: 1fr; gap: 28px; padding: 32px 0; }
+  .home-site-footer__links h2 { margin-bottom: 8px; }
+  .home-site-footer__bottom { align-items: flex-start; flex-direction: column; gap: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mode-home-page .home-site-footer--reveal { position: relative; }
+  .mode-home-page .home-reveal-target { opacity: 1 !important; transform: none !important; }
+}
+@media print {
+  .mode-home-page .home-site-footer--reveal { position: relative; }
+  .mode-home-page .home-reveal-target { opacity: 1 !important; transform: none !important; }
+}

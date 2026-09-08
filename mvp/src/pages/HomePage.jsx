@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { HomeMotion, HomeFooter } from "../components/home/HomeMotion";
+import "../styles/home-motion.css";
 import { ArrowRight } from "reicon-react/icons/ArrowRight";
 import { BookOpen } from "reicon-react/icons/BookOpen";
 import { Briefcase2 } from "reicon-react/icons/Briefcase2";
@@ -60,14 +62,17 @@ const fitMetrics = [
   { icon: Presentation, label: "자세", value: 71, detail: "어깨를 조금 펴보세요" },
 ];
 
-export function HomePage({ serviceMode, onNext }) {
+export function HomePage({ serviceMode, onNext, onModeSelect }) {
   const mode = resolveServiceHomeContent(serviceMode?.id);
 
   return (
     <section className={`page home-page mode-home-page mode-home-page--${mode.id}`}>
-      {mode.id === "interview" && <InterviewHome onNext={onNext} />}
-      {mode.id === "training" && <TrainingHome onNext={onNext} />}
-      {mode.id === "workplace" && <WorkplaceHome onNext={onNext} />}
+      <HomeMotion key={mode.id}>
+        {mode.id === "interview" && <InterviewHome onNext={onNext} />}
+        {mode.id === "training" && <TrainingHome onNext={onNext} />}
+        {mode.id === "workplace" && <WorkplaceHome onNext={onNext} />}
+      </HomeMotion>
+      <HomeFooter mode={mode.id} onNext={onNext} onModeSelect={onModeSelect} />
     </section>
   );
 }
@@ -552,5 +557,5 @@ function FooterCta({ title, text, button, onNext }) {
 }
 
 function scrollToSection(id) {
-  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  document.getElementById(id)?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
 }
