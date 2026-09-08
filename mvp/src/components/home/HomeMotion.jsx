@@ -20,7 +20,7 @@ export function HomeMotion({ children }) {
         element.style.transform = "none";
       } else if (!revealed.has(element)) {
         running.set(element, animate(element, { opacity: 1, y: 0 }, {
-          duration: 0.5, delay: Number(element.dataset.homeDelay || 0), ease: [0.22, 1, 0.36, 1],
+          duration: 0.5, delay: 0.5 + Number(element.dataset.homeDelay || 0), ease: [0.22, 1, 0.36, 1],
         }));
       }
       revealed.add(element);
