@@ -17,12 +17,12 @@ def test_measured_unstable_posture_creates_posture_coaching_only_after_calibrati
     assert "자세" in fallback_reaction(observation)
 
 
-def test_voice_coaching_uses_fillers_and_repeated_syllables_without_changing_score():
+def test_live_coaching_does_not_count_fillers_from_chrome_text():
     text = "어 어 어 지금 저 저 저 확인해 볼게요. 음 그러니까요"
     observation = analyze_live_coaching({}, text, 5000)
 
     assert count_stutters(text) >= 1
-    assert observation["values"]["filler_count"] >= 3
+    assert "filler_count" not in observation["values"]
     assert {issue["kind"] for issue in observation["issues"]} == {"voice"}
     assert "말이" in fallback_reaction(observation)
 

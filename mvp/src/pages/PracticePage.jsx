@@ -33,7 +33,7 @@ const rise = (delay) => ({
   transition: { delay, duration: 0.38, ease: [0.16, 1, 0.3, 1] },
 });
 
-export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSignals, onSubmit, busy, error, mediaStream, onTranscribe, onRequestMedia, onSwitchMic }) {
+export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSignals, onSubmit, busy, error, mediaStream, onRequestMedia, onSwitchMic }) {
   const [draft, setDraft] = useState("");
   const [captureError, setCaptureError] = useState("");
   const [elapsed, setElapsed] = useState(0);
@@ -156,7 +156,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
     clearAutoSubmit, stopBrowserRecognition, getSttSource, resetSttUsage,
   } = usePracticeTranscription({
     draft, setDraft, mediaStream, turn, busy, paused, aiSpeaking, entryOverlayOpen,
-    aiHealth, onTranscribe, pushFeed, onAutoSubmit: () => submitDraftRef.current?.(),
+    pushFeed, onAutoSubmit: () => submitDraftRef.current?.(),
   });
   // 마이크 트랙은 살아 있는데 신호가 0인 상태(잘못된 입력 장치·음소거) — 파형 효과가 감지해 갱신
   const [micSilent, setMicSilent] = useState(false);
@@ -192,7 +192,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
   };
   const analysisTools = [
     { label: "대화 AI", detail: aiHealth?.dialogue_provider === "openai" ? "GPT-4o" : "Ollama", ready: aiReady },
-    { label: "음성 인식", detail: sttMode === "server" ? "서버 Whisper" : sttMode === "webspeech" ? "브라우저 STT" : "직접 입력", ready: sttMode !== "off" && micEnabled && hasMicrophone },
+    { label: "음성 인식", detail: sttMode === "webspeech" ? "브라우저 STT" : "직접 입력", ready: sttMode !== "off" && micEnabled && hasMicrophone },
     { label: "카메라 분석", detail: "MediaPipe", ready: hasCamera && track.status === "ready" },
     { label: "마이크", detail: micSilent ? "신호 없음" : micDeviceLabel || "입력", title: micDeviceLabel, ready: hasMicrophone && !micSilent },
   ];
@@ -452,7 +452,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
           {turn && <div className="camera-dialogue">
             {showQuestionOverlay && <AiPromptOverlay name={characterName} speaking={aiSpeaking} text={turnSpeech} />}
             <div className="control-speak">
-              <button type="button" className={`control-speak-label ${listening ? "listening" : ""}`} onClick={() => setMicEnabled((value) => !value)} disabled={sttMode === "off"} title={sttMode === "server" ? "서버 음성 인식 사용 중 — 켜기/끄기" : sttMode === "webspeech" ? "음성 입력 켜기/끄기" : "음성 인식을 사용할 수 없어 직접 입력해요"}>
+              <button type="button" className={`control-speak-label ${listening ? "listening" : ""}`} onClick={() => setMicEnabled((value) => !value)} disabled={sttMode === "off"} title={sttMode === "webspeech" ? "음성 입력 켜기/끄기" : "음성 인식을 사용할 수 없어 직접 입력해요"}>
                 <Mic size={18} /> {busy ? "분석 중..." : listening ? "듣는 중..." : sttMode === "off" || !micEnabled || !hasMicrophone ? "직접 입력" : "말하는 중..."}
               </button>
               <span className={`control-wave ${listening ? "is-listening" : ""} ${hasMicrophone ? "is-real" : ""}`} ref={waveRef} aria-hidden="true">{Array.from({ length: 30 }, (_, i) => <i key={i} />)}</span>

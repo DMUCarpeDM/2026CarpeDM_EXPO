@@ -5,15 +5,14 @@
 #
 # 하는 일:
 #   1. uv 설치 → Python 3.12 venv (.venv) + 의존성 + faster-whisper
-#   2. Whisper 한국어 모델 사전 다운로드 (전시장 오프라인 대비)
-#   3. Vosk 한국어 모델 다운로드 (완전 오프라인 STT 폴백)
-#   4. Ollama + exaone3.5:2.4b(대화 개인화). 의미 매칭은 프로젝트의 local E5 사용
+#   2. Whisper 간투어 모델 로컬 준비
+#   3. Ollama + exaone3.5:2.4b(대화 개인화). 의미 매칭은 프로젝트의 local E5 사용
 #      — EXAONE은 q8_0 KV 캐시와 비호환이라 f16을 강제한 LaunchAgent로 기동
-#   5. .env 생성 (없을 때만) — 대화 엔진 ollama 활성화
+#   4. .env 생성 (없을 때만) — 대화 엔진 ollama 활성화
 set -euo pipefail
 cd "$(dirname "$0")/.."   # backend/
 
-echo "== [1/5] Python 3.12 venv =="
+echo "== [1/4] Python 3.12 venv =="
 if ! command -v uv >/dev/null && [ ! -x "$HOME/.local/bin/uv" ]; then
   curl -LsSf https://astral.sh/uv/install.sh | sh
 fi
@@ -24,19 +23,10 @@ if [ ! -x .venv/bin/python ] || ! .venv/bin/python -c 'import sys; sys.exit(sys.
 fi
 "$UV" pip install --python .venv -r requirements.txt faster-whisper
 
-echo "== [2/5] Whisper 모델 사전 다운로드 =="
-MODEL="${MIRROR_TING_STT_WHISPER_MODEL:-small}"
-.venv/bin/python - "$MODEL" <<'PY'
-import sys
-from faster_whisper import WhisperModel
-WhisperModel(sys.argv[1], device="cpu", compute_type="int8")
-print(f"whisper-{sys.argv[1]} 캐시 완료")
-PY
-
-echo "== [3/5] Vosk 한국어 모델 =="
+echo "== [2/4] Whisper 모델 사전 다운로드 =="
 .venv/bin/python scripts/setup_offline_stt.py
 
-echo "== [4/5] Ollama + 한국어 모델 =="
+echo "== [3/4] Ollama + 한국어 모델 =="
 if ! command -v ollama >/dev/null; then
   if command -v brew >/dev/null; then brew install ollama; else
     echo "!! brew가 없습니다 — https://ollama.com 에서 설치 후 재실행"; exit 1
@@ -78,7 +68,7 @@ for i in $(seq 1 15); do
 done
 ollama pull exaone3.5:2.4b
 
-echo "== [5/5] .env =="
+echo "== [4/4] .env =="
 [ -f .env ] || printf '# 기준 문서: .env.example\nMIRROR_TING_DIALOGUE_PROVIDER=ollama\nMIRROR_TING_SEMANTIC_PROVIDER=local_e5\n' > .env
 
 echo

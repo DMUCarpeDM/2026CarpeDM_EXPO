@@ -100,7 +100,7 @@ export function ResultPage({
   const evidenceItems = [
     stats.turns ? { label: "분석한 답변", value: `${stats.turns}개` } : null,
     para.speech_rate_spm ? { label: "말 속도", value: `분당 ${para.speech_rate_spm}음절` } : stats.avg_speech_rate ? { label: "말 속도", value: `${stats.avg_speech_rate}음절/초` } : null,
-    Number.isFinite(para.filler_count) ? { label: "필러", value: `${para.filler_count}회` } : null,
+    Number.isFinite(para.filler_count) ? { label: "간투어 추정", value: `${para.filler_count}회` } : null,
     measurement.frames ? { label: "영상 분석", value: `${measurement.frames}프레임` } : null,
     measurement.audio_sec ? { label: "음성 분석", value: `${Math.round(measurement.audio_sec)}초` } : null,
     typeof stats.formal_pct === "number" ? { label: "격식 표현", value: `${stats.formal_pct}%` } : null,

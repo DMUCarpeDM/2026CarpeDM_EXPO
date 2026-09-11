@@ -73,39 +73,17 @@ describe("practice transcription lifecycle", { concurrency: false }, () => {
     assert.ok(await page.evaluate(() => stt.recognitions.every((recognition) => recognition.stops > 0)));
   });
 
-  test("browser failure falls back to Whisper; silence submits only a spoken draft and late results are ignored", { timeout: 30_000 }, async (t) => {
+  test("Chrome failure switches to typing without calling server STT", { timeout: 30_000 }, async (t) => {
     const page = await open(t);
     await page.evaluate(() => {
-      stt.type("직접 입력"); stt.voiced = false;
+      stt.recognitions.at(-1).result("음성 답변");
       stt.recognitions.at(-1).onerror({ error: "network" });
     });
-    await page.waitForFunction(() => stt.current.sttMode === "server" && stt.current.listening);
+    await page.waitForFunction(() => stt.current.sttMode === "off" && !stt.current.listening);
     await page.clock.runFor(6400);
-    assert.deepEqual(await page.evaluate(() => stt.submissions), []);
     assert.equal(await page.evaluate(() => stt.requests.length), 0);
-    await page.evaluate(() => { stt.voiced = true; });
-    await page.clock.runFor(3200);
-    await page.waitForFunction(() => stt.requests.length === 1);
-    await page.evaluate(() => stt.requests.shift()({ text: "음성 답변" }));
-    await page.waitForFunction(() => stt.current.draft.includes("음성 답변"));
-    assert.equal(await page.evaluate(() => stt.current.getSttSource()), "server-whisper");
-    await page.evaluate(() => { stt.voiced = false; });
-    await page.clock.runFor(3200);
-    // WAV conversion and silence detection finish asynchronously before the 3-second timer.
-    await page.waitForFunction(() => stt.recorders.length >= 5);
-    await page.waitForTimeout(50);
-    await page.clock.runFor(3000);
-    assert.deepEqual(await page.evaluate(() => stt.submissions), ["직접 입력 음성 답변"]);
-    await page.evaluate(() => { stt.voiced = true; });
-    await page.clock.runFor(3200);
-    await page.waitForFunction(() => stt.requests.length > 0);
-    await page.evaluate(() => stt.update({ paused: true }));
-    await page.waitForFunction(() => !stt.current.listening);
-    await page.evaluate(() => stt.requests.shift()({ text: "늦은 응답" }));
-    await page.waitForTimeout(50);
-    assert.equal(await page.evaluate(() => stt.current.draft), "직접 입력 음성 답변");
-    await page.evaluate(() => stt.unmount());
-    assert.ok(await page.evaluate(() => stt.recorders.every((recorder) => recorder.state === "inactive")));
+    assert.deepEqual(await page.evaluate(() => stt.submissions), []);
+    assert.equal(await page.evaluate(() => stt.current.draft), "음성 답변");
   });
 
   test("without speech support, typed text remains available without auto submission", { timeout: 30_000 }, async (t) => {

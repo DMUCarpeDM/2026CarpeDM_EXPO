@@ -6,7 +6,6 @@
 """
 import re
 
-from app.ai.paralinguistics import analyze_fillers
 
 # 같은 짧은 음절을 세 번 이상 반복한 경우만 머뭇거림으로 본다. "아마" 같은
 # 정상 단어를 오인하지 않도록 2회 반복은 지표에 넣지 않는다.
@@ -21,8 +20,6 @@ HUNCHED_ALERT_RATIO = 0.45
 LEAN_BACK_ALERT_RATIO = 0.45
 HAND_FACE_ALERT_SEC = 3.0
 TILT_DRIFT_ALERT_DEG = 7.0
-FILLER_ALERT_COUNT = 3
-FILLER_ALERT_PER_100 = 6.0
 STUTTER_ALERT_COUNT = 2
 
 
@@ -80,21 +77,12 @@ def analyze_live_coaching(
         if posture_reasons:
             issues.append({"kind": "posture", "reasons": posture_reasons})
 
-    fillers = analyze_fillers(response_text)
-    filler_count = int(fillers.get("filler_count") or 0)
-    filler_rate = float(fillers.get("filler_per_100_syllables") or 0.0)
     stutter_count = count_stutters(response_text)
     values.update({
-        "filler_count": filler_count,
-        "filler_per_100_syllables": filler_rate,
         "stutter_count": stutter_count,
         "duration_ms": max(0, int(duration_ms or 0)),
     })
     voice_reasons = []
-    if filler_count >= FILLER_ALERT_COUNT or (
-        filler_count >= 2 and filler_rate >= FILLER_ALERT_PER_100
-    ):
-        voice_reasons.append(f"간투어 {filler_count}회")
     if stutter_count >= STUTTER_ALERT_COUNT:
         voice_reasons.append(f"반복 발화 {stutter_count}회")
     if voice_reasons:

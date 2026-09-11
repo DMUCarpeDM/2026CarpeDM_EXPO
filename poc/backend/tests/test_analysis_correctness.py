@@ -198,3 +198,39 @@ def test_expression_scored_gaze_observation_and_weighted_total():
         assert total == round(weighted_mean(scored), 1)
     finally:
         db.close()
+
+
+def test_fillers_use_whisper_audio_and_preserve_chrome_answer(monkeypatch):
+    from app.models import AnalysisResult, FitType
+    from app.services import analysis
+    seed()
+    with SessionLocal() as db:
+        sid = _make_analyzing_session_with_turn(db)
+        turn = db.query(Turn).filter_by(session_id=sid).one()
+        turn.audio_path = "mock.wav"
+        turn.stt_source = "webspeech"
+        original = turn.response_text
+        db.commit()
+    class Whisper:
+        def transcribe_words(self, path):
+            assert path == "mock.wav"
+            return [{"word": w, "start": i, "end": i + .5, "conf": .9}
+                    for i, w in enumerate(["어,", "음,", "확인하겠습니다."])]
+    monkeypatch.setattr(analysis, "get_stt_provider", lambda: Whisper())
+    monkeypatch.setattr(analysis.voice_fit, "analyze_audio", lambda *args: {"speech_rate_sps": 4})
+    monkeypatch.setattr(analysis.voice_fit, "score_voice", lambda metrics: 70 if metrics else None)
+    monkeypatch.setattr(analysis.voice_align, "analyze_alignment", lambda *args: {})
+    run_analysis(sid)
+    with SessionLocal() as db:
+        turn = db.query(Turn).filter_by(session_id=sid).one()
+        assert turn.response_text == original
+        voice = db.query(AnalysisResult).filter_by(session_id=sid, turn_id=turn.id, fit_type=FitType.voice).one()
+        assert voice.raw_metrics["fillers"]["filler_count"] == 2
+        assert voice.raw_metrics["fillers"]["source"] == "whisper-filler-prompt"
+        assert voice.score == 70
+
+
+def test_missing_whisper_is_unmeasured_not_zero(monkeypatch):
+    from app.ai.paralinguistics import summarize
+    assert summarize([{"speech_rate_sps": 4}])["filler_count"] is None
+    assert summarize([{"fillers": {"filler_count": 0}}])["filler_count"] == 0

@@ -7,7 +7,7 @@ globalThis.localStorage = {
   getItem: (key) => storage.get(key) || null,
   setItem: (key, value) => storage.set(key, String(value)),
 };
-const { createSession, getNfcTap, issueNfcCard, resolveApiBase, resolveNfcCard, submitResponse, synthesizeSpeech } = await import("./pocApi.js");
+const { finishSession, createSession, getNfcTap, issueNfcCard, resolveApiBase, resolveNfcCard, submitResponse, synthesizeSpeech } = await import("./pocApi.js");
 
 test("resolveApiBase keeps exhibition traffic on the local PC", () => {
   assert.equal(resolveApiBase("https://remote.example.com/api"), "/api");
@@ -302,4 +302,26 @@ test("문자열 detail(HTTPException)은 그대로 사용자에게 전달된다"
     assert.equal(error.status, 404);
     return true;
   });
+});
+
+
+test("finish waits for the last audio upload before starting Whisper analysis", async () => {
+  const originalFetch = globalThis.fetch;
+  let release;
+  const calls = [];
+  globalThis.fetch = async (url) => {
+    calls.push(url);
+    if (url.endsWith("/audio")) await new Promise(resolve => { release = resolve; });
+    return new Response("{}", { status: 200 });
+  };
+  try {
+    const session = { id: "pending", access_token: "pending-token" };
+    await submitResponse(session, 1, { text: "답변", audio: new Blob(["wav"]) });
+    const finish = finishSession(session);
+    await Promise.resolve();
+    assert.equal(calls.some(url => url.endsWith("/finish")), false);
+    release();
+    await finish;
+    assert.ok(calls.at(-1).endsWith("/finish"));
+  } finally { globalThis.fetch = originalFetch; }
 });

@@ -179,7 +179,7 @@ def metrics(
         "voice_turns": len(voice),
         # 오디오 없이 발화 시간 근사로만 채점된 턴 — 마이크/녹음 문제의 신호
         "voice_estimated_turns": len(voice) - len(voice_audio),
-        # Vosk 정렬(문장 인용·쉼 위치의 재료)이 실제로 붙은 비율
+        # Whisper 정렬(문장 인용·쉼 위치의 재료)이 실제로 붙은 비율
         "voice_alignment_rate": _rate(
             [1.0 if r.raw_metrics.get("alignment") else 0.0 for r in voice_audio]
         ),

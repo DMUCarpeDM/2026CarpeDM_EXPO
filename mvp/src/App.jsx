@@ -17,7 +17,6 @@ import {
   issueCode,
   saveActiveSession,
   submitResponse,
-  transcribeLive,
 } from "./lib/pocApi";
 import { findJobRole } from "./lib/nfc";
 import { resolveServiceMode } from "./lib/serviceModeContext";
@@ -233,7 +232,6 @@ export default function App() {
     sendAnswer,
     requestExerciseMedia,
     switchMicDevice,
-    transcribeLive,
     issueCode,
   };
 

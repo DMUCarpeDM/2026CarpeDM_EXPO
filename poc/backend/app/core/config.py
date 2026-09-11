@@ -30,17 +30,11 @@ class Settings(BaseSettings):
     # 기관 납품 시 True + role='admin' 계정 필수 (app.seed.make_admin으로 승격)
     admin_auth_required: bool = False
 
-    # 서버 STT(오프라인 폴백)용 Vosk 한국어 모델 경로 — scripts/setup_offline_stt.py로 다운로드
-    stt_model_dir: Path = Path("./models/vosk-ko")
-    # faster-whisper 모델 크기 — i7-8750H 실측(21s 한국어): small CER 4.8%/RTF 0.28,
-    # base CER 10.8%/RTF 0.24, vosk-small-ko CER 47.6%. 속도 차이가 미미해 small 기본.
-    stt_whisper_model: str = "small"
-    # STT 핫워드 부스팅 (S-B2B-PARA, STT 최적화 R1) — 도메인 고유 어휘를 디코더에
-    # 조건화해 브랜드 메뉴명·사내 용어의 오전사(온도라떼→온도 라테/라떼 등)를 줄인다.
-    # 시나리오 팩을 추가하면 그 팩의 고유 명사를 여기 덧붙인다. 비우면 비활성.
-    stt_initial_prompt: str = (
-        "카페 온도, 온도라떼, 유자온도, 온도 콜드브루, 크림 온도, 온도 포인트, "
-        "클라우드밋, 플로우데스크, 에스컬레이션, 러시타임"
+    # Chrome은 실시간 자막, Whisper는 녹음 후 간투어 전사에만 사용한다.
+    stt_whisper_model: str = "./whisper-models/small"
+    stt_filler_prompt: str = (
+        "말한 그대로 받아쓴 대화입니다. 간투어와 반복도 포함합니다. "
+        "어, 저는 음, 이번 일을 해 봤는데요. 어, 어, 잠시 생각해 볼게요."
     )
 
     # 역할극 대사 생성은 서버 측 GPT-4o만 사용한다. 템플릿·Ollama 폴백은 사용하지 않는다.

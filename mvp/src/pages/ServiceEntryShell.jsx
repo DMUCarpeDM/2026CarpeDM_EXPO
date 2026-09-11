@@ -33,7 +33,7 @@ export function ServiceEntryShell({
     submitting, mode,
   } = view;
   const {
-    startPractice, sendAnswer, requestExerciseMedia, switchMicDevice, transcribeLive, issueCode,
+    startPractice, sendAnswer, requestExerciseMedia, switchMicDevice, issueCode,
   } = actions;
 
   if (kioskIssueMode) return <KioskIssuePage />;
@@ -54,7 +54,7 @@ export function ServiceEntryShell({
       {active === "scenario" && <ScenarioSelectPage serviceMode={serviceMode} counterpartProfile={counterpartProfile} scenarios={apiScenarios} selectedEpisodeId={selectedEpisodeId} onScenario={chooseScenario} onPrev={() => go(-1)} onNext={() => navigate("difficulty")} />}
       {active === "difficulty" && <DifficultyPage serviceMode={serviceMode} counterpartProfile={counterpartProfile} scenario={previewScenario} selectedEpisode={previewEpisode} difficulty={difficulty} onDifficulty={setDifficulty} onPrev={() => go(-1)} onNext={() => navigate("preview")} />}
       {active === "preview" && <PreviewPage serviceMode={serviceMode} onNext={startPractice} starting={starting} scenario={previewScenario} selectedEpisode={previewEpisode} counterpartProfile={previewCounterpartProfile} difficulty={difficultyOption} aiHealth={aiHealth} consented={consented} onConsent={setConsented} error={apiError} permissionState={permissionState} mode={mode} />}
-      {active === "practice" && <PracticePage onPrev={() => go(-1)} scenario={session?.scenario} aiHealth={aiHealth} turn={turn} history={turnHistory} turnSignals={turnSignals} onSubmit={sendAnswer} busy={submitting} error={apiError} mediaStream={mediaStream} onTranscribe={typeof session?.id === "number" ? (wav) => transcribeLive(session, wav) : null} onRequestMedia={requestExerciseMedia} onSwitchMic={switchMicDevice} />}
+      {active === "practice" && <PracticePage onPrev={() => go(-1)} scenario={session?.scenario} aiHealth={aiHealth} turn={turn} history={turnHistory} turnSignals={turnSignals} onSubmit={sendAnswer} busy={submitting} error={apiError} mediaStream={mediaStream} onRequestMedia={requestExerciseMedia} onSwitchMic={switchMicDevice} />}
       {active === "result" && <ResultPage onPrev={() => go(-1)} onPractice={() => navigate("preview")} report={report} history={history} onIssueCode={issueCode} selectedDifficulty={difficulty} progress={analysisProgress} error={apiError} />}
     </div>
     <span className="screen-reader-note" aria-live="polite">현재 화면: {current.label}</span>

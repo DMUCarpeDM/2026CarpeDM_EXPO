@@ -47,7 +47,6 @@ router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 MAX_AUDIO_BYTES = 25 * 1024 * 1024  # 업로드 오디오 상한 — DoS 차단 (한 턴 wav 실측 대비 관대)
 # 실시간 받아쓰기 조각 상한 — 3~4초 48kHz mono 16bit WAV(~400KB) 대비 관대하되 턴 오디오보다 훨씬 작게
-MAX_LIVE_STT_BYTES = 4 * 1024 * 1024
 
 
 def _stored_difficulty(db: Session, difficulty: str) -> str:
@@ -453,56 +452,9 @@ async def upload_audio(
     await run_in_threadpool(dest.write_bytes, data)
     turn.audio_path = str(dest)
 
-    # 브라우저 STT가 없는(오프라인) 턴은 서버가 즉시 변환 — 대화 엔진이 바로 사용
-    transcript = ""
-    if not turn.response_text:
-        from app.ai.stt import get_stt_provider
-
-        provider = get_stt_provider()
-        if provider:
-            try:
-                # CPU 바운드 전사를 스레드풀로 — 이벤트 루프에서 돌리면 전사가
-                # 끝날 때까지 다른 방문객의 진행률 폴링·헬스체크까지 함께 멈춘다
-                transcript = await run_in_threadpool(provider.transcribe, str(dest))
-            except Exception:
-                transcript = ""
-            if transcript:
-                turn.response_text = transcript
-                turn.stt_source = provider.name
+    # Chrome의 답변 원문을 유지한다. Whisper 간투어 분석은 세션 종료 후 실행한다.
     db.commit()
-    return {"ok": True, "path": str(dest), "transcript": transcript}
-
-
-@router.post("/{session_id}/stt")
-async def live_stt(
-    session_id: int,
-    file: UploadFile,
-    session: RoleplaySession = Depends(require_session),
-):
-    """연습 중 실시간 받아쓰기 폴백 — 브라우저 Web Speech가 없거나(오프라인 Chrome 등)
-    실패할 때, 프론트가 3초 안팎의 WAV 조각을 보내 입력창을 채운다.
-    턴 상태는 건드리지 않는다 — 최종 제출·분석은 기존 /audio + /response 경로가 담당한다."""
-    from app.ai.stt import get_stt_provider
-
-    provider = get_stt_provider()
-    if provider is None:
-        raise HTTPException(status_code=503, detail="서버 음성 인식을 사용할 수 없습니다")
-    data = await file.read(MAX_LIVE_STT_BYTES + 1)
-    if len(data) > MAX_LIVE_STT_BYTES:
-        raise HTTPException(status_code=413, detail="음성 조각이 허용 크기를 초과했습니다")
-    # 조각은 전사 즉시 삭제한다 — 세션 오디오 보존 정책(media_retention)과 무관한 임시물
-    tmp = settings.media_dir / f"live_stt_{session_id}_{uuid.uuid4().hex}.wav"
-    await run_in_threadpool(tmp.write_bytes, data)
-    # 저지연 경로가 있으면 우선 사용 (whisper: beam 1 탐욕 디코딩 — 체감 지연 절반)
-    transcribe = getattr(provider, "transcribe_live", provider.transcribe)
-    try:
-        # CPU 바운드 전사는 스레드풀로 — 이벤트 루프를 막으면 다른 방문객 요청까지 멈춘다
-        transcript = await run_in_threadpool(transcribe, str(tmp))
-    except Exception:
-        transcript = ""
-    finally:
-        tmp.unlink(missing_ok=True)
-    return {"text": transcript.strip(), "provider": provider.name}
+    return {"ok": True, "path": str(dest), "transcript": ""}
 
 
 @router.post("/{session_id}/finish", response_model=ProgressOut, status_code=202)

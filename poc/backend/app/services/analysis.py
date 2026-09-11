@@ -83,21 +83,6 @@ def run_analysis(session_id: int) -> None:
         db.commit()
         turns = [t for t in session.turns if t.response_text or t.audio_path]
 
-        # 1) STT — Web Speech가 이미 텍스트를 보냈으면 스킵. whisper 설치 시 오디오만 있는 턴 변환
-        _set_progress(db, session, "stt", 5)
-        no_text = [t for t in turns if not t.response_text and t.audio_path]
-        if no_text:
-            provider = get_stt_provider()
-            if provider:
-                for t in no_text:
-                    # 턴 단위 격리: 손상된 오디오 한 건이 세션 전체를 무너뜨리지 않게
-                    try:
-                        t.response_text = provider.transcribe(t.audio_path)
-                        t.stt_source = "whisper"
-                    except Exception:
-                        traceback.print_exc()
-                db.commit()
-
         # 2) Response-Fit (턴별) + 담화 구조 분석 (심층 리포트용)
         _set_progress(db, session, "response", 25)
         seniority = _seniority_by_character(session)
@@ -135,13 +120,19 @@ def run_analysis(session_id: int) -> None:
             try:
                 if t.audio_path:
                     metrics = voice_fit.analyze_audio(t.audio_path, t.response_text)
-                    # 텍스트-음성 정렬: 어느 문장에서 무너졌는지 (Vosk 단어 타임스탬프)
+                    # Chrome 답변과 별개로 원본 음성을 간투어 보존 프롬프트로 전사한다.
                     provider = get_stt_provider()
                     if metrics and provider and hasattr(provider, "transcribe_words"):
                         try:
-                            alignment = voice_align.analyze_alignment(
-                                t.audio_path, provider.transcribe_words(t.audio_path),
-                            )
+                            words = provider.transcribe_words(t.audio_path)
+                            filler_text = " ".join(w["word"] for w in words)
+                            fillers = paralinguistics.analyze_fillers(filler_text)
+                            if fillers:
+                                metrics["fillers"] = {
+                                    **fillers, "source": "whisper-filler-prompt",
+                                    "estimated": True, "transcript": filler_text,
+                                }
+                            alignment = voice_align.analyze_alignment(t.audio_path, words)
                             if alignment:
                                 metrics["alignment"] = alignment
                         except Exception:
@@ -150,12 +141,6 @@ def run_analysis(session_id: int) -> None:
                     metrics = voice_fit.estimate_from_text(t.response_text, t.response_duration_ms)
                 else:
                     metrics = {}
-                # 파라링귀스틱 (S-B2B-PARA): 음성 기반 턴만 필러 측정 — 관찰 레이어
-                # (점수 미반영). 텍스트 입력 턴은 metrics가 비어 여기 오지 않는다.
-                if metrics:
-                    fillers = paralinguistics.analyze_fillers(t.response_text)
-                    if fillers:
-                        metrics["fillers"] = fillers
                 score = voice_fit.score_voice(metrics)
             except Exception:
                 traceback.print_exc()

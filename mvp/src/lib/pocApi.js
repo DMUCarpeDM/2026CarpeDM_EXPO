@@ -124,10 +124,8 @@ export function resolveNfcCard(uid) {
 // poc 백엔드 계약: 오디오는 /audio(멀티파트 `file`), 답변 본문은 /response(JSON).
 // 한 멀티파트에 섞으면 422/500이 난다.
 //
-// 순서가 중요하다: 텍스트가 있으면 /response를 **먼저** 보낸다. 오디오를 먼저 올리면
-// 서버가 "아직 답변이 빈 턴"으로 보고 턴 전체 녹음을 whisper로 전사한 뒤 버린다 —
-// 다음 질문이 그만큼(수십 초) 늦어진다. 응답이 먼저면 서버 전사가 스킵된다.
-// 텍스트가 없을 때(순수 오프라인 폴백)만 예전처럼 오디오 먼저 → 서버 전사가 답을 채운다.
+// 답변은 즉시 보내고, 녹음 업로드는 최종 분석을 시작하기 전에 완료한다.
+const pendingAudioUploads = new Map();
 export async function submitResponse(session, turnId, input) {
   const uploadAudio = async () => {
     if (!input.audio || input.audio.size === 0) return;
@@ -138,6 +136,7 @@ export async function submitResponse(session, turnId, input) {
         method: "POST",
         token: session.access_token,
         body: form,
+        signal: AbortSignal.timeout(30_000),
       });
     } catch {
       // 오디오 분석은 부가 기능 — 업로드가 실패해도 텍스트 기반 분석으로 진행한다.
@@ -156,26 +155,22 @@ export async function submitResponse(session, turnId, input) {
   if (input.text?.trim()) {
     const result = await postResponse();
     // 녹음 보관은 대화 진행의 조건이 아니다. 업로드가 지연돼도 다음 턴을 막지 않는다.
-    void uploadAudio();
+    const uploads = pendingAudioUploads.get(session.access_token) || new Set();
+    pendingAudioUploads.set(session.access_token, uploads);
+    const pending = uploadAudio();
+    uploads.add(pending);
+    void pending.finally(() => {
+      uploads.delete(pending);
+      if (!uploads.size) pendingAudioUploads.delete(session.access_token);
+    });
     return result;
   }
   await uploadAudio();
   return postResponse();
 }
 
-// 연습 중 실시간 받아쓰기 폴백 — Web Speech가 없거나 실패할 때 3초 안팎의 WAV 조각을
-// 서버 STT(whisper/vosk)로 전사한다. 반환: { text, provider }
-export function transcribeLive(session, wavBlob) {
-  const form = new FormData();
-  form.append("file", wavBlob, "live.wav");
-  return request(`/sessions/${session.id}/stt`, {
-    method: "POST",
-    token: session.access_token,
-    body: form,
-  });
-}
-
-export function finishSession(session) {
+export async function finishSession(session) {
+  await Promise.all(pendingAudioUploads.get(session.access_token) || []);
   return request(`/sessions/${session.id}/finish`, { method: "POST", token: session.access_token });
 }
 

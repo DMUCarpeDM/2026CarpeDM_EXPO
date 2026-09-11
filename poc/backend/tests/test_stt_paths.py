@@ -1,9 +1,4 @@
-"""서버 STT 경로 해석·폴백 강등 회귀 테스트.
-
-배경: 전시 PC에서 저장소 폴더명이 바뀌자 .env의 Whisper 절대 경로가 낡아
-HFValidationError가 그대로 전파, /api/health까지 500이 났다. 폴백 계층
-원칙(어떤 실패든 Vosk → 없음 순으로 강등)이 지켜지는지 여기서 고정한다.
-"""
+"""Whisper 모델 경로, 간투어 프롬프트, 실패 시 미측정 계약."""
 from pathlib import Path
 
 import pytest
@@ -58,60 +53,38 @@ def test_missing_dir_returns_none(tmp_path, monkeypatch):
     assert base._resolve_local_dir("./models/없는-모델") is None
 
 
-def test_whisper_load_failure_falls_back_to_vosk(monkeypatch):
-    """Whisper가 ImportError가 아닌 오류로 죽어도 Vosk로 강등돼야 한다."""
-
-    class _BrokenWhisper:
+def test_whisper_load_failure_returns_none(monkeypatch):
+    class Broken:
         def __init__(self):
-            raise ValueError("모델 경로가 낡았다")
-
-    class _FakeVosk:
-        name = "vosk"
-
-    monkeypatch.setattr(base, "WhisperProvider", _BrokenWhisper)
-    monkeypatch.setattr(base, "VoskProvider", _FakeVosk)
-    provider = base.get_stt_provider()
-    assert provider is not None and provider.name == "vosk"
-
-
-def test_both_providers_dead_returns_none(monkeypatch):
-    class _Broken:
-        def __init__(self):
-            raise RuntimeError("죽음")
-
-    monkeypatch.setattr(base, "WhisperProvider", _Broken)
-    monkeypatch.setattr(base, "VoskProvider", _Broken)
+            raise ValueError("모델 경로 오류")
+    monkeypatch.setattr(base, "WhisperProvider", Broken)
     assert base.get_stt_provider() is None
 
 
-def test_hotword_prompt_applied_to_final_transcribe_only(monkeypatch):
-    """핫워드 부스팅 (STT 최적화 R1) — 도메인 어휘가 최종 전사에만 조건화된다.
-
-    실시간 조각(live)은 짧아 조건화가 환청을 증폭시킬 수 있어 제외 —
-    이 비대칭이 회귀로 무너지지 않게 고정한다.
-    """
+def test_filler_prompt_and_word_timestamps(monkeypatch):
+    import numpy as np
+    import faster_whisper.audio
+    monkeypatch.setattr(faster_whisper.audio, "decode_audio", lambda *args, **kwargs: np.ones(16000, dtype=np.float32) * .1)
+    from types import SimpleNamespace
     from app.core.config import settings
-
     calls = []
-
-    class _FakeModel:
+    class Model:
         def transcribe(self, path, **kwargs):
             calls.append(kwargs)
-            return [], None
-
+            return [SimpleNamespace(words=[SimpleNamespace(word=" 음 ", start=0, end=.3, probability=.9)])], None
     provider = base.WhisperProvider.__new__(base.WhisperProvider)
-    provider._model = _FakeModel()
+    provider._model = Model()
+    monkeypatch.setattr(settings, "stt_filler_prompt", "어, 음, 반복을 포함합니다.")
+    assert provider.transcribe_words("x.wav")[0]["word"] == "음"
+    assert calls[0]["initial_prompt"] == settings.stt_filler_prompt
+    assert calls[0]["word_timestamps"] is True
+    assert calls[0]["condition_on_previous_text"] is False
 
-    monkeypatch.setattr(settings, "stt_initial_prompt", "카페 온도, 온도라떼")
-    provider.transcribe("x.wav")
-    provider.transcribe_words("x.wav")
-    provider.transcribe_live("x.wav")
-    assert calls[0]["initial_prompt"] == "카페 온도, 온도라떼"
-    assert calls[1]["initial_prompt"] == "카페 온도, 온도라떼"
-    assert "initial_prompt" not in calls[2], "실시간 조각에는 조건화하지 않는다"
 
-    # 비우면 완전 비활성 (기존 동작과 동일)
-    calls.clear()
-    monkeypatch.setattr(settings, "stt_initial_prompt", "")
-    provider.transcribe("x.wav")
-    assert "initial_prompt" not in calls[0]
+def test_digital_silence_never_reaches_whisper_decoder(monkeypatch):
+    import numpy as np
+    import faster_whisper.audio
+    monkeypatch.setattr(faster_whisper.audio, "decode_audio", lambda *args, **kwargs: np.zeros(16000, dtype=np.float32))
+    provider = base.WhisperProvider.__new__(base.WhisperProvider)
+    # 모델이 없어도 반환되어야 한다: 디코더 호출 자체를 막는다.
+    assert provider.transcribe_words("silent.wav") == []
