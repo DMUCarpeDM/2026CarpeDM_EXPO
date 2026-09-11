@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { drawOverlay } from "./useFaceTracking.js";
+import { drawOverlay } from "./faceTrackingOverlay.js";
 
 const VIDEO = { videoWidth: 1280, videoHeight: 720 };
 

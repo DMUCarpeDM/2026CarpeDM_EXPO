@@ -8,13 +8,13 @@ import { Play } from "reicon-react/icons/Play";
 import { Power } from "reicon-react/icons/Power";
 import { Refresh3 } from "reicon-react/icons/Refresh3";
 import { motion } from "framer-motion";
-import { IconGlyph } from "../components/ui/IconGlyph";
+import { TrackingOverlay, ChatBubble, AiPromptOverlay } from "../components/practice/PracticePresentation";
 import { CounterpartVideo } from "../components/practice/CounterpartVideo";
 import { hasCharacterVideo } from "../data/characterMedia";
 import cafeCounterpartBackground from "../assets/cafe-counterpart-background.png";
-import { blobToWav, wavHasSpeech } from "../lib/audioWav";
-import { synthesizeSpeech } from "../lib/pocApi";
-import { shouldScheduleAutoSubmit } from "../lib/sttAutoSubmit";
+import { blobToWav } from "../lib/audioWav";
+import { startTurnSpeech } from "../lib/turnSpeechPlayback";
+import { usePracticeTranscription } from "../lib/usePracticeTranscription";
 import { useFaceTracking } from "../lib/useFaceTracking";
 import { PersonaFace } from "../components/ui/PersonaFace";
 import { composeTurnSpeech } from "../lib/turnSpeech";
@@ -47,7 +47,6 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
   const audioChunksRef = useRef([]);
   const recordingStartedAtRef = useRef(0);
   const stampsRef = useRef(new Map());
-  const autoSubmitTimerRef = useRef(null);
   const submitDraftRef = useRef(null);
   const entryMediaRequestedRef = useRef(false);
   const character = scenario?.characters?.find((item) => item.id === turn?.character_id) || scenario?.characters?.[0];
@@ -122,104 +121,15 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
   };
   useEffect(() => {
     const text = turnSpeech;
-    const synth = window.speechSynthesis;
     if (!text || paused || entryOverlayOpen) return undefined;
-    let cancelled = false;
-    let browserSpeechStarted = false;
-    let speakTimer = 0;
-    let audio = null;
-    let audioUrl = "";
-    const finishSpeaking = () => {
-      if (!cancelled) {
-        setAiSpeaking(false);
-        setShowQuestionOverlay(false);
-      }
-    };
-    const speakWithBrowser = () => {
-      if (cancelled || browserSpeechStarted) return;
-      browserSpeechStarted = true;
-      if (!synth) {
-        ttsNoteOnce("음성 재생을 지원하지 않는 브라우저예요 — 질문은 자막으로 표시돼요");
-        finishSpeaking();
-        return;
-      }
-      const voices = synth.getVoices();
-      const koVoice = voices.find((v) => v.lang?.startsWith("ko") && v.localService) || voices.find((v) => v.lang?.startsWith("ko")) || null;
-      // 한국어 음성이 아예 없으면 무음·이상 발음의 원인 — 화면에 바로 알려 조치 가능하게 한다
-      if (voices.length > 0 && !koVoice) ttsNoteOnce("한국어 TTS 음성이 없어요 — Windows 설정 > 시간 및 언어에서 한국어 음성 설치 필요");
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.voice = koVoice;
-      utter.lang = "ko-KR";
-      utter.rate = 1.04;
-      utter.volume = 1;
-      utter.onstart = () => {
-        if (cancelled) return;
-        setAiSpeaking(true);
-        ttsNoteOnce("AI 음성 재생 시작 — 소리가 안 들리면 Windows 소리 출력 장치를 확인하세요");
-      };
-      utter.onend = finishSpeaking;
-      utter.onerror = (event) => {
-        if (!cancelled) ttsNoteOnce(`음성 합성 오류(${event?.error || "unknown"}) — 소리 출력 장치를 확인하세요`);
-        finishSpeaking();
-      };
-      synth.speak(utter);
-    };
-    const startBrowserSpeech = () => {
-      if (!synth) {
-        speakWithBrowser();
-        return;
-      }
-      const onVoicesChanged = () => speakWithBrowser();
-      if (synth.getVoices().length === 0 && typeof synth.addEventListener === "function") {
-        synth.addEventListener("voiceschanged", onVoicesChanged, { once: true });
-        speakTimer = window.setTimeout(speakWithBrowser, 400);
-      } else {
-        speakTimer = window.setTimeout(speakWithBrowser, 80);
-      }
-    };
-    const playElevenLabsSpeech = async () => {
-      try {
-        const blob = await synthesizeSpeech(text);
-        if (cancelled) return;
-        audioUrl = URL.createObjectURL(blob);
-        audio = new Audio(audioUrl);
-        audio.onplay = () => {
-          if (!cancelled) {
-            setAiSpeaking(true);
-            ttsNoteOnce("AI 음성 재생 시작");
-          }
-        };
-        audio.onended = finishSpeaking;
-        audio.onerror = () => {
-          if (!cancelled) {
-            ttsNoteOnce("AI 음성 재생에 실패해 브라우저 음성으로 전환해요");
-            startBrowserSpeech();
-          }
-        };
-        await audio.play();
-      } catch {
-        if (!cancelled) {
-          ttsNoteOnce("AI 음성 연결이 안 돼 브라우저 음성으로 전환해요");
-          startBrowserSpeech();
-        }
-      }
-    };
-    // 음성 재생이 시작되는 동안에도 상대 영상이 즉시 speaking 상태로 보인다.
-    setAiSpeaking(true);
-    synth?.cancel();
-    if (aiHealth?.tts_ready) {
-      void playElevenLabsSpeech();
-    } else {
-      startBrowserSpeech();
-    }
-    return () => {
-      cancelled = true;
-      window.clearTimeout(speakTimer);
-      if (audio) audio.pause();
-      if (audioUrl) URL.revokeObjectURL(audioUrl);
-      synth?.cancel();
-      setAiSpeaking(false);
-    };
+    const finishSpeaking = () => setShowQuestionOverlay(false);
+    return startTurnSpeech({
+      text,
+      serverTtsReady: aiHealth?.tts_ready,
+      onSpeakingChange: setAiSpeaking,
+      onFinish: finishSpeaking,
+      onNote: ttsNoteOnce,
+    });
   }, [turn?.id, turnSpeech, paused, entryOverlayOpen, aiHealth?.tts_ready]);
 
   // 시선 페이즈: AI가 말하는 동안은 '듣기', 그 외 턴 진행 중은 '말하기'.
@@ -236,23 +146,20 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entryOverlayOpen]);
 
-  // ---- 음성 답변(STT): 브라우저 음성 인식으로 말한 내용을 입력창에 받아 적는다 ----
-  // AI가 말하는 동안은 마이크를 쉬어 스피커 소리가 답변으로 새는 걸 막는다.
-  const [listening, setListening] = useState(false);
-  const [interim, setInterim] = useState("");
-  const [micEnabled, setMicEnabled] = useState(true);
-  const [webSpeechFailed, setWebSpeechFailed] = useState(false);
+  // ---- 분석 로그 피드: 파이프라인의 실제 이벤트만 기록한다 (연출용 가짜 없음).
+  // 캘리브레이션·시선/자세 전이·STT 전사·제출 — 관람객이 "지금 뭘 재고 있는지" 그대로 본다.
+  const [feed, setFeed] = useState([]);
+  const feedIdRef = useRef(0);
+  const pushFeed = (text) => setFeed((prev) => [...prev.slice(-4), { id: (feedIdRef.current += 1), time: wallClock(), text }]);
+  const {
+    listening, interim, setInterim, micEnabled, setMicEnabled, sttMode,
+    clearAutoSubmit, stopBrowserRecognition, getSttSource, resetSttUsage,
+  } = usePracticeTranscription({
+    draft, setDraft, mediaStream, turn, busy, paused, aiSpeaking, entryOverlayOpen,
+    aiHealth, onTranscribe, pushFeed, onAutoSubmit: () => submitDraftRef.current?.(),
+  });
   // 마이크 트랙은 살아 있는데 신호가 0인 상태(잘못된 입력 장치·음소거) — 파형 효과가 감지해 갱신
   const [micSilent, setMicSilent] = useState(false);
-  const recognitionRef = useRef(null);
-  const sttActiveRef = useRef(false);
-  const sttUsedRef = useRef(false); // 이번 턴 답변에 음성 인식이 쓰였는지 (stt_source 판별)
-  const draftRef = useRef(""); // 서버 받아쓰기 루프가 최신 초안을 재렌더 없이 읽는 용도
-  const sttSupported = Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
-  const serverSttReady = Boolean(onTranscribe && aiHealth?.server_stt);
-  // 실사용 STT 경로: 브라우저 Web Speech(인터넷 필요) → 실패·미지원 시 서버 Whisper → 직접 입력.
-  // Chrome은 오프라인이면 network 오류를 내므로 전시장에서는 server 경로가 실질 기본이 된다.
-  const sttMode = sttSupported && !webSpeechFailed ? "webspeech" : serverSttReady ? "server" : "off";
   const hasCamera = Boolean(mediaStream?.getVideoTracks?.().some((item) => item.readyState === "live"));
   const hasMicrophone = Boolean(mediaStream?.getAudioTracks?.().some((item) => item.readyState === "live"));
 
@@ -289,144 +196,8 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
     { label: "카메라 분석", detail: "MediaPipe", ready: hasCamera && track.status === "ready" },
     { label: "마이크", detail: micSilent ? "신호 없음" : micDeviceLabel || "입력", title: micDeviceLabel, ready: hasMicrophone && !micSilent },
   ];
-  const clearAutoSubmit = () => {
-    if (autoSubmitTimerRef.current) window.clearTimeout(autoSubmitTimerRef.current);
-    autoSubmitTimerRef.current = null;
-  };
-  const scheduleAutoSubmit = () => {
-    clearAutoSubmit();
-    autoSubmitTimerRef.current = window.setTimeout(() => {
-      autoSubmitTimerRef.current = null;
-      submitDraftRef.current?.();
-    }, 3000);
-  };
-  useEffect(() => () => clearAutoSubmit(), []);
-  useEffect(() => {
-    if (paused || busy || aiSpeaking) clearAutoSubmit();
-  }, [paused, busy, aiSpeaking]);
-
-  useEffect(() => { draftRef.current = draft; }, [draft]);
-
-  useEffect(() => {
-    const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const shouldListen = Boolean(sttMode === "webspeech" && SpeechRecognitionImpl && micEnabled && mediaStream && turn && !busy && !paused && !aiSpeaking && !entryOverlayOpen);
-    if (!shouldListen) return undefined;
-    const recognition = new SpeechRecognitionImpl();
-    recognition.lang = "ko-KR";
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.onresult = (event) => {
-      let interimText = "";
-      let receivedFinal = false;
-      for (let i = event.resultIndex; i < event.results.length; i += 1) {
-        const transcript = event.results[i][0].transcript.trim();
-        if (!transcript) continue;
-        if (event.results[i].isFinal) {
-          receivedFinal = true;
-          sttUsedRef.current = true;
-          setDraft((prev) => `${prev} ${transcript}`.trim());
-          pushFeed(`음성 인식 확정 · “${transcript.slice(0, 14)}${transcript.length > 14 ? "…" : ""}”`);
-        }
-        else interimText += transcript;
-      }
-      setInterim(interimText);
-      if (shouldScheduleAutoSubmit({ receivedFinal, interimText })) scheduleAutoSubmit();
-      else if (interimText) clearAutoSubmit();
-    };
-    recognition.onstart = () => setListening(true);
-    recognition.onend = () => {
-      setListening(false);
-      setInterim("");
-      // 침묵으로 인식이 끊기면 다시 듣는다 (턴이 살아있는 동안)
-      if (sttActiveRef.current) { try { recognition.start(); } catch { /* 이미 시작됨 */ } }
-    };
-    recognition.onerror = (event) => {
-      // 권한 거부·오프라인·캡처 실패면 조용히 강등 — 마이크 스트림 자체는 살아 있으므로
-      // (사전 권한 획득) 서버 받아쓰기가 가능하면 그쪽이, 아니면 직접 입력이 이어받는다.
-      // audio-capture: 기본 입력 장치가 무신호일 때(잭에 마이크 없음 등) Chrome이 내는 오류.
-      if (["not-allowed", "service-not-allowed", "network", "audio-capture"].includes(event.error)) {
-        sttActiveRef.current = false;
-        setWebSpeechFailed(true);
-      }
-    };
-    recognitionRef.current = recognition;
-    sttActiveRef.current = true;
-    try { recognition.start(); } catch { /* 중복 시작 무시 */ }
-    return () => {
-      sttActiveRef.current = false;
-      recognition.onend = null;
-      try { recognition.stop(); } catch { /* 이미 종료됨 */ }
-      setListening(false);
-      setInterim("");
-    };
-  }, [sttMode, micEnabled, mediaStream, turn?.id, busy, paused, aiSpeaking, turn, entryOverlayOpen]);
-
-  // ---- 서버 받아쓰기 폴백: Web Speech가 없거나 실패하면 3초 안팎의 조각을 서버
-  // Whisper로 전사해 입력창을 채운다. 조각 사이 공백이 없도록 녹음기는 즉시 재시작하고
-  // 전사는 병렬로 진행한다. 무음 조각은 보내지 않고, 초안이 쌓인 뒤의 무음은 자동 전송 신호다.
-  useEffect(() => {
-    const shouldRun = sttMode === "server" && micEnabled && mediaStream && turn && !busy && !paused && !aiSpeaking && !entryOverlayOpen;
-    if (!shouldRun || !window.MediaRecorder) return undefined;
-    const audioTracks = mediaStream.getAudioTracks().filter((item) => item.readyState === "live");
-    if (!audioTracks.length) return undefined;
-    let active = true;
-    let recorder = null;
-    let timer = 0;
-    const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
-    setListening(true);
-
-    const processChunk = async (blob) => {
-      try {
-        if (!blob || blob.size < 1200) return;
-        const wav = await blobToWav(blob).catch(() => null);
-        if (!active || !wav) return;
-        if (!(await wavHasSpeech(wav))) {
-          // 말이 멈춘 조각 — 이번 턴에 음성 입력이 실제로 쓰였고, 쌓인 답변이 있고,
-          // 예약이 없을 때만 자동 전송한다. 타이핑만 한 초안을 무음이 밀어 보내면 안 되고
-          // (생각하며 천천히 치는 중일 수 있다), 예약을 매번 다시 걸면 3초 창이 계속 밀린다.
-          if (active && sttUsedRef.current && draftRef.current.trim() && !autoSubmitTimerRef.current) scheduleAutoSubmit();
-          return;
-        }
-        const sttStartedAt = performance.now();
-        const result = await onTranscribe(wav);
-        const text = (result?.text || "").trim();
-        if (!active || !text) return;
-        sttUsedRef.current = true;
-        clearAutoSubmit(); // 아직 말하는 중 — 조기 전송 방지
-        setDraft((prev) => `${prev} ${text}`.trim());
-        pushFeed(`Whisper 전사 ${Math.round(performance.now() - sttStartedAt)}ms · “${text.slice(0, 14)}${text.length > 14 ? "…" : ""}”`);
-      } catch { /* 조각 전사 실패는 다음 조각에서 회복 */ }
-    };
-
-    const cycle = () => {
-      if (!active) return;
-      recorder = new MediaRecorder(new MediaStream(audioTracks), { mimeType });
-      const chunks = [];
-      recorder.ondataavailable = (event) => { if (event.data.size > 0) chunks.push(event.data); };
-      recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: mimeType });
-        cycle(); // 다음 조각 녹음을 먼저 시작해 발화 공백을 막는다
-        void processChunk(blob);
-      };
-      recorder.start();
-      timer = window.setTimeout(() => { if (recorder.state !== "inactive") recorder.stop(); }, 3200);
-    };
-    cycle();
-
-    return () => {
-      active = false;
-      window.clearTimeout(timer);
-      if (recorder && recorder.state !== "inactive") { recorder.onstop = null; recorder.stop(); }
-      setListening(false);
-    };
-  }, [sttMode, micEnabled, mediaStream, turn?.id, busy, paused, aiSpeaking, turn, onTranscribe, entryOverlayOpen]);
   const inputValue = interim ? `${draft} ${interim}`.trim() : draft;
 
-  // ---- 분석 로그 피드: 파이프라인의 실제 이벤트만 기록한다 (연출용 가짜 없음).
-  // 캘리브레이션·시선/자세 전이·STT 전사·제출 — 관람객이 "지금 뭘 재고 있는지" 그대로 본다.
-  const [feed, setFeed] = useState([]);
-  const feedIdRef = useRef(0);
-  const pushFeed = (text) => setFeed((prev) => [...prev.slice(-4), { id: (feedIdRef.current += 1), time: wallClock(), text }]);
   useEffect(() => {
     if (trackingLive) pushFeed("Face 478pt · Pose 33pt 실시간 추적 시작");
   }, [trackingLive]);
@@ -597,8 +368,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
     if (!text || busy || !turn) return;
     try {
       clearAutoSubmit();
-      sttActiveRef.current = false;
-      try { recognitionRef.current?.stop(); } catch { /* 이미 종료됨 */ }
+      stopBrowserRecognition();
       // 녹음(webm)을 서버 음성 분석이 읽을 수 있는 WAV로 변환 — 실패해도 텍스트로 진행
       const webm = await stopTurnRecorder().catch(() => null);
       const audio = webm && webm.size > 0 ? await blobToWav(webm).catch(() => null) : null;
@@ -608,10 +378,10 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
         text,
         audio,
         durationMs: Math.round(performance.now() - recordingStartedAtRef.current),
-        sttSource: sttUsedRef.current ? (sttMode === "server" ? "server-whisper" : "webspeech") : "text",
+        sttSource: getSttSource(),
         nonverbal: buildNonverbal(),
       });
-      sttUsedRef.current = false;
+      resetSttUsage();
       setDraft("");
       setInterim("");
       setCaptureError("");
@@ -747,104 +517,4 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
 
     </motion.section>
   );
-}
-
-// 얼굴 메시 + 상체 스켈레톤 트래킹 오버레이. 실시간 측정 중임을 보여주는 시각 효과예요.
-// 카메라가 없을 때(silhouette)는 인물 실루엣과 스캔 라인까지 함께 그려 빈 화면을 채워요.
-function TrackingOverlay({ silhouette = false }) {
-  const facePoints = [
-    [50, 12], [42, 14], [58, 14], [35, 20], [65, 20], [31, 28], [69, 28], [30, 37], [70, 37],
-    [32, 46], [68, 46], [37, 53], [63, 53], [44, 58], [56, 58], [50, 60],
-    [40, 30], [60, 30], [37, 25], [63, 25], [43, 25], [57, 25],
-    [50, 34], [46, 40], [54, 40], [50, 42],
-    [43, 49], [57, 49], [50, 47], [50, 52],
-  ];
-  const faceLines = [
-    [0, 1], [0, 2], [1, 3], [2, 4], [3, 5], [4, 6], [5, 7], [6, 8], [7, 9], [8, 10],
-    [9, 11], [10, 12], [11, 13], [12, 14], [13, 15], [14, 15],
-    [18, 16], [20, 16], [19, 17], [21, 17], [16, 22], [17, 22], [16, 23], [17, 24],
-    [22, 23], [22, 24], [23, 25], [24, 25], [25, 28], [23, 26], [24, 27],
-    [26, 28], [27, 28], [26, 29], [27, 29], [29, 15],
-    [5, 16], [6, 17], [7, 23], [8, 24], [9, 26], [10, 27], [16, 17],
-  ];
-  return (
-    <div className="tracking-zone" aria-hidden="true">
-      <svg viewBox="0 0 100 132" preserveAspectRatio="xMidYMid meet">
-        <defs>
-          <linearGradient id="track-scan-fill" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stopColor="rgba(94, 234, 148, 0)" />
-            <stop offset="0.5" stopColor="rgba(94, 234, 148, 0.55)" />
-            <stop offset="1" stopColor="rgba(94, 234, 148, 0)" />
-          </linearGradient>
-          <linearGradient id="track-body-fill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="rgba(148, 178, 224, 0.34)" />
-            <stop offset="1" stopColor="rgba(84, 108, 150, 0.1)" />
-          </linearGradient>
-        </defs>
-        {silhouette && (
-          <path
-            className="track-silhouette"
-            d="M 50 10 C 61 10 68 20 68 33 C 68 43 64 51 58 56 L 58 63 C 78 69 93 82 96 106 L 98 132 L 2 132 L 4 106 C 7 82 22 69 42 63 L 42 56 C 36 51 32 43 32 33 C 32 20 39 10 50 10 Z"
-            fill="url(#track-body-fill)"
-          />
-        )}
-        <g className="track-corners">
-          <path d="M 22 6 h -9 v 9" />
-          <path d="M 78 6 h 9 v 9" />
-          <path d="M 22 66 h -9 v -9" />
-          <path d="M 78 66 h 9 v -9" />
-        </g>
-        <g className="track-face">
-          {faceLines.map(([a, b], index) => <line key={index} x1={facePoints[a][0]} y1={facePoints[a][1]} x2={facePoints[b][0]} y2={facePoints[b][1]} />)}
-          {facePoints.map(([x, y], index) => <circle key={index} cx={x} cy={y} r="0.85" />)}
-        </g>
-        {silhouette && <rect className="track-scan" x="16" y="0" width="68" height="1.4" rx="0.7" fill="url(#track-scan-fill)" />}
-        <g className="track-skeleton">
-          <line x1="50" y1="62" x2="50" y2="79" />
-          <line x1="50" y1="79" x2="10" y2="93" />
-          <line x1="50" y1="79" x2="90" y2="93" />
-          <line x1="10" y1="93" x2="4" y2="120" />
-          <line x1="90" y1="93" x2="96" y2="120" />
-          <circle cx="50" cy="79" r="1.7" /><circle cx="10" cy="93" r="1.7" /><circle cx="90" cy="93" r="1.7" />
-        </g>
-        <path className="track-chest" d="M 10 93 C 32 107, 68 107, 90 93" />
-      </svg>
-    </div>
-  );
-}
-
-function ChatBubble({ children, ai = false, mine = false, name, time }) {
-  if (mine) {
-    return (
-      <div className="chat-message mine">
-        <span className="chat-meta">나 · {time}</span>
-        <div className="chat-bubble">
-          <span className="bubble-speaker" aria-hidden="true"><IconGlyph icon="response" size={14} /></span>
-          <p>{children}</p>
-          <span className="bubble-wave" aria-hidden="true"><i /><i /><i /><i /><i /></span>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className={`chat-message ${ai ? "ai" : ""}`}>
-      <span className="chat-avatar" aria-hidden="true"><PersonaFace name={name} /></span>
-      <div className="chat-content">
-        <span className="chat-meta">{name} · {time}</span>
-        <div className="chat-bubble"><p>{children}</p></div>
-      </div>
-    </div>
-  );
-}
-
-function AiPromptOverlay({ name, speaking, text }) {
-  return <section className={`ai-prompt-overlay ${speaking ? "is-speaking" : ""}`} aria-label={`${name}의 질문`}>
-    <div className="ai-prompt-meta">
-      <span className="ai-prompt-avatar" aria-hidden="true"><PersonaFace name={name} /></span>
-      <strong>{name}</strong>
-      <em>{speaking ? "AI가 말하는 중" : "AI 질문"}</em>
-    </div>
-    <p><b aria-hidden="true">“</b>{text}<b aria-hidden="true">”</b></p>
-    <span className="ai-prompt-wave" aria-hidden="true">{Array.from({ length: 48 }, (_, index) => <i key={index} />)}</span>
-  </section>;
 }
