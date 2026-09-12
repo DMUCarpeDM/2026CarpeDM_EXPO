@@ -431,6 +431,7 @@ class ResponseIn(BaseModel):
 
 
 class TurnSignalsOut(BaseModel):
+    judgment: dict = Field(default_factory=dict)
     """제출 직후의 경량 즉시 신호 — 미러 라이브 오라(Response 축)용.
     전체 분석은 기존대로 세션 종료 후 파이프라인이 수행한다."""
     case: str  # excellent | covered | missing | short | risky

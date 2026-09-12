@@ -32,7 +32,7 @@ def initialize(session, scenario, episodes, service_mode):
     return value
 
 
-def advance(session, turn, turns):
+def advance(session, turn, turns, judgment=None):
     value = state(session)
     if not value or value.get("finished"):
         return value
@@ -44,7 +44,7 @@ def advance(session, turn, turns):
             value["index"] += 1
     else:
         history = " ".join(t.response_text or "" for t in turns)
-        met = matched_checklist_ids(history, items)
+        met = set(judgment["met_goals"]) if judgment is not None else matched_checklist_ids(history, items)
         value["met"] = list(dict.fromkeys([*value["met"], *sorted(met)]))
         value["unmet"] = [key for key in value["unmet"] if key not in value["met"]]
         current = items[value["index"]]

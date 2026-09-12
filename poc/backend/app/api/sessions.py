@@ -1,4 +1,4 @@
-from app.services import interaction
+from app.services import interaction, judgments
 import secrets
 import time
 import uuid
@@ -399,7 +399,7 @@ def submit_response(
         raise HTTPException(status_code=422, detail="응답 텍스트가 비어 있습니다")
     turn.response_duration_ms = body.duration_ms
     if body.nonverbal:
-        turn.nonverbal_metrics = body.nonverbal.model_dump()
+        turn.nonverbal_metrics = body.nonverbal.model_dump(exclude_unset=True)
     turn.answered_at = utcnow()
 
     # 리액션 비트 + 수행도 갱신 — 이 답변이 상대의 반응과 하루의 전개를 결정한다
@@ -415,8 +415,15 @@ def submit_response(
 
     provider = get_dialogue_provider()
     turns = list(session.turns)
-    flow = interaction.advance(session, turn, turns)
+    judgment = judgments.evaluate(
+        turn.id, text=turn.response_text,
+        goals=[item for item in interaction.state(session).get("items", []) if "keywords" in item],
+        nonverbal=turn.nonverbal_metrics, duration_ms=turn.response_duration_ms,
+    )
+    judgments.persist(session, judgment)
+    flow = interaction.advance(session, turn, turns, judgment)
     signals_out = TurnSignalsOut(
+        judgment=judgment,
         case=signals["case"], coverage=signals["coverage"], risk_hits=signals["risk_hits"],
         emotion=emotion.signals_payload(session), observation=observation,
     )
