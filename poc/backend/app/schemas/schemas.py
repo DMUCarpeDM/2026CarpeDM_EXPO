@@ -1,3 +1,4 @@
+from typing import Literal
 from pydantic import BaseModel, EmailStr, Field, model_validator
 
 
@@ -194,6 +195,7 @@ class ConsentIn(BaseModel):
 
 
 class SessionCreateIn(BaseModel):
+    service_mode: Literal["interview", "training", "workplace"] = "workplace"
     scenario_slug: str | None = None  # 없으면 기본(첫) 시나리오
     selected_episode_id: int | None = Field(default=None, gt=0)
     mode: int = Field(default=5, description="5 | 10 (분)")
@@ -224,6 +226,7 @@ class TurnOut(BaseModel):
 
 
 class SessionOut(BaseModel):
+    interaction: dict = Field(default_factory=dict)
     id: int
     status: str
     mode: int
@@ -443,6 +446,7 @@ class TurnSignalsOut(BaseModel):
 
 
 class NextTurnOut(BaseModel):
+    interaction: dict = {}
     finished: bool
     next_turn: TurnOut | None = None
     turn_signals: TurnSignalsOut | None = None

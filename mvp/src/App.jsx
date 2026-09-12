@@ -180,6 +180,7 @@ export default function App() {
         console.warn("[media] 카메라·마이크 없이 시작:", mediaError?.message || mediaError);
       }
       const nextSession = await createSession({
+        serviceMode: selectedServiceMode.id,
         difficulty,
         mode,
         scenarioSlug: previewScenario.slug || nfcCard?.scenarioSlug,

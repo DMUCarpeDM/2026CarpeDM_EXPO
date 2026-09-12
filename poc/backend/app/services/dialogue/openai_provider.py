@@ -6,6 +6,7 @@ import httpx
 from app.core.config import settings
 from app.models import Episode, RoleplaySession, Scenario, Turn
 from app.services.dialogue.base import QuestionSpec
+from app.services.interaction import state as interaction_state
 
 TURN_LIMITS = {5: 6, 10: 11}
 
@@ -83,10 +84,11 @@ class OpenAIDialogueProvider:
     def first_question(self, session: RoleplaySession, episodes: list[Episode]) -> QuestionSpec:
         """첫 대사는 사용자가 선택한 기존 시나리오 대사를 그대로 사용한다."""
         episode = _episode_for(session, episodes)
+        flow = interaction_state(session)
         return QuestionSpec(
             episode_id=episode.id,
             question_type="initial",
-            question_text=episode.initial_question,
+            question_text=flow["items"][0]["text"] if flow.get("mode") == "interview" else episode.initial_question,
             character_id=episode.character_id,
             virtual_time=episode.virtual_time or "",
         )
@@ -99,17 +101,20 @@ class OpenAIDialogueProvider:
         turns: list[Turn],
     ) -> QuestionSpec | None:
         """시나리오와 전체 대화 이력에서 다음 역할극 대사를 생성한다."""
-        if len(turns) >= TURN_LIMITS.get(session.mode, 6):
+        flow = interaction_state(session)
+        if flow.get("finished") or (not flow and len(turns) >= TURN_LIMITS.get(session.mode, 6)):
             return None
         if not episodes:
             raise DialogueGenerationError("선택한 역할극 장면을 찾을 수 없습니다")
 
         episode = _episode_for(session, episodes)
+        if flow:
+            episode = next(ep for ep in episodes if ep.id == flow["items"][flow["index"]]["episode_id"])
         character = _character_for(scenario, episode.character_id)
-        line = self._generate_line(session, scenario, episode, character, turns)
+        line = flow["items"][flow["index"]]["text"] if flow.get("mode") == "interview" else self._generate_line(session, scenario, episode, character, turns)
         return QuestionSpec(
             episode_id=episode.id,
-            question_type="ai_roleplay",
+            question_type="main" if flow.get("mode") == "interview" else "ai_roleplay",
             question_text=line,
             character_id=episode.character_id,
             virtual_time=episode.virtual_time or "",
@@ -128,12 +133,16 @@ class OpenAIDialogueProvider:
         if not api_key:
             raise DialogueGenerationError("GPT-4o API 키가 설정되지 않았습니다")
 
+        flow = interaction_state(session)
+        target = flow["items"][flow["index"]]["text"] if flow and not flow.get("finished") else "자연스럽게 대화를 이어갑니다."
+        retry = flow.get("attempts", {}).get(flow["items"][flow["index"]]["id"], 0) if flow and not flow.get("finished") else 0
         prompt = (
             f"[시나리오]\n제목: {scenario.title}\n설명: {scenario.description}\n"
             f"사용자 역할: {(scenario.world_setting or {}).get('user_role', '연습 참여자')}\n"
             f"장면: {episode.title}\n배경: {episode.situation}\n연습 목표: {episode.question_intent}\n\n"
             f"[상대 페르소나]\n{_persona(character, session.difficulty)}\n\n"
-            f"[대화 진행]\n현재 {len(turns)}턴째이며 최대 {TURN_LIMITS.get(session.mode, 6)}턴입니다.\n"
+            f"[대화 진행]\n서비스: {flow.get('mode', 'workplace')}\n이번에 확인할 질문·목표: {target}\n"
+            f"재질문 횟수: {retry}. 재질문이면 같은 목표를 더 짧고 쉬운 질문으로 확인하세요.\n"
             f"[대화 이력]\n{_history(turns)}\n\n"
             "위 정보를 바탕으로 상대 역할의 다음 발화만 작성하세요."
         )

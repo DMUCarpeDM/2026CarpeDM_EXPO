@@ -1,3 +1,4 @@
+from app.services import interaction
 import secrets
 import time
 import uuid
@@ -208,6 +209,10 @@ def create_session(
     emotion.ensure_state(session)
     db.flush()
 
+    try:
+        interaction.initialize(session, scenario, _selected_episodes(session, scenario), body.service_mode)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
     provider = get_dialogue_provider()
     spec = provider.first_question(session, _selected_episodes(session, scenario))
     # 첫 대사는 시나리오가 정한 역할·상황을 방문객에게 정확히 전달해야 한다.
@@ -215,6 +220,7 @@ def create_session(
     turn = _create_turn(db, session, spec, order=1)
 
     return SessionOut(
+        interaction=interaction.public_state(session),
         id=session.id,
         status=session.status.value,
         mode=session.mode,
@@ -355,6 +361,7 @@ def get_session(
     elapsed = max(0, int((datetime.now(timezone.utc) - started).total_seconds()))
 
     return SessionResumeOut(
+        interaction=interaction.public_state(session),
         id=session.id,
         status=session.status.value,
         mode=session.mode,
@@ -408,12 +415,13 @@ def submit_response(
 
     provider = get_dialogue_provider()
     turns = list(session.turns)
+    flow = interaction.advance(session, turn, turns)
     signals_out = TurnSignalsOut(
         case=signals["case"], coverage=signals["coverage"], risk_hits=signals["risk_hits"],
         emotion=emotion.signals_payload(session), observation=observation,
     )
     try:
-        spec = provider.next_question(
+        spec = None if flow.get("finished") else provider.next_question(
             session,
             session.scenario,
             _selected_episodes(session, session.scenario),
@@ -424,12 +432,12 @@ def submit_response(
         raise HTTPException(status_code=503, detail=str(error)) from error
     if spec is None:
         db.commit()
-        return NextTurnOut(finished=True, turn_signals=signals_out)
+        return NextTurnOut(finished=True, turn_signals=signals_out, interaction=interaction.public_state(session))
 
     next_turn = _create_turn(
         db, session, spec, order=turn.order + 1,
     )
-    return NextTurnOut(finished=False, next_turn=_turn_out(db, next_turn), turn_signals=signals_out)
+    return NextTurnOut(finished=False, next_turn=_turn_out(db, next_turn), turn_signals=signals_out, interaction=interaction.public_state(session))
 
 
 @router.post("/{session_id}/turns/{turn_id}/audio")
@@ -468,6 +476,7 @@ def finish_session(
         transition(session, SessionStatus.analyzing)
     except InvalidTransition as e:
         raise HTTPException(status_code=409, detail=str(e))
+    interaction.finish_manually(session)
     session.ended_at = utcnow()
     session.analysis_progress = {"stage": "queued", "pct": 0, "at": time.time()}
     db.commit()
