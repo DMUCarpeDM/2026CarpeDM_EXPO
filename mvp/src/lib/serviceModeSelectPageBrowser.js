@@ -1,4 +1,5 @@
 import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { createServer as createNetServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import react from "@vitejs/plugin-react";
@@ -54,6 +55,21 @@ async function waitForReadiness(url) {
   }
 }
 
+function findOpenPort() {
+  return new Promise((resolvePort, rejectPort) => {
+    const probe = createNetServer();
+    probe.once("error", rejectPort);
+    probe.listen(0, "127.0.0.1", () => {
+      const address = probe.address();
+      const port = typeof address === "object" && address ? address.port : null;
+      probe.close(() => {
+        if (port) resolvePort(port);
+        else rejectPort(new Error("Could not allocate an open port"));
+      });
+    });
+  });
+}
+
 export async function startServiceModeSelectHarness({
   mvpRoot,
   serviceModePagePath,
@@ -92,6 +108,7 @@ export async function startServiceModeSelectHarness({
 
       createRoot(document.getElementById("root")).render(<Harness />);
     `);
+    const port = await findOpenPort();
     server = await createServer({
       root: harnessRoot,
       plugins: [react()],
@@ -99,7 +116,8 @@ export async function startServiceModeSelectHarness({
       server: {
         fs: { allow: [harnessRoot, mvpRoot] },
         host: "127.0.0.1",
-        port: 0,
+        port,
+        strictPort: true,
       },
       resolve: {
         alias: {
@@ -113,9 +131,9 @@ export async function startServiceModeSelectHarness({
     });
     await server.listen();
     const address = server.httpServer.address();
-    const port = typeof address === "object" && address ? address.port : null;
-    if (!port) throw new Error("Vite test harness did not expose a port");
-    const url = `http://127.0.0.1:${port}/`;
+    const actualPort = typeof address === "object" && address ? address.port : null;
+    if (!actualPort) throw new Error("Vite test harness did not expose a port");
+    const url = `http://127.0.0.1:${actualPort}/`;
     await waitForReadiness(url);
     let closed = false;
     return {

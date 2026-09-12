@@ -59,16 +59,19 @@ export async function withPage({ browser, baseUrl }, options, run) {
     window.__serviceRouteTrace = [];
     const captureRoute = () => {
       const route = document.querySelector(".service-mode-page") ? "service"
-        : document.querySelector(".home-page") ? "home"
-          : document.querySelector(".role-choice-section") ? "role"
-            : document.querySelector(".preview-page") ? "preview"
-              : document.querySelector(".practice-screen") ? "practice"
-                : document.querySelector(".feedback-page") ? "feedback"
-                  : document.querySelector(".compare-report") ? "compare"
-                    : document.querySelector(".share-page") ? "share"
-                      : document.querySelector(".report-page") ? "result"
-                        : document.querySelector(".kiosk-issue-screen") ? "kiosk"
-                          : document.querySelector(".app-boot") ? "boot" : "blank";
+        : document.querySelector(".public-home-page") ? "homepage"
+          : document.querySelector(".site-intro-page") ? "intro"
+            : document.querySelector(".records-page") ? "records"
+              : document.querySelector(".home-page") ? "home"
+                : document.querySelector(".role-choice-section") ? "role"
+                  : document.querySelector(".preview-page") ? "preview"
+                    : document.querySelector(".practice-screen") ? "practice"
+                      : document.querySelector(".feedback-page") ? "feedback"
+                        : document.querySelector(".compare-report") ? "compare"
+                          : document.querySelector(".share-page") ? "share"
+                            : document.querySelector(".report-page") ? "result"
+                              : document.querySelector(".kiosk-issue-screen") ? "kiosk"
+                                : document.querySelector(".app-boot") ? "boot" : "blank";
       const next = { route, selector: Boolean(document.querySelector(".service-mode-page")), interactive: document.querySelectorAll("button, a, input, select, textarea").length };
       const prior = window.__serviceRouteTrace.at(-1);
       if (window.__serviceRouteTrace.length < 200 && JSON.stringify(prior) !== JSON.stringify(next)) window.__serviceRouteTrace.push(next);

@@ -5,6 +5,9 @@ export const CHROMELESS_VIEWS = new Set(["service"]);
 export const LEGACY_REPORT_VIEWS = new Set(["feedback", "compare", "share"]);
 
 export const SERVICE_ENTRY_FLOW = [
+  { id: "homepage", label: "홈페이지" },
+  { id: "intro", label: "사이트 소개" },
+  { id: "records", label: "결과 및 기록" },
   { id: "home", label: "메인" },
   { id: "service", label: "서비스 모드 선택" },
   { id: "role", label: "직무 선택" },
@@ -15,7 +18,7 @@ export const SERVICE_ENTRY_FLOW = [
   { id: "result", label: "결과 보고서" },
 ];
 
-const DIRECT_DEMO_VIEWS = new Set(["result", ...LEGACY_REPORT_VIEWS]);
+const DIRECT_DEMO_VIEWS = new Set(["result", "records", ...LEGACY_REPORT_VIEWS]);
 
 export function isKioskIssue(search = window.location.search) {
   return new URLSearchParams(search).get("kiosk") === "issue";
@@ -24,6 +27,7 @@ export function isKioskIssue(search = window.location.search) {
 export function demoDestination(search = window.location.search) {
   const demo = new URLSearchParams(search).get("demo");
   if (demo === "practice") return "practice";
+  if (demo === "records") return "records";
   return DIRECT_DEMO_VIEWS.has(demo) ? "result" : null;
 }
 
@@ -34,8 +38,8 @@ export function savedSessionDestination(status) {
 }
 
 export function normalizeDestination(target, selectedServiceModeId) {
-  if (LEGACY_REPORT_VIEWS.has(target)) return "result";
-  return target === "home" && !selectedServiceModeId ? "service" : target;
+  if (LEGACY_REPORT_VIEWS.has(target)) return "records";
+  return target === "home" && !selectedServiceModeId ? "homepage" : target;
 }
 
 export function isKnownView(view) {

@@ -13,7 +13,7 @@ import { FaceSmile } from "reicon-react/icons/FaceSmile";
 import { Handshake } from "reicon-react/icons/Handshake";
 import { Link2 } from "reicon-react/icons/Link2";
 import { Message } from "reicon-react/icons/Message";
-import { MessageQuestion2 } from "reicon-react/icons/MessageQuestion2";
+import { MessageQuestion } from "reicon-react/icons/MessageQuestion";
 import { Pause } from "reicon-react/icons/Pause";
 import { Soundwave } from "reicon-react/icons/Soundwave";
 import { Mic } from "reicon-react/icons/Mic";
@@ -53,7 +53,7 @@ const reiconGlyphs = {
   shield: ShieldCheck,
   growth: ChartBarTrendUp,
   chat: ChatRoundCheck,
-  interview: MessageQuestion2,
+  interview: MessageQuestion,
   presentation: Presentation2,
   feedback: Star,
   target: Target,
