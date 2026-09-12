@@ -245,6 +245,8 @@ def run_analysis(session_id: int) -> None:
         # 7) 저장 정책 적용 (S-CBYKOH): '미저장' 동의면 분석이 끝난 음성 파일을 즉시 삭제
         consent = db.query(Consent).filter_by(session_id=session.id).first()
         if consent is None or consent.storage_policy == "none":
+            # 공통 판단에도 답변 인용이 있으므로 미저장 동의에서는 함께 파기한다.
+            session.rapport = {key: value for key, value in (session.rapport or {}).items() if key != "judgments"}
             for t in session.turns:
                 if t.audio_path:
                     Path(t.audio_path).unlink(missing_ok=True)
