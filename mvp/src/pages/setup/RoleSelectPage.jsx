@@ -22,7 +22,7 @@ export function RoleSelectPage({ serviceMode, counterpartProfile, onCounterpart,
           <PageTitle eyebrow={resolvedServiceMode.label} title={resolvedServiceMode.setupTitle} subtitle={resolvedServiceMode.setupDescription} />
           <ChoiceSection icon="role" title="직무 선택" description={resolvedServiceMode.detail} columns="three" className="role-choice-section">
             {counterpartProfiles.map((item) => (
-              <ChoiceCard key={item.id} icon={item.icon} title={item.title} text={item.text} variant="portrait" selected={counterpartProfile === item.id} onClick={() => onCounterpart(item.id)} />
+              <ChoiceCard key={item.id} {...item} variant="portrait" selected={counterpartProfile === item.id} onClick={() => onCounterpart(item.id)} />
             ))}
           </ChoiceSection>
           <SetupSelectionSummary counterpart={profile} modeLabel="다음 단계에서 선택" tip={resolvedServiceMode.setupDescription} />

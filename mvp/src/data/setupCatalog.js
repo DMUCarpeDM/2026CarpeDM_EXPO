@@ -120,13 +120,6 @@ const scenarioImages = {
   "team-retrospective": setupScenarioRetro,
 };
 
-const scenarioIcons = {
-  "release-schedule-alignment": "meeting",
-  "cloudmeet-incident-day": "screen",
-  "partner-negotiation": "negotiation",
-  "team-retrospective": "feedback",
-};
-
 export function getScenarioImage(slug) {
   return scenarioImages[slug] || setupScenarioKickoff;
 }
@@ -139,15 +132,6 @@ const developerEpisodeImages = {
 
 export function getEpisodeImage(slug, episodeId) {
   return developerEpisodeImages[episodeId] || getScenarioImage(slug);
-}
-
-export function getEpisodeIcon(slug, episodeId) {
-  const developerEpisodeIcons = {
-    1: "target",
-    3: "meeting",
-    4: "feedback",
-  };
-  return developerEpisodeIcons[episodeId] || scenarioIcons[slug] || "briefcase";
 }
 
 export function getScenarioDescription(situation = "") {

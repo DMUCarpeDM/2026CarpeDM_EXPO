@@ -7,7 +7,7 @@ import {
   SetupMotionPage,
   SetupSelectionSummary,
 } from "../../components/setup/SetupComponents";
-import { counterpartProfiles, getEpisodeIcon, getEpisodeImage, getRoleScenarioOptions, setupSteps } from "../../data/setupCatalog";
+import { counterpartProfiles, getEpisodeImage, getRoleScenarioOptions, setupSteps } from "../../data/setupCatalog";
 import { resolveServiceMode } from "../../lib/serviceModeContext";
 
 export function ScenarioSelectPage({ serviceMode, counterpartProfile, scenarios, selectedEpisodeId, onScenario, onPrev, onNext }) {
@@ -23,7 +23,7 @@ export function ScenarioSelectPage({ serviceMode, counterpartProfile, scenarios,
           <MiniStepper items={setupSteps} active={1} />
           <PageTitle eyebrow={`${resolvedServiceMode.label} · 시나리오 선택`} title="어떤 상황을 연습할까요?" subtitle={resolvedServiceMode.scenarioDescription} />
           <ChoiceSection icon="briefcase" title="연습 시나리오 선택" description={resolvedServiceMode.detail} columns={scenarioOptions.length === 1 ? "one" : "two"} className="scenario-choice-section">
-            {scenarioOptions.map((item) => <ChoiceCard key={item.id} icon={getEpisodeIcon(item.scenarioSlug, item.episodeId)} title={item.title} text={item.description} detail={`${item.character?.name || "AI 상대"} · ${item.character?.role || "업무 대화"}`} variant="scenario-catalog" selected={selectedEpisodeId === item.episodeId} onClick={() => onScenario(item)} />)}
+            {scenarioOptions.map((item) => <ChoiceCard key={item.id} image={getEpisodeImage(item.scenarioSlug, item.episodeId)} title={item.title} text={item.description} detail={`${item.character?.name || "AI 상대"} · ${item.character?.role || "업무 대화"}`} variant="scenario-catalog" selected={selectedEpisodeId === item.episodeId} onClick={() => onScenario(item)} />)}
             {!scenarioOptions.length && (
               <p className="scenario-empty">
                 {scenarios.length === 0

@@ -1,6 +1,8 @@
 import { useLayoutEffect } from "react";
+import interviewServiceImage from "../../assets/service-modes/interview-practice-v2.png";
+import trainingServiceImage from "../../assets/service-modes/training-workflow-v3.png";
+import workplaceServiceImage from "../../assets/service-modes/workplace-chat-v2.png";
 import { Card } from "../../components/ui/shadcn";
-import { IconGlyph } from "../../components/ui/IconGlyph";
 import { serviceModes } from "../../data/setupCatalog";
 import "../../styles/service-mode-select.css";
 
@@ -23,7 +25,7 @@ export function ServiceModeSelectPage({ onSelect }) {
                 type="button"
                 onClick={() => onSelect(item.id)}
               >
-                <ModePreview mode={item} />
+                <ModePreview id={item.id} />
                 <strong className="service-mode-card-title">{item.label}</strong>
               </button>
             </Card>
@@ -34,10 +36,12 @@ export function ServiceModeSelectPage({ onSelect }) {
   );
 }
 
-function ModePreview({ mode }) {
-  return (
-    <span className={`service-mode-visual service-mode-visual--icon service-mode-visual--${mode.id} service-mode-visual--${mode.tone}`} aria-hidden="true">
-      <IconGlyph icon={mode.icon} size={72} />
-    </span>
-  );
+function ModePreview({ id }) {
+  const preview = {
+    interview: [interviewServiceImage, "노트북 앞에서 면접 답변을 연습하는 모습"],
+    training: [trainingServiceImage, "학습, 실습, 피드백 순서로 진행하는 직업훈련 화면"],
+    workplace: [workplaceServiceImage, "팀원과 업무 의견을 조율하는 직장대화 화면"],
+  }[id];
+
+  return <img className={`choice-asset service-mode-visual service-mode-visual--${id}`} src={preview[0]} alt={preview[1]} />;
 }
