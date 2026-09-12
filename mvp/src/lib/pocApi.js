@@ -170,6 +170,14 @@ export async function submitResponse(session, turnId, input) {
   return postResponse();
 }
 
+export function observeTurn(session, turnId, input, signal) {
+  return request(`/sessions/${session.id}/turns/${turnId}/observation`, {
+    method: "POST", token: session.access_token, signal,
+    body: JSON.stringify({ text: input.text || "", stt_source: input.sttSource || "text",
+      duration_ms: input.durationMs, nonverbal: input.nonverbal }),
+  });
+}
+
 export async function finishSession(session) {
   await Promise.all(pendingAudioUploads.get(session.access_token) || []);
   return request(`/sessions/${session.id}/finish`, { method: "POST", token: session.access_token });

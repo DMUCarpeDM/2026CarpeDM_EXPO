@@ -102,3 +102,34 @@ def test_next_question_stops_after_the_mode_turn_limit(monkeypatch):
     next_turn = OpenAIDialogueProvider().next_question(session, _scenario(), [_episode()], turns)
 
     assert next_turn is None
+
+
+def test_interview_reaction_uses_shared_feedback_but_keeps_prepared_question(monkeypatch):
+    from app.services import interaction, judgments, feedback
+    scenario = _scenario()
+    scenario.world_setting = {"interaction": {"interview_questions": [f"주요 질문 {i}" for i in range(6)]}}
+    session = RoleplaySession(id=1, scenario_id=1, mode=5, difficulty="basic")
+    interaction.initialize(session, scenario, [_episode()], "interview")
+    value = interaction.state(session)
+    value["index"] = 1
+    interaction.save(session, value)
+    observation = judgments.evaluate(1, duration_ms=5000,
+        nonverbal={"frames": 30, "sample_ms": 200, "calibrated": True, "head_down_ratio": .7})
+    feedback.assign(session, observation, 1)
+    judgments.persist(session, observation)
+    captured = {}
+    class Response:
+        def raise_for_status(self):
+            pass
+        def json(self):
+            return {"choices": [{"message": {"content": "고개를 조금 들어 저를 보며 말씀해 주시겠어요?"}}]}
+    def post(url, **kwargs):
+        captured.update(kwargs)
+        return Response()
+    monkeypatch.setattr(settings, "openai_api_key", SecretStr("test"))
+    monkeypatch.setattr('app.services.dialogue.openai_provider.httpx.post', post)
+    spec = OpenAIDialogueProvider().next_question(session, scenario, [_episode()], [_turn()])
+    assert spec.question_type == "main" and spec.question_text == "주요 질문 1"
+    assert spec.reaction_text == "고개를 조금 들어 저를 보며 말씀해 주시겠어요?"
+    assert 'head_down' in captured['json']['messages'][1]['content']
+    assert '표정·감정·성격을 지적하지 않습니다' in captured['json']['messages'][0]['content']

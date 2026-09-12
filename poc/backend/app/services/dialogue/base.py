@@ -9,3 +9,4 @@ class QuestionSpec:
     question_text: str
     character_id: str
     virtual_time: str = ""  # 에피소드 가상 시각 "09:04" — 하루 프레이밍
+    reaction_text: str = ""

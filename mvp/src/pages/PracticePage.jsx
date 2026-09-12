@@ -15,6 +15,7 @@ import cafeCounterpartBackground from "../assets/cafe-counterpart-background.png
 import { blobToWav } from "../lib/audioWav";
 import { startTurnSpeech } from "../lib/turnSpeechPlayback";
 import { usePracticeTranscription } from "../lib/usePracticeTranscription";
+import { useLiveCoaching } from "../lib/useLiveCoaching";
 import { useFaceTracking } from "../lib/useFaceTracking";
 import { PersonaFace } from "../components/ui/PersonaFace";
 import { composeTurnSpeech } from "../lib/turnSpeech";
@@ -33,7 +34,7 @@ const rise = (delay) => ({
   transition: { delay, duration: 0.38, ease: [0.16, 1, 0.3, 1] },
 });
 
-export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSignals, onSubmit, busy, error, mediaStream, onRequestMedia, onSwitchMic }) {
+export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, turn, history, turnSignals, onSubmit, busy, error, mediaStream, onRequestMedia, onSwitchMic }) {
   const [draft, setDraft] = useState("");
   const [captureError, setCaptureError] = useState("");
   const [elapsed, setElapsed] = useState(0);
@@ -157,6 +158,12 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
   } = usePracticeTranscription({
     draft, setDraft, mediaStream, turn, busy, paused, aiSpeaking, entryOverlayOpen,
     pushFeed, onAutoSubmit: () => submitDraftRef.current?.(),
+  });
+  const liveTip = useLiveCoaching({ session, turnId: turn?.id,
+    active: listening && !busy && !paused && !aiSpeaking && !entryOverlayOpen,
+    sample: () => ({ text: `${draft} ${interim}`.trim().slice(0, 4000), sttSource: "webspeech",
+      durationMs: Math.max(0, Math.round(performance.now() - recordingStartedAtRef.current)),
+      nonverbal: track.peekTurnStats?.() || null }),
   });
   // 마이크 트랙은 살아 있는데 신호가 0인 상태(잘못된 입력 장치·음소거) — 파형 효과가 감지해 갱신
   const [micSilent, setMicSilent] = useState(false);
@@ -396,6 +403,7 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
 
   return (
     <motion.section className={`practice-screen ${paused ? "is-paused" : ""}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
+      {liveTip && <div className="practice-live-tip" role="status" aria-live="polite"><strong>대화 팁</strong><span>{liveTip.message}</span></div>}
       <motion.div className="practice-contextbar" {...rise(0)}>
         <div className="practice-contextbar-left">
           <div className="topbar-item">
@@ -507,10 +515,10 @@ export function PracticePage({ onPrev, scenario, aiHealth, turn, history, turnSi
         <motion.div className="practice-briefing-card" initial={{ opacity: 0, y: 14, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
           <span className="briefing-kicker">확인</span>
           <h2>연습을 종료할까요?</h2>
-          <p className="briefing-situation">지금 종료해도 진행 중이던 연습은 준비 화면에서 이어서 다시 시작할 수 있어요.</p>
+          <p className="briefing-situation">지금까지 제출한 답변으로 결과를 확인합니다. 남은 질문과 목표는 완료 처리하지 않아요.</p>
           <div className="briefing-foot confirm-foot">
             <button type="button" className="confirm-stay" onClick={() => setConfirmEnd(false)}>계속 연습</button>
-            <button type="button" className="confirm-leave" onClick={() => { setConfirmEnd(false); onPrev(); }}>종료</button>
+            <button type="button" className="confirm-leave" disabled={busy} onClick={() => { setConfirmEnd(false); (onFinish || onPrev)(); }}>종료</button>
           </div>
         </motion.div>
       </div>}

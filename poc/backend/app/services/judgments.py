@@ -1,6 +1,6 @@
 """공통 판단 계약. 점수와 대사는 이 근거를 소비하고 별도로 재판정하지 않는다."""
 import math
-from app.ai.text_match import matched_checklist_ids
+from app.ai.text_match import matched_checklist_ids, count_hangul_syllables
 
 VERSION = "judgment-v1"
 # 전시 검증용 초기 정책. 누적 집계이므로 연속 행동 시간으로 해석하지 않는다.
@@ -24,7 +24,7 @@ def event(turn_id, area, rule, outcome, evidence, message, *, key=None):
             "evidence": evidence, "message": message}
 
 
-def evaluate(turn_id, *, text="", goals=(), nonverbal=None, duration_ms=0):
+def evaluate(turn_id, *, text="", goals=(), nonverbal=None, duration_ms=0, voice_text=False):
     events, measured = [], []
     met = sorted(matched_checklist_ids(text, goals)) if text else []
     if text and goals:
@@ -51,6 +51,16 @@ def evaluate(turn_id, *, text="", goals=(), nonverbal=None, duration_ms=0):
                 events.append(event(turn_id, "posture", rule, "negative",
                     {"metric": metric, "value": value, "threshold": threshold,
                      "duration_ms": duration_ms, "basis": "turn_aggregate"}, message))
+    # Chrome 전사의 경과 시간 기준 빠른 말하기 안내. 추정치이므로 채점에는 쓰지 않는다.
+    if voice_text and number(duration_ms) and duration_ms >= 10000 and count_hangul_syllables(text) >= 40:
+        rate = count_hangul_syllables(text) / (duration_ms / 1000)
+        if rate > 8.5:
+            item = event(turn_id, "voice", "fast_speech", "negative",
+                {"metric": "speech_rate_sps", "value": round(rate, 2), "threshold": 8.5,
+                 "source": "chrome-elapsed-estimate", "duration_ms": duration_ms},
+                "핵심 문장 사이에 잠깐 쉬며 조금 천천히 말해 보세요.")
+            item["scorable"] = False
+            events.append(item)
     return {"version": VERSION, "turn_id": turn_id, "measured": measured,
             "events": events, "met_goals": met}
 
@@ -63,4 +73,4 @@ def persist(session, result):
 
 
 def results(session):
-    return list(((session.rapport or {}).get("judgments") or {}).values())
+    return sorted(((session.rapport or {}).get("judgments") or {}).values(), key=lambda value: value["turn_id"])

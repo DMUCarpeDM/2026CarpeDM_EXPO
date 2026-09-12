@@ -51,6 +51,8 @@ export interface Turn {
 }
 
 export interface InteractionProgress {
+  pending_confirmation?: boolean;
+  unverified?: string[];
   version: string;
   mode: 'interview' | 'training' | 'workplace';
   index: number;
@@ -58,10 +60,11 @@ export interface InteractionProgress {
   met: string[];
   unmet: string[];
   finished: boolean;
-  reason: 'questions_completed' | 'goals_met' | 'goals_exhausted' | 'manual' | null;
+  reason: 'questions_completed' | 'goals_met' | 'goals_exhausted' | 'analysis_unavailable' | 'manual' | null;
 }
 
 export interface JudgmentResult {
+  semantic_status?: "completed" | "unavailable";
   version: string;
   turn_id: number;
   measured: string[];

@@ -27,13 +27,17 @@ def initialize(session, scenario, episodes, service_mode):
         if not items:
             raise ValueError("훈련 시나리오에는 목표 체크리스트가 필요합니다.")
     value = {"version": VERSION, "mode": service_mode, "items": items, "index": 0,
-             "attempts": {}, "met": [], "unmet": [], "reason": None, "finished": False}
+             "attempts": {}, "met": [], "unmet": [], "unverified": [], "reason": None, "finished": False}
     save(session, value)
     return value
 
 
 def advance(session, turn, turns, judgment=None):
     value = state(session)
+    if value and turn.question_type == "confirmation":
+        value["pending_confirmation"] = False
+        save(session, value)
+        return value
     if not value or value.get("finished"):
         return value
     items = value["items"]
@@ -47,17 +51,19 @@ def advance(session, turn, turns, judgment=None):
         met = set(judgment["met_goals"]) if judgment is not None else matched_checklist_ids(history, items)
         value["met"] = list(dict.fromkeys([*value["met"], *sorted(met)]))
         value["unmet"] = [key for key in value["unmet"] if key not in value["met"]]
+        value["unverified"] = [key for key in value.get("unverified", []) if key not in value["met"]]
         current = items[value["index"]]
         attempts = dict(value["attempts"])
         attempts[current["id"]] = attempts.get(current["id"], 0) + 1
         value["attempts"] = attempts
         if current["id"] not in value["met"] and attempts[current["id"]] >= 1 + MAX_RETRIES:
-            value["unmet"] = list(dict.fromkeys([*value["unmet"], current["id"]]))
-        while value["index"] < len(items) and items[value["index"]]["id"] in value["met"] + value["unmet"]:
+            bucket = "unverified" if judgment and judgment.get("semantic_status") == "unavailable" else "unmet"
+            value[bucket] = list(dict.fromkeys([*value[bucket], current["id"]]))
+        while value["index"] < len(items) and items[value["index"]]["id"] in value["met"] + value["unmet"] + value["unverified"]:
             value["index"] += 1
     if value["index"] >= len(items):
         value["finished"] = True
-        value["reason"] = "questions_completed" if value["mode"] == "interview" else "goals_met" if len(value["met"]) == len(items) else "goals_exhausted"
+        value["reason"] = "questions_completed" if value["mode"] == "interview" else "goals_met" if len(value["met"]) == len(items) else "analysis_unavailable" if value.get("unverified") else "goals_exhausted"
     save(session, value)
     return value
 
@@ -66,13 +72,15 @@ def public_state(session):
     value = state(session)
     if not value:
         return {}
-    return {key: value[key] for key in ("version", "mode", "index", "met", "unmet", "finished", "reason")} | {"total": len(value["items"])}
+    return {key: value[key] for key in ("version", "mode", "index", "met", "unmet", "finished", "reason")} | {"total": len(value["items"]), "pending_confirmation": value.get("pending_confirmation", False), "unverified": value.get("unverified", []),
+        "finished": value["finished"] and not value.get("pending_confirmation", False)}
 
 
 def finish_manually(session):
     value = state(session)
-    if value and not value.get("finished"):
+    if value and (not value.get("finished") or value.get("pending_confirmation")):
         value["finished"] = True
         value["reason"] = "manual"
-        value["unmet"] = [item["id"] for item in value["items"] if item["id"] not in value["met"]]
+        value["pending_confirmation"] = False
+        value["unmet"] = [item["id"] for item in value["items"] if item["id"] not in value["met"] + value.get("unverified", [])]
         save(session, value)

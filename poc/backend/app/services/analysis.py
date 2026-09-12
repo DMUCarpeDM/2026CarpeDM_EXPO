@@ -255,7 +255,7 @@ def run_analysis(session_id: int) -> None:
         consent = db.query(Consent).filter_by(session_id=session.id).first()
         if consent is None or consent.storage_policy == "none":
             # 공통 판단에도 답변 인용이 있으므로 미저장 동의에서는 함께 파기한다.
-            session.rapport = {key: value for key, value in (session.rapport or {}).items() if key != "judgments"}
+            session.rapport = {key: value for key, value in (session.rapport or {}).items() if key not in {"judgments", "confirmed_facts", "feedback_history"}}
             for t in session.turns:
                 if t.audio_path:
                     Path(t.audio_path).unlink(missing_ok=True)

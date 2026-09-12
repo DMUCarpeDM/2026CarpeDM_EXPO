@@ -38,7 +38,7 @@ def calculate(results):
     used, counts, facts, conflicts = set(), {}, set(), []
     for result in results:
         for item in result.get("events", []):
-            if item["id"] in used:
+            if item.get("scorable") is False or item["id"] in used:
                 continue
             used.add(item["id"])
             rule, area = item["rule"], item["area"]

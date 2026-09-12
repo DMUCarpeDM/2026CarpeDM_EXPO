@@ -55,3 +55,12 @@ def test_manual_finish_keeps_missing_goals():
 def test_requires_prepared_interview_questions():
     with pytest.raises(ValueError):
         interaction.initialize(NS(rapport={}), NS(world_setting={}), [NS(id=1)], "interview")
+
+
+def test_analysis_outage_is_unverified_not_user_failure():
+    session = setup()
+    turn = NS(response_text="답변", question_type="main")
+    for _ in range(6):
+        value = interaction.advance(session, turn, [turn], {"met_goals": [], "semantic_status": "unavailable"})
+    assert value["reason"] == "analysis_unavailable"
+    assert value["unmet"] == [] and value["unverified"] == ["1:a", "1:b"]

@@ -1,5 +1,5 @@
 from app.services.interaction_scoring import public_total, NO_SCORE
-from app.services import interaction, judgments, response_judgment
+from app.services import interaction, judgments, response_judgment, feedback
 import secrets
 import time
 import uuid
@@ -88,8 +88,8 @@ def _create_turn(
         question_type=spec.question_type,
         question_text=spec.question_text,
         character_id=spec.character_id,
-        reaction_text=reaction_text,
-        reaction_character_id=reaction_character_id,
+        reaction_text=reaction_text or spec.reaction_text,
+        reaction_character_id=reaction_character_id or (spec.character_id if spec.reaction_text else ""),
     )
     db.add(turn)
     db.commit()
@@ -375,6 +375,21 @@ def get_session(
     )
 
 
+@router.post("/{session_id}/turns/{turn_id}/observation")
+def observe_turn(
+    session_id: int, turn_id: int, body: ResponseIn,
+    session: RoleplaySession = Depends(require_session), db: Session = Depends(get_db),
+):
+    turn = db.get(Turn, turn_id)
+    if session.status != SessionStatus.in_progress or turn is None or turn.session_id != session_id or turn.answered_at is not None:
+        raise HTTPException(status_code=409, detail="현재 답변 중인 턴이 아닙니다")
+    result = judgments.evaluate(turn_id, text=body.text,
+        nonverbal=body.nonverbal.model_dump(exclude_unset=True) if body.nonverbal else None,
+        duration_ms=body.duration_ms, voice_text=body.stt_source == "webspeech")
+    # 읽기 전용. 팁 폴링이 답변 저장 트랜잭션의 JSON 상태를 덮어쓰지 않는다.
+    return {"turn_id": turn_id, "judgment": result, "tip": feedback.select(result)}
+
+
 @router.post("/{session_id}/turns/{turn_id}/response", response_model=NextTurnOut)
 def submit_response(
     session_id: int,
@@ -420,11 +435,12 @@ def submit_response(
         turn.id, text=turn.response_text,
         goals=[item for item in interaction.state(session).get("items", []) if "keywords" in item],
         nonverbal=turn.nonverbal_metrics, duration_ms=turn.response_duration_ms,
+        voice_text=turn.stt_source == "webspeech",
     )
     flow_before = interaction.state(session)
     if flow_before:
         goals = [item for item in flow_before["items"] if "keywords" in item]
-        requested = [flow_before["items"][flow_before["index"]]["id"]] if goals else []
+        requested = [flow_before["items"][flow_before["index"]]["id"]] if goals and not flow_before.get("finished") and turn.question_type != "confirmation" else []
         semantic, met, status = response_judgment.analyze(turn, turns, goals, requested)
         # 키워드 일치만으로 목표를 달성했다고 확정하지 않는다.
         judgment["events"] = [e for e in judgment["events"] if e["area"] != "response"] + semantic
@@ -433,23 +449,44 @@ def submit_response(
         if status == "completed" and semantic:
             judgment["measured"].append("response")
         judgment["semantic_status"] = status
+    selected_feedback = feedback.assign(session, judgment, turn.order)
     judgments.persist(session, judgment)
     flow = interaction.advance(session, turn, turns, judgment)
+    if (selected_feedback and selected_feedback["rule"] == "missing_goal" and not flow.get("finished")
+            and selected_feedback["evidence"].get("goal_id") != flow["items"][flow["index"]]["id"]):
+        judgment["feedback"] = None
+        judgments.persist(session, judgment)
     signals_out = TurnSignalsOut(
         judgment=judgment,
         case=signals["case"], coverage=signals["coverage"], risk_hits=signals["risk_hits"],
         emotion=emotion.signals_payload(session), observation=observation,
     )
     try:
-        spec = None if flow.get("finished") else provider.next_question(
-            session,
-            session.scenario,
-            _selected_episodes(session, session.scenario),
-            turns,
-        )
+        confirmed = list((session.rapport or {}).get("confirmed_facts") or [])
+        fact = selected_feedback["evidence"].get("fact_key") if selected_feedback and selected_feedback["rule"] == "contradiction" else None
+        if fact and fact not in confirmed and turn.question_type != "confirmation":
+            session.rapport = {**(session.rapport or {}), "confirmed_facts": [*confirmed, fact]}
+            interaction.save(session, {**flow, "pending_confirmation": True})
+            spec = QuestionSpec(episode_id=turn.episode_id, character_id=turn.character_id,
+                question_type="confirmation", question_text=feedback.confirmation_text(selected_feedback))
+        else:
+            spec = None if flow.get("finished") else provider.next_question(
+                session,
+                session.scenario,
+                _selected_episodes(session, session.scenario),
+                turns,
+            )
     except DialogueGenerationError as error:
-        db.rollback()
-        raise HTTPException(status_code=503, detail=str(error)) from error
+        if not flow or flow.get("finished"):
+            db.rollback()
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        target = flow["items"][flow["index"]]
+        target_episode = db.get(Episode, target["episode_id"])
+        spec = QuestionSpec(episode_id=target_episode.id, character_id=target_episode.character_id,
+            question_type="main" if flow["mode"] == "interview" else "ai_roleplay", question_text=target["text"])
+        judgment["dialogue_status"] = "fallback"
+        judgments.persist(session, judgment)
+    signals_out.judgment = judgment
     if spec is None:
         db.commit()
         return NextTurnOut(finished=True, turn_signals=signals_out, interaction=interaction.public_state(session))

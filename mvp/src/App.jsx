@@ -205,8 +205,19 @@ export default function App() {
       });
       setTurnHistory((items) => [...items, { ...turn, response_text: input.text.trim() }]);
       setTurnSignals(result.turn_signals || null);
+      setSession((previous) => ({ ...previous, interaction: result.interaction }));
       if (result.finished) { await finishSession(session); setTurn(null); navigate("result"); } else setTurn(result.next_turn);
     } catch (error) { setApiError(error.message); } finally { setSubmitting(false); }
+  };
+
+  const endPractice = async () => {
+    if (!session || submitting) return;
+    setSubmitting(true); setApiError("");
+    try {
+      await finishSession(session);
+      setTurn(null); navigate("result");
+    } catch (error) { setApiError(error.message); }
+    finally { setSubmitting(false); }
   };
 
   const nfcRole = nfcCard ? findJobRole(nfcCard.jobRole) : null;
@@ -231,6 +242,7 @@ export default function App() {
   const actions = {
     startPractice,
     sendAnswer,
+    endPractice,
     requestExerciseMedia,
     switchMicDevice,
     issueCode,

@@ -78,6 +78,8 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
     return finalizeTurnMetrics(acc, calibratedRef.current);
   }).current;
 
+  const peekTurnStats = useRef(() => finalizeTurnMetrics(turnAccRef.current, calibratedRef.current)).current;
+
   useEffect(() => {
     const hasVideo = Boolean(mediaStream?.getVideoTracks?.().some((track) => track.readyState === "live"));
     if (!hasVideo) { setLive((prev) => ({ ...prev, status: "idle", tracking: false, poseTracked: false })); return undefined; }
@@ -341,5 +343,5 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
     };
   }, [mediaStream, videoRef, canvasRef]);
 
-  return { ...live, collectTurnStats, setGazePhase };
+  return { ...live, collectTurnStats, peekTurnStats, setGazePhase };
 }
