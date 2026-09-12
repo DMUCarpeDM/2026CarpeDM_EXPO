@@ -105,7 +105,7 @@ def test_transcript_purged_and_report_available_on_none_consent():
     # E2E: 리포트 엔드포인트가 실제로 응답한다 (기존 커버리지 공백 — reports.py 첫 HTTP 검증)
     rep = client.get(f"/api/sessions/{sid}/report", headers=auth)
     assert rep.status_code == 200
-    assert rep.json()["total_score"] >= 0
+    assert rep.json()["total_score"] is None  # 의미 분석·오디오·카메라 미측정은 0점이 아니다
 
     # 미저장 동의 → 발화 전문 파기, 세션·리포트(집계)는 유지
     db = SessionLocal()
@@ -115,6 +115,7 @@ def test_transcript_purged_and_report_available_on_none_consent():
         sess = db.get(RoleplaySession, sid)
         assert sess.status == SessionStatus.completed
         assert sess.report is not None
+        assert "judgments" not in (sess.rapport or {})
     finally:
         db.close()
 

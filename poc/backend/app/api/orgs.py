@@ -1,3 +1,4 @@
+from app.services.interaction_scoring import public_total, NO_SCORE
 """기관(B2B 온보딩) 모듈 (S-B2B-ORG) — 기관 생성·초대 코드 가입·멤버·세션 조회.
 
 권한 모델:
@@ -218,8 +219,8 @@ def list_org_sessions(
             difficulty=session.difficulty,
             status=session.status.value,
             started_at=session.started_at.isoformat() if session.started_at else "",
-            total_score=report.total_score if report else None,
-            grade=grade_of(report.total_score if report else None),
+            total_score=public_total(report),
+            grade=grade_of(public_total(report)),
             fit_scores=(report.fit_scores or {}) if report else {},
         )
         for session, user, scenario, report in rows

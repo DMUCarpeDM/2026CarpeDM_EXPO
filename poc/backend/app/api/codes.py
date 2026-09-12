@@ -1,3 +1,4 @@
+from app.services.interaction_scoring import public_total, NO_SCORE
 """체험 코드·연습 히스토리 API (F-SFIWUO 익명 ID, S-XUUODK 개인별 추이).
 
 개인 식별 정보 없이 4자리 코드 하나로 연습 기록을 이어간다:
@@ -91,7 +92,7 @@ def practice_history(client_key: str, db: Session = Depends(get_db)):
             "started_at": s.started_at.isoformat(timespec="seconds") if s.started_at else "",
             "mode": s.mode,
             "difficulty": s.difficulty,
-            "total_score": s.report.total_score,
+            "total_score": public_total(s.report),
             "fit_scores": {
                 fit: data.get("score") for fit, data in s.report.fit_scores.items()
             },

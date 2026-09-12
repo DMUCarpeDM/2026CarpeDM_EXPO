@@ -1,4 +1,5 @@
-from app.services import interaction, judgments
+from app.services.interaction_scoring import public_total, NO_SCORE
+from app.services import interaction, judgments, response_judgment
 import secrets
 import time
 import uuid
@@ -264,8 +265,8 @@ def my_sessions(
             "difficulty": session.difficulty,
             "status": session.status.value,
             "started_at": session.started_at.isoformat() if session.started_at else "",
-            "grade": grade_of(report.total_score if report else None),
-            "total_score": report.total_score if report else None,
+            "grade": grade_of(public_total(report)),
+            "total_score": public_total(report),
             "fit_scores": (report.fit_scores or {}) if report else {},
         }
         for session, scenario, report in rows
@@ -283,9 +284,9 @@ def _claim_summary(db: Session, session: RoleplaySession, already: bool) -> Sess
         session_id=session.id,
         scenario_title=session.scenario.title if session.scenario else "",
         started_at=session.started_at.isoformat() if session.started_at else "",
-        total_score=report.total_score if report else None,
+        total_score=public_total(report),
         # 점수 표기 방침(S-B2B-SCORE): 수강생 화면은 등급 — 원점수는 관리자·연구 트랙만
-        grade=grade_of(report.total_score if report else None),
+        grade=grade_of(public_total(report)),
         already_claimed=already,
     )
 
@@ -420,6 +421,18 @@ def submit_response(
         goals=[item for item in interaction.state(session).get("items", []) if "keywords" in item],
         nonverbal=turn.nonverbal_metrics, duration_ms=turn.response_duration_ms,
     )
+    flow_before = interaction.state(session)
+    if flow_before:
+        goals = [item for item in flow_before["items"] if "keywords" in item]
+        requested = [flow_before["items"][flow_before["index"]]["id"]] if goals else []
+        semantic, met, status = response_judgment.analyze(turn, turns, goals, requested)
+        # 키워드 일치만으로 목표를 달성했다고 확정하지 않는다.
+        judgment["events"] = [e for e in judgment["events"] if e["area"] != "response"] + semantic
+        judgment["met_goals"] = met
+        judgment["measured"] = [area for area in judgment["measured"] if area != "response"]
+        if status == "completed" and semantic:
+            judgment["measured"].append("response")
+        judgment["semantic_status"] = status
     judgments.persist(session, judgment)
     flow = interaction.advance(session, turn, turns, judgment)
     signals_out = TurnSignalsOut(

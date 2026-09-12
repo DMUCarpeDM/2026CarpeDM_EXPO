@@ -16,6 +16,7 @@ from app.core.config import settings
 from app.core.database import SessionLocal
 from app.models import AnalysisResult, Consent, FitType, Report, RoleplaySession, SessionStatus, Turn
 from app.services import report as report_service
+from app.services import interaction, interaction_report, interaction_scoring
 from app.services.session_fsm import transition
 
 STAGES = ["stt", "response", "voice", "nonverbal", "scoring", "report"]
@@ -202,10 +203,15 @@ def run_analysis(session_id: int) -> None:
             FitType.posture: weighted_mean(posture_scores) if posture_scores else None,
         }
 
+        interaction_outcome, raw_rows = None, []
+        if interaction.state(session):
+            interaction_outcome, raw_rows = interaction_report.prepare(db, session)
+            session_scores = {FitType(area): score for area, score in interaction_outcome["scores"].items()}
+
         # 5.5) LLM judge (S-B2B-JUDGE): Response 세션 점수에 루브릭 CoT 채점을
         # 보수적으로 혼합한다. 실패·미가동은 결정적 점수 그대로 — 가산 레이어.
         judge_info = None
-        if session_scores[FitType.response] is not None:
+        if interaction_outcome is None and session_scores[FitType.response] is not None:
             scenario = session.scenario
             try:
                 judge_info = judge.judge_response_session(
@@ -233,14 +239,17 @@ def run_analysis(session_id: int) -> None:
                     session_id=session.id, turn_id=None, fit_type=fit,
                     # judge 투명성: 세션 레벨 Response 결과에 채점 근거 전체를 남긴다
                     raw_metrics={"judge": judge_info} if fit == FitType.response and judge_info else {},
-                    score=score, engine_version=ENGINE_VERSION,
+                    score=score, engine_version=interaction_scoring.VERSION if interaction_outcome else ENGINE_VERSION,
                 ))
         db.commit()
 
         # 6) 리포트 생성
         _set_progress(db, session, "report", 92)
         analysis_ms = int((time.monotonic() - started) * 1000)
-        report_service.build_report(db, session, session_scores, analysis_ms, judge_info=judge_info)
+        if interaction_outcome is not None:
+            interaction_report.build(db, session, interaction_outcome, raw_rows, analysis_ms)
+        else:
+            report_service.build_report(db, session, session_scores, analysis_ms, judge_info=judge_info)
 
         # 7) 저장 정책 적용 (S-CBYKOH): '미저장' 동의면 분석이 끝난 음성 파일을 즉시 삭제
         consent = db.query(Consent).filter_by(session_id=session.id).first()

@@ -223,7 +223,7 @@ export interface Headline {
 
 export interface Report {
   session_id: number;
-  total_score: number;
+  total_score: number | null;
   fit_scores: Record<string, FitScore>;
   strengths: string[];
   improvements: string[];
@@ -311,7 +311,7 @@ export interface Report {
   difficulty: string;
   previous: {
     session_id: number;
-    total_score: number;
+    total_score: number | null;
     fit_scores: Record<string, number | null>;
   } | null;
 }

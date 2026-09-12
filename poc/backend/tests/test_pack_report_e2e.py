@@ -26,6 +26,16 @@ ANSWERS = [
 ]
 
 
+def use_legacy_engine(sid):
+    """이 파일은 기존 B2B 보고서의 호환성 회귀를 검증한다."""
+    from app.core.database import SessionLocal
+    from app.models import RoleplaySession
+    with SessionLocal() as db:
+        session = db.get(RoleplaySession, sid)
+        session.rapport = {k: v for k, v in (session.rapport or {}).items() if k != "interaction"}
+        db.commit()
+
+
 def test_cafe_crew_session_report_carries_b2b_fields():
     seed()
     created = client.post("/api/sessions", json={
@@ -34,6 +44,7 @@ def test_cafe_crew_session_report_carries_b2b_fields():
     })
     assert created.status_code == 200, created.text
     session = created.json()
+    use_legacy_engine(session["id"])
     sid = session["id"]
     auth = {"X-Session-Token": session["access_token"]}
     assert session["scenario"]["slug"] == "ondo-cafe-crew"
@@ -117,6 +128,7 @@ def test_none_consent_purges_judge_reasoning(monkeypatch):
         "scenario_slug": "ondo-cafe-crew",
     })
     session = created.json()
+    use_legacy_engine(session["id"])
     auth = {"X-Session-Token": session["access_token"]}
     client.post(
         f"/api/sessions/{session['id']}/turns/{session['current_turn']['id']}/response",

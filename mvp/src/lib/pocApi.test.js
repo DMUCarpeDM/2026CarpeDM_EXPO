@@ -52,6 +52,7 @@ test("createSession preserves the PoC setup payload", async () => {
     difficulty: "pressure",
     mode: 10,
     scenario_slug: "cloud-meet",
+    service_mode: "workplace",
     client_key: payload.client_key,
     consent: { agreed: true, storage_policy: "none" },
   });

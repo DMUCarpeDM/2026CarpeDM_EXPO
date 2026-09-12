@@ -471,7 +471,7 @@ class SurveyIn(BaseModel):
 
 class ReportOut(BaseModel):
     session_id: int
-    total_score: float
+    total_score: float | None
     fit_scores: dict
     strengths: list
     improvements: list

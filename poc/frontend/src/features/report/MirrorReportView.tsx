@@ -57,7 +57,7 @@ export default function MirrorReportView({
   useEffect(() => {
     if (act === 'ending' && ending?.text) speak(ending.text, { rate: 1.0, pitch: 0.85 });
     if (act === 'score' && report.headline && 'sentence' in report.headline) {
-      speak(`오늘의 총점은 ${Math.round(report.total_score)}점. ${report.headline.sentence}`, { rate: 1.02 });
+      speak(`${report.total_score === null ? "측정 자료가 부족합니다." : `오늘의 총점은 ${Math.round(report.total_score)}점.`} ${report.headline.sentence}`, { rate: 1.02 });
     }
     return stopSpeaking;
   }, [act, ending, report]);
@@ -96,7 +96,7 @@ export default function MirrorReportView({
               />
             </svg>
             <div className="mirror-score-center">
-              <span className="mirror-score-number">{Math.round(displayScore)}</span>
+              <span className="mirror-score-number">{report.total_score === null ? "—" : Math.round(displayScore)}</span>
               <span className="mirror-score-grade">{gradeLabel}</span>
             </div>
           </div>

@@ -30,6 +30,7 @@ function formatAttemptDate(value, fallback) {
 }
 
 function scoreLabel(total, grade) {
+  if (total === null) return "미측정";
   if (grade) return grade;
   if (total >= 85) return "아주 좋아요";
   if (total >= 70) return "좋아요";
@@ -38,13 +39,13 @@ function scoreLabel(total, grade) {
 }
 
 function buildHistory(history, report) {
-  const attempts = Array.isArray(history) ? history.filter((item) => Number.isFinite(Number(item?.total_score))) : [];
+  const attempts = Array.isArray(history) ? history.filter((item) => item?.total_score != null && Number.isFinite(Number(item.total_score))) : [];
   const latest = attempts.at(-1);
   const reportId = report?.session_id ?? report?.attempt_id ?? report?.id;
   const latestId = latest?.session_id ?? latest?.attempt_id ?? latest?.id;
   const latestIsCurrent = latest === report || (reportId != null && latestId === reportId);
   const previous = report?.previous || (latestIsCurrent ? attempts.at(-2) : latest) || null;
-  const trendAttempts = latestIsCurrent ? attempts.slice(-6) : [...attempts.slice(-5), report].filter(Boolean);
+  const trendAttempts = latestIsCurrent ? attempts.slice(-6) : [...attempts.slice(-5), report].filter((item) => item?.total_score != null);
   return { previous, trendAttempts };
 }
 
@@ -80,7 +81,7 @@ export function ResultPage({
   }
 
   const fits = reportFits(report);
-  const total = Math.round(Number(report.total_score) || 0);
+  const total = report.total_score == null ? null : Math.round(Number(report.total_score));
   const strengths = report.strengths?.length ? report.strengths : ["이번 연습에서 잘한 점을 다음 결과에서 더 자세히 알려드릴게요."];
   const improvements = report.improvements?.length ? report.improvements : ["핵심 내용을 한 문장으로 먼저 말해 보세요."];
   const topImprovement = report.headline?.sentence || improvements[0];
@@ -93,8 +94,8 @@ export function ResultPage({
   const beforeAnswer = coachingCard?.quote || report.rebuild?.quote || "원문 기록이 없어요.";
   const afterAnswer = coachingCard?.suggestion || rebuildItem?.sentence || rebuildItem?.after || rebuildItem?.text || topImprovement;
   const evidenceSegments = Array.isArray(report.evidence_segments) ? report.evidence_segments : [];
-  const previousTotal = Number.isFinite(Number(historyData.previous?.total_score)) ? Math.round(Number(historyData.previous.total_score)) : null;
-  const scoreDelta = previousTotal === null ? null : total - previousTotal;
+  const previousTotal = historyData.previous?.total_score != null && Number.isFinite(Number(historyData.previous.total_score)) ? Math.round(Number(historyData.previous.total_score)) : null;
+  const scoreDelta = previousTotal === null || total === null ? null : total - previousTotal;
   const trendTotals = historyData.trendAttempts.map((item) => Math.round(Number(item.total_score) || 0));
   const trendLabels = historyData.trendAttempts.map((item, index) => formatAttemptDate(item.started_at, `${index + 1}회`));
   const evidenceItems = [
@@ -179,7 +180,7 @@ export function ResultPage({
         <Card className="unified-report__history">
           <CardContent>
             <div className="unified-report__card-heading"><p>이전 기록</p><h2>{scoreDelta === null ? "두 번째 연습부터 변화를 보여드려요" : `이전보다 ${Math.abs(scoreDelta)}점 ${scoreDelta >= 0 ? "올랐어요" : "낮아졌어요"}`}</h2></div>
-            {trendTotals.length >= 2 ? <TrendChart height={178} min={Math.max(0, Math.min(...trendTotals) - 10)} max={100} series={[{ name: "종합 점수", color: "var(--color-apple-blue)", values: trendTotals, fill: false }]} xLabels={trendLabels} /> : <div className="unified-report__history-empty"><strong>{total}점</strong><p>지금 결과를 기준으로 다음 연습과 비교할게요.</p></div>}
+            {trendTotals.length >= 2 ? <TrendChart height={178} min={Math.max(0, Math.min(...trendTotals) - 10)} max={100} series={[{ name: "종합 점수", color: "var(--color-apple-blue)", values: trendTotals, fill: false }]} xLabels={trendLabels} /> : <div className="unified-report__history-empty"><strong>{total === null ? "미측정" : `${total}점`}</strong><p>지금 결과를 기준으로 다음 연습과 비교할게요.</p></div>}
           </CardContent>
         </Card>
       </section>
