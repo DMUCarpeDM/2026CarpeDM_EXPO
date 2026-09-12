@@ -24,14 +24,15 @@ test("service entry policy declares deterministic precedence and chrome", () => 
   assert.equal(isKioskIssue("?kiosk=issue&demo=practice"), true);
   assert.equal(demoDestination("?demo=practice"), "practice");
   for (const view of ["result", "feedback", "compare", "share"]) assert.equal(demoDestination(`?demo=${view}`), "result");
+  assert.equal(demoDestination("?demo=records"), "records");
   assert.equal(demoDestination(""), null);
   assert.equal(savedSessionDestination("in_progress"), "practice");
   assert.equal(savedSessionDestination("analyzing"), "result");
   assert.equal(savedSessionDestination("completed"), "result");
   assert.equal(savedSessionDestination("unknown"), null);
-  assert.equal(normalizeDestination("home", null), "service");
+  assert.equal(normalizeDestination("home", null), "homepage");
   assert.equal(normalizeDestination("home", "training"), "home");
-  for (const view of ["feedback", "compare", "share"]) assert.equal(normalizeDestination(view, "training"), "result");
+  for (const view of ["feedback", "compare", "share"]) assert.equal(normalizeDestination(view, "training"), "records");
 });
 
 describe("service entry routes in real Vite and Chrome", { concurrency: false }, () => {

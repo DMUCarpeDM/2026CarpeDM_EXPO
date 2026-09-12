@@ -40,7 +40,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
   const nfcResolvingRef = useRef(false);
 
   const showView = (target) => {
-    if (["home", "role"].includes(target)) {
+    if (["homepage", "home", "role"].includes(target)) {
       setNfcCard(null);
       setNfcFallback(false);
     }
@@ -106,7 +106,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
       const saved = loadActiveSession();
       if (!saved) {
         clearActiveSession(localStorage);
-        enter("service");
+        enter("homepage");
         return;
       }
       try {
@@ -120,7 +120,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
         const destination = savedSessionDestination(resumed.status);
         if (!destination) {
           clearActiveSession(localStorage);
-          enter("service");
+          enter("homepage");
           return;
         }
         const resumedSession = { ...resumed, access_token: saved.access_token };
@@ -130,7 +130,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
       } catch {
         if (!cancelled) {
           clearActiveSession(localStorage);
-          enter("service");
+          enter("homepage");
         }
       } finally {
         window.clearTimeout(lookupTimer);
