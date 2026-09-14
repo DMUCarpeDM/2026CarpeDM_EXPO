@@ -114,7 +114,7 @@ def test_interview_reaction_uses_shared_feedback_but_keeps_prepared_question(mon
     value["index"] = 1
     interaction.save(session, value)
     observation = judgments.evaluate(1, duration_ms=5000,
-        nonverbal={"frames": 30, "sample_ms": 200, "calibrated": True, "head_down_ratio": .7})
+        nonverbal={"frames": 30, "sample_ms": 200, "calibrated": True, "head_down_ratio": .7, "posture_samples": {"head_down_ratio": 30}})
     feedback.assign(session, observation, 1)
     judgments.persist(session, observation)
     captured = {}

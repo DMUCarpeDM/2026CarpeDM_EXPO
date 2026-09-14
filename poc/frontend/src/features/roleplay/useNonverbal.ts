@@ -568,6 +568,9 @@ export function useNonverbal(
                 }
                 acc.curTensionStreak = 0;
               }
+              if (headGap !== null) acc.headSamples += 1;
+              if (headGap !== null && shoulderWidth !== null && base.width !== null) acc.torsoSamples += 1;
+              if (headGap !== null && handSeen) acc.handFaceSamples += 1;
               if (handFace) acc.handFaceFrames += 1;
               if (armCross) acc.armCrossFrames += 1;
               if (rollAdj !== null) acc.rollSamples.push(rollAdj);

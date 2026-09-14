@@ -42,6 +42,9 @@ def evaluate(turn_id, *, text="", goals=(), nonverbal=None, duration_ms=0, voice
               and frames * sample_ms >= MIN_SAMPLE_MS)
     if enough:
         for rule, (metric, threshold, message) in POSTURE_RULES.items():
+            samples = (nv.get("posture_samples") or {}).get(metric)
+            if not number(samples) or samples < 15 or samples > frames or samples * sample_ms < MIN_SAMPLE_MS:
+                continue
             value = nv.get(metric)
             if not number(value) or value < 0:
                 continue

@@ -285,7 +285,7 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
             // 고개 숙임은 코-어깨 거리로 잰다. 이전에는 eyeLookDown blendshape(눈동자 하향)을
             // 썼는데, 고개 각도와 안구 방향은 다른 물리량이라 Posture-Fit이 오측정하고 있었다.
             const headDown = resolveHeadDown(headGap, base ? base.headGap : null);
-            const torsoDelta = torsoZ !== null && base?.torsoZ !== null
+            const torsoDelta = torsoZ !== null && base?.torsoZ != null
               ? torsoZ - base.torsoZ
               : 0;
             // 어깨 중심이 골반보다 카메라 쪽으로 크게 나오면 숙이거나 앞으로 기운 자세,
@@ -305,6 +305,9 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
                 tiltAdj,
                 shoulderX,
                 headDown,
+                headTracked: headGap !== null,
+                torsoTracked: headGap !== null && torsoZ !== null && base?.torsoZ != null,
+                handFaceTracked: headGap !== null && handLandmarks.length > 0,
                 hunched,
                 leanBack,
                 handTracked: handLandmarks.length > 0,

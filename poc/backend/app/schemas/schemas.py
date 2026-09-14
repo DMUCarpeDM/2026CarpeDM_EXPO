@@ -316,6 +316,7 @@ class KinectObsIn(BaseModel):
 
 
 class NonverbalIn(BaseModel):
+    posture_samples: dict[str, int] = Field(default_factory=dict)
     front_gaze_ratio: float = 0.0
     gaze_off_count: int = 0
     avg_shoulder_tilt_deg: float = 0.0

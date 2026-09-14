@@ -1,5 +1,5 @@
 from app.services.interaction_scoring import public_total, NO_SCORE
-from app.services import interaction, judgments, response_judgment, feedback
+from app.services import interaction, judgments, response_judgment, feedback, contradictions
 import secrets
 import time
 import uuid
@@ -462,10 +462,12 @@ def submit_response(
         emotion=emotion.signals_payload(session), observation=observation,
     )
     try:
-        confirmed = list((session.rapport or {}).get("confirmed_facts") or [])
-        fact = selected_feedback["evidence"].get("fact_key") if selected_feedback and selected_feedback["rule"] == "contradiction" else None
-        if fact and fact not in confirmed and turn.question_type != "confirmation":
-            session.rapport = {**(session.rapport or {}), "confirmed_facts": [*confirmed, fact]}
+        confirmed = contradictions.confirmed_keys((session.rapport or {}).get("confirmed_facts") or [])
+        identifiers = contradictions.keys(selected_feedback["evidence"]) if selected_feedback and selected_feedback["rule"] == "contradiction" else set()
+        already_confirmed = bool(identifiers.intersection(confirmed))
+        if identifiers and (already_confirmed or turn.question_type != "confirmation"):
+            session.rapport = {**(session.rapport or {}), "confirmed_facts": sorted(confirmed | identifiers)}
+        if identifiers and not already_confirmed and turn.question_type != "confirmation":
             interaction.save(session, {**flow, "pending_confirmation": True})
             spec = QuestionSpec(episode_id=turn.episode_id, character_id=turn.character_id,
                 question_type="confirmation", question_text=feedback.confirmation_text(selected_feedback))

@@ -1,5 +1,6 @@
 """측정 근거의 가감점과 상한. 전시 검증용 초기 정책."""
 from app.services.judgments import event, number
+from app.services.contradictions import keys as conflict_keys
 
 VERSION = "interaction-score-v1"
 NO_SCORE = "interaction-no-score"
@@ -43,10 +44,10 @@ def calculate(results):
             used.add(item["id"])
             rule, area = item["rule"], item["area"]
             if rule == "contradiction":
-                fact = "".join(item["evidence"]["fact_key"].split()).casefold()
-                if fact not in facts:
-                    facts.add(fact)
+                identifiers = conflict_keys(item["evidence"])
+                if identifiers and not identifiers.intersection(facts):
                     conflicts.append(item)
+                facts.update(identifiers)
                 continue
             if rule not in POINTS or area not in measured or area not in changes:
                 continue

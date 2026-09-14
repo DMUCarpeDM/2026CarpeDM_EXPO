@@ -269,3 +269,24 @@ test("answer_offset_sec은 0 — MVP는 녹음과 비언어 집계가 턴 시작
   feed(acc, framesFor(2000), FRONT);
   assert.equal(finalizeTurnMetrics(acc).answer_offset_sec, 0);
 });
+
+test('face-only samples never claim valid posture measurements', () => {
+  const acc = makeTurnAcc();
+  for (let i = 0; i < 50; i++) accumulateSample(acc, {front: true});
+  assert.deepEqual(finalizeTurnMetrics(acc, true).posture_samples, {
+    avg_shoulder_tilt_deg: 0, posture_sway: 0, head_down_ratio: 0,
+    hunched_ratio: 0, hand_face_sec: 0,
+  });
+});
+
+test('posture validity counts only tracked samples, including neutral posture', () => {
+  const acc = makeTurnAcc();
+  for (let i = 0; i < 50; i++) accumulateSample(acc, {front: true});
+  for (let i = 0; i < 40; i++) accumulateSample(acc, {
+    front: true, tiltAdj: 0, shoulderX: 1, headTracked: true,
+    torsoTracked: true, handFaceTracked: true,
+  });
+  const metrics = finalizeTurnMetrics(acc, true);
+  assert.equal(metrics.frames, 90);
+  assert.ok(Object.values(metrics.posture_samples).every(n => n === 40));
+});

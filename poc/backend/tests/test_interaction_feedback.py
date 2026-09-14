@@ -11,7 +11,7 @@ def test_feedback_priority_excludes_expressions():
 
 def test_role_feedback_has_repeat_gap_and_orders_by_turn():
     session = NS(rapport={})
-    item = judgments.evaluate(1, duration_ms=4000, nonverbal={"frames": 25, "sample_ms": 200, "calibrated": True, "head_down_ratio": .8})
+    item = judgments.evaluate(1, duration_ms=4000, nonverbal={"frames": 25, "sample_ms": 200, "calibrated": True, "head_down_ratio": .8, "posture_samples": {"head_down_ratio": 25}})
     assert feedback.assign(session, item, 1)
     assert not feedback.assign(session, item, 2)
     assert feedback.assign(session, item, 3)
@@ -39,7 +39,7 @@ def test_observation_requires_owner_and_does_not_store(monkeypatch):
     url = f'/api/sessions/{sid}/turns/{tid}/observation'
     assert client.post(url, json={}).status_code in (401, 403)
     auth = {"X-Session-Token": session["access_token"]}
-    body = {"text": "", "duration_ms": 4000, "nonverbal": {"calibrated": True, "frames": 25, "sample_ms": 200, "head_down_ratio": .8}}
+    body = {"text": "", "duration_ms": 4000, "nonverbal": {"calibrated": True, "frames": 25, "sample_ms": 200, "head_down_ratio": .8, "posture_samples": {"head_down_ratio": 25}}}
     response = client.post(url, json=body, headers=auth)
     assert response.status_code == 200 and response.json()["tip"]["rule"] == "head_down"
     with SessionLocal() as db:
@@ -97,3 +97,36 @@ def test_dialogue_failure_uses_prepared_goal(monkeypatch):
         headers={"X-Session-Token": session["access_token"]}, json={"text": "답변"})
     assert response.status_code == 200 and response.json()["next_turn"]["question_text"]
     assert response.json()["turn_signals"]["judgment"]["dialogue_status"] == "fallback"
+
+
+def test_renamed_conflict_does_not_repeat_confirmation(monkeypatch):
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.seed.run import seed
+    from app.core.database import SessionLocal
+    from app.models import Scenario, RoleplaySession
+    seed()
+    with SessionLocal() as db:
+        scenario = db.query(Scenario).first()
+        slug = scenario.slug
+        scenario.world_setting = {**scenario.world_setting, "interaction": {"interview_questions": [f"질문 {i}" for i in range(6)]}}
+        db.commit()
+    def analyze(current, history, goals, requested):
+        if current.order in (1, 3):
+            name = "업무 담당자" if current.order == 1 else "담당자 여부"
+            return [judgments.event(current.id, "response", "contradiction", "negative",
+                {"fact_key": name, "previous_quote": "제가 담당자입니다", "quote": "담당자가 아닙니다"}, "확인")], [], "completed"
+        return [], [], "completed"
+    monkeypatch.setattr('app.services.response_judgment.analyze', analyze)
+    client = TestClient(app)
+    session = client.post('/api/sessions', json={"scenario_slug": slug, "service_mode": "interview", "consent": {"agreed": True}}).json()
+    sid, turn = session['id'], session['current_turn']
+    auth = {"X-Session-Token": session['access_token']}
+    for expected in ('confirmation', 'main', 'main'):
+        response = client.post(f'/api/sessions/{sid}/turns/{turn["id"]}/response', headers=auth, json={"text": "답변입니다"})
+        assert response.status_code == 200, response.text
+        turn = response.json()['next_turn']
+        assert turn['question_type'] == expected
+    with SessionLocal() as db:
+        stored = db.get(RoleplaySession, sid)
+        assert interaction_scoring.calculate(judgments.results(stored))['contradiction_deduction'] == 4

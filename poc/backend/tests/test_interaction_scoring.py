@@ -90,3 +90,25 @@ def test_training_report_uses_shared_score_and_purges_internal_quotes(monkeypatc
         session = db.get(RoleplaySession, sid)
         assert "judgments" not in session.rapport
         assert all(not t.response_text for t in session.turns)
+
+
+def test_same_quotes_with_different_fact_names_are_one_conflict():
+    def conflict(turn, name, before="제가 담당자입니다", after="제가 담당자가 아닙니다"):
+        return event(turn, "response", "contradiction", "negative", {
+            "fact_key": name, "previous_quote": before, "quote": after}, "")
+    events = [conflict(2, "업무 담당자"), conflict(3, "담당자 여부"),
+              conflict(4, "다른 명칭", "제가담당자가아닙니다", "제가담당자입니다")]
+    out = calculate([result(events)])
+    assert out["contradiction_deduction"] == 4
+    assert len(out["contradictions"]) == 1
+    events.append(conflict(5, "마감일", "마감은 월요일", "마감은 금요일"))
+    assert calculate([result(events)])["contradiction_deduction"] == 8
+
+
+def test_confirmation_uses_same_aliases_as_scoring_and_reads_legacy_names():
+    from app.services.contradictions import keys, confirmed_keys
+    first = {"fact_key": "업무 담당자", "previous_quote": "제가 담당자입니다", "quote": "담당자가 아닙니다"}
+    renamed = {**first, "fact_key": "담당자 여부"}
+    confirmed = confirmed_keys(list(keys(first)))
+    assert keys(renamed) & confirmed
+    assert keys(first) & confirmed_keys([" 업무담당자 "])

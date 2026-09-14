@@ -117,6 +117,9 @@ export const makeTurnAcc = () => ({
   shoulderXs: [],
   worldFrames: 0,
   headDown: 0,
+  headSamples: 0,
+  torsoSamples: 0,
+  handFaceSamples: 0,
   hunched: 0,
   leanBack: 0,
   handsVisible: 0,
@@ -164,6 +167,9 @@ export function accumulateSample(acc, sample) {
     tiltAdj = null,
     shoulderX = null,
     headDown = false,
+    headTracked = false,
+    torsoTracked = false,
+    handFaceTracked = false,
     hunched = false,
     leanBack = false,
     handTracked = false,
@@ -219,6 +225,9 @@ export function accumulateSample(acc, sample) {
     if (hunched) acc.hunched += 1;
     if (leanBack) acc.leanBack += 1;
   }
+  if (headTracked) acc.headSamples += 1;
+  if (torsoTracked) acc.torsoSamples += 1;
+  if (handFaceTracked) acc.handFaceSamples += 1;
   if (handTracked) acc.handsVisible += 1;
   if (handNearFace) acc.handNearFace += 1;
 
@@ -261,6 +270,13 @@ export function finalizeTurnMetrics(acc, calibrated = false) {
 
   return {
     frames: acc.frames,
+    posture_samples: {
+      avg_shoulder_tilt_deg: acc.tiltSamples.length,
+      posture_sway: acc.shoulderXs.length,
+      head_down_ratio: acc.headSamples,
+      hunched_ratio: acc.torsoSamples,
+      hand_face_sec: acc.handFaceSamples,
+    },
     front_gaze_ratio: acc.front / acc.frames,
     gaze_off_count: acc.offCount,
     avg_shoulder_tilt_deg: acc.tiltSamples.length ? mean(acc.tiltSamples) : 0,

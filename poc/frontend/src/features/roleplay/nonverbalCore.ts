@@ -83,6 +83,9 @@ export interface Accumulator {
   lastFront: boolean;
   tiltSamples: number[]; // 전/후반 추세 분석용 시계열 (보정값)
   headDownFrames: number;
+  headSamples: number;
+  torsoSamples: number;
+  handFaceSamples: number;
   hunchedFrames: number;
   leanBackFrames: number;
   shoulderXs: number[];
@@ -153,6 +156,9 @@ export const emptyAcc = (): Accumulator => ({
   lastFront: true,
   tiltSamples: [],
   headDownFrames: 0,
+  headSamples: 0,
+  torsoSamples: 0,
+  handFaceSamples: 0,
   hunchedFrames: 0,
   leanBackFrames: 0,
   shoulderXs: [],
@@ -469,6 +475,13 @@ export function finalizeTurnMetrics(acc: Accumulator, base: Baseline): Nonverbal
     gaze_off_count: acc.gazeOffCount,
     avg_shoulder_tilt_deg: acc.tiltSamples.length ? mean(acc.tiltSamples) : 0,
     head_down_ratio: acc.headDownFrames / acc.frames,
+    posture_samples: {
+      avg_shoulder_tilt_deg: acc.tiltSamples.length,
+      posture_sway: acc.shoulderXs.length,
+      head_down_ratio: acc.headSamples,
+      hunched_ratio: acc.torsoSamples,
+      hand_face_sec: acc.handFaceSamples,
+    },
     hunched_ratio: Math.round((acc.hunchedFrames / acc.frames) * 100) / 100,
     lean_back_ratio: Math.round((acc.leanBackFrames / acc.frames) * 100) / 100,
     posture_sway: sway,
