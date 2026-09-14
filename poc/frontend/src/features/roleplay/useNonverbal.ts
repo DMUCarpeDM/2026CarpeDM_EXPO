@@ -568,18 +568,24 @@ export function useNonverbal(
                 }
                 acc.curTensionStreak = 0;
               }
-              if (headGap !== null) acc.headSamples += 1;
-              if (headGap !== null && shoulderWidth !== null && base.width !== null) acc.torsoSamples += 1;
-              if (headGap !== null && handSeen) acc.handFaceSamples += 1;
-              if (handFace) acc.handFaceFrames += 1;
+              if (headGap !== null) {
+                acc.headSamples += 1;
+                if (headDown) acc.headDownFrames += 1;
+              }
+              if (headGap !== null && shoulderWidth !== null && base.width !== null) {
+                acc.torsoSamples += 1;
+                if (hunched) acc.hunchedFrames += 1;
+                if (leanBack) acc.leanBackFrames += 1;
+              }
+              if (headGap !== null && handSeen) {
+                acc.handFaceSamples += 1;
+                if (handFace) acc.handFaceFrames += 1;
+              }
               if (armCross) acc.armCrossFrames += 1;
               if (rollAdj !== null) acc.rollSamples.push(rollAdj);
               if (tiltAdj !== null && shoulderX !== null) {
                 acc.tiltSamples.push(tiltAdj);
                 acc.shoulderXs.push(shoulderX);
-                if (headDown) acc.headDownFrames += 1;
-                if (hunched) acc.hunchedFrames += 1;
-                if (leanBack) acc.leanBackFrames += 1;
                 if (tiltAdj > 8) maybeCoach('어깨를 수평으로 펴보세요');
               }
               // 실시간 코칭: 최근 3초 창에서 이탈이 70% 이상이면 안내 (시간 기준)

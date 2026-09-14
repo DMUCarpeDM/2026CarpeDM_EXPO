@@ -39,3 +39,12 @@ def test_face_only_and_sparse_posture_do_not_receive_baseline_score():
         assert calculate([result])["total"] is None
     payload = {**nv, "posture_samples": {"head_down_ratio": 40}}
     assert calculate([evaluate(1, nonverbal=payload, duration_ms=4000)])["scores"]["posture"] == 75
+
+
+def test_tracking_gap_does_not_change_score_with_same_valid_observations():
+    from app.services.interaction_scoring import calculate
+    for frames in (40, 200):
+        nv = {"frames": frames, "sample_ms": 80, "calibrated": True,
+              "head_down_ratio": 1, "posture_samples": {"head_down_ratio": 40}}
+        judged = evaluate(1, nonverbal=nv, duration_ms=frames * 80)
+        assert calculate([judged])["scores"]["posture"] == 71
