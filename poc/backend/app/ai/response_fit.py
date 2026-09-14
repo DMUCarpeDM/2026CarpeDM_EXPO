@@ -125,6 +125,8 @@ def _pick_quotes(
 
 
 def score_response(metrics: dict) -> float:
+    # 기존 점수 계산입니다. 내용 충족·길이·존댓말·권장 표현을 각각 계산합니다.
+    # 공통 판단을 쓰는 세션에서는 종료 분석이 이 점수를 교체하므로 두 점수를 합치면 안 됩니다.
     length = band_score(metrics["syllables"], *LENGTH_BANDS) * 0.22
     formality = 12.0 * metrics["politeness"]["formal_ratio"]
     recommended = min(8.0, 4.0 * len(metrics["recommended_hits"]))

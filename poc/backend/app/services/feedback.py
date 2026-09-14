@@ -1,5 +1,7 @@
 """팁과 역할 발화가 함께 사용하는 근거 선택. 표정은 실시간 개입에서 제외한다."""
 from app.services.judgments import results
+# 판단 기록 중 지금 짚을 내용 하나를 고르는 곳입니다. 새로운 잘못을 만들어 내지는 않습니다.
+# 팁바와 다음 AI 대사가 같은 근거를 사용하도록 선택 결과를 저장합니다.
 
 PRIORITY = {"contradiction": 0, "missing_goal": 1, "fast_speech": 2,
             "hand_face": 3, "arms_crossed": 3, "head_down": 4, "side_lean": 5, "forward_lean": 6, "sway": 7}

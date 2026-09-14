@@ -398,6 +398,9 @@ def submit_response(
     session: RoleplaySession = Depends(require_session),
     db: Session = Depends(get_db),
 ):
+    # 읽는 순서 1: 사용자 답변이 들어오는 입구입니다. 아래에서 분석 → 목표 갱신 → 다음 질문을 연결합니다.
+    # 현재 reactions는 수행도·감정용, response_judgment는 목표·근거용으로 따로 판단합니다.
+    # 새 엔진으로 전환할 때 둘의 결론이 충돌하지 않도록 연결 지점을 먼저 확인하세요.
     if session.status != SessionStatus.in_progress:
         raise HTTPException(status_code=404, detail="진행 중인 세션이 아닙니다")
     turn = db.get(Turn, turn_id)
@@ -439,6 +442,8 @@ def submit_response(
     )
     flow_before = interaction.state(session)
     if flow_before:
+        # 주의: 현재는 keywords가 있는 항목만 목표 분석에 보냅니다.
+        # 면접 질문에도 항목별 기준을 붙이려면 이 조건과 interaction.py의 질문 형식을 함께 수정하세요.
         goals = [item for item in flow_before["items"] if "keywords" in item]
         requested = [flow_before["items"][flow_before["index"]]["id"]] if goals and not flow_before.get("finished") and turn.question_type != "confirmation" else []
         semantic, met, status = response_judgment.analyze(turn, turns, goals, requested)
@@ -446,6 +451,8 @@ def submit_response(
         judgment["events"] = [e for e in judgment["events"] if e["area"] != "response"] + semantic
         judgment["met_goals"] = met
         judgment["measured"] = [area for area in judgment["measured"] if area != "response"]
+        # 현재는 분석 성공뿐 아니라 결과 사건도 있어야 '측정됨'으로 기록합니다.
+        # '분석 성공했지만 지적할 내용 없음'을 미측정과 구분하는 것은 새 설계의 수정 지점입니다.
         if status == "completed" and semantic:
             judgment["measured"].append("response")
         judgment["semantic_status"] = status

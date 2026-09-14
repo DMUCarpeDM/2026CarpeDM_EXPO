@@ -31,6 +31,9 @@ _FILLER_PATTERN = re.compile(
 
 def analyze_fillers(text: str) -> dict:
     """전사 텍스트의 필러 빈도. 텍스트가 없으면 빈 dict."""
+    # '음', '어' 같은 표현을 찾는 현재 집계 함수입니다. 이 결과만으로 가감점하지는 않습니다.
+    # 말 반복 검출, 강조·정정 제외, 음성 근거 확인은 새 계획에 따라 따로 구현할 부분입니다.
+    # 인식기가 간투어를 지웠다고 '0회이므로 가점' 처리하면 안 됩니다.
     if not text or not text.strip():
         return {}
     hits: dict[str, int] = {}

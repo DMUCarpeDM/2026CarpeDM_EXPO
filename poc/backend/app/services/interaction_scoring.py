@@ -3,6 +3,9 @@ from app.services.judgments import event, number
 from app.services.contradictions import keys as conflict_keys
 
 VERSION = "interaction-score-v1"
+# 읽는 순서 4: 모델이 남긴 관찰 기록을 실제 점수로 바꾸는 곳입니다.
+# POINTS는 현재 적용되는 점수표입니다. 새 계획서의 시험용 숫자와 같다고 보면 안 됩니다.
+# 간투어·말 반복 가감점은 아직 이 점수표에 없습니다. 추후 관찰 품질 확인 후 연결할 부분입니다.
 NO_SCORE = "interaction-no-score"
 AREAS = ("response", "voice", "expression", "posture")
 POINTS = {"goal_met": 3, "relevant_answer": 3, "missing_goal": -6,
@@ -34,6 +37,9 @@ def audio_events(turn_id, metrics, mode):
 
 
 def calculate(results):
+    # 같은 사건 ID는 한 번만 반영합니다. 모순은 영역 점수가 아니라 전체 평균에서 따로 뺍니다.
+    # 현재 목표 충족과 누락은 서로 다른 규칙으로 누적됩니다.
+    # 새 설계의 '후속 답변으로 충족하면 이전 감점을 교체'하는 동작은 별도 구현이 필요합니다.
     measured = {area for result in results for area in result.get("measured", [])}
     changes = {area: [] for area in AREAS}
     used, counts, facts, conflicts = set(), {}, set(), []
@@ -60,6 +66,7 @@ def calculate(results):
     scores = {}
     for area in AREAS:
         if area not in measured:
+            # 측정하지 못한 영역에는 0점이나 기본 75점을 주지 않고 None(점수 없음)을 남깁니다.
             scores[area] = None
             continue
         plus = min(15, sum(max(0, e["points"]) for e in changes[area]))

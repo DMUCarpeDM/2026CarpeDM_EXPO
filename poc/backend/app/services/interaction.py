@@ -2,6 +2,9 @@
 from app.ai.text_match import matched_checklist_ids
 
 VERSION = "interaction-v1"
+# 읽는 순서 3: 대화의 진행표입니다. 무엇을 확인했고 다음에 무엇을 물을지 기억합니다.
+# 면접은 주요 질문에 답한 수, 직무교육은 목표를 확인했는지가 진행 기준입니다.
+# '답변을 했다'와 '내용이 충분하다'는 다릅니다. 면접의 met는 현재 질문 응답 기록입니다.
 MAX_RETRIES = 2
 
 
@@ -16,6 +19,8 @@ def save(session, value):
 def initialize(session, scenario, episodes, service_mode):
     policy = (scenario.world_setting or {}).get("interaction") or {}
     if service_mode == "interview":
+        # 현재 질문은 문자열 목록입니다. 항목별 인정 기준을 넣으려면 여기의 items 구조와
+        # sessions.py가 분석기에 넘기는 목표 목록을 함께 바꿔야 합니다.
         questions = policy.get("interview_questions") or []
         if not 6 <= len(questions) <= 12 or any(not isinstance(q, str) or not q.strip() or len(q) > 180 for q in questions):
             raise ValueError("면접 시나리오에는 주요 질문을 6~12개 준비해야 합니다.")
@@ -57,6 +62,8 @@ def advance(session, turn, turns, judgment=None):
         attempts[current["id"]] = attempts.get(current["id"], 0) + 1
         value["attempts"] = attempts
         if current["id"] not in value["met"] and attempts[current["id"]] >= 1 + MAX_RETRIES:
+            # 처음 질문 + 추가 질문 2회에도 확인하지 못했다면 미달성/확인 불가로 남깁니다.
+            # 다음 항목으로 넘어간다고 해서 이 목표를 달성했다고 기록하지는 않습니다.
             bucket = "unverified" if judgment and judgment.get("semantic_status") == "unavailable" else "unmet"
             value[bucket] = list(dict.fromkeys([*value[bucket], current["id"]]))
         while value["index"] < len(items) and items[value["index"]]["id"] in value["met"] + value["unmet"] + value["unverified"]:

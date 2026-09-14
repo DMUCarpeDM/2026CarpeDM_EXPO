@@ -71,6 +71,9 @@ def _seniority_by_character(session: RoleplaySession) -> dict[str, str]:
 
 
 def run_analysis(session_id: int) -> None:
+    # 읽는 순서 5: 대화가 끝난 뒤 최종 점수와 보고서를 만듭니다.
+    # 현재는 기존 분석을 먼저 돌리고, 대화 진행 상태가 있으면 공통 판단 점수로 교체합니다.
+    # 새 응답 엔진 연결 시 같은 항목을 두 번 계산하거나 다른 영역에서 다시 감점하지 않게 확인하세요.
     db = SessionLocal()
     started = time.monotonic()
     try:

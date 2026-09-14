@@ -104,6 +104,9 @@ class OpenAIDialogueProvider:
         turns: list[Turn],
     ) -> QuestionSpec | None:
         """시나리오와 전체 대화 이력에서 다음 역할극 대사를 생성한다."""
+        # 이곳은 답변을 채점하는 곳이 아니라 상대 역할의 다음 말을 만드는 곳입니다.
+        # 면접은 준비된 주요 질문을 유지하고, 필요한 피드백 반응을 따로 붙입니다.
+        # 직무교육은 진행표의 다음 목표와 확인된 근거를 보고 자연스러운 질문을 만듭니다.
         flow = interaction_state(session)
         if flow.get("finished") or (not flow and len(turns) >= TURN_LIMITS.get(session.mode, 6)):
             return None

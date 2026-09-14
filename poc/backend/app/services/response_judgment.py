@@ -1,5 +1,9 @@
 """응답·모순 근거 추출. 점수는 모델에 요청하지 않는다."""
 import json
+# 읽는 순서 2: sessions.py가 넘긴 답변을 읽고, 무엇을 말했는지 근거를 찾는 곳입니다.
+# 현재는 LLM이 목표 충족·누락·모순을 찾습니다. E5 예시 검색은 이 파일에 아직 연결되지 않았습니다.
+# 새 설계의 '충족·불충분·누락·판단 보류'를 추가하려면 Evidence와 validate를 함께 확인하세요.
+# 아래 설명 주석은 안내일 뿐이며, 새 분류 기능이나 간투어 점수를 구현한 것은 아닙니다.
 import httpx
 from pydantic import BaseModel, Field
 from app.core.config import settings
@@ -36,6 +40,8 @@ JSON 형식: {"relevant_quote":"", "met_goals":[{"goal_id":"id","quote":"원문"
 
 
 def validate(data, current, history, goals, requested):
+    # AI가 답변에 없던 말을 근거로 만들 수 있으므로 실제 사용자 문장인지 다시 검사합니다.
+    # 문장이 존재하는지 확인하는 검사이지, AI의 해석이 항상 옳다는 보장은 아닙니다.
     parsed = Evidence.model_validate(data)
     events, met = [], []
     goal_map = {g["id"]: g for g in goals}
@@ -71,6 +77,8 @@ def validate(data, current, history, goals, requested):
 
 
 def analyze(current, history, goals, requested):
+    # goals는 전체 확인 목록, requested는 '이번 질문에서 요구한 항목'입니다.
+    # 아직 묻지 않은 내용을 누락으로 지적하지 않도록 둘을 나눠 보냅니다.
     key = settings.openai_api_key.get_secret_value()
     if not key:
         return [], [], "unavailable"

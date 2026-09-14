@@ -7,6 +7,8 @@ LABELS = {"response": "응답", "voice": "음성", "expression": "표정", "post
 
 
 def prepare(db, session):
+    # 종료 후 보고서 준비 단계입니다. 기존 계산 결과의 점수를 공통 판단 점수로 교체합니다.
+    # 기존 점수와 새 점수를 더하는 구조가 아닙니다. 미측정 영역은 점수에서 제외합니다.
     values = copy.deepcopy(judgments.results(session))
     by_turn = {r["turn_id"]: r for r in values}
     rows = db.query(AnalysisResult).filter_by(session_id=session.id).all()
@@ -39,6 +41,8 @@ def prepare(db, session):
 
 
 def build(db, session, outcome, raw_rows, analysis_ms):
+    # 화면에 전달할 장점·개선점·근거를 묶습니다. 간투어와 반복을 추가할 때는
+    # 횟수만 넣지 말고 음성 구간, 가감점 이유, 측정 불가 여부도 함께 전달해야 합니다.
     from app.services.report import _build_speech_stats
     events = [event for items in outcome["changes"].values() for event in items] + outcome["contradictions"]
     positive = list(dict.fromkeys(e["message"] for e in events if e["outcome"] == "positive"))[:3]

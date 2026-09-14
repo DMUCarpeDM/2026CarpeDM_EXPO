@@ -3,6 +3,8 @@ import math
 from app.ai.text_match import matched_checklist_ids, count_hangul_syllables
 
 VERSION = "judgment-v1"
+# 공통 기록 양식입니다. event는 '어느 답변에서 무엇을 관찰했는가'를 담은 한 장의 기록입니다.
+# measured는 측정할 수 있었던 영역 목록입니다. 기록이 없다는 것과 문제가 없다는 것은 다릅니다.
 # 전시 검증용 초기 정책. 누적 집계이므로 연속 행동 시간으로 해석하지 않는다.
 POSTURE_RULES = {
     "head_down": ("head_down_ratio", .45, "고개를 조금 들어 상대를 바라보세요."),
@@ -86,6 +88,7 @@ def evaluate(turn_id, *, text="", goals=(), nonverbal=None, duration_ms=0, voice
 
 def persist(session, result):
     """각 턴의 최종 판단만 저장. 같은 턴 재처리는 교체되어 중복되지 않는다."""
+    # 같은 turn_id(답변 번호)를 다시 저장하면 이전 기록을 교체해 이중 반영을 막습니다.
     values = dict((session.rapport or {}).get("judgments") or {})
     values[str(result["turn_id"])] = result
     session.rapport = {**(session.rapport or {}), "judgments": values}
