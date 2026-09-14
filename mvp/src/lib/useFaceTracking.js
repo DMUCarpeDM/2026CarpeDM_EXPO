@@ -1,3 +1,4 @@
+import { postureFeatures } from "./postureEnsemble.js";
 /** MediaPipe Face/Pose 기반 실시간 트래킹 훅 (poc useNonverbal의 경량 JS 이식).
  *
  * 원본 영상은 어디에도 저장·전송하지 않고, 브라우저 안에서 프레임을 분석해
@@ -116,6 +117,9 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
           baseOptions: { modelAssetPath: poseModel },
           runningMode: "VIDEO",
           numPoses: 1,
+          minPoseDetectionConfidence: .4,
+          minPosePresenceConfidence: .4,
+          minTrackingConfidence: .4,
         });
         hand = await vision.HandLandmarker.createFromOptions(fileset, {
           baseOptions: { modelAssetPath: handModel },
@@ -142,6 +146,8 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
             inferAvg = inferAvg === 0 ? took : inferAvg * 0.85 + took * 0.15;
             const lm = faceResult.faceLandmarks?.[0];
             const plm = poseResult.landmarks?.[0];
+            const features = postureFeatures(plm);
+            if (features && turnAccRef.current.poseFeatures.length < 1500) turnAccRef.current.poseFeatures.push(features);
             const handLandmarks = handResult.landmarks || [];
 
             drawOverlay(canvasRef.current, video, lm, plm, handLandmarks);

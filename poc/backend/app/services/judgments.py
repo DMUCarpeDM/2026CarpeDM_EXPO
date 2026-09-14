@@ -26,6 +26,7 @@ def event(turn_id, area, rule, outcome, evidence, message, *, key=None):
 
 def evaluate(turn_id, *, text="", goals=(), nonverbal=None, duration_ms=0, voice_text=False):
     events, measured = [], []
+    classified = None
     met = sorted(matched_checklist_ids(text, goals)) if text else []
     if text and goals:
         measured.append("response")
@@ -40,7 +41,21 @@ def evaluate(turn_id, *, text="", goals=(), nonverbal=None, duration_ms=0, voice
               and number(sample_ms) and 40 <= sample_ms <= 1000
               and number(duration_ms) and duration_ms >= MIN_SAMPLE_MS
               and frames * sample_ms >= MIN_SAMPLE_MS)
-    if enough:
+    if "pose_ensemble" in nv and nv["pose_ensemble"] is not None:
+        from app.ai.posture_ensemble import analyze
+        classified = analyze(nv["pose_ensemble"], duration_ms)
+        if classified["status"] == "measured":
+            measured.append("posture")
+            rules = {"head_down": "head_down", "torso_side_lean": "side_lean",
+                     "torso_forward_lean": "forward_lean", "arms_crossed": "arms_crossed", "hand_to_face": "hand_face"}
+            for label, rule in rules.items():
+                hit = classified["labels"][label]
+                if hit["ratio"] >= .45:
+                    message = "팔짱을 풀고 편하게 대화해 보세요." if rule == "arms_crossed" else POSTURE_RULES[rule][2]
+                    events.append(event(turn_id, "posture", rule, "negative",
+                        {**hit, "label":label, "source":classified["version"], "samples":classified["samples"],
+                         "valid_ms":classified["valid_ms"], "ratio_threshold":.45}, message))
+    if enough and nv.get("pose_ensemble") is None:
         for rule, (metric, threshold, message) in POSTURE_RULES.items():
             samples = (nv.get("posture_samples") or {}).get(metric)
             if not number(samples) or samples < 15 or samples > frames or samples * sample_ms < MIN_SAMPLE_MS:
@@ -65,7 +80,8 @@ def evaluate(turn_id, *, text="", goals=(), nonverbal=None, duration_ms=0, voice
             item["scorable"] = False
             events.append(item)
     return {"version": VERSION, "turn_id": turn_id, "measured": measured,
-            "events": events, "met_goals": met}
+            "events": events, "met_goals": met,
+            **({"posture_model": classified} if classified is not None else {})}
 
 
 def persist(session, result):

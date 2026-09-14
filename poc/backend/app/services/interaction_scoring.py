@@ -6,7 +6,7 @@ VERSION = "interaction-score-v1"
 NO_SCORE = "interaction-no-score"
 AREAS = ("response", "voice", "expression", "posture")
 POINTS = {"goal_met": 3, "relevant_answer": 3, "missing_goal": -6,
-    "head_down": -4, "side_lean": -4, "forward_lean": -4, "sway": -4, "hand_face": -4,
+    "head_down": -4, "side_lean": -4, "forward_lean": -4, "sway": -4, "hand_face": -4, "arms_crossed": -4,
     "fast_speech": -4, "slow_speech": -4, "long_pause": -4, "clear_pace": 3}
 
 

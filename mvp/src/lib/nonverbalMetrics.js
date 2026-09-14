@@ -98,6 +98,7 @@ export function resolveHeadDown(headGap, baseHeadGap) {
 
 export const makeTurnAcc = () => ({
   frames: 0,
+  poseFeatures: [],
   front: 0,
   offCount: 0,
   lastFront: true,
@@ -255,7 +256,8 @@ export function accumulateSample(acc, sample) {
 
 /** 턴 누적치를 서버 NonverbalIn 페이로드로 직렬화. 표본 1초 미만이면 보류(null). */
 export function finalizeTurnMetrics(acc, calibrated = false) {
-  if (acc.frames < framesFor(1000)) return null;
+  const pose_ensemble = {version: 'posture-ensemble-v1', features: acc.poseFeatures, sample_ms: SAMPLE_MS};
+  if (acc.frames < framesFor(1000)) return acc.poseFeatures.length ? {frames: acc.frames, sample_ms: SAMPLE_MS, calibrated, pose_ensemble} : null;
 
   // 자세 유지력: 후반부가 전반부보다 얼마나 무너졌는가 (+가 붕괴).
   // 서버는 음수(개선)를 감점하지 않는다.
@@ -277,6 +279,7 @@ export function finalizeTurnMetrics(acc, calibrated = false) {
 
   return {
     frames: acc.frames,
+    pose_ensemble,
     posture_samples: {
       avg_shoulder_tilt_deg: acc.tiltSamples.length,
       posture_sway: acc.shoulderXs.length,

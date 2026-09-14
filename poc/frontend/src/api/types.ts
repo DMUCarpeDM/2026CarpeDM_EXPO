@@ -93,6 +93,7 @@ export interface RoleplaySession {
 }
 
 export interface NonverbalMetrics {
+  pose_ensemble?: {version: string; features: number[][]; sample_ms: number};
   posture_samples?: Record<string, number>;
   front_gaze_ratio: number;
   gaze_off_count: number;

@@ -1,0 +1,45 @@
+{
+  "version": "posture-ensemble-v1",
+  "source_sha256": "3c7192a0c78323df0ee6523011cf7eeddc862dcc04d3bc9be3f65439e91dec3b",
+  "indices": [
+    0,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    23,
+    24
+  ],
+  "labels": [
+    "head_down",
+    "torso_side_lean",
+    "torso_forward_lean",
+    "arms_crossed",
+    "hand_to_face",
+    "normal"
+  ],
+  "thresholds": {
+    "head_down": 0.45,
+    "torso_side_lean": 0.5,
+    "torso_forward_lean": 0.45,
+    "arms_crossed": 0.5,
+    "hand_to_face": 0.5,
+    "normal": 0.5
+  },
+  "max_error": {
+    "head_down_rf": 2.2993176174157526e-07,
+    "head_down_lgb": 2.4075061402784037e-07,
+    "torso_side_lean_rf": 3.7811323549963305e-07,
+    "torso_side_lean_lgb": 1.6706443239922208e-07,
+    "torso_forward_lean_rf": 3.6345604048637625e-07,
+    "torso_forward_lean_lgb": 1.784029294571443e-07,
+    "arms_crossed_rf": 2.541996183547113e-07,
+    "arms_crossed_lgb": 1.8990943095875679e-07,
+    "hand_to_face_rf": 3.540885467057109e-07,
+    "hand_to_face_lgb": 2.6697399002628686e-07,
+    "normal_rf": 2.3047129316111636e-07,
+    "normal_lgb": 1.1108779207624764e-07
+  }
+}

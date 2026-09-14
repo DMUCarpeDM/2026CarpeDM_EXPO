@@ -380,3 +380,12 @@ it('미검출 프레임은 유효 자세 비율을 낮추지 않는다', () => {
   assert.equal(after.head_down_ratio, before.head_down_ratio);
   assert.deepEqual(after.posture_samples, before.posture_samples);
 });
+
+it('얼굴 미검출이어도 모델용 자세 표본은 전달한다', () => {
+  const acc=emptyAcc();
+  acc.poseFeatures=Array.from({length:40},()=>Array(27).fill(0));
+  const result=finalizeTurnMetrics(acc,emptyBaseline())!;
+  assert.equal(result.frames,0);
+  assert.equal(result.pose_ensemble?.features.length,40);
+  assert.equal(result.front_gaze_ratio,0);
+});

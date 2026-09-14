@@ -1,5 +1,5 @@
 from typing import Literal
-from pydantic import BaseModel, EmailStr, Field, model_validator
+from pydantic import BaseModel, EmailStr, Field, model_validator, field_validator
 
 
 # ---- auth ----
@@ -315,7 +315,22 @@ class KinectObsIn(BaseModel):
         return self
 
 
+class PoseEnsembleIn(BaseModel):
+    version: Literal["posture-ensemble-v1"]
+    features: list[list[float]] = Field(default_factory=list, max_length=1500)
+    sample_ms: int = Field(ge=40, le=1000)
+
+    @field_validator("features")
+    @classmethod
+    def valid_features(cls, rows):
+        import math
+        if any(len(row) != 27 or not all(math.isfinite(v) for v in row) for row in rows):
+            raise ValueError("pose features must contain 27 finite values")
+        return rows
+
+
 class NonverbalIn(BaseModel):
+    pose_ensemble: PoseEnsembleIn | None = None
     posture_samples: dict[str, int] = Field(default_factory=dict)
     front_gaze_ratio: float = 0.0
     gaze_off_count: int = 0

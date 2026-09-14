@@ -2,7 +2,7 @@
 from app.services.judgments import results
 
 PRIORITY = {"contradiction": 0, "missing_goal": 1, "fast_speech": 2,
-            "hand_face": 3, "head_down": 4, "side_lean": 5, "forward_lean": 6, "sway": 7}
+            "hand_face": 3, "arms_crossed": 3, "head_down": 4, "side_lean": 5, "forward_lean": 6, "sway": 7}
 
 
 def select(judgment):

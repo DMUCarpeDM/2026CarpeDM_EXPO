@@ -15,3 +15,6 @@ faster-whisper>=1.2.1
 
 pytest
 httpx
+
+# Exported Pose-Fit classifiers (no pickle deserialization at runtime)
+onnxruntime>=1.20.0,<2
