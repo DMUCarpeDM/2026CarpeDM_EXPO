@@ -1,0 +1,15 @@
+/* 자주 반복하는 키보드 조작은 즉시 반영한다. */
+html[data-input="keyboard"] .page,
+html[data-input="keyboard"] .nav-dropdown,
+html[data-input="keyboard"] .ui-accordion__content { animation: none !important; }
+html[data-input="keyboard"] button,
+html[data-input="keyboard"] button svg,
+html[data-input="keyboard"] .mobile-menu-layer,
+html[data-input="keyboard"] .mobile-menu-sheet { transition: none !important; }
+html[data-input="keyboard"] button:active,
+html[data-input="keyboard"] button:focus-visible svg { transform: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-menu-sheet { transform: none; }
+  button:active:not(:disabled) { transform: none; }
+}

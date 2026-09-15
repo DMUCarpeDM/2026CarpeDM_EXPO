@@ -5,7 +5,6 @@ import { Bulb2 } from "reicon-react/icons/Bulb2";
 import { ShieldCheck } from "reicon-react/icons/ShieldCheck";
 import { Sparkles } from "reicon-react/icons/Sparkles";
 import { ArrowRight } from "reicon-react/icons/ArrowRight";
-import { motion } from "framer-motion";
 import { IconGlyph } from "../ui/IconGlyph";
 import { Badge, Button, Card } from "../ui/shadcn";
 
@@ -20,13 +19,10 @@ export function PageTitle({ eyebrow, title, subtitle }) {
 }
 
 export function SetupMotionPage({ children, as = "section" }) {
-  const MotionPage = as === "div" ? motion.div : motion.section;
+  const MotionPage = as === "div" ? "div" : "section";
   return (
     <MotionPage
       className="page selection-page setup-flow-page"
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
     >
       {children}
     </MotionPage>

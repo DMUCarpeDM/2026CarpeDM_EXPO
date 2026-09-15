@@ -5,7 +5,6 @@ import { Clock3 } from "reicon-react/icons/Clock3";
 import { Download } from "reicon-react/icons/Download";
 import { Refresh3 } from "reicon-react/icons/Refresh3";
 import { Share3 } from "reicon-react/icons/Share3";
-import { motion } from "framer-motion";
 import { useMemo, useState } from "react";
 import { TrendChart } from "../components/report/Charts";
 import { PageToolbar, ScoreRing } from "../components/report/ResultPrimitives";
@@ -122,7 +121,7 @@ export function ResultPage({
   };
 
   return (
-    <motion.section className="page report-page unified-report" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}>
+    <section className="page report-page unified-report">
       <PageToolbar onPrev={onPrev} leftLabel="연습 화면으로 돌아가기" />
 
       <header className="unified-report__heading">
@@ -192,6 +191,6 @@ export function ResultPage({
           <Button type="button" size="lg" onClick={handleSaveShare} disabled={sharing}>{onIssueCode ? <Share3 size={19} aria-hidden="true" /> : <Download size={19} aria-hidden="true" />}{sharing ? "저장하고 있어요" : "저장·공유"}</Button>
         </div>
       </footer>
-    </motion.section>
+    </section>
   );
 }

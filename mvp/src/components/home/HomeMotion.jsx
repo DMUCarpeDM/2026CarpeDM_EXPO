@@ -20,7 +20,7 @@ export function HomeMotion({ children }) {
         element.style.transform = "none";
       } else if (!revealed.has(element)) {
         running.set(element, animate(element, { opacity: 1, y: 0 }, {
-          duration: 0.5, delay: 0.25 + Number(element.dataset.homeDelay || 0), ease: [0.22, 1, 0.36, 1],
+          duration: 0.24, delay: Number(element.dataset.homeDelay || 0), ease: [0.22, 1, 0.36, 1],
         }));
       }
       revealed.add(element);
@@ -33,10 +33,10 @@ export function HomeMotion({ children }) {
           // Keep content already visible at mount readable, including anchor landings.
           if (element.getBoundingClientRect().top < window.innerHeight) return;
           targets.push(element);
-          element.dataset.homeDelay = String(Math.min(index * 0.08, 0.24));
+          element.dataset.homeDelay = String(Math.min(index * 0.04, 0.12));
           element.classList.add("home-reveal-target");
           element.style.opacity = "0";
-          element.style.transform = "translateY(20px)";
+          element.style.transform = "translateY(8px)";
           cleanups.push(inView(element, () => reveal(element), { margin: "0px 0px -24px 0px" }));
         });
       });
