@@ -4,7 +4,6 @@ import { Bell } from "reicon-react/icons/Bell";
 import { ChevronDown } from "reicon-react/icons/ChevronDown";
 import { Menu4 } from "reicon-react/icons/Menu4";
 import { X } from "reicon-react/icons/X";
-import { motion } from "framer-motion";
 import { IconGlyph } from "../ui/IconGlyph";
 import { navMap, NEW_PRACTICE_TARGET, practiceNavMap } from "./navigationConfig";
 
@@ -85,14 +84,14 @@ export function TopNav({ active, serviceMode, scenarioTitle, menuOpen, onMenuOpe
 
 export function MobileMenuSheet({ open, active, onClose, onNavigate, practiceMode = false }) {
   return (
-    <motion.div className={`mobile-menu-layer ${open ? "open" : ""}`} aria-hidden={!open} initial={false} animate={open ? "open" : "closed"} variants={{ open: { opacity: 1, pointerEvents: "auto" }, closed: { opacity: 0, pointerEvents: "none" } }}>
+    <div className={`mobile-menu-layer ${open ? "open" : ""}`} aria-hidden={!open} inert={!open}>
       <button className="mobile-menu-backdrop" type="button" aria-label="메뉴 닫기" onClick={onClose} />
-      <motion.section className="mobile-menu-sheet" role="dialog" aria-modal="true" aria-label="모바일 메뉴" variants={{ open: { y: 0 }, closed: { y: 28 } }} transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}>
+      <section className="mobile-menu-sheet" role="dialog" aria-modal="true" aria-label="모바일 메뉴">
         <div className="sheet-handle" />
         <div className="sheet-head"><strong>Mirror-Ting</strong><button type="button" aria-label="메뉴 닫기" onClick={onClose}><X size={20} /></button></div>
         <nav aria-label="모바일 주요 화면">{Object.entries(practiceMode ? practiceNavMap : navMap).map(([label, target]) => <button key={label} className={active === target ? "active" : ""} type="button" onClick={() => onNavigate(target)}><IconGlyph icon={mobileIconByTarget[target] || "coach"} size={23} /><span>{label}</span><ArrowRight size={17} /></button>)}</nav>
-      </motion.section>
-    </motion.div>
+      </section>
+    </div>
   );
 }
 

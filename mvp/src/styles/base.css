@@ -104,8 +104,8 @@ button {
   cursor: pointer;
 }
 
-button:active {
-  transform: translateY(1px) scale(0.995);
+button:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .app-shell {
@@ -367,12 +367,12 @@ button:active {
 
 .page {
   padding: 24px 32px 28px;
-  animation: page-in 0.28s ease both;
+  animation: page-in 220ms cubic-bezier(0.23, 1, 0.32, 1) both;
 }
 
 @keyframes page-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .page-title {

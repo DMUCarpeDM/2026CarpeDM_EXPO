@@ -1,5 +1,4 @@
 import { ArrowRight } from "reicon-react/icons/ArrowRight";
-import { motion } from "framer-motion";
 import { IconGlyph } from "../components/ui/IconGlyph";
 import { Badge, Button, Card, CardContent } from "../components/ui/shadcn";
 import { getEpisodeImage, getScenarioDescription } from "../data/setupCatalog";
@@ -25,7 +24,7 @@ export function PreviewPage({ serviceMode, onNext, starting, scenario, selectedE
     { icon: "eye", label: "카메라", value: permissionState.camera === "granted" ? "권한 허용됨" : "시작할 때 확인" },
   ];
 
-  return <motion.section className="page preview-page preview-redesign preflight-preview" aria-labelledby="preview-title" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
+  return <section className="page preview-page preview-redesign preflight-preview" aria-labelledby="preview-title">
     <header className="preview-heading">
       <div><p>{resolvedServiceMode.previewEyebrow}</p><h1 id="preview-title">상황을 미리 확인해요</h1><span>선택한 {resolvedServiceMode.label} 연습 설정을 확인하고, 바로 시작해요.</span></div>
       <dl className="preview-duration"><dt>예상 소요 시간</dt><dd>약 {mode}분</dd></dl>
@@ -42,5 +41,5 @@ export function PreviewPage({ serviceMode, onNext, starting, scenario, selectedE
       <Card className="preview-readiness-card"><CardContent><div className="preview-panel-heading"><span>시스템 준비 상태</span><p>{permissionsGranted ? "카메라와 마이크가 준비됐어요." : "시작할 때 권한을 확인해요."}</p></div><ul>{readiness.map((item) => <li key={item.label}><IconGlyph icon={item.icon} size={20} /><span>{item.label}</span><Badge variant="neutral">{item.value}</Badge></li>)}</ul></CardContent></Card>
     </div>
     <div className="preview-start-area"><label className="consent-check"><input type="checkbox" checked={consented} onChange={(event) => onConsent(event.target.checked)} /><span>카메라·음성 분석에 동의해요. AI 상대 음성은 외부 음성 서비스로 만들 수 있고, 이 연습은 계정에 저장하지 않아요.</span></label>{error && <p className="preview-error" role="alert">{error}</p>}<Button className="preview-start-button" size="lg" type="button" onClick={onNext} disabled={!canStart}>{starting ? "연습을 준비하고 있어요" : "동의하고 시작하기"}<ArrowRight size={20} /></Button></div>
-  </motion.section>;
+  </section>;
 }

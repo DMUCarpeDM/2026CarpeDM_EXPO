@@ -8,8 +8,8 @@ const styles = readFileSync(new URL("../styles/home-motion.css", import.meta.url
 test("Home motion skips the hero, reveals once and caps stagger delay", () => {
   assert.match(source, /container\.children\)\.slice\(1\)/);
   assert.match(source, /!revealed\.has\(element\)/);
-  assert.match(source, /Math\.min\(index \* 0\.08, 0\.24\)/);
-  assert.match(source, /duration: 0\.5, delay: 0\.25 \+ Number\(element\.dataset\.homeDelay \|\| 0\)/);
+  assert.match(source, /Math\.min\(index \* 0\.04, 0\.12\)/);
+  assert.match(source, /duration: 0\.24, delay: Number\(element\.dataset\.homeDelay \|\| 0\)/);
 });
 
 test("Home motion cleans up observers and respects reduced motion and focus", () => {
