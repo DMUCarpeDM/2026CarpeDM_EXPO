@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowRight } from "reicon-react/icons/ArrowRight";
 import { Bell } from "reicon-react/icons/Bell";
 import { ChevronDown } from "reicon-react/icons/ChevronDown";
@@ -83,15 +83,40 @@ export function TopNav({ active, serviceMode, scenarioTitle, menuOpen, onMenuOpe
 }
 
 export function MobileMenuSheet({ open, active, onClose, onNavigate, practiceMode = false }) {
+  const dialogRef = useRef(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (open && !dialog.open) {
+      dialog.showModal();
+      dialog.querySelector(".sheet-head button").focus();
+    }
+    if (!open && dialog.open) dialog.close();
+  }, [open]);
+
+  const handleKeyDown = (event) => {
+    if (event.key !== "Tab") return;
+    const buttons = dialogRef.current.querySelectorAll(".mobile-menu-sheet button");
+    const first = buttons[0];
+    const last = buttons[buttons.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
   return (
-    <div className={`mobile-menu-layer ${open ? "open" : ""}`} aria-hidden={!open} inert={!open}>
-      <button className="mobile-menu-backdrop" type="button" aria-label="메뉴 닫기" onClick={onClose} />
-      <section className="mobile-menu-sheet" role="dialog" aria-modal="true" aria-label="모바일 메뉴">
+    <dialog onKeyDown={handleKeyDown} ref={dialogRef} className={`mobile-menu-layer ${open ? "open" : ""}`} aria-label="모바일 메뉴" onCancel={(event) => { event.preventDefault(); onClose(); }}>
+      <button className="mobile-menu-backdrop" type="button" tabIndex={-1} aria-label="메뉴 닫기" onClick={onClose} />
+      <section className="mobile-menu-sheet">
         <div className="sheet-handle" />
-        <div className="sheet-head"><strong>Mirror-Ting</strong><button type="button" aria-label="메뉴 닫기" onClick={onClose}><X size={20} /></button></div>
+        <div className="sheet-head"><strong>Mirror-Ting</strong><button type="button" autoFocus aria-label="메뉴 닫기" onClick={onClose}><X size={20} /></button></div>
         <nav aria-label="모바일 주요 화면">{Object.entries(practiceMode ? practiceNavMap : navMap).map(([label, target]) => <button key={label} className={active === target ? "active" : ""} type="button" onClick={() => onNavigate(target)}><IconGlyph icon={mobileIconByTarget[target] || "coach"} size={23} /><span>{label}</span><ArrowRight size={17} /></button>)}</nav>
       </section>
-    </div>
+    </dialog>
   );
 }
 

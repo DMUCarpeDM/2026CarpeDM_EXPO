@@ -37,7 +37,7 @@ export function SiteIntroPage({ onPractice }) {
         <div className="public-section__copy">
           <p className="public-eyebrow">4-Fit</p>
           <h2 id="intro-fit-title">결과 리포트가 보는 네 가지 축</h2>
-          <p>프로젝트에 이미 정의된 4-Fit 설명을 바탕으로, 실제 구현된 리포트 흐름에 맞춰 소개합니다.</p>
+          <p>응답, 목소리, 표정, 자세를 살펴보고 다음 연습에서 보완할 점을 확인해요.</p>
         </div>
         <div className="public-card-grid public-card-grid--four">
           {homeFitSnapshot.map((fit) => (
