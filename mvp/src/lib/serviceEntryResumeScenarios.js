@@ -41,17 +41,17 @@ export async function runFallbacks(pageHarness, runDir) {
         await capture(page, join(runDir, "saved-timeout-boot.png"), ".app-boot");
         await page.clock.runFor(2_999);
         assert.equal(await page.locator(".app-boot").count(), 1, "boot remains neutral before the lookup deadline");
-        assert.equal(await page.locator(".service-mode-page").count(), 0, "selector has no pre-timeout first paint");
+        assert.equal(await page.locator(".public-home-page").count(), 0, "homepage has no pre-timeout first paint");
         await page.clock.runFor(1);
-        clock = { bootThroughMs: 2_999, serviceAtMs: 3_000 };
+        clock = { bootThroughMs: 2_999, homepageAtMs: 3_000 };
       }
-      await page.locator(".service-mode-page").waitFor({ timeout: 5_000 });
+      await page.locator(".public-home-page").waitFor({ timeout: 5_000 });
       assert.equal(await page.evaluate((key) => localStorage.getItem(key), activeSessionKey), null);
       assert.equal(await page.evaluate(() => localStorage.getItem("keep-me")), "yes");
       assert.equal(calls.filter((path) => path === "/api/nfc/tap").length, 0);
       assert.deepEqual(pageErrors, []);
       if (resume === "timeout") await page.clock.runFor(500);
-      await capture(page, join(runDir, `fallback-${resume}-service.png`), ".setup-flow-page");
+      await capture(page, join(runDir, `fallback-${resume}-homepage.png`), ".public-home-page");
       return { resume, clock, trace: await routeTrace(page) };
     }));
   }
