@@ -65,8 +65,8 @@ export function ResultsHistoryPage(props) {
             <Card className="records-empty">
               <CardContent>
                 <IconGlyph icon="shield" size={28} />
-                <h3>저장된 기록은 백엔드 기록 API 연결 후 표시됩니다</h3>
-                <p>이번 작업에서는 기존 데이터 흐름을 유지하고, 신규 history/retry API는 추가하지 않았습니다.</p>
+                <h3>아직 표시할 연습 기록이 없어요</h3>
+                <p>연습을 마치면 현재 결과를 확인할 수 있어요. 이전 기록 조회는 준비 중이에요.</p>
               </CardContent>
             </Card>
           )}

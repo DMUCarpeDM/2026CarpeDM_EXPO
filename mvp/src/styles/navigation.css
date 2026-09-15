@@ -115,7 +115,16 @@
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: opacity 140ms ease-out, visibility 0s linear 140ms;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  transition: opacity 140ms ease-out, visibility 0s linear 140ms, display 140ms allow-discrete, overlay 140ms allow-discrete;
 }
 .mobile-menu-layer.open {
   opacity: 1;
@@ -130,4 +139,11 @@
 .mobile-menu-layer.open .mobile-menu-sheet {
   transform: translateY(0);
   transition-duration: 200ms;
+}
+
+.mobile-menu-layer::backdrop { background: transparent; }
+
+@starting-style {
+  .mobile-menu-layer.open { opacity: 0; }
+  .mobile-menu-layer.open .mobile-menu-sheet { transform: translateY(12px); }
 }

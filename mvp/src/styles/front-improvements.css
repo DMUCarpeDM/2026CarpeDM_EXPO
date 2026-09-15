@@ -32,10 +32,14 @@
 }
 
 .public-hero h1 {
-  font-size: clamp(36px, 6vw, 72px);
-  line-height: .98;
-  font-weight: 820;
+  font-size: clamp(32px, 4vw, 44px);
+  line-height: 1.18;
+  font-weight: 560;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
+
+.site-intro-page .public-hero h1 { line-height: 1.4; }
 
 .public-hero p,
 .public-section__copy p,
