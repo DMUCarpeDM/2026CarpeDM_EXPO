@@ -10,7 +10,7 @@ const serviceEntryShell = source("../pages/ServiceEntryShell.jsx");
 
 test("new practice entry points resolve to the shared service selector", () => {
   assert.equal(NEW_PRACTICE_TARGET, "service");
-  assert.equal(navMap["AI와 연습하기"], NEW_PRACTICE_TARGET);
+  assert.deepEqual(navMap, { "사이트 소개": "intro", "결과 및 기록": "records", "사용방법": "usage" });
   assert.match(appNavigation, /onNavigate\(NEW_PRACTICE_TARGET\).*새 연습 시작/);
   assert.match(dashboardShell, /onNavigate\(NEW_PRACTICE_TARGET\)/);
   assert.match(serviceEntryShell, /onPractice=\{\(\) => navigate\("preview"\)\}/);

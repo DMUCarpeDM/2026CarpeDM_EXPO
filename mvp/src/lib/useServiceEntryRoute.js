@@ -106,7 +106,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
       const saved = loadActiveSession();
       if (!saved) {
         clearActiveSession(localStorage);
-        enter("homepage");
+        enter("service");
         return;
       }
       try {
@@ -120,7 +120,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
         const destination = savedSessionDestination(resumed.status);
         if (!destination) {
           clearActiveSession(localStorage);
-          enter("homepage");
+          enter("service");
           return;
         }
         const resumedSession = { ...resumed, access_token: saved.access_token };
@@ -130,7 +130,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
       } catch {
         if (!cancelled) {
           clearActiveSession(localStorage);
-          enter("homepage");
+          enter("service");
         }
       } finally {
         window.clearTimeout(lookupTimer);

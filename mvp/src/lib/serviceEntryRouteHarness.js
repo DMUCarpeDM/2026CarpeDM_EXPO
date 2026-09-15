@@ -59,7 +59,7 @@ export async function withPage({ browser, baseUrl }, options, run) {
     window.__serviceRouteTrace = [];
     const captureRoute = () => {
       const route = document.querySelector(".service-mode-page") ? "service"
-        : document.querySelector(".public-home-page") ? "homepage"
+        : document.querySelector(".usage-page") ? "usage"
           : document.querySelector(".site-intro-page") ? "intro"
             : document.querySelector(".records-page") ? "records"
               : document.querySelector(".home-page") ? "home"

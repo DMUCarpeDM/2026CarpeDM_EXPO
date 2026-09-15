@@ -5,11 +5,11 @@ export const CHROMELESS_VIEWS = new Set(["service"]);
 export const LEGACY_REPORT_VIEWS = new Set(["feedback", "compare", "share"]);
 
 export const SERVICE_ENTRY_FLOW = [
-  { id: "homepage", label: "홈페이지" },
+  { id: "usage", label: "사용방법" },
   { id: "intro", label: "사이트 소개" },
   { id: "records", label: "결과 및 기록" },
-  { id: "home", label: "메인" },
   { id: "service", label: "서비스 모드 선택" },
+  { id: "home", label: "메인" },
   { id: "role", label: "직무 선택" },
   { id: "scenario", label: "시나리오 선택" },
   { id: "difficulty", label: "난이도 선택" },
@@ -38,12 +38,13 @@ export function savedSessionDestination(status) {
 }
 
 export function normalizeDestination(target, selectedServiceModeId) {
+  if (target === "homepage") return "service";
   if (LEGACY_REPORT_VIEWS.has(target)) return "records";
-  return target === "home" && !selectedServiceModeId ? "homepage" : target;
+  return target === "home" && !selectedServiceModeId ? "service" : target;
 }
 
 export function isKnownView(view) {
-  return LEGACY_REPORT_VIEWS.has(view) || SERVICE_ENTRY_FLOW.some((item) => item.id === view);
+  return view === "homepage" || LEGACY_REPORT_VIEWS.has(view) || SERVICE_ENTRY_FLOW.some((item) => item.id === view);
 }
 
 export function isChromelessView(view) {
