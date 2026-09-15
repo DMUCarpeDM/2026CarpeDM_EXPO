@@ -30,8 +30,9 @@ test("service entry policy declares deterministic precedence and chrome", () => 
   assert.equal(savedSessionDestination("analyzing"), "result");
   assert.equal(savedSessionDestination("completed"), "result");
   assert.equal(savedSessionDestination("unknown"), null);
-  assert.equal(normalizeDestination("home", null), "homepage");
+  assert.equal(normalizeDestination("home", null), "service");
   assert.equal(normalizeDestination("home", "training"), "home");
+  assert.equal(normalizeDestination("homepage", "training"), "service");
   for (const view of ["feedback", "compare", "share"]) assert.equal(normalizeDestination(view, "training"), "records");
 });
 
@@ -63,7 +64,7 @@ describe("service entry routes in real Vite and Chrome", { concurrency: false },
   });
 
   scenario("fresh selection, history, and full reset", "fresh", () => runFreshSelection(pageHarness, runDir));
-  scenario("all service cards retain their selected home", "cards", () => runServiceCards(pageHarness));
+  scenario("all service cards retain their selected home", "cards", () => runServiceCards(pageHarness, runDir));
   scenario("service reset removes NFC direct-entry state", "nfcReset", () => runNfcReset(pageHarness));
   scenario("direct demo routes bypass the selector", "demos", () => runDirectDemos(pageHarness, runDir));
   scenario("saved sessions resume by status", "resumes", () => runResumes(pageHarness, runDir));

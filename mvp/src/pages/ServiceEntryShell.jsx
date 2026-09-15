@@ -3,7 +3,7 @@ import { MobileMenuSheet, TopNav } from "../components/navigation/AppNavigation"
 import { NfcStartFallback } from "../components/nfc/NfcStartFallback";
 import { HomePage } from "./HomePage";
 import { KioskIssuePage } from "./KioskIssuePage";
-import { LandingHomePage } from "./LandingHomePage";
+import { UsagePage } from "./UsagePage";
 import { PracticePage } from "./PracticePage";
 import { PreviewPage } from "./PreviewPage";
 import { ResultPage } from "./ResultPage";
@@ -52,9 +52,9 @@ export function ServiceEntryShell({
     <TopNav active={navigationView} serviceMode={serviceMode} scenarioTitle={session?.scenario?.title || previewScenario?.title} menuOpen={menuOpen} onMenuOpen={setMenuOpen} onNavigate={navigate} scenarios={apiScenarios} onScenarioSelect={(slug) => { setPocScenarioSlug(slug); navigate("role"); }} practiceMode={active === "practice"} />
     <MobileMenuSheet open={menuOpen} active={navigationView} onClose={() => setMenuOpen(false)} onNavigate={navigate} practiceMode={active === "practice"} />
     <div className="screen-frame">
-      {active === "homepage" && <LandingHomePage onPractice={() => navigate("service")} onIntro={() => navigate("intro")} onRecords={() => navigate("records")} />}
-      {active === "intro" && <SiteIntroPage onPractice={() => navigate("service")} />}
-      {active === "records" && <ResultsHistoryPage onResultBack={() => go(-1)} onPractice={() => navigate("service")} report={report} history={history} onIssueCode={issueCode} selectedDifficulty={difficulty} progress={analysisProgress} error={apiError} />}
+      {active === "usage" && <UsagePage onPractice={() => navigate("home")} />}
+      {active === "intro" && <SiteIntroPage onPractice={() => navigate("home")} />}
+      {active === "records" && <ResultsHistoryPage onResultBack={() => navigate("home")} onPractice={() => navigate("home")} report={report} history={history} onIssueCode={issueCode} selectedDifficulty={difficulty} progress={analysisProgress} error={apiError} />}
       {active === "home" && <HomePage serviceMode={serviceMode} onNext={() => navigate("role")} onModeSelect={() => navigate("service")} />}
       {active === "role" && <RoleSelectPage serviceMode={serviceMode} counterpartProfile={counterpartProfile} onCounterpart={chooseCounterpartProfile} onPrev={() => window.history.back()} onNext={() => navigate("scenario")} />}
       {active === "scenario" && <ScenarioSelectPage serviceMode={serviceMode} counterpartProfile={counterpartProfile} scenarios={apiScenarios} selectedEpisodeId={selectedEpisodeId} onScenario={chooseScenario} onPrev={() => go(-1)} onNext={() => navigate("difficulty")} />}
