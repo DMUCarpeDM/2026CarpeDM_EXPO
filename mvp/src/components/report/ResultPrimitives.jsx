@@ -23,8 +23,8 @@ export function Panel({ children, className = "" }) {
 export function ScoreRing({ value, label, size = "lg" }) {
   const radius = 54;
   const circumference = 2 * Math.PI * radius;
-  const progress = circumference - (value / 100) * circumference;
-  return <div className={`score-ring ${size}`} style={{ "--progress": progress, "--circumference": circumference }}><svg viewBox="0 0 132 132" aria-hidden="true"><circle className="track" cx="66" cy="66" r={radius} /><circle className="fill" cx="66" cy="66" r={radius} strokeDasharray={circumference} strokeDashoffset={progress} /></svg><strong>{value}</strong><span>/100</span>{label && <em>{label}</em>}</div>;
+  const progress = circumference - ((value ?? 0) / 100) * circumference;
+  return <div className={`score-ring ${size}`} style={{ "--progress": progress, "--circumference": circumference }}><svg viewBox="0 0 132 132" aria-hidden="true"><circle className="track" cx="66" cy="66" r={radius} /><circle className="fill" cx="66" cy="66" r={radius} strokeDasharray={circumference} strokeDashoffset={progress} /></svg><strong>{value ?? "—"}</strong><span>{value == null ? "미측정" : "/100"}</span>{label && <em>{label}</em>}</div>;
 }
 
 export function MetricBar({ label, value, icon, tone, suffix = "/100" }) {

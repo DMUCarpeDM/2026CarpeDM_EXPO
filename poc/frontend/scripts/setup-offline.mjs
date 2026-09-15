@@ -18,7 +18,7 @@ console.log('✓ wasm 복사 완료 →', wasmDest);
 // 2) 모델 다운로드
 const MODELS = [
   ['https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task', 'face_landmarker.task'],
-  ['https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task', 'pose_landmarker_lite.task'],
+  ['https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/1/pose_landmarker_heavy.task', 'pose_landmarker_heavy.task'],
 ];
 const modelDir = join(root, 'public/models');
 mkdirSync(modelDir, { recursive: true });

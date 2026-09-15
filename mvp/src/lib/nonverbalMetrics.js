@@ -98,6 +98,7 @@ export function resolveHeadDown(headGap, baseHeadGap) {
 
 export const makeTurnAcc = () => ({
   frames: 0,
+  poseFeatures: [],
   front: 0,
   offCount: 0,
   lastFront: true,
@@ -117,6 +118,9 @@ export const makeTurnAcc = () => ({
   shoulderXs: [],
   worldFrames: 0,
   headDown: 0,
+  headSamples: 0,
+  torsoSamples: 0,
+  handFaceSamples: 0,
   hunched: 0,
   leanBack: 0,
   handsVisible: 0,
@@ -164,6 +168,9 @@ export function accumulateSample(acc, sample) {
     tiltAdj = null,
     shoulderX = null,
     headDown = false,
+    headTracked = false,
+    torsoTracked = false,
+    handFaceTracked = false,
     hunched = false,
     leanBack = false,
     handTracked = false,
@@ -215,12 +222,22 @@ export function accumulateSample(acc, sample) {
     acc.tiltSamples.push(tiltAdj);
     acc.shoulderXs.push(shoulderX);
     if (worldUsed) acc.worldFrames += 1;
+  }
+  // 분자와 분모는 같은 유효 표본에서만 누적한다.
+  if (headTracked) {
+    acc.headSamples += 1;
     if (headDown) acc.headDown += 1;
+  }
+  if (torsoTracked) {
+    acc.torsoSamples += 1;
     if (hunched) acc.hunched += 1;
     if (leanBack) acc.leanBack += 1;
   }
+  if (handFaceTracked) {
+    acc.handFaceSamples += 1;
+    if (handNearFace) acc.handNearFace += 1;
+  }
   if (handTracked) acc.handsVisible += 1;
-  if (handNearFace) acc.handNearFace += 1;
 
   // ---- 타임라인 빈 누적 (턴 시작 = 0초, 프레임 서수 기반) ----
   const binIdx = Math.floor(((acc.frames - 1) * SAMPLE_MS) / TIMELINE_BIN_MS);
@@ -239,7 +256,8 @@ export function accumulateSample(acc, sample) {
 
 /** 턴 누적치를 서버 NonverbalIn 페이로드로 직렬화. 표본 1초 미만이면 보류(null). */
 export function finalizeTurnMetrics(acc, calibrated = false) {
-  if (acc.frames < framesFor(1000)) return null;
+  const pose_ensemble = {version: 'posture-ensemble-v1', features: acc.poseFeatures, sample_ms: SAMPLE_MS};
+  if (acc.frames < framesFor(1000)) return acc.poseFeatures.length ? {frames: acc.frames, sample_ms: SAMPLE_MS, calibrated, pose_ensemble} : null;
 
   // 자세 유지력: 후반부가 전반부보다 얼마나 무너졌는가 (+가 붕괴).
   // 서버는 음수(개선)를 감점하지 않는다.
@@ -261,12 +279,21 @@ export function finalizeTurnMetrics(acc, calibrated = false) {
 
   return {
     frames: acc.frames,
+    pose_ensemble,
+    posture_samples: {
+      avg_shoulder_tilt_deg: acc.tiltSamples.length,
+      posture_sway: acc.shoulderXs.length,
+      head_down_ratio: acc.headSamples,
+      hunched_ratio: acc.torsoSamples,
+      hand_face_sec: acc.handFaceSamples,
+    },
     front_gaze_ratio: acc.front / acc.frames,
     gaze_off_count: acc.offCount,
     avg_shoulder_tilt_deg: acc.tiltSamples.length ? mean(acc.tiltSamples) : 0,
-    head_down_ratio: acc.headDown / acc.frames,
-    hunched_ratio: ratio(acc.hunched),
-    lean_back_ratio: ratio(acc.leanBack),
+    // 표본 0의 호환값은 posture_samples=0에 의해 서버 채점에서 제외된다.
+    head_down_ratio: acc.headSamples ? acc.headDown / acc.headSamples : 0,
+    hunched_ratio: acc.torsoSamples ? Math.round(acc.hunched / acc.torsoSamples * 100) / 100 : 0,
+    lean_back_ratio: acc.torsoSamples ? Math.round(acc.leanBack / acc.torsoSamples * 100) / 100 : 0,
     hands_visible_ratio: ratio(acc.handsVisible),
     hand_face_sec: secs(acc.handNearFace),
     // 상체 흔들림: 어깨 중심 x(어깨너비 정규화)의 표준편차 — 서버 SWAY_BANDS 입력.

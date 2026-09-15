@@ -1,3 +1,4 @@
+from app.services.interaction_scoring import public_total, NO_SCORE
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -68,11 +69,11 @@ def get_report(
         .order_by(RoleplaySession.id.desc())
         .first()
     )
-    if prev_session and prev_session.report:
+    if prev_session and prev_session.report and prev_session.report.engine_version == report.engine_version:
         prev_report: Report = prev_session.report
         previous = {
             "session_id": prev_session.id,
-            "total_score": prev_report.total_score,
+            "total_score": public_total(prev_report),
             "fit_scores": {
                 fit: data.get("score") for fit, data in prev_report.fit_scores.items()
             },
@@ -93,7 +94,7 @@ def get_report(
         )
         .all()
     ]
-    if len(other_scores) >= 5:
+    if public_total(report) is not None and len(other_scores) >= 5:
         beaten = sum(1 for s in other_scores if s < report.total_score)
         percentile_top = max(1, 100 - round(beaten / len(other_scores) * 100))
 
@@ -133,7 +134,7 @@ def get_report(
         deep["cohort"] = {"title": "현장 체험자 대비", "rows": cohort_rows}
 
     # 2) 재방문 성장 델타 — "지난번 동요형 → 이번 회복형" 서사
-    if prev_session and prev_session.report:
+    if prev_session and prev_session.report and prev_session.report.engine_version == report.engine_version:
         prev_deep = prev_session.report.deep_analysis or {}
         prev_level = (prev_deep.get("composure") or {}).get("level")
         cur_level = (deep.get("composure") or {}).get("level")
@@ -163,7 +164,7 @@ def get_report(
 
     return ReportOut(
         session_id=session.id,
-        total_score=report.total_score,
+        total_score=public_total(report),
         fit_scores=report.fit_scores,
         strengths=report.strengths,
         improvements=report.improvements,
@@ -179,7 +180,7 @@ def get_report(
         mode=session.mode,
         difficulty=session.difficulty,
         previous=previous,
-        grade=grade_of(report.total_score),
+        grade=grade_of(public_total(report)),
         claim_url=claim_url,
         coaching=list(getattr(report, "coaching", None) or []),
         emotion_journey=dict(session.emotion or {}),

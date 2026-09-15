@@ -40,6 +40,8 @@ def available() -> bool:
 
 def embed_many(texts: list[str]) -> dict[str, tuple[float, ...]]:
     """정규화된 E5 임베딩을 입력 문장과 같은 순서로 반환한다."""
+    # E5는 문장을 서로 비교할 수 있는 숫자 묶음으로 바꿉니다. 여기서는 정답이나 점수를 정하지 않습니다.
+    # 모델이나 입력 처리 방법을 바꾸면 예시 문장도 같은 방법으로 다시 변환해야 합니다.
     if not texts or not available():
         return {}
     vectors = _load_model().encode(texts, normalize_embeddings=True)

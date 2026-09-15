@@ -239,6 +239,9 @@ def semantic_checklist_ids(
     returns (covered_ids, {item_id: [매칭된 문장 인덱스…]}) — 문장 인덱스는
     인용 근거 선택에 쓰인다.
     """
+    # 현재 E5 비교 대상은 체크리스트의 이름·키워드·예시입니다. 목적 충족 상태를 직접 분류하지 않습니다.
+    # 새 설계에서는 가까운 예시를 찾는 역할로 분리하고, 실제 충족 여부는 기준과 발화 근거로 확인합니다.
+    # 유사도 기준 0.74 같은 숫자는 정확도 74%라는 뜻이 아닙니다.
     if not text.strip() or not checklist or not available():
         return None
     if sentences is None:

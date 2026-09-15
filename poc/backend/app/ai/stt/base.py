@@ -1,14 +1,4 @@
-"""STT 제공자 — 전시장 오프라인 대비 서버 음성 인식.
-
-기본 흐름은 브라우저 Web Speech API가 클라이언트에서 텍스트를 만들어 보내지만,
-Web Speech는 인터넷이 필요하다(Chrome은 서버 인식). 전시장 네트워크가 불안하면
-서버 STT가 폴백으로 동작한다.
-
-우선순위:
-1. faster-whisper  — 정확도 높음. Python 3.12 이하에서 `pip install faster-whisper`
-2. Vosk            — Python 3.14에서도 동작. `python scripts/setup_offline_stt.py`로
-                     한국어 모델(~82MB)을 받아두면 자동 감지된다. 완전 오프라인.
-"""
+"""녹음 종료 후 간투어 분석용 Whisper. 실시간 받아쓰기는 Chrome이 담당한다."""
 from functools import lru_cache
 from pathlib import Path
 from typing import Protocol
@@ -16,8 +6,6 @@ from typing import Protocol
 import numpy as np
 
 from app.core.config import settings
-
-VOSK_SAMPLE_RATE = 16000
 
 # base.py = app/ai/stt/ → 세 단계 위가 backend 루트
 BACKEND_ROOT = Path(__file__).resolve().parents[3]
@@ -45,7 +33,7 @@ def _resolve_local_dir(value: str | Path) -> Path | None:
 class SttProvider(Protocol):
     name: str
 
-    def transcribe(self, audio_path: str) -> str: ...
+    def transcribe_words(self, audio_path: str) -> list[dict]: ...
 
     # 선택 능력: 단어 타임스탬프 — 텍스트-음성 정렬 분석(voice_align)의 재료.
     # 지원 여부는 hasattr로 확인한다.
@@ -67,36 +55,18 @@ class WhisperProvider:
             device="cpu", compute_type="int8",
         )
 
-    @staticmethod
-    def _prompt_kwargs() -> dict:
-        """핫워드 부스팅 (STT 최적화 R1) — 도메인 어휘를 initial_prompt로 조건화.
-
-        브랜드 메뉴명("온도라떼")·사내 용어가 일반어로 오전사되는 것을 줄인다.
-        최종 전사(transcribe/transcribe_words)에만 적용 — 실시간 조각(live)은
-        3초 안팎이라 조건화가 환청을 증폭시킬 수 있고 지연이 우선이라 제외한다.
-        """
-        prompt = (settings.stt_initial_prompt or "").strip()
-        return {"initial_prompt": prompt} if prompt else {}
-
-    def transcribe(self, audio_path: str) -> str:
-        segments, _info = self._model.transcribe(
-            audio_path, language="ko", **self._prompt_kwargs(),
-        )
-        return " ".join(seg.text.strip() for seg in segments)
-
-    def transcribe_live(self, audio_path: str) -> str:
-        """실시간 조각용 저지연 전사 — 탐욕 디코딩(beam 1)·이전 문맥 조건화 해제.
-        3초 안팎 조각은 빔 서치 이득이 거의 없고, 문맥 조건화는 조각 경계에서
-        직전 환청을 증폭시키므로 끄는 쪽이 지연·품질 모두 낫다."""
-        segments, _info = self._model.transcribe(
-            audio_path, language="ko", beam_size=1,
-            condition_on_previous_text=False, without_timestamps=True,
-        )
-        return " ".join(seg.text.strip() for seg in segments)
-
     def transcribe_words(self, audio_path: str) -> list[dict]:
+        from faster_whisper.audio import decode_audio
+
+        audio = decode_audio(audio_path, sampling_rate=16000)
+        # 디지털 무음에서 프롬프트가 없는 말을 생성하는 것을 막는다.
+        # 짧은 간투어를 자르지 않도록 발화 구간별 VAD는 적용하지 않는다.
+        if not audio.size or np.max(np.abs(audio)) < 1e-5:
+            return []
         segments, _info = self._model.transcribe(
-            audio_path, language="ko", word_timestamps=True, **self._prompt_kwargs(),
+            audio, language="ko", word_timestamps=True,
+            beam_size=5, condition_on_previous_text=False,
+            initial_prompt=settings.stt_filler_prompt,
         )
         return [
             {"word": w.word.strip(), "start": w.start, "end": w.end,
@@ -106,87 +76,11 @@ class WhisperProvider:
         ]
 
 
-class VoskProvider:
-    name = "vosk"
-
-    def __init__(self):
-        import vosk
-
-        vosk.SetLogLevel(-1)
-        model_dir = settings.stt_model_dir
-        if not (model_dir / "am").exists() and not (model_dir / "conf").exists():
-            raise FileNotFoundError(f"Vosk 모델이 없습니다: {model_dir}")
-        self._vosk = vosk
-        self._model = vosk.Model(str(model_dir))
-
-    @staticmethod
-    def _load_pcm16(audio_path: str) -> bytes:
-        import soundfile as sf
-
-        samples, sr = sf.read(audio_path, dtype="float32", always_2d=False)
-        if samples.ndim > 1:
-            samples = samples.mean(axis=1)
-        if sr != VOSK_SAMPLE_RATE:  # 선형 보간 리샘플 (STT 용도로 충분)
-            duration = len(samples) / sr
-            n_target = int(duration * VOSK_SAMPLE_RATE)
-            samples = np.interp(
-                np.linspace(0, len(samples) - 1, n_target),
-                np.arange(len(samples)),
-                samples,
-            )
-        return (np.clip(samples, -1, 1) * 32767).astype(np.int16).tobytes()
-
-    def _run(self, audio_path: str, with_words: bool) -> tuple[str, list[dict]]:
-        import json as _json
-
-        pcm16 = self._load_pcm16(audio_path)
-        rec = self._vosk.KaldiRecognizer(self._model, VOSK_SAMPLE_RATE)
-        if with_words:
-            rec.SetWords(True)
-        chunk = VOSK_SAMPLE_RATE * 2  # 1초 단위
-        texts: list[str] = []
-        words: list[dict] = []
-
-        def _collect(payload: dict) -> None:
-            if payload.get("text"):
-                texts.append(payload["text"])
-            for w in payload.get("result", []):
-                words.append({
-                    "word": w.get("word", ""), "start": w.get("start", 0.0),
-                    "end": w.get("end", 0.0), "conf": w.get("conf", 1.0),
-                })
-
-        for i in range(0, len(pcm16), chunk):
-            if rec.AcceptWaveform(pcm16[i:i + chunk]):
-                _collect(_json.loads(rec.Result()))
-        _collect(_json.loads(rec.FinalResult()))
-        return " ".join(texts).strip(), words
-
-    def transcribe(self, audio_path: str) -> str:
-        text, _ = self._run(audio_path, with_words=False)
-        return text
-
-    def transcribe_words(self, audio_path: str) -> list[dict]:
-        """단어 타임스탬프 — 텍스트-음성 정렬 분석(voice_align)의 재료."""
-        _, words = self._run(audio_path, with_words=True)
-        return words
-
-
 @lru_cache(maxsize=1)
 def get_stt_provider() -> SttProvider | None:
-    """사용 가능한 첫 제공자를 캐시해 반환 (모델 로드는 1회).
-
-    Whisper 실패는 ImportError(미설치)만이 아니라 모델 경로/로드 오류도
-    있을 수 있다 — 어떤 실패든 Vosk로 강등해야 /api/health·분석 경로가
-    산 채로 남는다(폴백 계층 원칙). 원인은 로그로 남겨 당일 점검에서 보이게 한다.
-    """
+    """Whisper를 한 번 로드한다. 실패하면 간투어는 미측정으로 남긴다."""
     try:
         return WhisperProvider()
-    except ImportError:
-        pass
     except Exception as exc:
-        print(f"[stt] Whisper 로드 실패 → Vosk 폴백 시도: {type(exc).__name__}: {exc}")
-    try:
-        return VoskProvider()
-    except Exception:
+        print(f"[stt] 간투어 분석 불가: {type(exc).__name__}: {exc}")
         return None

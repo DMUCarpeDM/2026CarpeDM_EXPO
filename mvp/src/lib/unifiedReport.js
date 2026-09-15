@@ -25,7 +25,7 @@ export async function saveAndShareReport({
       const codeText = code ? ` 체험 코드: ${code}` : "";
       await navigatorObject.share({
         title: "Mirror-Ting 연습 결과",
-        text: `이번 연습 점수는 ${total}점이에요.${codeText}`,
+        text: `이번 연습 점수는 ${total == null ? "미측정" : `${total}점`}이에요.${codeText}`,
         url: locationHref,
       });
       return { code, method: "share", notice: code ? "연습 기록을 저장하고 공유했어요." : "연습 결과를 공유했어요." };

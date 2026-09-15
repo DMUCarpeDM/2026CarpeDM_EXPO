@@ -78,11 +78,15 @@ export function median(values: number[]): number {
 
 export interface Accumulator {
   frames: number;
+  poseFeatures: number[][];
   frontFrames: number;
   gazeOffCount: number;
   lastFront: boolean;
   tiltSamples: number[]; // 전/후반 추세 분석용 시계열 (보정값)
   headDownFrames: number;
+  headSamples: number;
+  torsoSamples: number;
+  handFaceSamples: number;
   hunchedFrames: number;
   leanBackFrames: number;
   shoulderXs: number[];
@@ -148,11 +152,15 @@ export interface Accumulator {
 
 export const emptyAcc = (): Accumulator => ({
   frames: 0,
+  poseFeatures: [],
   frontFrames: 0,
   gazeOffCount: 0,
   lastFront: true,
   tiltSamples: [],
   headDownFrames: 0,
+  headSamples: 0,
+  torsoSamples: 0,
+  handFaceSamples: 0,
   hunchedFrames: 0,
   leanBackFrames: 0,
   shoulderXs: [],
@@ -435,7 +443,7 @@ export function gazeZoneIndex(
 
 /** 턴 누적치를 서버 페이로드로 직렬화. 표본 1초 미만이면 측정 보류(null). */
 export function finalizeTurnMetrics(acc: Accumulator, base: Baseline): NonverbalMetrics | null {
-  if (acc.frames < framesFor(1000)) return null;
+  if (acc.frames < framesFor(1000) && acc.poseFeatures.length < framesFor(1000)) return null;
   const xs = acc.shoulderXs;
   let sway = 0;
   if (xs.length > 2) {
@@ -465,12 +473,20 @@ export function finalizeTurnMetrics(acc: Accumulator, base: Baseline): Nonverbal
   const minutes = (acc.frames * SAMPLE_MS) / 60000;
 
   return {
-    front_gaze_ratio: acc.frontFrames / acc.frames,
+    pose_ensemble: {version: 'posture-ensemble-v1', features: acc.poseFeatures, sample_ms: SAMPLE_MS},
+    front_gaze_ratio: acc.frontFrames / Math.max(acc.frames, 1),
     gaze_off_count: acc.gazeOffCount,
     avg_shoulder_tilt_deg: acc.tiltSamples.length ? mean(acc.tiltSamples) : 0,
-    head_down_ratio: acc.headDownFrames / acc.frames,
-    hunched_ratio: Math.round((acc.hunchedFrames / acc.frames) * 100) / 100,
-    lean_back_ratio: Math.round((acc.leanBackFrames / acc.frames) * 100) / 100,
+    head_down_ratio: acc.headSamples ? acc.headDownFrames / acc.headSamples : 0,
+    posture_samples: {
+      avg_shoulder_tilt_deg: acc.tiltSamples.length,
+      posture_sway: acc.shoulderXs.length,
+      head_down_ratio: acc.headSamples,
+      hunched_ratio: acc.torsoSamples,
+      hand_face_sec: acc.handFaceSamples,
+    },
+    hunched_ratio: acc.torsoSamples ? Math.round((acc.hunchedFrames / acc.torsoSamples) * 100) / 100 : 0,
+    lean_back_ratio: acc.torsoSamples ? Math.round((acc.leanBackFrames / acc.torsoSamples) * 100) / 100 : 0,
     posture_sway: sway,
     frames: acc.frames,
     longest_off_sec: Math.round((acc.maxOffStreak * SAMPLE_MS) / 100) / 10,
@@ -480,7 +496,7 @@ export function finalizeTurnMetrics(acc: Accumulator, base: Baseline): Nonverbal
     gaze_off_dir: domCount >= 3 ? domDir : null,
     tilt_drift_deg: Math.round(tiltDrift * 10) / 10,
     front_drift_pct: frontDrift,
-    smile_ratio: Math.round((acc.smileFrames / acc.frames) * 100) / 100,
+    smile_ratio: Math.round((acc.smileFrames / Math.max(acc.frames, 1)) * 100) / 100,
     // 진정성 미소 근사: 미소 프레임 중 눈둘레근 동시 활성 비율 —
     // 입만 웃는 서비스 미소와 눈까지 웃는 미소의 구분. 미소 표본 2초 미만은 판정 보류(null)
     smile_duchenne_ratio: acc.smileFrames >= framesFor(2000)
@@ -496,16 +512,16 @@ export function finalizeTurnMetrics(acc: Accumulator, base: Baseline): Nonverbal
     head_roll_deg: acc.rollSamples.length
       ? Math.round(mean(acc.rollSamples.map(Math.abs)) * 10) / 10
       : 0,
-    mouth_press_ratio: Math.round((acc.mouthPressFrames / acc.frames) * 100) / 100,
-    brow_down_ratio: Math.round((acc.browDownFrames / acc.frames) * 100) / 100,
+    mouth_press_ratio: Math.round((acc.mouthPressFrames / Math.max(acc.frames, 1)) * 100) / 100,
+    brow_down_ratio: Math.round((acc.browDownFrames / Math.max(acc.frames, 1)) * 100) / 100,
     hand_face_sec: Math.round((acc.handFaceFrames * SAMPLE_MS) / 100) / 10,
-    arm_cross_ratio: Math.round((acc.armCrossFrames / acc.frames) * 100) / 100,
+    arm_cross_ratio: Math.round((acc.armCrossFrames / Math.max(acc.frames, 1)) * 100) / 100,
     gaze_dirs: { ...acc.offDirs },
     // ---- 시선(관찰) 심화 ----
     // 홍채 추적 가동률 — 리포트가 "머리 추적"인지 "시선 추적"인지 밝힐 근거
-    iris_ratio: Math.round((acc.irisFrames / acc.frames) * 100) / 100,
+    iris_ratio: Math.round((acc.irisFrames / Math.max(acc.frames, 1)) * 100) / 100,
     // 수직 홍채가 상하 판정에 실제로 쓰인 프레임 비율 (능력 플래그)
-    iris_v_ratio: Math.round((acc.irisVFrames / acc.frames) * 100) / 100,
+    iris_v_ratio: Math.round((acc.irisVFrames / Math.max(acc.frames, 1)) * 100) / 100,
     // 듣기/말하기 응시 분리 (표본 2초 미만이면 판정 보류 = null)
     listening_front_ratio: acc.listenFrames >= framesFor(2000)
       ? Math.round((acc.listenFront / acc.listenFrames) * 100) / 100
@@ -556,7 +572,7 @@ export function finalizeTurnMetrics(acc: Accumulator, base: Baseline): Nonverbal
     })(),
     // ---- Posture 마스터 (③): 3D 월드·제스처·전신 — 관찰 지표 (감점 없음) ----
     // 3D 월드 기울기 가동률 — 리포트가 '거리 불변 측정'인지 밝힐 근거 (iris_ratio와 동형)
-    world_ratio: Math.round((acc.worldFrames / acc.frames) * 100) / 100,
+    world_ratio: Math.round((acc.worldFrames / Math.max(acc.frames, 1)) * 100) / 100,
     // 제스처 에너지: 손목 평균 속도(m/s, 골반 원점 월드 좌표). 표본 5초 미만 보류
     gesture_energy: acc.gestureSamples >= framesFor(5000)
       ? Math.round((acc.gestureDistSum / (acc.gestureSamples * (SAMPLE_MS / 1000))) * 1000) / 1000
@@ -565,12 +581,12 @@ export function finalizeTurnMetrics(acc: Accumulator, base: Baseline): Nonverbal
     gesture_active_ratio: acc.gestureSamples >= framesFor(5000)
       ? Math.round((acc.gestureActive / acc.gestureSamples) * 100) / 100
       : null,
-    hands_visible_ratio: Math.round((acc.handSeenFrames / acc.frames) * 100) / 100,
+    hands_visible_ratio: Math.round((acc.handSeenFrames / Math.max(acc.frames, 1)) * 100) / 100,
     // 골반 중심 좌우 흔들림(어깨너비 정규화 표준편차) — 서서 체중을 옮기는 습관
     hip_sway: acc.hipXs.length >= framesFor(5000)
       ? Math.round(stdDev(acc.hipXs) * 1000) / 1000
       : null,
-    lower_visible_ratio: Math.round((acc.lowerVisFrames / acc.frames) * 100) / 100,
+    lower_visible_ratio: Math.round((acc.lowerVisFrames / Math.max(acc.frames, 1)) * 100) / 100,
     // 다인 가드가 자세 집계에서 제외한 프레임 수 (측정 투명성)
     guard_dropped_frames: acc.guardFrames,
     // ---- 경청 자세 (듣기 페이즈 — 관찰 지표) ----
@@ -584,7 +600,7 @@ export function finalizeTurnMetrics(acc: Accumulator, base: Baseline): Nonverbal
     })(),
     // ---- 표현 동작 확장 ⑤: 표정 생동감·제스처 크기/양손·머리 흔들림 (관찰 지표) ----
     // 눈썹 표현력: 눈썹 올림 프레임 비율 — 무표정↔풍부한 표정. 강조·경청의 비언어 신호
-    brow_raise_ratio: Math.round((acc.browRaiseFrames / acc.frames) * 100) / 100,
+    brow_raise_ratio: Math.round((acc.browRaiseFrames / Math.max(acc.frames, 1)) * 100) / 100,
     // 제스처 크기: 손목이 어깨중심에서 뻗은 평균 거리(cm, 월드) — 속도(gesture_energy)와
     // 구분되는 '개방성/시원함'. 월드 손목 표본 5초 미만이면 보류(null)
     gesture_amplitude: acc.gestureReachSamples >= framesFor(5000)

@@ -1,4 +1,4 @@
-"""대화 엔진 가용성 — 첫 대사는 고정, 이후 GPT-4o 오류는 명확히 알린다."""
+"""대화 엔진 가용성 — 새 목표 기반 세션은 생성 오류에도 준비된 질문으로 이어간다."""
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -23,7 +23,7 @@ def test_create_session_starts_with_existing_episode_line():
 
 
 def test_session_reports_gpt4o_outage_after_the_first_answer(monkeypatch):
-    """역할극 대사 생성 실패는 템플릿으로 바꾸지 않고 503으로 알린다."""
+    """답변을 보존하고 폴백 상태와 준비된 목표 질문을 내려준다."""
     monkeypatch.setattr(
         OpenAIDialogueProvider,
         "next_question",
@@ -41,5 +41,8 @@ def test_session_reports_gpt4o_outage_after_the_first_answer(monkeypatch):
         },
         headers={"X-Session-Token": data["access_token"]},
     )
-    assert result.status_code == 503
-    assert result.json()["detail"] == "GPT-4o 연결을 확인해 주세요"
+    assert result.status_code == 200
+    assert result.json()["turn_signals"]["judgment"]["dialogue_status"] == "fallback"
+    assert result.json()["next_turn"]["question_text"]
+    resumed = client.get(f"/api/sessions/{data['id']}", headers={"X-Session-Token": data["access_token"]}).json()
+    assert len(resumed["history"]) == 1

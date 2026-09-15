@@ -17,7 +17,6 @@ import {
   issueCode,
   saveActiveSession,
   submitResponse,
-  transcribeLive,
 } from "./lib/pocApi";
 import { findJobRole } from "./lib/nfc";
 import { resolveServiceMode } from "./lib/serviceModeContext";
@@ -181,6 +180,7 @@ export default function App() {
         console.warn("[media] 카메라·마이크 없이 시작:", mediaError?.message || mediaError);
       }
       const nextSession = await createSession({
+        serviceMode: selectedServiceMode.id,
         difficulty,
         mode,
         scenarioSlug: previewScenario.slug || nfcCard?.scenarioSlug,
@@ -205,8 +205,19 @@ export default function App() {
       });
       setTurnHistory((items) => [...items, { ...turn, response_text: input.text.trim() }]);
       setTurnSignals(result.turn_signals || null);
+      setSession((previous) => ({ ...previous, interaction: result.interaction }));
       if (result.finished) { await finishSession(session); setTurn(null); navigate("result"); } else setTurn(result.next_turn);
     } catch (error) { setApiError(error.message); } finally { setSubmitting(false); }
+  };
+
+  const endPractice = async () => {
+    if (!session || submitting) return;
+    setSubmitting(true); setApiError("");
+    try {
+      await finishSession(session);
+      setTurn(null); navigate("result");
+    } catch (error) { setApiError(error.message); }
+    finally { setSubmitting(false); }
   };
 
   const nfcRole = nfcCard ? findJobRole(nfcCard.jobRole) : null;
@@ -231,9 +242,9 @@ export default function App() {
   const actions = {
     startPractice,
     sendAnswer,
+    endPractice,
     requestExerciseMedia,
     switchMicDevice,
-    transcribeLive,
     issueCode,
   };
 

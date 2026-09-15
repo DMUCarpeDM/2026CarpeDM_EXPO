@@ -9,11 +9,9 @@
 - 긴 멈춤: voice_fit.long_pause_count (1.2s+ 침묵 횟수)
 - 필러 워드: 이 모듈 — 전사 텍스트의 간투사("어…", "음…", "그니까") 빈도
 
-필러 측정의 정직한 한계: 서버 STT(whisper)는 간투사를 상당 부분 정규화해
-지우므로 측정치는 하한선이다. 그래서 필러는 표정과 같은 '관찰 레이어'로
-리포트에만 표기하고 점수에는 반영하지 않는다 — 전사기 교체(필러 보존 전사)로
-신뢰도가 확보되면 채점 편입을 재검토한다 (STT 로드맵 R2).
-측정 정책: 음성 기반 턴(오디오 실측·음성 인식)만 측정, 텍스트 입력 턴은 제외.
+간투어는 Whisper와 간투어 프롬프트로 전사한 음성에서만 집계한다.
+누락·환각이 모두 가능하므로 추정치이며 점수에 반영하지 않는다.
+오디오나 전사가 없거나 분석이 실패하면 0회가 아니라 미측정으로 남긴다.
 """
 import re
 
@@ -33,6 +31,9 @@ _FILLER_PATTERN = re.compile(
 
 def analyze_fillers(text: str) -> dict:
     """전사 텍스트의 필러 빈도. 텍스트가 없으면 빈 dict."""
+    # '음', '어' 같은 표현을 찾는 현재 집계 함수입니다. 이 결과만으로 가감점하지는 않습니다.
+    # 말 반복 검출, 강조·정정 제외, 음성 근거 확인은 새 계획에 따라 따로 구현할 부분입니다.
+    # 인식기가 간투어를 지웠다고 '0회이므로 가점' 처리하면 안 됩니다.
     if not text or not text.strip():
         return {}
     hits: dict[str, int] = {}
@@ -79,7 +80,9 @@ def summarize(voice_metrics_list: list[dict]) -> dict:
         "speech_rate_note": _rate_note(spm),
         "lead_in_mean_sec": round(sum(lead_ins) / len(lead_ins), 1) if lead_ins else None,
         "long_pause_total": long_pauses if measured else None,
-        "filler_count": filler_total,
+        "filler_count": filler_total if any((m or {}).get("fillers") for m in voice_metrics_list) else None,
+        "filler_estimated": True,
+        "filler_measured_turns": sum(bool((m or {}).get("fillers")) for m in voice_metrics_list),
         "filler_top": sorted(filler_hits.items(), key=lambda kv: kv[1], reverse=True)[:3],
         "measured_turns": len(measured),
     }

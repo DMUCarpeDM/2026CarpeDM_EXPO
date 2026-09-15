@@ -50,7 +50,39 @@ export interface Turn {
   virtual_time: string; // 에피소드 가상 시각 "09:04" — 하루 프레이밍
 }
 
+export interface InteractionProgress {
+  pending_confirmation?: boolean;
+  unverified?: string[];
+  version: string;
+  mode: 'interview' | 'training' | 'workplace';
+  index: number;
+  total: number;
+  met: string[];
+  unmet: string[];
+  finished: boolean;
+  reason: 'questions_completed' | 'goals_met' | 'goals_exhausted' | 'analysis_unavailable' | 'manual' | null;
+}
+
+export interface JudgmentResult {
+  semantic_status?: "completed" | "unavailable";
+  version: string;
+  turn_id: number;
+  measured: string[];
+  met_goals: string[];
+  events: Array<{
+    id: string;
+    version: string;
+    turn_id: number;
+    area: string;
+    rule: string;
+    outcome: 'positive' | 'negative';
+    evidence: Record<string, unknown>;
+    message: string;
+  }>;
+}
+
 export interface RoleplaySession {
+  interaction?: InteractionProgress | Record<string, never>;
   id: number;
   status: string;
   mode: number;
@@ -61,6 +93,8 @@ export interface RoleplaySession {
 }
 
 export interface NonverbalMetrics {
+  pose_ensemble?: {version: string; features: number[][]; sample_ms: number};
+  posture_samples?: Record<string, number>;
   front_gaze_ratio: number;
   gaze_off_count: number;
   avg_shoulder_tilt_deg: number;
@@ -140,6 +174,7 @@ export interface KinectObs {
 }
 
 export interface TurnSignals {
+  judgment?: JudgmentResult;
   case: 'excellent' | 'covered' | 'missing' | 'short' | 'risky';
   coverage: number;
   risk_hits: number;
@@ -154,6 +189,7 @@ export interface TurnSignals {
 }
 
 export interface NextTurnResult {
+  interaction?: InteractionProgress | Record<string, never>;
   finished: boolean;
   next_turn: Turn | null;
   turn_signals: TurnSignals | null; // 라이브 오라(Response 축)용 경량 즉시 신호
@@ -192,7 +228,7 @@ export interface Headline {
 
 export interface Report {
   session_id: number;
-  total_score: number;
+  total_score: number | null;
   fit_scores: Record<string, FitScore>;
   strengths: string[];
   improvements: string[];
@@ -280,7 +316,7 @@ export interface Report {
   difficulty: string;
   previous: {
     session_id: number;
-    total_score: number;
+    total_score: number | null;
     fit_scores: Record<string, number | null>;
   } | null;
 }

@@ -1,4 +1,5 @@
-from pydantic import BaseModel, EmailStr, Field, model_validator
+from typing import Literal
+from pydantic import BaseModel, EmailStr, Field, model_validator, field_validator
 
 
 # ---- auth ----
@@ -194,6 +195,7 @@ class ConsentIn(BaseModel):
 
 
 class SessionCreateIn(BaseModel):
+    service_mode: Literal["interview", "training", "workplace"] = "workplace"
     scenario_slug: str | None = None  # 없으면 기본(첫) 시나리오
     selected_episode_id: int | None = Field(default=None, gt=0)
     mode: int = Field(default=5, description="5 | 10 (분)")
@@ -224,6 +226,7 @@ class TurnOut(BaseModel):
 
 
 class SessionOut(BaseModel):
+    interaction: dict = Field(default_factory=dict)
     id: int
     status: str
     mode: int
@@ -312,7 +315,23 @@ class KinectObsIn(BaseModel):
         return self
 
 
+class PoseEnsembleIn(BaseModel):
+    version: Literal["posture-ensemble-v1"]
+    features: list[list[float]] = Field(default_factory=list, max_length=1500)
+    sample_ms: int = Field(ge=40, le=1000)
+
+    @field_validator("features")
+    @classmethod
+    def valid_features(cls, rows):
+        import math
+        if any(len(row) != 27 or not all(math.isfinite(v) for v in row) for row in rows):
+            raise ValueError("pose features must contain 27 finite values")
+        return rows
+
+
 class NonverbalIn(BaseModel):
+    pose_ensemble: PoseEnsembleIn | None = None
+    posture_samples: dict[str, int] = Field(default_factory=dict)
     front_gaze_ratio: float = 0.0
     gaze_off_count: int = 0
     avg_shoulder_tilt_deg: float = 0.0
@@ -428,6 +447,7 @@ class ResponseIn(BaseModel):
 
 
 class TurnSignalsOut(BaseModel):
+    judgment: dict = Field(default_factory=dict)
     """제출 직후의 경량 즉시 신호 — 미러 라이브 오라(Response 축)용.
     전체 분석은 기존대로 세션 종료 후 파이프라인이 수행한다."""
     case: str  # excellent | covered | missing | short | risky
@@ -443,6 +463,7 @@ class TurnSignalsOut(BaseModel):
 
 
 class NextTurnOut(BaseModel):
+    interaction: dict = {}
     finished: bool
     next_turn: TurnOut | None = None
     turn_signals: TurnSignalsOut | None = None
@@ -466,7 +487,7 @@ class SurveyIn(BaseModel):
 
 class ReportOut(BaseModel):
     session_id: int
-    total_score: float
+    total_score: float | None
     fit_scores: dict
     strengths: list
     improvements: list

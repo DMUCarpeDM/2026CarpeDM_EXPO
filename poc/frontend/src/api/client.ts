@@ -161,7 +161,7 @@ export interface HistoryItem {
   started_at: string;
   mode: number;
   difficulty: string;
-  total_score: number;
+  total_score: number | null;
   fit_scores: Record<string, number | null>;
 }
 

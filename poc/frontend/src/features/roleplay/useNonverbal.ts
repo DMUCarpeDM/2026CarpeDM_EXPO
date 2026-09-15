@@ -1,3 +1,4 @@
+import { postureFeatures } from './postureEnsemble';
 /** MediaPipe Face/Pose 기반 실시간 시선·자세 측정 훅.
  *
  * 원본 영상은 어디에도 저장·전송하지 않고, 브라우저 안에서 프레임을 분석해
@@ -192,6 +193,9 @@ export function useNonverbal(
           baseOptions: { modelAssetPath: poseModel },
           runningMode: 'VIDEO',
           numPoses: 1,
+          minPoseDetectionConfidence: .4,
+          minPosePresenceConfidence: .4,
+          minTrackingConfidence: .4,
         });
         if (cancelled) {
           // 생성 대기 중 클린업이 이미 지나갔다 — 여기서 직접 해제
@@ -234,6 +238,8 @@ export function useNonverbal(
             const poseResult = poseLm.detectForVideo(video, ts + 0.001);
             const lm = faceResult.faceLandmarks?.[0];
             const plm = poseResult.landmarks?.[0];
+            const features = postureFeatures(plm);
+            if (runningRef.current && features && acc.poseFeatures.length < 1500) acc.poseFeatures.push(features);
 
             // 블렌드셰이프: 안구 상하 시선 + 깜빡임 + 미소
             const shapes: Record<string, number> = {};
@@ -568,15 +574,24 @@ export function useNonverbal(
                 }
                 acc.curTensionStreak = 0;
               }
-              if (handFace) acc.handFaceFrames += 1;
+              if (headGap !== null) {
+                acc.headSamples += 1;
+                if (headDown) acc.headDownFrames += 1;
+              }
+              if (headGap !== null && shoulderWidth !== null && base.width !== null) {
+                acc.torsoSamples += 1;
+                if (hunched) acc.hunchedFrames += 1;
+                if (leanBack) acc.leanBackFrames += 1;
+              }
+              if (headGap !== null && handSeen) {
+                acc.handFaceSamples += 1;
+                if (handFace) acc.handFaceFrames += 1;
+              }
               if (armCross) acc.armCrossFrames += 1;
               if (rollAdj !== null) acc.rollSamples.push(rollAdj);
               if (tiltAdj !== null && shoulderX !== null) {
                 acc.tiltSamples.push(tiltAdj);
                 acc.shoulderXs.push(shoulderX);
-                if (headDown) acc.headDownFrames += 1;
-                if (hunched) acc.hunchedFrames += 1;
-                if (leanBack) acc.leanBackFrames += 1;
                 if (tiltAdj > 8) maybeCoach('어깨를 수평으로 펴보세요');
               }
               // 실시간 코칭: 최근 3초 창에서 이탈이 70% 이상이면 안내 (시간 기준)

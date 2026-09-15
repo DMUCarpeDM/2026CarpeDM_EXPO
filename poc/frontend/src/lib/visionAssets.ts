@@ -13,8 +13,8 @@ export const MODELS = {
     cdn: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
   },
   pose: {
-    local: '/models/pose_landmarker_lite.task',
-    cdn: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+    local: '/models/pose_landmarker_heavy.task',
+    cdn: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/1/pose_landmarker_heavy.task',
   },
 };
 

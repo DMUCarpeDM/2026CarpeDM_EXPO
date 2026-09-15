@@ -62,7 +62,7 @@ def _purge_expired_quotes() -> None:
 def _prewarm_models() -> None:
     """모델 예열 — 첫 체험자가 로드 비용(수십 초)을 내지 않게 한다 (전시 운영).
 
-    백그라운드 스레드에서 실행: STT(whisper/vosk)와 Response-Fit 임베딩 모델을
+    백그라운드 스레드에서 실행: 간투어 분석(Whisper)와 Response-Fit 임베딩 모델을
     준비한다. GPT-4o 역할극 대사는 요청 시에만 호출한다.
     """
     import httpx

@@ -19,7 +19,7 @@ const feed = (acc, n, sample) => {
   for (let i = 0; i < n; i += 1) accumulateSample(acc, sample);
 };
 
-const FRONT = { front: true, tiltAdj: 0, shoulderX: 5, worldUsed: true };
+const FRONT = { front: true, tiltAdj: 0, shoulderX: 5, worldUsed: true, headTracked: true, torsoTracked: true, handFaceTracked: true };
 
 test("표본 1초 미만이면 측정 보류(null)", () => {
   const acc = makeTurnAcc();
@@ -268,4 +268,53 @@ test("answer_offset_sec은 0 — MVP는 녹음과 비언어 집계가 턴 시작
   const acc = makeTurnAcc();
   feed(acc, framesFor(2000), FRONT);
   assert.equal(finalizeTurnMetrics(acc).answer_offset_sec, 0);
+});
+
+test('face-only samples never claim valid posture measurements', () => {
+  const acc = makeTurnAcc();
+  for (let i = 0; i < 50; i++) accumulateSample(acc, {front: true});
+  assert.deepEqual(finalizeTurnMetrics(acc, true).posture_samples, {
+    avg_shoulder_tilt_deg: 0, posture_sway: 0, head_down_ratio: 0,
+    hunched_ratio: 0, hand_face_sec: 0,
+  });
+});
+
+test('posture validity counts only tracked samples, including neutral posture', () => {
+  const acc = makeTurnAcc();
+  for (let i = 0; i < 50; i++) accumulateSample(acc, {front: true});
+  for (let i = 0; i < 40; i++) accumulateSample(acc, {
+    front: true, tiltAdj: 0, shoulderX: 1, headTracked: true,
+    torsoTracked: true, handFaceTracked: true,
+  });
+  const metrics = finalizeTurnMetrics(acc, true);
+  assert.equal(metrics.frames, 90);
+  assert.ok(Object.values(metrics.posture_samples).every(n => n === 40));
+});
+
+test('tracking gaps do not dilute measured posture ratios or add hand-face time', () => {
+  const acc = makeTurnAcc();
+  feed(acc, 40, {...FRONT, headDown: true, hunched: true, handNearFace: true});
+  const before = finalizeTurnMetrics(acc, true);
+  // Even stale positive flags must not count when their landmarks are missing.
+  feed(acc, 160, {front: true, headDown: true, hunched: true, handNearFace: true});
+  const after = finalizeTurnMetrics(acc, true);
+  for (const key of ['head_down_ratio', 'hunched_ratio', 'lean_back_ratio', 'hand_face_sec']) {
+    assert.equal(after[key], before[key]);
+  }
+  assert.equal(after.head_down_ratio, 1);
+  assert.deepEqual(after.posture_samples, before.posture_samples);
+  feed(acc, 40, {...FRONT, leanBack: true});
+  const recovered = finalizeTurnMetrics(acc, true);
+  assert.equal(recovered.head_down_ratio, .5);
+  assert.equal(recovered.hunched_ratio, .5);
+  assert.equal(recovered.lean_back_ratio, .5);
+});
+
+test('head and torso ratios each use their own measured denominator', () => {
+  const acc = makeTurnAcc();
+  feed(acc, 40, {front: true, headTracked: true, headDown: true});
+  feed(acc, 40, {front: true, torsoTracked: true, hunched: true});
+  const metrics = finalizeTurnMetrics(acc, true);
+  assert.equal(metrics.head_down_ratio, 1);
+  assert.equal(metrics.hunched_ratio, 1);
 });

@@ -189,6 +189,7 @@ describe('finalizeTurnMetrics — 턴 직렬화', () => {
     acc.listenFrames = 9; // 표본 2초 미만 → 보류
     acc.answerFrames = 10;
     acc.answerFront = 5;
+    acc.torsoSamples = 20;
     acc.hunchedFrames = 8;
     acc.leanBackFrames = 4;
     const m = finalizeTurnMetrics(acc, emptyBaseline());
@@ -360,4 +361,31 @@ describe('verticalIrisRatio — 눈 열림 게이트', () => {
     );
     assert.equal(r, null);
   });
+});
+
+it('미검출 프레임은 유효 자세 비율을 낮추지 않는다', () => {
+  const acc = emptyAcc();
+  acc.frames = 40;
+  acc.headSamples = 40;
+  acc.headDownFrames = 40;
+  acc.torsoSamples = 20;
+  acc.hunchedFrames = 10;
+  acc.leanBackFrames = 10;
+  const before = finalizeTurnMetrics(acc, emptyBaseline())!;
+  acc.frames += 160;
+  const after = finalizeTurnMetrics(acc, emptyBaseline())!;
+  assert.equal(after.head_down_ratio, 1);
+  assert.equal(after.hunched_ratio, .5);
+  assert.equal(after.lean_back_ratio, .5);
+  assert.equal(after.head_down_ratio, before.head_down_ratio);
+  assert.deepEqual(after.posture_samples, before.posture_samples);
+});
+
+it('얼굴 미검출이어도 모델용 자세 표본은 전달한다', () => {
+  const acc=emptyAcc();
+  acc.poseFeatures=Array.from({length:40},()=>Array(27).fill(0));
+  const result=finalizeTurnMetrics(acc,emptyBaseline())!;
+  assert.equal(result.frames,0);
+  assert.equal(result.pose_ensemble?.features.length,40);
+  assert.equal(result.front_gaze_ratio,0);
 });

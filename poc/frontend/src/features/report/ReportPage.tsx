@@ -17,7 +17,8 @@ import MirrorReportView from './MirrorReportView';
 import RadarChart from './RadarChart';
 
 /** 성장 추이 스파크라인 — 최근 도전들의 종합 점수 */
-function TrendChart({ items }: { items: HistoryItem[] }) {
+function TrendChart({ items: allItems }: { items: HistoryItem[] }) {
+  const items = allItems.filter((it): it is HistoryItem & { total_score: number } => it.total_score !== null);
   const W = 320;
   const H = 90;
   const PAD = 14;
@@ -92,7 +93,8 @@ function GazeMap({ map }: { map: NonNullable<FitScore['gaze_map']> }) {
   );
 }
 
-function gradeLabel(score: number): string {
+function gradeLabel(score: number | null): string {
+  if (score === null) return "미측정";
   if (score >= 85) return '훌륭해요';
   if (score >= 70) return '좋아요';
   if (score >= 55) return '성장 중';
@@ -284,7 +286,7 @@ export default function ReportPage() {
     );
   }
 
-  const delta = report.previous ? report.total_score - report.previous.total_score : null;
+  const delta = report.previous?.total_score != null && report.total_score != null ? report.total_score - report.previous.total_score : null;
 
   return (
     <div className="page report">
@@ -298,11 +300,11 @@ export default function ReportPage() {
               cy="60"
               r="52"
               className="gauge-value"
-              strokeDasharray={`${(report.total_score / 100) * 326.7} 326.7`}
+              strokeDasharray={`${((report.total_score ?? 0) / 100) * 326.7} 326.7`}
             />
           </svg>
           <div className="gauge-center">
-            <span className="gauge-score">{Math.round(displayScore)}</span>
+            <span className="gauge-score">{report.total_score === null ? "—" : Math.round(displayScore)}</span>
             <span className="gauge-label">{gradeLabel(report.total_score)}</span>
           </div>
         </div>

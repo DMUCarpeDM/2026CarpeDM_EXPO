@@ -1,3 +1,5 @@
+from app.services.interaction_scoring import public_total, NO_SCORE
+from app.services import interaction, judgments, response_judgment, feedback, contradictions
 import secrets
 import time
 import uuid
@@ -47,7 +49,6 @@ router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 MAX_AUDIO_BYTES = 25 * 1024 * 1024  # 업로드 오디오 상한 — DoS 차단 (한 턴 wav 실측 대비 관대)
 # 실시간 받아쓰기 조각 상한 — 3~4초 48kHz mono 16bit WAV(~400KB) 대비 관대하되 턴 오디오보다 훨씬 작게
-MAX_LIVE_STT_BYTES = 4 * 1024 * 1024
 
 
 def _stored_difficulty(db: Session, difficulty: str) -> str:
@@ -87,8 +88,8 @@ def _create_turn(
         question_type=spec.question_type,
         question_text=spec.question_text,
         character_id=spec.character_id,
-        reaction_text=reaction_text,
-        reaction_character_id=reaction_character_id,
+        reaction_text=reaction_text or spec.reaction_text,
+        reaction_character_id=reaction_character_id or (spec.character_id if spec.reaction_text else ""),
     )
     db.add(turn)
     db.commit()
@@ -209,6 +210,10 @@ def create_session(
     emotion.ensure_state(session)
     db.flush()
 
+    try:
+        interaction.initialize(session, scenario, _selected_episodes(session, scenario), body.service_mode)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
     provider = get_dialogue_provider()
     spec = provider.first_question(session, _selected_episodes(session, scenario))
     # 첫 대사는 시나리오가 정한 역할·상황을 방문객에게 정확히 전달해야 한다.
@@ -216,6 +221,7 @@ def create_session(
     turn = _create_turn(db, session, spec, order=1)
 
     return SessionOut(
+        interaction=interaction.public_state(session),
         id=session.id,
         status=session.status.value,
         mode=session.mode,
@@ -259,8 +265,8 @@ def my_sessions(
             "difficulty": session.difficulty,
             "status": session.status.value,
             "started_at": session.started_at.isoformat() if session.started_at else "",
-            "grade": grade_of(report.total_score if report else None),
-            "total_score": report.total_score if report else None,
+            "grade": grade_of(public_total(report)),
+            "total_score": public_total(report),
             "fit_scores": (report.fit_scores or {}) if report else {},
         }
         for session, scenario, report in rows
@@ -278,9 +284,9 @@ def _claim_summary(db: Session, session: RoleplaySession, already: bool) -> Sess
         session_id=session.id,
         scenario_title=session.scenario.title if session.scenario else "",
         started_at=session.started_at.isoformat() if session.started_at else "",
-        total_score=report.total_score if report else None,
+        total_score=public_total(report),
         # 점수 표기 방침(S-B2B-SCORE): 수강생 화면은 등급 — 원점수는 관리자·연구 트랙만
-        grade=grade_of(report.total_score if report else None),
+        grade=grade_of(public_total(report)),
         already_claimed=already,
     )
 
@@ -356,6 +362,7 @@ def get_session(
     elapsed = max(0, int((datetime.now(timezone.utc) - started).total_seconds()))
 
     return SessionResumeOut(
+        interaction=interaction.public_state(session),
         id=session.id,
         status=session.status.value,
         mode=session.mode,
@@ -368,6 +375,21 @@ def get_session(
     )
 
 
+@router.post("/{session_id}/turns/{turn_id}/observation")
+def observe_turn(
+    session_id: int, turn_id: int, body: ResponseIn,
+    session: RoleplaySession = Depends(require_session), db: Session = Depends(get_db),
+):
+    turn = db.get(Turn, turn_id)
+    if session.status != SessionStatus.in_progress or turn is None or turn.session_id != session_id or turn.answered_at is not None:
+        raise HTTPException(status_code=409, detail="현재 답변 중인 턴이 아닙니다")
+    result = judgments.evaluate(turn_id, text=body.text,
+        nonverbal=body.nonverbal.model_dump(exclude_unset=True) if body.nonverbal else None,
+        duration_ms=body.duration_ms, voice_text=body.stt_source == "webspeech")
+    # 읽기 전용. 팁 폴링이 답변 저장 트랜잭션의 JSON 상태를 덮어쓰지 않는다.
+    return {"turn_id": turn_id, "judgment": result, "tip": feedback.select(result)}
+
+
 @router.post("/{session_id}/turns/{turn_id}/response", response_model=NextTurnOut)
 def submit_response(
     session_id: int,
@@ -376,6 +398,9 @@ def submit_response(
     session: RoleplaySession = Depends(require_session),
     db: Session = Depends(get_db),
 ):
+    # 읽는 순서 1: 사용자 답변이 들어오는 입구입니다. 아래에서 분석 → 목표 갱신 → 다음 질문을 연결합니다.
+    # 현재 reactions는 수행도·감정용, response_judgment는 목표·근거용으로 따로 판단합니다.
+    # 새 엔진으로 전환할 때 둘의 결론이 충돌하지 않도록 연결 지점을 먼저 확인하세요.
     if session.status != SessionStatus.in_progress:
         raise HTTPException(status_code=404, detail="진행 중인 세션이 아닙니다")
     turn = db.get(Turn, turn_id)
@@ -393,7 +418,7 @@ def submit_response(
         raise HTTPException(status_code=422, detail="응답 텍스트가 비어 있습니다")
     turn.response_duration_ms = body.duration_ms
     if body.nonverbal:
-        turn.nonverbal_metrics = body.nonverbal.model_dump()
+        turn.nonverbal_metrics = body.nonverbal.model_dump(exclude_unset=True)
     turn.answered_at = utcnow()
 
     # 리액션 비트 + 수행도 갱신 — 이 답변이 상대의 반응과 하루의 전개를 결정한다
@@ -409,28 +434,76 @@ def submit_response(
 
     provider = get_dialogue_provider()
     turns = list(session.turns)
+    judgment = judgments.evaluate(
+        turn.id, text=turn.response_text,
+        goals=[item for item in interaction.state(session).get("items", []) if "keywords" in item],
+        nonverbal=turn.nonverbal_metrics, duration_ms=turn.response_duration_ms,
+        voice_text=turn.stt_source == "webspeech",
+    )
+    flow_before = interaction.state(session)
+    if flow_before:
+        # 주의: 현재는 keywords가 있는 항목만 목표 분석에 보냅니다.
+        # 면접 질문에도 항목별 기준을 붙이려면 이 조건과 interaction.py의 질문 형식을 함께 수정하세요.
+        goals = [item for item in flow_before["items"] if "keywords" in item]
+        requested = [flow_before["items"][flow_before["index"]]["id"]] if goals and not flow_before.get("finished") and turn.question_type != "confirmation" else []
+        semantic, met, status = response_judgment.analyze(turn, turns, goals, requested)
+        # 키워드 일치만으로 목표를 달성했다고 확정하지 않는다.
+        judgment["events"] = [e for e in judgment["events"] if e["area"] != "response"] + semantic
+        judgment["met_goals"] = met
+        judgment["measured"] = [area for area in judgment["measured"] if area != "response"]
+        # 현재는 분석 성공뿐 아니라 결과 사건도 있어야 '측정됨'으로 기록합니다.
+        # '분석 성공했지만 지적할 내용 없음'을 미측정과 구분하는 것은 새 설계의 수정 지점입니다.
+        if status == "completed" and semantic:
+            judgment["measured"].append("response")
+        judgment["semantic_status"] = status
+    selected_feedback = feedback.assign(session, judgment, turn.order)
+    judgments.persist(session, judgment)
+    flow = interaction.advance(session, turn, turns, judgment)
+    if (selected_feedback and selected_feedback["rule"] == "missing_goal" and not flow.get("finished")
+            and selected_feedback["evidence"].get("goal_id") != flow["items"][flow["index"]]["id"]):
+        judgment["feedback"] = None
+        judgments.persist(session, judgment)
     signals_out = TurnSignalsOut(
+        judgment=judgment,
         case=signals["case"], coverage=signals["coverage"], risk_hits=signals["risk_hits"],
         emotion=emotion.signals_payload(session), observation=observation,
     )
     try:
-        spec = provider.next_question(
-            session,
-            session.scenario,
-            _selected_episodes(session, session.scenario),
-            turns,
-        )
+        confirmed = contradictions.confirmed_keys((session.rapport or {}).get("confirmed_facts") or [])
+        identifiers = contradictions.keys(selected_feedback["evidence"]) if selected_feedback and selected_feedback["rule"] == "contradiction" else set()
+        already_confirmed = bool(identifiers.intersection(confirmed))
+        if identifiers and (already_confirmed or turn.question_type != "confirmation"):
+            session.rapport = {**(session.rapport or {}), "confirmed_facts": sorted(confirmed | identifiers)}
+        if identifiers and not already_confirmed and turn.question_type != "confirmation":
+            interaction.save(session, {**flow, "pending_confirmation": True})
+            spec = QuestionSpec(episode_id=turn.episode_id, character_id=turn.character_id,
+                question_type="confirmation", question_text=feedback.confirmation_text(selected_feedback))
+        else:
+            spec = None if flow.get("finished") else provider.next_question(
+                session,
+                session.scenario,
+                _selected_episodes(session, session.scenario),
+                turns,
+            )
     except DialogueGenerationError as error:
-        db.rollback()
-        raise HTTPException(status_code=503, detail=str(error)) from error
+        if not flow or flow.get("finished"):
+            db.rollback()
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        target = flow["items"][flow["index"]]
+        target_episode = db.get(Episode, target["episode_id"])
+        spec = QuestionSpec(episode_id=target_episode.id, character_id=target_episode.character_id,
+            question_type="main" if flow["mode"] == "interview" else "ai_roleplay", question_text=target["text"])
+        judgment["dialogue_status"] = "fallback"
+        judgments.persist(session, judgment)
+    signals_out.judgment = judgment
     if spec is None:
         db.commit()
-        return NextTurnOut(finished=True, turn_signals=signals_out)
+        return NextTurnOut(finished=True, turn_signals=signals_out, interaction=interaction.public_state(session))
 
     next_turn = _create_turn(
         db, session, spec, order=turn.order + 1,
     )
-    return NextTurnOut(finished=False, next_turn=_turn_out(db, next_turn), turn_signals=signals_out)
+    return NextTurnOut(finished=False, next_turn=_turn_out(db, next_turn), turn_signals=signals_out, interaction=interaction.public_state(session))
 
 
 @router.post("/{session_id}/turns/{turn_id}/audio")
@@ -453,56 +526,9 @@ async def upload_audio(
     await run_in_threadpool(dest.write_bytes, data)
     turn.audio_path = str(dest)
 
-    # 브라우저 STT가 없는(오프라인) 턴은 서버가 즉시 변환 — 대화 엔진이 바로 사용
-    transcript = ""
-    if not turn.response_text:
-        from app.ai.stt import get_stt_provider
-
-        provider = get_stt_provider()
-        if provider:
-            try:
-                # CPU 바운드 전사를 스레드풀로 — 이벤트 루프에서 돌리면 전사가
-                # 끝날 때까지 다른 방문객의 진행률 폴링·헬스체크까지 함께 멈춘다
-                transcript = await run_in_threadpool(provider.transcribe, str(dest))
-            except Exception:
-                transcript = ""
-            if transcript:
-                turn.response_text = transcript
-                turn.stt_source = provider.name
+    # Chrome의 답변 원문을 유지한다. Whisper 간투어 분석은 세션 종료 후 실행한다.
     db.commit()
-    return {"ok": True, "path": str(dest), "transcript": transcript}
-
-
-@router.post("/{session_id}/stt")
-async def live_stt(
-    session_id: int,
-    file: UploadFile,
-    session: RoleplaySession = Depends(require_session),
-):
-    """연습 중 실시간 받아쓰기 폴백 — 브라우저 Web Speech가 없거나(오프라인 Chrome 등)
-    실패할 때, 프론트가 3초 안팎의 WAV 조각을 보내 입력창을 채운다.
-    턴 상태는 건드리지 않는다 — 최종 제출·분석은 기존 /audio + /response 경로가 담당한다."""
-    from app.ai.stt import get_stt_provider
-
-    provider = get_stt_provider()
-    if provider is None:
-        raise HTTPException(status_code=503, detail="서버 음성 인식을 사용할 수 없습니다")
-    data = await file.read(MAX_LIVE_STT_BYTES + 1)
-    if len(data) > MAX_LIVE_STT_BYTES:
-        raise HTTPException(status_code=413, detail="음성 조각이 허용 크기를 초과했습니다")
-    # 조각은 전사 즉시 삭제한다 — 세션 오디오 보존 정책(media_retention)과 무관한 임시물
-    tmp = settings.media_dir / f"live_stt_{session_id}_{uuid.uuid4().hex}.wav"
-    await run_in_threadpool(tmp.write_bytes, data)
-    # 저지연 경로가 있으면 우선 사용 (whisper: beam 1 탐욕 디코딩 — 체감 지연 절반)
-    transcribe = getattr(provider, "transcribe_live", provider.transcribe)
-    try:
-        # CPU 바운드 전사는 스레드풀로 — 이벤트 루프를 막으면 다른 방문객 요청까지 멈춘다
-        transcript = await run_in_threadpool(transcribe, str(tmp))
-    except Exception:
-        transcript = ""
-    finally:
-        tmp.unlink(missing_ok=True)
-    return {"text": transcript.strip(), "provider": provider.name}
+    return {"ok": True, "path": str(dest), "transcript": ""}
 
 
 @router.post("/{session_id}/finish", response_model=ProgressOut, status_code=202)
@@ -516,6 +542,7 @@ def finish_session(
         transition(session, SessionStatus.analyzing)
     except InvalidTransition as e:
         raise HTTPException(status_code=409, detail=str(e))
+    interaction.finish_manually(session)
     session.ended_at = utcnow()
     session.analysis_progress = {"stage": "queued", "pct": 0, "at": time.time()}
     db.commit()

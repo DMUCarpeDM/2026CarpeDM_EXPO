@@ -16,6 +16,7 @@ from app.core.config import settings
 from app.core.database import SessionLocal
 from app.models import AnalysisResult, Consent, FitType, Report, RoleplaySession, SessionStatus, Turn
 from app.services import report as report_service
+from app.services import interaction, interaction_report, interaction_scoring
 from app.services.session_fsm import transition
 
 STAGES = ["stt", "response", "voice", "nonverbal", "scoring", "report"]
@@ -70,6 +71,9 @@ def _seniority_by_character(session: RoleplaySession) -> dict[str, str]:
 
 
 def run_analysis(session_id: int) -> None:
+    # 읽는 순서 5: 대화가 끝난 뒤 최종 점수와 보고서를 만듭니다.
+    # 현재는 기존 분석을 먼저 돌리고, 대화 진행 상태가 있으면 공통 판단 점수로 교체합니다.
+    # 새 응답 엔진 연결 시 같은 항목을 두 번 계산하거나 다른 영역에서 다시 감점하지 않게 확인하세요.
     db = SessionLocal()
     started = time.monotonic()
     try:
@@ -82,21 +86,6 @@ def run_analysis(session_id: int) -> None:
         db.query(Report).filter_by(session_id=session_id).delete()
         db.commit()
         turns = [t for t in session.turns if t.response_text or t.audio_path]
-
-        # 1) STT — Web Speech가 이미 텍스트를 보냈으면 스킵. whisper 설치 시 오디오만 있는 턴 변환
-        _set_progress(db, session, "stt", 5)
-        no_text = [t for t in turns if not t.response_text and t.audio_path]
-        if no_text:
-            provider = get_stt_provider()
-            if provider:
-                for t in no_text:
-                    # 턴 단위 격리: 손상된 오디오 한 건이 세션 전체를 무너뜨리지 않게
-                    try:
-                        t.response_text = provider.transcribe(t.audio_path)
-                        t.stt_source = "whisper"
-                    except Exception:
-                        traceback.print_exc()
-                db.commit()
 
         # 2) Response-Fit (턴별) + 담화 구조 분석 (심층 리포트용)
         _set_progress(db, session, "response", 25)
@@ -135,13 +124,19 @@ def run_analysis(session_id: int) -> None:
             try:
                 if t.audio_path:
                     metrics = voice_fit.analyze_audio(t.audio_path, t.response_text)
-                    # 텍스트-음성 정렬: 어느 문장에서 무너졌는지 (Vosk 단어 타임스탬프)
+                    # Chrome 답변과 별개로 원본 음성을 간투어 보존 프롬프트로 전사한다.
                     provider = get_stt_provider()
                     if metrics and provider and hasattr(provider, "transcribe_words"):
                         try:
-                            alignment = voice_align.analyze_alignment(
-                                t.audio_path, provider.transcribe_words(t.audio_path),
-                            )
+                            words = provider.transcribe_words(t.audio_path)
+                            filler_text = " ".join(w["word"] for w in words)
+                            fillers = paralinguistics.analyze_fillers(filler_text)
+                            if fillers:
+                                metrics["fillers"] = {
+                                    **fillers, "source": "whisper-filler-prompt",
+                                    "estimated": True, "transcript": filler_text,
+                                }
+                            alignment = voice_align.analyze_alignment(t.audio_path, words)
                             if alignment:
                                 metrics["alignment"] = alignment
                         except Exception:
@@ -150,12 +145,6 @@ def run_analysis(session_id: int) -> None:
                     metrics = voice_fit.estimate_from_text(t.response_text, t.response_duration_ms)
                 else:
                     metrics = {}
-                # 파라링귀스틱 (S-B2B-PARA): 음성 기반 턴만 필러 측정 — 관찰 레이어
-                # (점수 미반영). 텍스트 입력 턴은 metrics가 비어 여기 오지 않는다.
-                if metrics:
-                    fillers = paralinguistics.analyze_fillers(t.response_text)
-                    if fillers:
-                        metrics["fillers"] = fillers
                 score = voice_fit.score_voice(metrics)
             except Exception:
                 traceback.print_exc()
@@ -217,10 +206,15 @@ def run_analysis(session_id: int) -> None:
             FitType.posture: weighted_mean(posture_scores) if posture_scores else None,
         }
 
+        interaction_outcome, raw_rows = None, []
+        if interaction.state(session):
+            interaction_outcome, raw_rows = interaction_report.prepare(db, session)
+            session_scores = {FitType(area): score for area, score in interaction_outcome["scores"].items()}
+
         # 5.5) LLM judge (S-B2B-JUDGE): Response 세션 점수에 루브릭 CoT 채점을
         # 보수적으로 혼합한다. 실패·미가동은 결정적 점수 그대로 — 가산 레이어.
         judge_info = None
-        if session_scores[FitType.response] is not None:
+        if interaction_outcome is None and session_scores[FitType.response] is not None:
             scenario = session.scenario
             try:
                 judge_info = judge.judge_response_session(
@@ -248,18 +242,23 @@ def run_analysis(session_id: int) -> None:
                     session_id=session.id, turn_id=None, fit_type=fit,
                     # judge 투명성: 세션 레벨 Response 결과에 채점 근거 전체를 남긴다
                     raw_metrics={"judge": judge_info} if fit == FitType.response and judge_info else {},
-                    score=score, engine_version=ENGINE_VERSION,
+                    score=score, engine_version=interaction_scoring.VERSION if interaction_outcome else ENGINE_VERSION,
                 ))
         db.commit()
 
         # 6) 리포트 생성
         _set_progress(db, session, "report", 92)
         analysis_ms = int((time.monotonic() - started) * 1000)
-        report_service.build_report(db, session, session_scores, analysis_ms, judge_info=judge_info)
+        if interaction_outcome is not None:
+            interaction_report.build(db, session, interaction_outcome, raw_rows, analysis_ms)
+        else:
+            report_service.build_report(db, session, session_scores, analysis_ms, judge_info=judge_info)
 
         # 7) 저장 정책 적용 (S-CBYKOH): '미저장' 동의면 분석이 끝난 음성 파일을 즉시 삭제
         consent = db.query(Consent).filter_by(session_id=session.id).first()
         if consent is None or consent.storage_policy == "none":
+            # 공통 판단에도 답변 인용이 있으므로 미저장 동의에서는 함께 파기한다.
+            session.rapport = {key: value for key, value in (session.rapport or {}).items() if key not in {"judgments", "confirmed_facts", "feedback_history"}}
             for t in session.turns:
                 if t.audio_path:
                     Path(t.audio_path).unlink(missing_ok=True)

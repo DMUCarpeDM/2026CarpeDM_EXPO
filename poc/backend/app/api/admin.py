@@ -1,3 +1,4 @@
+from app.services.interaction_scoring import public_total, NO_SCORE
 """전시 운영/기관 대시보드 API 골격 (R-HYJRLN, R-NCULBP).
 
 인증: 전시 모드(admin_auth_required=False)에서는 무인증 허용(로컬 단독 키오스크),
@@ -75,7 +76,7 @@ def export_csv(
             s.difficulty,
             s.attempt_no,
             s.status.value,
-            report.total_score if report else "",
+            public_total(report) if report else "",
             *[fits.get(f, {}).get("score", "") if report else "" for f in
               ("response", "voice", "expression", "posture")],
             report.engine_version if report else "",
@@ -133,11 +134,11 @@ def metrics(
               & (s2.attempt_no == 2))
         .join(r1, r1.session_id == s1.id)
         .join(r2, r2.session_id == s2.id)
-        .filter(s1.attempt_no == 1)
+        .filter(s1.attempt_no == 1, r1.engine_version == r2.engine_version, r1.engine_version != NO_SCORE)
         .scalar()
     )
 
-    avg_total = db.query(func.avg(Report.total_score)).scalar()
+    avg_total = db.query(func.avg(Report.total_score)).filter(Report.engine_version != NO_SCORE).scalar()
     avg_ms = db.query(func.avg(Report.analysis_ms)).scalar()
 
     # fit별 평균 — 정량의 단일 진실인 analysis_results(세션 레벨)에서 SQL 집계
@@ -179,7 +180,7 @@ def metrics(
         "voice_turns": len(voice),
         # 오디오 없이 발화 시간 근사로만 채점된 턴 — 마이크/녹음 문제의 신호
         "voice_estimated_turns": len(voice) - len(voice_audio),
-        # Vosk 정렬(문장 인용·쉼 위치의 재료)이 실제로 붙은 비율
+        # Whisper 정렬(문장 인용·쉼 위치의 재료)이 실제로 붙은 비율
         "voice_alignment_rate": _rate(
             [1.0 if r.raw_metrics.get("alignment") else 0.0 for r in voice_audio]
         ),
