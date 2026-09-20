@@ -1,8 +1,12 @@
+import { createStaticInterviewApi } from "./staticInterviewApi.js";
+
 const LOCAL_API_BASE = "/api";
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 const API_BASE = resolveApiBase(globalThis.__MIRROR_TING_API_BASE__ || import.meta.env?.VITE_API_URL);
 const CLIENT_KEY = "mirror-ting-client-key";
 const ACTIVE_SESSION = "mirror-ting-active-session";
+const STATIC_DEMO = String(import.meta.env?.VITE_STATIC_DEMO || "").toLowerCase() === "true";
+const staticRequest = STATIC_DEMO && typeof localStorage !== "undefined" ? createStaticInterviewApi(localStorage) : null;
 
 export class PocApiError extends Error {
   constructor(message, status) {
@@ -33,6 +37,7 @@ export function resolveApiBase(candidate) {
 }
 
 async function request(path, { token, ...options } = {}) {
+  if (staticRequest) return staticRequest(path, options);
   const isFormData = options.body instanceof FormData;
   const response = await fetch(`${API_BASE}${path}`, {
     headers: {

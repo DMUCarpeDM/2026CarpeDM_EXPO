@@ -10,7 +10,7 @@ export function PreviewPage({ serviceMode, onNext, starting, scenario, selectedE
   const lead = scenario?.characters?.find((character) => character.id === episode?.character_id) || scenario?.characters?.[0];
   const permissionsGranted = permissionState.camera === "granted" && permissionState.microphone === "granted";
   const aiReady = Boolean(aiHealth?.dialogue_ready);
-  const dialogueName = aiHealth?.dialogue_provider === "openai" ? "GPT-4o 대화 AI" : "Ollama 대화 AI";
+  const dialogueName = aiHealth?.dialogue_provider === "openai" ? "GPT-4o 대화 AI" : aiHealth?.dialogue_provider === "browser" ? "브라우저 면접 엔진" : "Ollama 대화 AI";
   const canStart = consented && !starting;
   const objectives = episode?.points?.length ? episode.points : ["대화의 핵심을 먼저 말해요", "상대가 다음에 할 일을 분명히 요청해요", "마무리 전에 합의 내용을 확인해요"];
   const facts = [

@@ -26,6 +26,17 @@ docker run --rm -p 8001:8001 \
 
 SQLite DB, 업로드 음성, 최초 다운로드되는 Whisper 모델은 `/app/storage`의 영구 디스크에 저장된다. 카메라와 마이크는 HTTPS로 제공되는 Render 기본 도메인에서 사용할 수 있다.
 
+## Netlify 무료 제출용 배포
+
+구독 없이 제출 링크를 운영할 때는 루트의 `netlify.toml`을 사용한다. Netlify 빌드는
+`VITE_SERVICE_MODE=interview`, `VITE_STATIC_DEMO=true`로 고정된다.
+
+- 풀스택·마케팅·세일즈 면접 질문과 세션 진행은 브라우저에서 동작한다.
+- 카메라 MediaPipe 분석, 브라우저 음성 인식·음성 합성은 그대로 사용한다.
+- 답변과 결과 이력은 방문자의 `localStorage`에만 저장된다.
+- Python Whisper·Sentence Transformers·OpenAI 대화 서버는 Netlify 정적 배포에 포함되지 않는다.
+- 새로고침 뒤에도 현재 브라우저의 완료 이력은 남지만 다른 기기와 동기화되지 않는다.
+
 ## 제출 화면
 
 - 대표 이미지: 면접 홈 hero

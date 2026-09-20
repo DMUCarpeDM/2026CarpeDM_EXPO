@@ -198,7 +198,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
     }
   };
   const analysisTools = [
-    { label: "대화 AI", detail: aiHealth?.dialogue_provider === "openai" ? "GPT-4o" : "Ollama", ready: aiReady },
+    { label: "대화 AI", detail: aiHealth?.dialogue_provider === "openai" ? "GPT-4o" : aiHealth?.dialogue_provider === "browser" ? "브라우저 엔진" : "Ollama", ready: aiReady },
     { label: "음성 인식", detail: sttMode === "webspeech" ? "브라우저 STT" : "직접 입력", ready: sttMode !== "off" && micEnabled && hasMicrophone },
     { label: "카메라 분석", detail: "MediaPipe", ready: hasCamera && track.status === "ready" },
     { label: "마이크", detail: micSilent ? "신호 없음" : micDeviceLabel || "입력", title: micDeviceLabel, ready: hasMicrophone && !micSilent },
