@@ -73,17 +73,18 @@ def test_training_report_uses_shared_score_and_purges_internal_quotes(monkeypatc
     seed()
     def judge(current, history, goals, requested):
         return [event(current.id, "response", "goal_met", "positive", {"goal_id": g["id"], "quote": current.response_text}, "목표 확인", key=g["id"]) for g in goals], [g["id"] for g in goals], "completed"
-    monkeypatch.setattr("app.services.response_judgment.analyze", judge)
+    monkeypatch.setattr("app.services.cafe.analyze", lambda current, history, flow: {
+        "observations": [{"field": key, "value": value, "quote": current.response_text} for key, value in flow["cafe"]["expected"].items()],
+        "requested": [], "final_readback": True})
     client = TestClient(app)
     created = client.post('/api/sessions', json={"service_mode": "training", "mode": 5, "consent": {"agreed": True, "storage_policy": "none"}}).json()
     sid = created["id"]
     auth = {"X-Session-Token": created["access_token"]}
     result = client.post(f'/api/sessions/{sid}/turns/{created["current_turn"]["id"]}/response', headers=auth, json={"text": "검증용 답변", "stt_source": "text", "duration_ms": 4000})
-    assert result.status_code == 200 and result.json()["finished"] is True
-    assert result.json()["interaction"]["reason"] == "goals_met"
+    assert result.status_code == 200 and result.json()["finished"] is False  # 완료 버튼에서 확정
     client.post(f'/api/sessions/{sid}/finish', headers=auth)
     report = client.get(f'/api/sessions/{sid}/report', headers=auth).json()
-    assert report["total_score"] == 90  # 목표 가점은 15점 상한
+    assert report["total_score"] == 81  # 카페 가점은 +6 상한
     assert report["fit_scores"]["voice"]["score"] is None
     assert report["deep_analysis"]["interaction"]["version"] == "interaction-score-v1"
     with SessionLocal() as db:

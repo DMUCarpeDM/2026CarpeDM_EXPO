@@ -16,7 +16,7 @@ import { fitMetrics, EvidenceStrip, ContextVisual, SectionIntro, ProcessCard, Fi
 const questionFlow = [
   { icon: ChatDots, title: "핵심 질문", text: "지원 동기와 강점을 한 문장으로 정리해요." },
   { icon: Target, title: "꼬리 질문", text: "답변의 근거를 구체적인 경험으로 이어가요." },
-  { icon: UserScan, title: "압박 질문", text: "당황해도 결론부터 차분하게 말해요." },
+  { icon: UserScan, title: "직무 질문", text: "신입 수준의 기본 개념을 자기 말로 설명해요." },
   { icon: Presentation, title: "마무리 질문", text: "질문과 입사 의지를 자연스럽게 전해요." },
 ];
 

@@ -15,9 +15,9 @@ import trainingWorkScene from "../../assets/home-scenes/training-work-scene.webp
 import { ContextVisual, SectionIntro, ProcessCard, FooterCta, scrollToSection } from "./HomeSections";
 
 const trainingScenarios = [
-  { title: "고객 요청 확인", text: "요청을 듣고 핵심 과업을 정확히 정리해요.", meta: "기초 · 5분" },
-  { title: "업무 순서 안내", text: "해야 할 일을 단계별로 설명하고 확인해요.", meta: "실무 · 8분" },
-  { title: "문제 상황 대응", text: "예상 밖 상황에서 우선순위를 판단해요.", meta: "도전 · 10분" },
+  { title: "아메리카노 한 잔", text: "음료와 포장 여부를 확인하고 주문을 다시 말해요.", meta: "카페 주문 · 쉬움" },
+  { title: "음료 두 개와 옵션", text: "음료별 옵션을 구분해서 확인해요.", meta: "카페 주문 · 중간" },
+  { title: "네 명의 주문과 변경", text: "여러 옵션과 중간 변경을 반영해 주문을 확인해요.", meta: "카페 주문 · 어려움" },
 ];
 
 export function TrainingHome({ onNext }) {

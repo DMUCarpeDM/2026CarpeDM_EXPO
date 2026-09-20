@@ -40,9 +40,10 @@ export async function runFreshSelection(pageHarness, runDir) {
     await page.locator(".hero-actions button").first().click();
     await page.getByRole("button", { name: /개발자/ }).click();
     await page.locator(".setup-next-button").click();
-    await page.getByRole("button", { name: /피드백 대화/ }).click();
+    await page.getByRole("button", { name: /일반면접 6개 질문/ }).click();
     await page.locator(".setup-next-button").click();
-    await page.getByRole("button", { name: /^진상 모드 / }).click();
+    assert.equal(await page.getByRole("button", { name: /^진상 모드 / }).count(), 0);
+    await page.getByRole("button", { name: /^일반면접 / }).click();
     await page.locator(".setup-next-button").click();
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: "Mirror-Ting 모드 선택", exact: true }).click();
@@ -54,10 +55,10 @@ export async function runFreshSelection(pageHarness, runDir) {
     await page.getByRole("button", { name: "직업훈련", exact: true }).click();
     await page.locator(".hero-actions button").first().click();
     assert.equal(await page.locator('.role-choice-section [aria-pressed="true"]').count(), 0);
-    await page.getByRole("button", { name: /개발자/ }).click();
+    assert.equal(await page.getByRole("button", { name: /개발자/ }).count(), 0);
+    await page.getByRole("button", { name: /카페 파트너/ }).click();
     await page.locator(".setup-next-button").click();
-    assert.equal(await page.getByRole("button", { name: /일정 보고/ }).getAttribute("aria-pressed"), "true");
-    assert.equal(await page.getByRole("button", { name: /피드백 대화/ }).getAttribute("aria-pressed"), "false");
+    assert.equal(await page.getByRole("button", { name: /주문 응대/ }).getAttribute("aria-pressed"), "true");
     await page.locator(".setup-next-button").click();
     assert.equal(await page.locator('.difficulty-choice-section [aria-pressed="true"]').count(), 0);
     await page.getByRole("button", { name: /기본 모드/ }).click();

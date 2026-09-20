@@ -64,7 +64,7 @@ export function ServiceEntryShell({
       {active === "result" && <ResultPage onPrev={() => go(-1)} onPractice={() => navigate("preview")} report={report} history={history} onIssueCode={issueCode} selectedDifficulty={difficulty} progress={analysisProgress} error={apiError} />}
     </div>
     <span className="screen-reader-note" aria-live="polite">현재 화면: {current.label}</span>
-    {active === "home" && nfcFallback && <NfcStartFallback onPick={startFromJobRole} onClose={() => setNfcFallback(false)} />}
+    {active === "home" && nfcFallback && <NfcStartFallback serviceMode={serviceMode?.id} onPick={startFromJobRole} onClose={() => setNfcFallback(false)} />}
     {active === "home" && <AttractLoop active onStart={() => navigate("role")} />}
   </main>;
 }

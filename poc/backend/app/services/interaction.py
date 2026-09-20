@@ -24,7 +24,9 @@ def initialize(session, scenario, episodes, service_mode):
         questions = policy.get("interview_questions") or []
         if not 6 <= len(questions) <= 12 or any(not isinstance(q, str) or not q.strip() or len(q) > 180 for q in questions):
             raise ValueError("면접 시나리오에는 주요 질문을 6~12개 준비해야 합니다.")
-        items = [{"id": f"question-{i+1}", "text": q, "episode_id": episodes[0].id} for i, q in enumerate(questions)]
+        rubric = policy.get("interview_rubric")
+        items = ([{**q, "episode_id": episodes[0].id} for q in rubric["questions"]] if rubric else
+                 [{"id": f"question-{i+1}", "text": q, "episode_id": episodes[0].id} for i, q in enumerate(questions)])
     else:
         items = [{**item, "id": f"{ep.id}:{item['id']}", "episode_id": ep.id,
                   "text": item.get("followup") or f"{item['label']} 내용을 구체적으로 말씀해 주세요."}
@@ -33,6 +35,11 @@ def initialize(session, scenario, episodes, service_mode):
             raise ValueError("훈련 시나리오에는 목표 체크리스트가 필요합니다.")
     value = {"version": VERSION, "mode": service_mode, "items": items, "index": 0,
              "attempts": {}, "met": [], "unmet": [], "unverified": [], "reason": None, "finished": False}
+    if service_mode == "interview" and policy.get("interview_rubric"):
+        value.update(rubric_version=rubric["version"], brief=rubric["brief"], question_results={})
+    if service_mode == "training" and policy.get("cafe_orders_version"):
+        from app.services import cafe
+        value = cafe.initialize(value, session.difficulty)
     save(session, value)
     return value
 
@@ -44,6 +51,19 @@ def advance(session, turn, turns, judgment=None):
         save(session, value)
         return value
     if not value or value.get("finished"):
+        return value
+    if value.get("cafe"):
+        from app.services import cafe
+        value = cafe.advance(value, turn, (judgment or {}).get("cafe_assessment"))
+        save(session, value)
+        return value
+    if value.get("rubric_version"):
+        from app.services import interview
+        assessment = (judgment or {}).get("interview_assessment") or {"status": "uncertain", "bonus_ids": [], "explanation": "분석 자료 없음"}
+        value = interview.advance(value, turn, assessment)
+        if judgment is not None:
+            judgment["interview_result"] = next(r for r in value["question_results"].values() if turn.id in r["answer_turn_ids"])
+        save(session, value)
         return value
     items = value["items"]
     if value["mode"] == "interview":
@@ -89,5 +109,15 @@ def finish_manually(session):
         value["finished"] = True
         value["reason"] = "manual"
         value["pending_confirmation"] = False
-        value["unmet"] = [item["id"] for item in value["items"] if item["id"] not in value["met"] + value.get("unverified", [])]
+        if value.get("cafe"):
+            from app.services import cafe
+            ids = value["cafe"]["seen_turns"]
+            outcome = cafe.result(value, ids[-1] if ids else 0)
+            value["cafe_result"] = outcome
+            value["reason"] = "goals_met" if outcome["goal_met"] else "goals_exhausted" if outcome["measured"] else "analysis_unavailable"
+            value["met"] = [item["id"] for item in value["items"]] if outcome["goal_met"] else []
+        if value.get("rubric_version"):
+            value["unverified"] = list(dict.fromkeys([*value.get("unverified", []), *[item["id"] for item in value["items"] if item["id"] not in value["met"] + value["unmet"]]]))
+        else:
+            value["unmet"] = [item["id"] for item in value["items"] if item["id"] not in value["met"] + value.get("unverified", [])]
         save(session, value)

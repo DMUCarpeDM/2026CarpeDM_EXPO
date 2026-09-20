@@ -19,6 +19,8 @@ class Settings(BaseSettings):
         "http://localhost:5174", "http://127.0.0.1:5174",
     ]
     media_dir: Path = Path("./media")
+    # 단일 Docker 배포에서는 빌드된 mvp를 API와 같은 origin에서 제공한다.
+    frontend_dist_dir: Path | None = None
     # 운영 API(/api/admin: 전시 초기화·CSV 내보내기) 보호 토큰 — X-Admin-Token 헤더로 대조.
     # 비우면 무인증(개발 편의). 전시장 네트워크에 열 때는 반드시 설정할 것.
     admin_token: str = ""

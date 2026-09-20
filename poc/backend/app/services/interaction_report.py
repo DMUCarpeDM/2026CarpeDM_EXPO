@@ -10,6 +10,9 @@ def prepare(db, session):
     # 종료 후 보고서 준비 단계입니다. 기존 계산 결과의 점수를 공통 판단 점수로 교체합니다.
     # 기존 점수와 새 점수를 더하는 구조가 아닙니다. 미측정 영역은 점수에서 제외합니다.
     values = copy.deepcopy(judgments.results(session))
+    flow = interaction.state(session)
+    if values and flow.get("cafe_result"):
+        values[-1]["cafe_result"] = flow["cafe_result"]
     by_turn = {r["turn_id"]: r for r in values}
     rows = db.query(AnalysisResult).filter_by(session_id=session.id).all()
     mode = interaction.state(session)["mode"]

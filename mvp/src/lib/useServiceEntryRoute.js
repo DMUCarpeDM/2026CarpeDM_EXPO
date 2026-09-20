@@ -8,6 +8,7 @@ import {
   DEMO_TURN_SIGNALS,
 } from "../data/serviceEntryDemo";
 import { clearActiveSession, isReportFlowView, resolveReportIdleTimeoutMs } from "./exhibitionSession";
+import { currentDeploymentServiceMode } from "./deploymentServiceMode";
 import { getSession, loadActiveSession, resolveNfcCard } from "./pocApi";
 import {
   ENTRY_LOOKUP_TIMEOUT_MS,
@@ -20,9 +21,10 @@ import {
 import { useNfcTap } from "./useNfcTap";
 
 export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
+  const deploymentServiceModeId = currentDeploymentServiceMode();
   const [active, setActive] = useState("boot");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [selectedServiceModeId, setSelectedServiceModeId] = useState(null);
+  const [selectedServiceModeId, setSelectedServiceModeId] = useState(deploymentServiceModeId || null);
   const [counterpartProfile, setCounterpartProfile] = useState(null);
   const [difficulty, setDifficulty] = useState(null);
   const [session, setSession] = useState(null);
@@ -54,7 +56,8 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
   };
 
   const navigate = (target, serviceModeId = selectedServiceModeId) => {
-    const destination = normalizeDestination(target, serviceModeId);
+    const requestedTarget = target === "service" && deploymentServiceModeId ? "home" : target;
+    const destination = normalizeDestination(requestedTarget, serviceModeId);
     if (destination === "service") {
       clearActiveSession(localStorage);
       setSelectedServiceModeId(null);
@@ -106,7 +109,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
       const saved = loadActiveSession();
       if (!saved) {
         clearActiveSession(localStorage);
-        enter("service");
+        enter(deploymentServiceModeId ? "home" : "service");
         return;
       }
       try {
@@ -120,7 +123,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
         const destination = savedSessionDestination(resumed.status);
         if (!destination) {
           clearActiveSession(localStorage);
-          enter("service");
+          enter(deploymentServiceModeId ? "home" : "service");
           return;
         }
         const resumedSession = { ...resumed, access_token: saved.access_token };
@@ -130,7 +133,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
       } catch {
         if (!cancelled) {
           clearActiveSession(localStorage);
-          enter("service");
+          enter(deploymentServiceModeId ? "home" : "service");
         }
       } finally {
         window.clearTimeout(lookupTimer);
@@ -191,8 +194,13 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
     navigate(SERVICE_ENTRY_FLOW[Math.min(Math.max(currentIndex + offset, 0), SERVICE_ENTRY_FLOW.length - 1)].id);
   };
   const chooseServiceMode = (serviceModeId) => {
-    setSelectedServiceModeId(serviceModeId);
-    navigate("home", serviceModeId);
+    const nextServiceModeId = deploymentServiceModeId || serviceModeId;
+    setSelectedServiceModeId(nextServiceModeId);
+    setCounterpartProfile(null);
+    setDifficulty(null);
+    setSelectedEpisodeId(null);
+    setPocScenarioSlug("");
+    navigate("home", nextServiceModeId);
   };
   const chooseCounterpartProfile = (profileId) => {
     setCounterpartProfile(profileId);

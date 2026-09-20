@@ -10,8 +10,8 @@ export const JOB_ROLES = [
   {
     id: "cafe_crew",
     label: "카페 파트너",
-    scenarioSlug: "ondo-cafe-crew",
-    text: "카운터 응대와 컴플레인 대응을 연습해요",
+    scenarioSlug: "cafe-order-taking",
+    text: "음료 주문과 옵션, 포장 여부를 확인해요",
     brand: "cafe-ondo",
     counterpartProfileId: "cafe_crew",
   },

@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api import admin, auth, codes, nfc, orgs, reports, scenarios, sessions, tts
 from app.core.config import settings
@@ -177,7 +178,6 @@ for router in (
 ):
     app.include_router(router, prefix="/api")
 
-
 # Ollama 상태 캐시 — health는 자주 불리므로 프로브는 60초에 한 번만
 _OLLAMA_CACHE: dict = {"at": 0.0, "status": {"reachable": False, "dialogue": False, "embedding": False}}
 
@@ -260,3 +260,9 @@ def health():
         "degraded": bool(degraded_reasons),
         "degraded_reasons": degraded_reasons,
     }
+
+
+# catch-all mount는 모든 API route보다 뒤에 등록해야 /api 요청을 가리지 않는다.
+# 로컬 개발은 이 설정이 비어 있어 기존 Vite(5173) 흐름을 그대로 사용한다.
+if settings.frontend_dist_dir and settings.frontend_dist_dir.is_dir():
+    app.mount("/", StaticFiles(directory=settings.frontend_dist_dir, html=True), name="frontend")

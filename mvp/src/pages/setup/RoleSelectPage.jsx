@@ -7,12 +7,13 @@ import {
   SetupMotionPage,
   SetupSelectionSummary,
 } from "../../components/setup/SetupComponents";
-import { counterpartProfiles, setupSteps } from "../../data/setupCatalog";
+import { profilesForMode, setupSteps } from "../../data/setupCatalog";
 import { resolveServiceMode } from "../../lib/serviceModeContext";
 
 export function RoleSelectPage({ serviceMode, counterpartProfile, onCounterpart, onPrev, onNext }) {
-  const profile = counterpartProfiles.find((item) => item.id === counterpartProfile) || counterpartProfiles[0];
   const resolvedServiceMode = resolveServiceMode(serviceMode?.id);
+  const profiles = profilesForMode(resolvedServiceMode.id);
+  const profile = profiles.find((item) => item.id === counterpartProfile) || profiles[0];
 
   return (
     <SetupMotionPage>
@@ -21,7 +22,7 @@ export function RoleSelectPage({ serviceMode, counterpartProfile, onCounterpart,
           <MiniStepper items={setupSteps} active={0} />
           <PageTitle eyebrow={resolvedServiceMode.label} title={resolvedServiceMode.setupTitle} subtitle={resolvedServiceMode.setupDescription} />
           <ChoiceSection icon="role" title="직무 선택" description={resolvedServiceMode.detail} columns="three" className="role-choice-section">
-            {counterpartProfiles.map((item) => (
+            {profiles.map((item) => (
               <ChoiceCard key={item.id} {...item} variant="portrait" selected={counterpartProfile === item.id} onClick={() => onCounterpart(item.id)} />
             ))}
           </ChoiceSection>

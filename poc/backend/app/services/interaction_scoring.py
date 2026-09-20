@@ -72,9 +72,29 @@ def calculate(results):
         plus = min(15, sum(max(0, e["points"]) for e in changes[area]))
         minus = min(30, sum(max(0, -e["points"]) for e in changes[area]))
         scores[area] = max(0, min(100, 75 + plus - minus))
+    interview_results = [r["interview_result"] for r in results if r.get("interview_result")]
+    if interview_results:
+        from app.services.interview import score_events
+        latest = {}
+        for result in interview_results:
+            key = (result["rubric_version"], result["question_id"])
+            if key not in latest or result["answer_turn_ids"][-1] >= latest[key]["answer_turn_ids"][-1]:
+                latest[key] = result
+        changes["response"] = [e for r in latest.values() for e in score_events(r)]
+        scores["response"] = max(0, min(100, 75 + sum(e["points"] for e in changes["response"]))) if changes["response"] else None
+    cafe_results = [r["cafe_result"] for r in results if r.get("cafe_result")]
+    if cafe_results:
+        latest = cafe_results[-1]
+        changes["response"] = latest["events"] if latest["measured"] else []
+        plus = min(6, sum(max(0, e["points"]) for e in changes["response"]))
+        minus = min(15, sum(max(0, -e["points"]) for e in changes["response"]))
+        scores["response"] = 75 + plus - minus if latest["measured"] else None
     values = [s for s in scores.values() if s is not None]
     deduction = min(12, len(conflicts) * 4)
     return {"version": VERSION, "scores": scores,
+        "response_policy": ("interview-2026-09-16-v1" if interview_results else "cafe-orders-2026-09-16-v1" if cafe_results else VERSION),
+        "response_limits": ({"base": 75, "per_question": {"fulfilled": 3, "insufficient": -2, "irrelevant_or_skip": -4}, "concept_bonus_per_job_question": 2, "range": [0, 100]}
+                            if interview_results else {"base": 75, "bonus": 6, "penalty": 15} if cafe_results else {"base": 75, "bonus": 15, "penalty": 30}),
         "limits": {"base": 75, "bonus": 15, "penalty": 30, "repeats": 3, "contradiction": 12},
         "total": round(max(0, sum(values) / len(values) - deduction), 1) if values else None,
         "contradiction_deduction": deduction, "contradictions": conflicts, "changes": changes}

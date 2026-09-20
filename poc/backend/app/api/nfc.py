@@ -32,7 +32,7 @@ router = APIRouter(prefix="/nfc", tags=["nfc"])
 # 직무 기본 시나리오 팩 (S-B2B-PACK) — 발급 시 시나리오를 지정하지 않은 카드의 기본값.
 # office_admin은 기존 전시 시나리오(클라우드밋)를 재사용한다 (도메인 결정 근거 (c)).
 DEFAULT_PACK_BY_ROLE = {
-    "cafe_crew": "ondo-cafe-crew",
+    "cafe_crew": "cafe-order-taking",
     "cs_agent": "ondo-cs-agent",
     "office_admin": "release-schedule-alignment",
 }
@@ -106,6 +106,8 @@ def resolve_card(body: NfcResolveIn, db: Session = Depends(get_db)):
     card.last_seen_at = utcnow()
     db.commit()
     slug = card.scenario_slug or DEFAULT_PACK_BY_ROLE.get(card.job_role, "")
+    if card.job_role == "cafe_crew" and slug == "ondo-cafe-crew":
+        slug = "cafe-order-taking"  # 기존 카드는 보존하면서 새 주문 훈련으로 연결
     return NfcResolveOut(
         uid=card.uid,
         job_role=card.job_role,

@@ -31,7 +31,7 @@ from app.services.score_policy import grade_of
 
 router = APIRouter(prefix="/orgs", tags=["orgs"])
 
-JOB_ROLES = {"cafe_crew", "cs_agent", "office_admin"}
+JOB_ROLES = {"cafe_crew", "cs_agent", "office_admin", "fullstack", "marketing", "sales"}
 
 
 def _new_invite_code() -> str:

@@ -1,0 +1,22 @@
+{
+  "version": "response-review-2026-09-16-v1",
+  "status": "implementation_recommendation",
+  "purpose": "사전 비교 예시와 분리한 수동 평가용 사례. 라이브 모델이 통과했다고 주장하는 결과 파일이 아님.",
+  "interview": [
+    {"question_id": "strength", "answer": "친구들이 저한테 고민을 많이 이야기해요.", "expected": "insufficient", "reason": "강점과 행동이 명확하지 않아 어떻게 들어 주는지 한 번 확인"},
+    {"question_id": "fs-login", "answer": "인증, 세션, 토큰입니다.", "expected": "insufficient", "bonus_count": 0, "reason": "용어 나열만 있고 기본 흐름과 개념 설명이 없음"},
+    {"question_id": "fs-login", "answer": "입력값을 서버로 보내고 맞는지 확인해서 결과를 돌려줘요. 비밀번호는 평문으로 저장해 비교해요.", "expected": "insufficient", "bonus_count": 0, "reason": "핵심 보안 오류. 추가 질문 1회로 자발적 정정 기회 제공"},
+    {"question_id": "teamwork", "answer": "아직 다른 사람과 팀으로 일해 본 적은 없어요.", "expected": "no_experience", "reason": "경험 없음 자체로 감점하지 않고 의견 차이 대처 질문으로 전환"},
+    {"question_id": "mk-results", "answer": "브랜드를 알리는 게 목적이라면 광고가 몇 명에게 도달했는지 볼게요.", "expected": "fulfilled", "bonus_count": 0, "reason": "인지도 목적에 맞는 지표를 설명. 구매 지표 강요 금지"},
+    {"question_id": "sales-price", "answer": "가격이 부담되는 이유를 묻고 고객에게 맞는 방법을 찾아 설명할게요.", "expected": "fulfilled", "bonus_count": 0, "reason": "기본 대응은 설명했지만 구체적인 원인 구분이나 대안까지 설명하지 않음"}
+  ],
+  "habits": [
+    {"text": "저기요, 주문하시겠어요?", "filler": false, "reason": "손님을 부르는 정상적인 표현"},
+    {"text": "음, 어, 잠시 생각해 볼게요.", "filler": true, "reason": "음·어를 관찰하되 이 한 문장만으로 감점하지 않음"},
+    {"text": "아이스 아메리카노 한 잔 맞으시죠?", "unnecessary_repeat": false, "reason": "필요한 주문 확인은 습관 반복에서 제외"},
+    {"text": "따뜻한, 아니 아이스 라테로 바꿔 드릴게요.", "unnecessary_repeat": false, "reason": "명시적인 정정"},
+    {"text": "안전이 중요합니다. 정말 중요합니다.", "unnecessary_repeat": false, "reason": "의미 있는 강조"},
+    {"text": "저는 저는 저는 자료를 정리했어요.", "repeat_events": 1, "reason": "이어지는 같은 구절 반복은 한 사건. 실제 음성에서 발생했는지 확인 필요"},
+    {"audio": "음, 어, 저는 자료를 정리했어요.", "transcript": "저는 자료를 정리했어요.", "measurement": "unavailable", "reason": "전사에서 간투어가 누락되었으므로 0회로 가점하면 안 됨"}
+  ]
+}

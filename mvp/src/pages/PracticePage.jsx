@@ -422,7 +422,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
           <span className="practice-timer"><i className="rec-dot" aria-hidden="true" />{formatClock(elapsed)}</span>
           <button type="button" className="practice-utility" onClick={() => setPaused((value) => !value)}>{paused ? <><Play size={16} /> 다시 시작</> : <><Pause size={16} /> 일시정지</>}</button>
           <button type="button" className="practice-utility" onClick={() => { clearAutoSubmit(); setDraft(""); setInterim(""); setCaptureError(""); }}><Refresh3 size={16} /> 재시도</button>
-          <button type="button" className="practice-end" onClick={() => setConfirmEnd(true)}><Power size={16} /> 연습 종료</button>
+          <button type="button" className="practice-end" onClick={() => setConfirmEnd(true)}><Power size={16} /> {scenario?.slug === "cafe-order-taking" ? "주문 접수 완료" : "연습 종료"}</button>
         </div>
       </motion.div>
 
@@ -514,7 +514,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
       {confirmEnd && <div className="practice-briefing practice-confirm" role="dialog" aria-label="연습 종료 확인">
         <motion.div className="practice-briefing-card" initial={{ opacity: 0, y: 14, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
           <span className="briefing-kicker">확인</span>
-          <h2>연습을 종료할까요?</h2>
+          <h2>{scenario?.slug === "cafe-order-taking" ? "주문 접수를 완료할까요?" : "연습을 종료할까요?"}</h2>
           <p className="briefing-situation">지금까지 제출한 답변으로 결과를 확인합니다. 남은 질문과 목표는 완료 처리하지 않아요.</p>
           <div className="briefing-foot confirm-foot">
             <button type="button" className="confirm-stay" onClick={() => setConfirmEnd(false)}>계속 연습</button>

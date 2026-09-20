@@ -13,7 +13,7 @@ def test_pack_files_load_and_validate():
     assert {"ondo-cafe-crew", "ondo-cs-agent"} <= slugs
     for pack in packs:
         # 직무·도메인 태그 (C-10/C-11)
-        assert pack["domain"] in ("office", "service")
+        assert pack["domain"] in ("office", "service", "interview")
         assert pack["job_role"]
         # 루브릭 가중치 합 1.0
         assert abs(sum(pack["rubric_weights"].values()) - 1.0) < 0.01
@@ -57,7 +57,7 @@ def test_seed_packs_idempotent_and_active():
         crew = db.query(Scenario).filter_by(slug="ondo-cafe-crew").all()
         assert len(crew) == 1
         scenario = crew[0]
-        assert scenario.is_active is True
+        assert scenario.is_active is False  # 기존 기록은 남기고 새 훈련 목록에서 은퇴
         assert scenario.domain == "service"
         assert scenario.job_role == "cafe_crew"
         assert scenario.brand == "cafe-ondo"
@@ -141,4 +141,5 @@ def test_pack_scenarios_visible_in_listing():
     from app.main import app
 
     slugs = {s["slug"] for s in TestClient(app).get("/api/scenarios").json()}
-    assert {"ondo-cafe-crew", "ondo-cs-agent", "release-schedule-alignment"} <= slugs
+    assert {"cafe-order-taking", "interview-fullstack", "interview-marketing", "interview-sales", "release-schedule-alignment"} <= slugs
+    assert not {"ondo-cafe-crew", "ondo-cs-agent"}.intersection(slugs)

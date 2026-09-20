@@ -167,4 +167,12 @@ export const counterpartProfiles = [
   { id: "office_admin", title: "개발자", text: "출시 일정과 우선순위를 정리해요", image: setupRoleDeveloper, icon: "role" },
   { id: "cafe_crew", title: "카페 파트너", text: "매장에서 고객과 동료를 응대해요", image: setupRoleCafePartner, icon: "team" },
   { id: "cs_agent", title: "상담사", text: "고객 문의를 듣고 해결 방법을 안내해요", image: setupRoleCounselor, icon: "chat" },
+  { id: "fullstack", title: "풀스택 개발자", text: "신입 일반면접 · 공통 4개와 기술 2개", image: setupRoleDeveloper, icon: "role" },
+  { id: "marketing", title: "마케팅", text: "신입 일반면접 · 공통 6개와 직무 2개", image: setupRoleCounselor, icon: "chat" },
+  { id: "sales", title: "영업관리 / 세일즈", text: "신입 일반면접 · 공통 6개와 직무 2개", image: setupRoleCafePartner, icon: "team" },
 ];
+
+export function profilesForMode(mode) {
+  const ids = mode === "interview" ? ["fullstack", "marketing", "sales"] : mode === "training" ? ["cafe_crew"] : ["office_admin"];
+  return counterpartProfiles.filter((profile) => ids.includes(profile.id));
+}

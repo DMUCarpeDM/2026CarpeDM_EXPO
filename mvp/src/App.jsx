@@ -97,7 +97,8 @@ export default function App() {
   const { navigate } = entry.actions;
   const mode = 5;
   const selectedServiceMode = resolveServiceMode(selectedServiceModeId);
-  const roleScenarioOptions = getRoleScenarioOptions(apiScenarios, counterpartProfile, mode);
+  const visibleScenarios = apiScenarios.filter((item) => !item.world_setting?.service_modes || item.world_setting.service_modes.includes(selectedServiceMode.id));
+  const roleScenarioOptions = getRoleScenarioOptions(visibleScenarios, counterpartProfile, mode);
   const selectedScenarioOption = roleScenarioOptions.find((item) => item.episodeId === selectedEpisodeId) || null;
   const previewScenario = apiScenarios.find((item) => item.slug === (nfcCard?.scenarioSlug || selectedScenarioOption?.scenarioSlug || pocScenarioSlug)) || {};
   const previewEpisode = nfcCard ? null : previewScenario.episodes?.find((item) => item.id === selectedEpisodeId) || null;
@@ -181,7 +182,7 @@ export default function App() {
       }
       const nextSession = await createSession({
         serviceMode: selectedServiceMode.id,
-        difficulty,
+        difficulty: difficulty || "basic",
         mode,
         scenarioSlug: previewScenario.slug || nfcCard?.scenarioSlug,
         selectedEpisodeId: nfcCard ? null : selectedEpisodeId,
@@ -226,7 +227,7 @@ export default function App() {
     : counterpartProfiles.find((item) => item.id === counterpartProfile) || counterpartProfiles[0];
   const view = {
     serviceMode: selectedServiceMode,
-    apiScenarios,
+    apiScenarios: visibleScenarios,
     previewScenario,
     previewEpisode,
     previewCounterpartProfile,

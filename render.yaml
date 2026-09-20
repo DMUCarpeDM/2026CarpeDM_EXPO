@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: mirror-ting-interview
+    runtime: docker
+    region: singapore
+    plan: 1c-2g
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeployTrigger: off
+    disk:
+      name: mirror-ting-data
+      mountPath: /app/storage
+      sizeGB: 5
+    envVars:
+      - key: MIRROR_TING_JWT_SECRET
+        generateValue: true
+      - key: MIRROR_TING_ADMIN_TOKEN
+        generateValue: true
+      - key: MIRROR_TING_OPENAI_API_KEY
+        sync: false
+      - key: MIRROR_TING_ELEVENLABS_API_KEY
+        sync: false
+      - key: MIRROR_TING_ELEVENLABS_VOICE_ID
+        sync: false

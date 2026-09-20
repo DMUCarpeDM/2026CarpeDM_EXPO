@@ -13,6 +13,7 @@ import { resolveServiceMode } from "../../lib/serviceModeContext";
 export function DifficultyPage({ serviceMode, counterpartProfile, scenario, selectedEpisode, difficulty, onDifficulty, onPrev, onNext }) {
   const profile = counterpartProfiles.find((item) => item.id === counterpartProfile) || counterpartProfiles[0];
   const resolvedServiceMode = resolveServiceMode(serviceMode?.id);
+  const availableDifficulties = resolvedServiceMode.id === "interview" ? [{ ...difficulties[0], title: "일반면접", text: "경력 없는 신입 기준으로 답변해요.", detail: "고정 질문 · 부족한 내용만 추가 질문" }] : difficulties;
   const selectedDifficulty = difficulties.find((item) => item.id === difficulty) || difficulties[0];
 
   return (
@@ -22,7 +23,7 @@ export function DifficultyPage({ serviceMode, counterpartProfile, scenario, sele
           <MiniStepper items={setupSteps} active={2} />
           <PageTitle eyebrow={`${resolvedServiceMode.label} · 난이도 선택`} title="어느 정도로 연습할까요?" subtitle={resolvedServiceMode.setupDescription} />
           <ChoiceSection icon="normal" title="난이도 선택" description={`이 모드에서 만날 대화의 복잡도와 질문 강도를 선택해 주세요.`} columns="three" className="difficulty-choice-section">
-            {difficulties.map((item) => <ChoiceCard key={item.id} {...item} variant="difficulty" selected={difficulty === item.id} onClick={() => onDifficulty(item.id)} />)}
+            {availableDifficulties.map((item) => <ChoiceCard key={item.id} {...item} variant="difficulty" selected={difficulty === item.id} onClick={() => onDifficulty(item.id)} />)}
           </ChoiceSection>
           <SetupSelectionSummary counterpart={profile} scenario={selectedEpisode || scenario} scenarioImage={getEpisodeImage(scenario?.slug, selectedEpisode?.id)} difficulty={selectedDifficulty} modeLabel="약 5분" tip={`${resolvedServiceMode.label}: ${resolvedServiceMode.detail}`} />
           <SetupFlowActions onPrev={onPrev} label="다음 단계로" onNext={onNext} />
