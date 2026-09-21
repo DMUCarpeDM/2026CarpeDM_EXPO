@@ -10,14 +10,15 @@ export async function runFreshSelection(pageHarness, runDir) {
   return withPage(pageHarness, {}, async ({ page, calls, pageErrors }) => {
     await openServiceSelector(page);
     assert.equal(await page.locator(".top-nav, .mobile-menu-layer, .attract-overlay, .nfc-fallback-overlay").count(), 0);
-    assert.deepEqual(await page.locator(".service-mode-card").evaluateAll((cards) => cards.map((card) => card.getAttribute("aria-pressed"))), ["false", "false", "false"]);
+    assert.deepEqual(await page.locator(".mode-picker__card").evaluateAll((cards) => cards.map((card) => card.getAttribute("aria-pressed"))), ["false", "false", "false"]);
     const selectorNfcCalls = calls.filter((path) => path === "/api/nfc/tap").length;
     assert.equal(selectorNfcCalls, 0);
     assert.equal(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight), true);
-    await capture(page, join(runDir, "fresh-service.png"), ".setup-flow-page");
+    await capture(page, join(runDir, "fresh-service.png"), ".service-mode-page");
 
     const nfcRequest = page.waitForRequest((request) => new URL(request.url()).pathname === "/api/nfc/tap");
-    await page.getByRole("button", { name: "면접", exact: true }).click();
+    await page.getByRole("button", { name: "면접 연습", exact: true }).click();
+    await page.getByRole("button", { name: "시작하기", exact: true }).click();
     await page.locator(".home-page").waitFor();
     await nfcRequest;
     assert.equal(await page.locator(".attract-overlay").count(), 1);
@@ -34,9 +35,10 @@ export async function runFreshSelection(pageHarness, runDir) {
     await page.locator(".home-page").waitFor();
     await page.goBack();
     await page.locator(".service-mode-page").waitFor();
-    assert.equal(await page.getByRole("button", { name: "면접", exact: true }).getAttribute("aria-pressed"), "false");
+    assert.equal(await page.getByRole("button", { name: "면접 연습", exact: true }).getAttribute("aria-pressed"), "false");
 
-    await page.getByRole("button", { name: "면접", exact: true }).click();
+    await page.getByRole("button", { name: "면접 연습", exact: true }).click();
+    await page.getByRole("button", { name: "시작하기", exact: true }).click();
     await page.locator(".hero-actions button").first().click();
     await page.getByRole("button", { name: /개발자/ }).click();
     await page.locator(".setup-next-button").click();
@@ -49,9 +51,10 @@ export async function runFreshSelection(pageHarness, runDir) {
     await page.locator(".service-mode-page").waitFor();
     assert.equal(await page.locator('[aria-pressed="true"]').count(), 0);
     assert.equal(await page.locator(".nfc-fallback-overlay").count(), 0);
-    await capture(page, join(runDir, "reset-service.png"), ".setup-flow-page");
+    await capture(page, join(runDir, "reset-service.png"), ".service-mode-page");
 
-    await page.getByRole("button", { name: "직업훈련", exact: true }).click();
+    await page.getByRole("button", { name: "직무 훈련", exact: true }).click();
+    await page.getByRole("button", { name: "시작하기", exact: true }).click();
     await page.locator(".hero-actions button").first().click();
     assert.equal(await page.locator('.role-choice-section [aria-pressed="true"]').count(), 0);
     await page.getByRole("button", { name: /개발자/ }).click();
@@ -75,10 +78,11 @@ export async function runFreshSelection(pageHarness, runDir) {
 
 export async function runServiceCards(pageHarness, runDir) {
   const observations = [];
-  for (const [serviceModeId, label] of [["interview", "면접"], ["training", "직업훈련"], ["workplace", "직장대화"]]) {
+  for (const [serviceModeId, label] of [["interview", "면접 연습"], ["training", "직무 훈련"], ["workplace", "직장 대화"]]) {
     observations.push(await withPage(pageHarness, {}, async ({ page, pageErrors }) => {
       await openServiceSelector(page);
       await page.getByRole("button", { name: label, exact: true }).click();
+      await page.getByRole("button", { name: "시작하기", exact: true }).click();
       await page.locator(".home-page").waitFor();
       assert.deepEqual(await page.locator(".top-nav nav button").allTextContents(), ["사이트 소개", "결과 및 기록", "사용방법"]);
       await page.locator(".top-nav nav button").filter({ hasText: "사이트 소개" }).click();
@@ -123,13 +127,15 @@ export async function runNfcReset(pageHarness) {
   return withPage(pageHarness, { nfcCard }, async ({ page, calls, pageErrors }) => {
     await openServiceSelector(page);
     assert.equal(calls.filter((path) => path === "/api/nfc/tap").length, 0);
-    await page.getByRole("button", { name: "직장대화", exact: true }).click();
+    await page.getByRole("button", { name: "직장 대화", exact: true }).click();
+    await page.getByRole("button", { name: "시작하기", exact: true }).click();
     await page.locator(".preview-page").waitFor();
     assert.equal(calls.includes("/api/nfc/resolve"), true);
     await page.getByRole("button", { name: "Mirror-Ting 모드 선택", exact: true }).click();
     await page.locator(".service-mode-page").waitFor();
     const postResetPoll = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/nfc/tap");
-    await page.getByRole("button", { name: "직장대화", exact: true }).click();
+    await page.getByRole("button", { name: "직장 대화", exact: true }).click();
+    await page.getByRole("button", { name: "시작하기", exact: true }).click();
     await page.locator(".home-page").waitFor();
     await postResetPoll;
     assert.equal(await page.locator(".preview-page").count(), 0, "reset clears the prior NFC direct-preview state");
