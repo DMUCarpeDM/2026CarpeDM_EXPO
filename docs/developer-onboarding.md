@@ -29,7 +29,9 @@ cp .env.example .env
 
 | 설정 | 입력할 값·용도 |
 | --- | --- |
-| `MIRROR_TING_DIALOGUE_PROVIDER` | `openai`. 현재 코드는 `ollama`·`template`를 대화 제공자로 받지 않습니다. |
+| `MIRROR_TING_DIALOGUE_PROVIDER` | 기본 `openai`, 선택 `gemini`. `ollama`·`template`는 지원하지 않습니다. |
+| `MIRROR_TING_GEMINI_API_KEY` | Gemini 대화 생성 선택 시 필요한 키 |
+| `MIRROR_TING_GEMINI_MODEL` | 기본값 `gemini-3.6-flash` |
 | `MIRROR_TING_OPENAI_API_KEY` | GPT-4o 대화 생성에 필요한 키 |
 | `MIRROR_TING_OPENAI_MODEL` | 기본값 `gpt-4o` |
 | `MIRROR_TING_ELEVENLABS_API_KEY` | 상대 음성용 키. 미설정 시 브라우저 TTS 사용 |
@@ -37,7 +39,9 @@ cp .env.example .env
 | `MIRROR_TING_STT_WHISPER_MODEL` | 기본값 `./whisper-models/small` |
 | `MIRROR_TING_STT_FILLER_PROMPT` | 필요할 때만 변경. 기본 간투어 프롬프트는 `app/core/config.py`에 있습니다. |
 
-Whisper 모델을 다운로드합니다. 이 명령은 모델 파일만 준비하며, 실제 대화에는 계속 인터넷과 OpenAI 키가 필요합니다.
+Gemini를 선택해도 답변 근거·모순 분석에는 OpenAI 키가 필요합니다. OpenAI 키가 없으면 해당 분석은 미측정으로 남습니다. 키는 문서나 프론트엔드 코드에 넣지 마세요.
+
+Whisper 모델을 다운로드합니다. 이 명령은 모델 파일만 준비하며, 생성 대화에는 계속 인터넷과 선택한 제공자의 키가 필요합니다.
 
 ```bash
 .venv/bin/python scripts/setup_offline_stt.py
@@ -68,7 +72,7 @@ Chrome에서 `http://localhost:5173`을 엽니다. 브라우저와 macOS의 개�
 
 ## 첫 체험에서 확인할 것
 
-1. `http://127.0.0.1:8001/api/health`를 열고 `dialogue_provider: "openai"`, `dialogue_ready: true`, `server_stt: "whisper"`를 확인합니다. `ok: true`만으로 모든 분석 모델이 준비됐다고 판단하지 마세요.
+1. `http://127.0.0.1:8001/api/health`를 열고 `dialogue_provider`가 선택한 제공자인지, `dialogue_ready: true`, `server_stt: "whisper"`인지 확인합니다. `ok: true`만으로 모든 분석 모델이 준비됐다고 판단하지 마세요.
 2. 홈에서 연습에 들어가 마이크로 말합니다. Chrome 받아쓰기 결과가 입력창에 표시되는지 확인합니다.
 3. 답변을 제출하고 다음 질문을 확인합니다. 브라우저 개발자 도구에서 답변 `/response`와 녹음 `/audio` 요청이 성공하는지 봅니다.
 4. 체험을 종료해 결과를 확인합니다. Whisper는 저장된 녹음으로 간투어를 분석하며 Chrome 답변을 덮어쓰지 않습니다.
@@ -92,7 +96,7 @@ Chrome 음성 인식은 외부 서비스에 음성이 전송될 수 있습니다
 | 증상 | 확인할 곳 |
 | --- | --- |
 | 화면은 열리지만 API 요청 실패 | Vite 기본 대상은 8001입니다. 백엔드 포트와 맞추고 프론트를 다시 실행하세요. |
-| `dialogue_provider` 설정 오류 | `.env`의 값을 `openai`로 수정하세요. |
+| `dialogue_provider` 설정 오류 | `.env`의 값을 `openai` 또는 `gemini`로 설정하고 해당 API 키를 확인하세요. |
 | `dialogue_ready: false` | OpenAI 키와 백엔드 설정을 확인하세요. 키를 로그나 채팅에 붙여 넣지 마세요. |
 | `server_stt: null` | Python 환경의 `faster-whisper` 설치, 모델 경로, 서버 로그를 확인한 뒤 재시작하세요. |
 | health에 ‘오프라인 음성 인식 폴백 불가’ 표시 | 이전 표현이 남아 있습니다. 현재는 Whisper 간투어 분석 불가를 의미합니다. Chrome 대체 전사는 제공하지 않습니다. |

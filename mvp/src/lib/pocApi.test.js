@@ -102,6 +102,21 @@ test("createSession stamps the NFC card fields only when provided", async () => 
   assert.equal("nfc_uid" in plainPayload, false);
 });
 
+test("createSession falls back to basic when difficulty is missing", async () => {
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push(options.body);
+    return new Response(JSON.stringify({ id: "session-3" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  await createSession({ mode: 5, scenarioSlug: "ondo-cafe-crew", serviceMode: "training", consent: true });
+  assert.equal(JSON.parse(calls[0]).difficulty, "basic");
+  assert.equal(JSON.parse(calls[0]).service_mode, "training");
+});
+
 test("NFC endpoints follow the backend contract paths", async () => {
   const calls = [];
   globalThis.fetch = async (url, options) => {

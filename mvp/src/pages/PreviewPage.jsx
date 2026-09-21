@@ -3,17 +3,27 @@ import { IconGlyph } from "../components/ui/IconGlyph";
 import { Badge, Button, Card, CardContent } from "../components/ui/shadcn";
 import { getEpisodeImage, getScenarioDescription } from "../data/setupCatalog";
 import { resolveServiceMode } from "../lib/serviceModeContext";
+import { workplaceCategories } from "../data/workplaceStories";
 
 export function PreviewPage({ serviceMode, onNext, starting, scenario, selectedEpisode, counterpartProfile, difficulty, aiHealth, consented, onConsent, error, permissionState, mode = 5 }) {
   const resolvedServiceMode = resolveServiceMode(serviceMode?.id);
+  const workplace = resolvedServiceMode.id === "workplace";
   const episode = selectedEpisode || scenario?.episodes?.[0];
   const lead = scenario?.characters?.find((character) => character.id === episode?.character_id) || scenario?.characters?.[0];
   const permissionsGranted = permissionState.camera === "granted" && permissionState.microphone === "granted";
   const aiReady = Boolean(aiHealth?.dialogue_ready);
-  const dialogueName = aiHealth?.dialogue_provider === "openai" ? "GPT-4o 대화 AI" : "Ollama 대화 AI";
+  const dialogueName = { openai: "OpenAI 대화 AI", gemini: "Gemini 대화 AI" }[aiHealth?.dialogue_provider] || "대화 AI";
   const canStart = consented && !starting;
-  const objectives = episode?.points?.length ? episode.points : ["대화의 핵심을 먼저 말해요", "상대가 다음에 할 일을 분명히 요청해요", "마무리 전에 합의 내용을 확인해요"];
-  const facts = [
+  const objectives = workplace
+    ? workplaceCategories.map((category) => category.label)
+    : episode?.points?.length ? episode.points : ["대화의 핵심을 먼저 말해요", "상대가 다음에 할 일을 분명히 요청해요", "마무리 전에 합의 내용을 확인해요"];
+  const facts = workplace
+    ? [
+      { label: "진행 방식", value: `${workplaceCategories.length}개 단계 이어하기`, subtext: "출근·업무·퇴근 상황의 대화를 이어가요", icon: "briefcase" },
+      { label: "연습 상황", value: "출근부터 퇴근까지", subtext: getScenarioDescription(scenario?.description || "상황 안내를 본 뒤 바로 대화해요"), icon: "chat" },
+      { label: "난이도", value: "기본 모드", subtext: "선택 없이 바로 이어집니다.", icon: "normal" },
+    ]
+    : [
     { label: "직무", value: counterpartProfile?.title || "선택한 직무", subtext: counterpartProfile?.text || "선택한 업무 상황을 바탕으로 연습해요", image: counterpartProfile?.image },
     { label: "연습 상황", value: episode?.title || scenario?.title || "상황을 불러오고 있어요", subtext: getScenarioDescription(episode?.situation || scenario?.description || "선택한 업무 상황을 바탕으로 연습해요"), image: getEpisodeImage(scenario?.slug, episode?.id), icon: "briefcase" },
     { label: "난이도", value: difficulty?.title || "기본 모드", subtext: difficulty?.text || "편안한 질문 흐름으로 시작해요.", image: difficulty?.image, icon: "normal" },
@@ -26,14 +36,14 @@ export function PreviewPage({ serviceMode, onNext, starting, scenario, selectedE
 
   return <section className="page preview-page preview-redesign preflight-preview" aria-labelledby="preview-title">
     <header className="preview-heading">
-      <div><p>{resolvedServiceMode.previewEyebrow}</p><h1 id="preview-title">상황을 미리 확인해요</h1><span>선택한 {resolvedServiceMode.label} 연습 설정을 확인하고, 바로 시작해요.</span></div>
+      <div><p>{resolvedServiceMode.previewEyebrow}</p><h1 id="preview-title">{workplace ? "이어서 만날 대화를 확인해요" : "상황을 미리 확인해요"}</h1><span>{workplace ? "출근·업무·퇴근의 세 단계를 따라 상황 안내를 보고 대화를 이어가요." : `선택한 ${resolvedServiceMode.label} 연습 설정을 확인하고, 바로 시작해요.`}</span></div>
       <dl className="preview-duration"><dt>예상 소요 시간</dt><dd>약 {mode}분</dd></dl>
     </header>
     <Card className="preview-scenario-panel preview-overview-card">
       <CardContent>
         <div className="preview-panel-heading"><span>시뮬레이션 구성</span><p>연습에서 맡을 역할과 대화의 목적을 확인해요.</p></div>
         <ol className="preview-facts">{facts.map((fact, index) => <li key={fact.label}><b>{String(index + 1).padStart(2, "0")}</b><span className="preview-image">{fact.image ? <img src={fact.image} alt="" /> : <IconGlyph icon={fact.icon} size={24} />}</span><div><small>{fact.label}</small><strong>{fact.value}</strong><em>{fact.subtext}</em></div></li>)}</ol>
-        <section className="preview-objectives"><div className="preview-section-label"><IconGlyph icon="target" size={22} /> 대화 핵심</div><p>아래 흐름을 기억하고 대화를 시작해요.</p><ol>{objectives.slice(0, 3).map((objective, index) => <li key={objective}><b>{String(index + 1).padStart(2, "0")}</b><span>{objective}</span>{index === 0 && <em>첫 장면에서 확인</em>}</li>)}</ol></section>
+        <section className="preview-objectives"><div className="preview-section-label"><IconGlyph icon="target" size={22} /> {workplace ? "이어질 카테고리" : "대화 핵심"}</div><p>{workplace ? "각 카테고리가 시작될 때 상황 안내를 보여 준 뒤 대화가 시작돼요." : "아래 흐름을 기억하고 대화를 시작해요."}</p><ol>{(workplace ? objectives : objectives.slice(0, 3)).map((objective, index) => <li key={objective}><b>{String(index + 1).padStart(2, "0")}</b><span>{objective}</span>{index === 0 && <em>{workplace ? "첫 카테고리" : "첫 장면에서 확인"}</em>}</li>)}</ol></section>
       </CardContent>
     </Card>
     <div className="preview-support-grid" aria-label="연습 준비 정보">

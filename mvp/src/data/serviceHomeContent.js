@@ -24,7 +24,7 @@ const workplaceContent = Object.freeze({
   id: "workplace",
   hero: "보고와 피드백을 주고받으며 협업을 편하게 만들어요",
   value: "협업·보고·피드백",
-  primaryCta: "대화 상황 고르기",
+  primaryCta: "연습 시작하기",
   recommendationContext: "팀장 보고와 동료 피드백처럼 자주 만나는 대화를 추천해요.",
   tone: "accent",
   benefitOrder: Object.freeze(["상세한\n맞춤 리포트", "실감나는\nAI 역할극", "자신감 있는\n커뮤니케이션", "비교하고\n더 나아지기", "성장 기록으로\n한눈에 확인"]),

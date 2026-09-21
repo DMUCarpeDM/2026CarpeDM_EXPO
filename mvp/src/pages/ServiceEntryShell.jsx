@@ -14,6 +14,7 @@ import { RoleSelectPage } from "./setup/RoleSelectPage";
 import { ScenarioSelectPage } from "./setup/ScenarioSelectPage";
 import { ServiceModeSelectPage } from "./setup/ServiceModeSelectPage";
 import { SERVICE_ENTRY_FLOW, isChromelessView } from "../lib/serviceEntryRoute";
+import { workplaceStartView } from "../lib/workplaceTrack";
 
 const SETUP_NAV_VIEWS = new Set(["role", "scenario", "difficulty", "preview", "practice"]);
 
@@ -47,6 +48,7 @@ export function ServiceEntryShell({
 
   const current = SERVICE_ENTRY_FLOW.find((item) => item.id === active) || SERVICE_ENTRY_FLOW[0];
   const navigationView = SETUP_NAV_VIEWS.has(active) ? "service" : active === "result" ? "records" : active;
+  const startView = workplaceStartView(serviceMode?.id);
 
   return <main className={`app-shell ${active === "practice" ? "practice-mode" : ""} ${active === "home" ? `home-mode home-mode-${serviceMode?.id || "workplace"}` : ""}`}>
     <TopNav active={navigationView} serviceMode={serviceMode} scenarioTitle={session?.scenario?.title || previewScenario?.title} menuOpen={menuOpen} onMenuOpen={setMenuOpen} onNavigate={navigate} scenarios={apiScenarios} onScenarioSelect={(slug) => { setPocScenarioSlug(slug); navigate("role"); }} practiceMode={active === "practice"} />
@@ -55,7 +57,7 @@ export function ServiceEntryShell({
       {active === "usage" && <UsagePage onPractice={() => navigate("home")} />}
       {active === "intro" && <SiteIntroPage onPractice={() => navigate("home")} />}
       {active === "records" && <ResultsHistoryPage onResultBack={() => navigate("home")} onPractice={() => navigate("home")} report={report} history={history} onIssueCode={issueCode} selectedDifficulty={difficulty} progress={analysisProgress} error={apiError} />}
-      {active === "home" && <HomePage serviceMode={serviceMode} onNext={() => navigate("role")} onModeSelect={() => navigate("service")} />}
+      {active === "home" && <HomePage serviceMode={serviceMode} onNext={() => navigate(startView)} onModeSelect={() => navigate("service")} />}
       {active === "role" && <RoleSelectPage serviceMode={serviceMode} counterpartProfile={counterpartProfile} onCounterpart={chooseCounterpartProfile} onPrev={() => window.history.back()} onNext={() => navigate("scenario")} />}
       {active === "scenario" && <ScenarioSelectPage serviceMode={serviceMode} counterpartProfile={counterpartProfile} scenarios={apiScenarios} selectedEpisodeId={selectedEpisodeId} onScenario={chooseScenario} onPrev={() => go(-1)} onNext={() => navigate("difficulty")} />}
       {active === "difficulty" && <DifficultyPage serviceMode={serviceMode} counterpartProfile={counterpartProfile} scenario={previewScenario} selectedEpisode={previewEpisode} difficulty={difficulty} onDifficulty={setDifficulty} onPrev={() => go(-1)} onNext={() => navigate("preview")} />}
@@ -65,6 +67,6 @@ export function ServiceEntryShell({
     </div>
     <span className="screen-reader-note" aria-live="polite">현재 화면: {current.label}</span>
     {active === "home" && nfcFallback && <NfcStartFallback onPick={startFromJobRole} onClose={() => setNfcFallback(false)} />}
-    {active === "home" && <AttractLoop active onStart={() => navigate("role")} />}
+    {active === "home" && <AttractLoop active onStart={() => navigate(startView)} />}
   </main>;
 }

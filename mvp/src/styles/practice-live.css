@@ -131,12 +131,21 @@
   backdrop-filter: blur(8px);
 }
 .practice-camera .counterpart-video { transform: none; object-position: center 30%; }
-.practice-camera.is-cafe-counterpart {
+.practice-camera.is-cafe-counterpart,
+.practice-camera.is-workplace-counterpart {
   background: center / cover no-repeat var(--counterpart-background);
 }
-.practice-camera.is-cafe-counterpart::before {
+.practice-camera.is-workplace-counterpart {
+  /* 사무실 톤 그라데이션 — 전용 배경 촬영분이 오면 --counterpart-background로 덮는다 */
+  --counterpart-background: linear-gradient(165deg, #1e2a3a 0%, #3d4f63 42%, #6a7d90 78%, #8fa0b0 100%);
+}
+.practice-camera.is-cafe-counterpart::before,
+.practice-camera.is-workplace-counterpart::before {
   background: linear-gradient(180deg, rgba(22, 18, 14, 0.1), transparent 34%, rgba(22, 18, 14, 0.22));
   mask-image: none;
+}
+.practice-camera.is-workplace-counterpart::before {
+  background: linear-gradient(180deg, rgba(8, 14, 28, 0.18), transparent 36%, rgba(8, 14, 28, 0.28));
 }
 .counterpart-video-stage { position: absolute; inset: 0; z-index: 1; }
 .counterpart-video-source { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
@@ -171,6 +180,37 @@
   border-radius: 24px;
   background: rgba(255, 255, 255, 0.97);
   box-shadow: 0 30px 80px rgba(4, 12, 30, 0.42);
+}
+.practice-briefing-card--scene {
+  width: min(820px, 94vw);
+  padding: 40px 44px 32px;
+  border-radius: 28px;
+}
+.practice-briefing-card--scene h2 { margin: 16px 0 12px; font-size: 30px; line-height: 1.28; }
+.practice-briefing-card--scene .briefing-situation { margin: 0 0 22px; font-size: 18px; line-height: 1.7; }
+.practice-briefing-card--scene .briefing-kicker { padding: 6px 13px; font-size: 13px; }
+.practice-briefing-card--scene .briefing-foot { margin-top: 24px; }
+.practice-briefing-card--scene .briefing-foot button { padding: 12px 22px; font-size: 15px; }
+.briefing-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: rgba(0, 100, 255, 0.07);
+  color: #1a2433;
+  font-size: 16px;
+  line-height: 1.65;
+  word-break: keep-all;
+}
+.briefing-tip strong {
+  flex: none;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(0, 100, 255, 0.12);
+  color: var(--color-blue);
+  font-size: 12px;
+  font-weight: 750;
 }
 .briefing-kicker { display: inline-flex; padding: 5px 11px; border-radius: var(--radius-pill); background: rgba(0, 100, 255, 0.1); color: var(--color-blue); font-size: 11.5px; font-weight: 750; letter-spacing: 0.02em; }
 .practice-briefing-card h2 { margin: 12px 0 8px; font-size: 22px; font-weight: 740; letter-spacing: -0.02em; word-break: keep-all; }

@@ -1,9 +1,14 @@
 from app.services.dialogue.base import QuestionSpec
 from app.services.dialogue.openai_provider import DialogueGenerationError, OpenAIDialogueProvider
+from app.core.config import settings
 
 
-def get_dialogue_provider() -> OpenAIDialogueProvider:
-    """역할극 대사는 GPT-4o만 생성한다. 템플릿 폴백은 사용하지 않는다."""
+def get_dialogue_provider():
+    """설정에 따라 Gemini 또는 GPT-4o 대화 제공자를 반환한다."""
+    if settings.dialogue_provider == "gemini":
+        from app.services.dialogue.gemini_provider import GeminiDialogueProvider
+
+        return GeminiDialogueProvider()
     return OpenAIDialogueProvider()
 
 

@@ -20,6 +20,7 @@ import {
 } from "./lib/pocApi";
 import { findJobRole } from "./lib/nfc";
 import { resolveServiceMode } from "./lib/serviceModeContext";
+import { WORKPLACE_SCENARIO_SLUG } from "./lib/workplaceTrack";
 import { isKioskIssue } from "./lib/serviceEntryRoute";
 import { useServiceEntryRoute } from "./lib/useServiceEntryRoute";
 
@@ -110,7 +111,7 @@ export default function App() {
         .then((items) => {
           if (cancelled) return;
           setApiScenarios(items);
-          setPocScenarioSlug((currentSlug) => currentSlug || items[0]?.slug || "");
+          setPocScenarioSlug((currentSlug) => currentSlug || (selectedServiceModeId === "workplace" ? WORKPLACE_SCENARIO_SLUG : items[0]?.slug) || "");
           setApiError("");
         })
         .catch(() => {
@@ -125,6 +126,9 @@ export default function App() {
   useEffect(() => {
     setSelectedEpisodeId((currentId) => roleScenarioOptions.some((item) => item.episodeId === currentId) ? currentId : roleScenarioOptions[0]?.episodeId || null);
   }, [counterpartProfile, roleScenarioOptions]);
+  useEffect(() => {
+    if (selectedServiceModeId === "workplace") setPocScenarioSlug(WORKPLACE_SCENARIO_SLUG);
+  }, [selectedServiceModeId]);
   useEffect(() => {
     const refreshHealth = () => getHealth().then(setAiHealth).catch(() => setAiHealth(null));
     refreshHealth();
@@ -179,12 +183,13 @@ export default function App() {
       } catch (mediaError) {
         console.warn("[media] 카메라·마이크 없이 시작:", mediaError?.message || mediaError);
       }
+      const workplace = selectedServiceModeId === "workplace" && !nfcCard;
       const nextSession = await createSession({
-        serviceMode: selectedServiceMode.id,
-        difficulty,
+        serviceMode: selectedServiceModeId || selectedServiceMode.id,
+        difficulty: workplace ? "basic" : (difficulty || "basic"),
         mode,
-        scenarioSlug: previewScenario.slug || nfcCard?.scenarioSlug,
-        selectedEpisodeId: nfcCard ? null : selectedEpisodeId,
+        scenarioSlug: workplace ? WORKPLACE_SCENARIO_SLUG : (previewScenario.slug || nfcCard?.scenarioSlug),
+        selectedEpisodeId: workplace || nfcCard ? null : selectedEpisodeId,
         jobRole: nfcCard?.jobRole,
         nfcUid: nfcCard?.uid || "",
         consent: consented,

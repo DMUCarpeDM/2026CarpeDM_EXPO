@@ -8,6 +8,7 @@ import {
   resolveReportIdleTimeoutMs,
   retainedAudioReference,
   saveRetainedRecord,
+  shouldArmReportIdleReset,
 } from "./exhibitionSession.js";
 
 function memoryStorage() {
@@ -69,6 +70,14 @@ test("isReportFlowView limits kiosk idle reset to the report flow", () => {
   assert.equal(isReportFlowView("share"), true);
   assert.equal(isReportFlowView("practice"), false);
   assert.equal(isReportFlowView("home"), false);
+});
+
+test("shouldArmReportIdleReset skips analyzing result loading", () => {
+  assert.equal(shouldArmReportIdleReset("result", null), false);
+  assert.equal(shouldArmReportIdleReset("result", undefined), false);
+  assert.equal(shouldArmReportIdleReset("result", { total_score: 63 }), true);
+  assert.equal(shouldArmReportIdleReset("feedback", null), true);
+  assert.equal(shouldArmReportIdleReset("practice", null), false);
 });
 
 test("?idle= overrides the report-flow idle return (0이면 복귀 자체를 끈다)", () => {

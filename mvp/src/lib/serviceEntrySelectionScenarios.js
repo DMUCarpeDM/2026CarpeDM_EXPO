@@ -107,8 +107,9 @@ export async function runServiceCards(pageHarness, runDir) {
       await page.getByRole("button", { name: "연습하러 가기", exact: true }).click();
       await page.setViewportSize({ width: 1280, height: 900 });
       await page.locator(".hero-actions button").first().click();
-      await page.locator(".role-choice-section").waitFor();
-      await page.locator(".setup-back-button").click();
+      await page.locator(serviceModeId === "workplace" ? ".preview-page" : ".role-choice-section").waitFor();
+      if (serviceModeId === "workplace") await page.goBack();
+      else await page.locator(".setup-back-button").click();
       await page.locator(".home-page").waitFor();
       assert.deepEqual(pageErrors, []);
       return { serviceModeId, finalRoute: "home", trace: await routeTrace(page) };

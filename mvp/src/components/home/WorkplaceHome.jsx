@@ -10,15 +10,7 @@ import { Target } from "reicon-react/icons/Target";
 import { Badge, Button, Card, CardContent, Progress } from "../ui/shadcn";
 import workplaceConversationScene from "../../assets/home-scenes/workplace-conversation-scene.webp";
 import { fitMetrics, EvidenceStrip, ContextVisual, SectionIntro, ProcessCard, FitMetric, TrustLine, FooterCta, scrollToSection } from "./HomeSections";
-
-const workplaceScenarios = [
-  ["팀장에게 진행 상황 보고", "진척·이슈·다음 행동을 짧게 공유해요."],
-  ["동료에게 도움 요청", "상황과 필요한 지원을 분명하게 말해요."],
-  ["의견이 다를 때 조율", "공통 목표를 확인하고 대안을 제안해요."],
-  ["피드백 전달", "관찰한 사실과 기대 행동을 구분해 말해요."],
-  ["회의에서 의견 제안", "결론과 근거를 순서대로 전달해요."],
-  ["업무 일정 재협의", "제약을 설명하고 현실적인 일정을 맞춰요."],
-];
+import { workplaceCategories } from "../../data/workplaceStories";
 
 export function WorkplaceHome({ onNext }) {
   return (
@@ -29,7 +21,7 @@ export function WorkplaceHome({ onNext }) {
           <RisingHeadline lines={["어려운 직장 대화도", "먼저 연습해볼 수 있어요"]} />
           <p>보고, 요청, 조율, 피드백처럼 자주 하는 대화를 AI와 먼저 연습해보세요.</p>
           <div className="hero-actions mode-actions">
-            <Button size="lg" type="button" onClick={onNext}>연습할 직무 고르기 <ArrowRight size={18} /></Button>
+            <Button size="lg" type="button" onClick={onNext}>연습 시작하기 <ArrowRight size={18} /></Button>
             <Button size="lg" variant="outline" type="button" onClick={() => scrollToSection("workplace-scenarios")}>추천 상황 보기</Button>
           </div>
           <TrustLine />
@@ -38,15 +30,15 @@ export function WorkplaceHome({ onNext }) {
       </section>
 
       <section className="mode-section" id="workplace-scenarios">
-        <SectionIntro highlight eyebrow="상황별 연습" title="지금 필요한 대화를 골라보세요" text="보고, 요청, 조율, 피드백 중 하나를 고르면 바로 연습을 시작해요." />
+        <SectionIntro highlight eyebrow="상황별 연습" title="출근·업무·퇴근 대화를 이어서 연습해요" text="상황을 미리 고를 필요 없이, 각 단계의 안내를 보고 대화를 이어가요." />
         <div className="workplace-scenario-grid">
-          {workplaceScenarios.map(([title, text], index) => (
-            <Card className="workplace-scenario-card" key={title}>
+          {workplaceCategories.map((category, index) => (
+            <Card className="workplace-scenario-card" key={category.id}>
               <CardContent>
                 <span className="scenario-number">0{index + 1}</span>
-                <h3>{title}</h3>
-                <p>{text}</p>
-                <Button variant="ghost" size="sm" type="button" onClick={onNext}>직무 고르고 연습하기 <ArrowRight size={15} /></Button>
+                <h3>{category.label}</h3>
+                <p>{category.summary}</p>
+                <Button variant="ghost" size="sm" type="button" onClick={onNext}>이어서 연습하기 <ArrowRight size={15} /></Button>
               </CardContent>
             </Card>
           ))}
@@ -81,7 +73,7 @@ export function WorkplaceHome({ onNext }) {
             <Badge variant="outline">이번 코칭</Badge>
             <h3>의견이 다를 때는<br />공통 목표부터 확인해보세요</h3>
             <p>“일정을 지키면서 품질도 확보하려면 어떤 선택이 좋을까요?”처럼 함께 풀 문제로 바꾸면 대화가 부드러워져요.</p>
-            <Button variant="outline" type="button" onClick={onNext}>연습할 직무 고르기</Button>
+            <Button variant="outline" type="button" onClick={onNext}>연습 시작하기</Button>
           </CardContent>
         </Card>
       </section>
@@ -109,7 +101,7 @@ export function WorkplaceHome({ onNext }) {
         text="보고, 요청, 조율처럼 부담되는 대화를 미리 연습하면 실제 자리에서는 핵심과 근거에 더 집중할 수 있어요."
       />
 
-      <FooterCta title="어려운 대화 전에 먼저 연습해보세요" text="직무를 고르면 AI 동료와 대화를 시작할 수 있어요." button="연습할 직무 고르기" onNext={onNext} />
+      <FooterCta title="어려운 대화 전에 먼저 연습해보세요" text="출근·업무·퇴근의 세 단계를 따라 대화를 이어가요." button="연습 시작하기" onNext={onNext} />
     </>
   );
 }
@@ -117,13 +109,13 @@ export function WorkplaceHome({ onNext }) {
 function RecommendedConversation({ onStart }) {
   return (
     <Card className="recommended-conversation">
-      <div className="recommended-conversation__head"><Badge>오늘의 추천</Badge><span>약 7분</span></div>
+      <div className="recommended-conversation__head"><Badge>오늘의 추천</Badge><span>3단계 연속 대화</span></div>
       <CardContent>
         <span className="mode-icon"><CalendarCheck size={22} /></span>
-        <h2>팀장에게 진행 상황 보고하기</h2>
-        <p>진행된 일, 막힌 일, 다음 행동을 1분 안에 정리해 말해보세요.</p>
-        <div className="conversation-participants"><span>나</span><i /><span>AI 팀장</span></div>
-        <Button type="button" onClick={onStart}>직무 고르고 연습하기 <ArrowRight size={17} /></Button>
+        <h2>출근부터 퇴근까지 이어지는 대화</h2>
+        <p>출근·업무·퇴근 상황에서 상대의 말에 답하며 하루의 대화를 연습해 보세요.</p>
+        <div className="conversation-participants"><span>나</span><i /><span>AI 상대</span></div>
+        <Button type="button" onClick={onStart}>연습 시작하기 <ArrowRight size={17} /></Button>
       </CardContent>
     </Card>
   );

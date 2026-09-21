@@ -37,8 +37,8 @@ class Settings(BaseSettings):
         "어, 저는 음, 이번 일을 해 봤는데요. 어, 어, 잠시 생각해 볼게요."
     )
 
-    # 역할극 대사 생성은 서버 측 GPT-4o만 사용한다. 템플릿·Ollama 폴백은 사용하지 않는다.
-    dialogue_provider: Literal["openai"] = "openai"
+    # 기존 OpenAI 설정을 유지하며 Gemini는 명시적으로 선택한다.
+    dialogue_provider: Literal["gemini", "openai"] = "openai"
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "exaone3.5:2.4b"
     # 초과 시 템플릿 질문으로 즉시 폴백하므로 상한일 뿐 평균 지연이 아니다.
@@ -63,6 +63,11 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4o"
     openai_base_url: str = "https://api.openai.com/v1"
     openai_timeout_sec: float = 15.0
+    # Gemini — 키는 서버 .env만. base_url은 공식 엔드포인트 고정(임의 URL 주입 방지).
+    gemini_api_key: SecretStr = SecretStr("")
+    gemini_model: str = "gemini-3.6-flash"
+    gemini_base_url: str = "https://generativelanguage.googleapis.com"
+    gemini_timeout_sec: float = 20.0
     # AI 상대의 발화 음성은 ElevenLabs를 서버에서만 호출한다. 키는 어떤 API 응답에도
     # 포함하지 않고, 설정이 없으면 프론트가 브라우저 TTS로 폴백한다.
     elevenlabs_api_key: SecretStr = SecretStr("")

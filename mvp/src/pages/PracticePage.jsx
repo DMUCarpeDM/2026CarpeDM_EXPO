@@ -19,6 +19,8 @@ import { useLiveCoaching } from "../lib/useLiveCoaching";
 import { useFaceTracking } from "../lib/useFaceTracking";
 import { PersonaFace } from "../components/ui/PersonaFace";
 import { composeTurnSpeech } from "../lib/turnSpeech";
+import { isWorkplaceSession, workplaceBriefing } from "../lib/workplaceTrack";
+import { pickWorkplaceEmotion } from "../lib/workplaceEmotion";
 
 function formatClock(totalSeconds) {
   const m = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
@@ -58,16 +60,43 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   // 스테이지 기본은 내 모습(거울) 분석 — 전환 버튼으로 AI 상대 영상을 크게 본다.
   const [stageView, setStageView] = useState("mirror");
   const mirrorMain = !hasCounterpartVideo || stageView === "mirror";
-  useEffect(() => {
-    if (isCafeCounterpart) setStageView("counterpart");
-  }, [isCafeCounterpart]);
 
   // 종료 오클릭 보호 — 촬영·체험 중 실수로 눌러 세션이 끊기지 않게 한 번 확인한다
   const [confirmEnd, setConfirmEnd] = useState(false);
 
-  // 시작 시 입력·카메라 분석을 막는 브리핑 팝업은 사용하지 않는다.
-  // 시나리오 정보는 이전 확인 화면에서 전달하고, 연습 화면은 바로 조작 가능해야 한다.
-  const entryOverlayOpen = false;
+  const workplace = isWorkplaceSession(session);
+  const isWorkplaceCounterpart = workplace && hasCounterpartVideo;
+  const isChromaCounterpart = (isCafeCounterpart || isWorkplaceCounterpart) && !mirrorMain;
+  useEffect(() => {
+    // 카페·직장대화는 AI 상대 영상을 메인, 내 카메라는 우측 상단 PIP로 둔다.
+    if (isCafeCounterpart || isWorkplaceCounterpart) setStageView("counterpart");
+  }, [isCafeCounterpart, isWorkplaceCounterpart]);
+  const sceneBriefing = workplaceBriefing(session?.interaction);
+  const [sceneBriefingOpen, setSceneBriefingOpen] = useState(workplace);
+  const briefingButtonRef = useRef(null);
+  useEffect(() => {
+    if (workplace && turn?.episode_id) setSceneBriefingOpen(true);
+  }, [workplace, turn?.episode_id]);
+  // 직장대화만 카테고리 시작 때 상황 안내를 띄운다. 다른 모드는 바로 조작한다.
+  const entryOverlayOpen = workplace && sceneBriefingOpen && Boolean(sceneBriefing);
+  useEffect(() => {
+    if (!entryOverlayOpen) return undefined;
+    const previousFocus = document.activeElement;
+    briefingButtonRef.current?.focus();
+    const onKeyDown = (event) => {
+      if (event.key === "Tab") {
+        event.preventDefault();
+        briefingButtonRef.current?.focus();
+      } else if (event.key === "Escape") {
+        setSceneBriefingOpen(false);
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      if (previousFocus?.isConnected) previousFocus.focus?.();
+    };
+  }, [entryOverlayOpen]);
   const aiReady = Boolean(aiHealth?.dialogue_ready);
   // MediaPipe 실시간 얼굴·상체 트래킹 (영상 미전송 — 브라우저 안에서만 분석)
   const track = useFaceTracking(mediaStream, analysisVideoRef, overlayRef);
@@ -87,10 +116,19 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   const [showQuestionOverlay, setShowQuestionOverlay] = useState(true);
   const turnSpeech = composeTurnSpeech(turn);
   const [teamLeadReaction, setTeamLeadReaction] = useState("");
-  const teamLeadVideoState = aiSpeaking ? "speaking" : teamLeadReaction || "listening";
+  // 감정 클립이 있으면 말하기보다 우선 — 1회 재생 후 onReactionComplete로 기본말하기 복귀
+  const teamLeadVideoState = workplace
+    ? teamLeadReaction || (aiSpeaking ? "speaking" : "listening")
+    : aiSpeaking ? "speaking" : teamLeadReaction || "listening";
   useEffect(() => {
     setShowQuestionOverlay(Boolean(turn));
   }, [turn?.id]);
+  useEffect(() => {
+    if (!workplace || !turn?.id) return undefined;
+    // 새 대사: 문장 감정에 맞는 클립을 틀고, 없으면 기본말하기를 유지한다.
+    setTeamLeadReaction(pickWorkplaceEmotion({ text: turn.question_text || "" }));
+    return undefined;
+  }, [workplace, turn?.id, turn?.question_text]);
   useEffect(() => {
     if (!turnSignals?.case) return undefined;
     if (isCafeCounterpart) {
@@ -105,6 +143,8 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
       } else {
         setTeamLeadReaction("");
       }
+    } else if (workplace) {
+      setTeamLeadReaction(pickWorkplaceEmotion({ text: turn?.question_text || "", turnSignals }));
     } else if (isTeamLead && ["excellent", "covered"].includes(turnSignals.case)) {
       setTeamLeadReaction("positive");
     } else if (isTeamLead && turnSignals.case === "risky") {
@@ -112,7 +152,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
     } else {
       setTeamLeadReaction("");
     }
-  }, [isCafeCounterpart, isTeamLead, turnSignals]);
+  }, [isCafeCounterpart, isTeamLead, workplace, turn?.question_text, turnSignals]);
   // TTS 진단 메시지는 세션당 한 번만 분석 로그에 남긴다 (턴마다 반복하면 소음)
   const ttsNotesRef = useRef(new Set());
   const ttsNoteOnce = (msg) => {
@@ -408,7 +448,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
         <div className="practice-contextbar-left">
           <div className="topbar-item">
             <span className="topbar-item-label">시나리오</span>
-            <button type="button" className="topbar-scenario">{scenario?.title || "업무 보고 및 피드백 논의"} <ChevronDown size={15} /></button>
+            <button type="button" className="topbar-scenario">{sceneBriefing?.category_label || scenario?.title || "업무 보고 및 피드백 논의"} <ChevronDown size={15} /></button>
           </div>
           <div className="topbar-item counterpart">
             <span className="counterpart-avatar"><PersonaFace name={characterName} /></span>
@@ -428,7 +468,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
 
       <div className="practice-stage">
         <motion.section
-          className={`practice-camera ${isCafeCounterpart && !mirrorMain ? "is-cafe-counterpart" : ""}`}
+          className={`practice-camera ${isChromaCounterpart ? (isCafeCounterpart ? "is-cafe-counterpart" : "is-workplace-counterpart") : ""}`}
           style={isCafeCounterpart && !mirrorMain ? { "--counterpart-background": `url(${cafeCounterpartBackground})` } : undefined}
           aria-label={hasCounterpartVideo ? "AI 상대 반응 영상" : "연습 카메라"}
           ref={cameraRef}
@@ -510,6 +550,18 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
           </motion.section>
         </aside>
       </div>
+
+      {entryOverlayOpen && <div className="practice-briefing" role="dialog" aria-modal="true" aria-label="상황 안내">
+        <motion.div className="practice-briefing-card practice-briefing-card--scene" initial={{ opacity: 0, y: 14, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
+          <span className="briefing-kicker">{sceneBriefing.step} / {sceneBriefing.total} · {sceneBriefing.category_label}</span>
+          <h2>{sceneBriefing.title}</h2>
+          <p className="briefing-situation">{sceneBriefing.situation}</p>
+          {sceneBriefing.tip && <div className="briefing-tip" role="note"><strong>TIP</strong><span>{sceneBriefing.tip}</span></div>}
+          <div className="briefing-foot">
+            <button ref={briefingButtonRef} type="button" onClick={() => setSceneBriefingOpen(false)}>대화 시작</button>
+          </div>
+        </motion.div>
+      </div>}
 
       {confirmEnd && <div className="practice-briefing practice-confirm" role="dialog" aria-label="연습 종료 확인">
         <motion.div className="practice-briefing-card" initial={{ opacity: 0, y: 14, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
