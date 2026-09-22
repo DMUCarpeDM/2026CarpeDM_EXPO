@@ -233,3 +233,35 @@ def test_interview_unmeasured_on_http_error(monkeypatch):
     
     assert res["analysis_status"] == "unmeasured"
     assert res["error_code"] == "http_error"
+    
+def test_interview_examples_filtering_and_configuration_error(monkeypatch):
+    """승인된 예시만 필터링하고, 버전 불일치나 승인 예시 부재 시 설정 오류를 반환하는지 검증"""
+    from app.core.config import settings
+    from pydantic import SecretStr
+    
+    monkeypatch.setattr(settings, "openai_api_key", SecretStr("test-key"))
+    s = session()
+    flow = interaction.state(s)
+    
+    # 승인 예시가 아예 없는 경우 설정 오류(configuration_error) 반환 테스트
+    question_no_approved = {
+        "id": "intro",
+        "text": "자기소개를 해 주세요.",
+        "acceptance": "관심·강점·경험 중 하나로 자신을 설명.",
+        "max_followups": 2,
+        "followup": "추가 설명해주세요.",
+        "bonuses": [],
+        "items": [],
+        "examples": [
+            {"example_id": "ex-draft", "question_id": "intro", "rubric_version": flow["rubric_version"], "status": "draft", "answer": "초안 답변"}
+        ]
+    }
+    
+    flow["items"] = [question_no_approved]
+    flow["index"] = 0
+    
+    t = NS(id=2, order=2, response_text="저는 정리를 좋아합니다.")
+    res = interview.analyze(t, [t], flow)
+    
+    assert res["analysis_status"] == "configuration_error"
+    assert res["error_code"] == "missing_approved_examples"

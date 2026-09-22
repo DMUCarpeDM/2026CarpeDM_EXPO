@@ -58,22 +58,35 @@ bonuses에는 올바르게 구체적으로 설명한 concept_id와 실제 발언
 "items": [{"item_id": "항목ID", "status": "fulfilled", "quote": "인용", "reason": "이유"}]"""
 
 
-def examples_for(question, answer):
-    """E5는 순서만 정한다. 실패해도 같은 사전 예시를 제공하며 키워드 채점하지 않는다."""
-    # 현재는 사전 예시 전체를 가져옵니다. 승인 여부를 걸러 내는 기능은 아직 없습니다.
-    # E5는 뜻이 가까운 순서만 정합니다. 비슷하다는 이유만으로 정답이 되지는 않습니다.
-    examples = question["examples"]
+def examples_for(question, answer, rubric_version=None):
+    """현재 질문, 기준 버전, 그리고 승인된(approved) 예시만 필터링하여 E5 정렬에 사용합니다."""
+    raw_examples = question.get("examples", [])
+    
+    # [수정] 1. rubric_version, question_id, 그리고 status == "approved"인 예시만 엄격하게 필터링합니다.
+    approved_examples = [
+        e for e in raw_examples 
+        if e.get("status") == "approved" 
+        and (rubric_version is None or e.get("rubric_version") == rubric_version)
+        and (e.get("question_id") is None or e.get("question_id") == question.get("id"))
+    ]
+    
+    # [수정] 2. 승인된 예시가 하나도 없다면 설정 오류(configuration_error) 처리를 위해 빈 리스트와 상태를 반환합니다.
+    if not approved_examples:
+        return [], "configuration_error"
+
     if not settings.semantic_match_enabled:
-        return examples, "prepared_only"
+        return approved_examples, "prepared_only"
+        
     try:
-        texts = [answer] + [e["answer"] for e in examples]
+        texts = [answer] + [e["answer"] for e in approved_examples]
         vectors = e5_embedder.embed_many(texts)
         if not vectors or any(t not in vectors for t in texts):
-            return examples, "prepared_only"
-        ranked = sorted(examples, key=lambda e: sum(a*b for a, b in zip(vectors[answer], vectors[e["answer"]])), reverse=True)
+            return approved_examples, "prepared_only"
+        ranked = sorted(approved_examples, key=lambda e: sum(a*b for a, b in zip(vectors[answer], vectors[e["answer"]])), reverse=True)
         return ranked, "e5"
     except (ImportError, OSError, RuntimeError, ValueError):
-        return examples, "prepared_only"
+        # [수정] E5 호출 실패 시에도 초안을 섞지 않고 필터링된 승인 예시만 그대로 반환합니다.
+        return approved_examples, "prepared_only"
 
 
 def validate(data, question, answers):
@@ -135,7 +148,22 @@ def analyze(turn, history, flow):
     if not key:
         # 현재는 호출 불가도 uncertain입니다. 예정 작업에서는 미측정으로 구분합니다.
         return {"status": "uncertain", "bonus_ids": [], "missing": [], "explanation": "내용 분석을 사용할 수 없습니다."}
-    examples, retrieval = examples_for(question, " ".join(a["answer"] for a in answers))
+    # 수정 전: examples, retrieval = examples_for(question, " ".join(a["answer"] for a in answers))
+    # 수정 후:
+    rubric_ver = flow.get("rubric_version")
+    examples, retrieval = examples_for(question, " ".join(a["answer"] for a in answers), rubric_version=rubric_ver)
+    
+    # 만약 승인 예시가 없어 configuration_error가 반환되었다면 평가를 중지하고 설정 오류를 반환합니다.
+    if retrieval == "configuration_error":
+        return {
+            "analysis_status": "configuration_error",
+            "error_code": "missing_approved_examples",
+            "status": "uncertain",
+            "bonus_ids": [],
+            "missing": [],
+            "explanation": "승인된 예시가 없어 평가를 중지합니다.",
+            "items": []
+        }
     payload = {"rubric_version": flow["rubric_version"], "brief": flow["brief"],
                "question": {k: v for k, v in question.items() if k not in {"examples", "episode_id"}},
                "examples": examples, "answers": answers}

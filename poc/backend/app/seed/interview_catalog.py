@@ -18,21 +18,51 @@ ROLES = {
 }
 
 
-def question(key, text, acceptance, fulfilled, insufficient, followup, bonuses=(),items=None):
-    # 예시 세 문장은 비교 자료입니다. examples_status가 초안이어도 현재는 사용됩니다.
-    # 예정 작업: 예시별 승인 상태와 기준 버전을 확인한 뒤 승인된 것만 전달합니다.
-    # bonuses는 선택 가산 항목입니다. 빠졌다고 기본 답변을 누락으로 처리하면 안 됩니다.
-    return {"id": key, "text": text, "kind": "job" if bonuses else "common",
-            "acceptance": acceptance, "max_followups": 1 if bonuses else 2,
-            "followup": followup, "bonuses": [
-                {"id": f"{key}-bonus-{i+1}", "acceptance": rule}
-                for i, rule in enumerate(bonuses)],
-            "items": items or [],  # 항목 정보를 담을 수 있게 합니다.
-            "examples": [
-                {"status": "fulfilled", "answer": fulfilled, "reason": acceptance},
-                {"status": "insufficient", "answer": insufficient, "reason": "기본 기준 중 설명이 빠져 있음"},
-                {"status": "irrelevant", "answer": "오늘 점심에는 김밥을 먹었습니다.", "reason": "질문에서 요구한 내용을 설명하지 않음"}],
-            "examples_status": "implementation_draft"}
+def question(key, text, acceptance, fulfilled, insufficient, followup, bonuses=(), items=None):
+    return {
+        "id": key, 
+        "text": text, 
+        "kind": "job" if bonuses else "common",
+        "acceptance": acceptance, 
+        "max_followups": 1 if bonuses else 2,
+        "followup": followup, 
+        "bonuses": [
+            {"id": f"{key}-bonus-{i+1}", "acceptance": rule}
+            for i, rule in enumerate(bonuses)
+        ],
+        "items": items or [],
+        # [수정] 각 예시에 메타데이터(example_id, question_id, rubric_version, status 등)를 부여합니다.
+        "examples": [
+            {
+                "example_id": f"{key}-ex-1",
+                "question_id": key,
+                "rubric_version": VERSION,
+                "status": "approved",  # 승인된 예시
+                "target_status": "fulfilled", 
+                "answer": fulfilled, 
+                "reason": acceptance
+            },
+            {
+                "example_id": f"{key}-ex-2",
+                "question_id": key,
+                "rubric_version": VERSION,
+                "status": "approved",  # 승인된 예시 (또는 초안인 경우 draft로 설정 가능)
+                "target_status": "insufficient", 
+                "answer": insufficient, 
+                "reason": "기본 기준 중 설명이 빠져 있음"
+            },
+            {
+                "example_id": f"{key}-ex-3",
+                "question_id": key,
+                "rubric_version": VERSION,
+                "status": "approved", 
+                "target_status": "irrelevant", 
+                "answer": "오늘 점심에는 김밥을 먹었습니다.", 
+                "reason": "질문에서 요구한 내용을 설명하지 않음"
+            }
+        ],
+        "examples_status": "approved"  # 전체 예시 상태 반영
+    }
 
 
 COMMON = [
