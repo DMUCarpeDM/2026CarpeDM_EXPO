@@ -82,7 +82,7 @@ def validate(data, question, answers):
     result = Assessment.model_validate(data)
 
     originals = {a["turn_id"]: a["answer"] for a in answers}
-    
+
     # 질문에 정의된 items와 LLM이 반환한 items를 검증하는 로직
     required_items = question.get("items", [])
     if required_items:
@@ -149,10 +149,12 @@ def analyze(turn, history, flow):
             timeout=min(settings.openai_timeout_sec, 12))
         response.raise_for_status()
         return {**validate(json.loads(response.json()["choices"][0]["message"]["content"]), question, answers), "retrieval": retrieval}
-    except (httpx.HTTPError, ValueError, TypeError, KeyError, IndexError):
-        # 통신 실패와 형식 오류를 '답변이 애매함'과 섞지 않는 것이 두 번째 우선 작업입니다.
-        return {"status": "uncertain", "bonus_ids": [], "missing": [], "explanation": "판단 근거를 확인하지 못했습니다."}
-
+    except httpx.HTTPError:
+        # [수정] 통신 실패는 미측정(unmeasured)으로 구분합니다.
+        return {"analysis_status": "unmeasured", "error_code": "http_error", "status": "uncertain", "bonus_ids": [], "missing": [], "explanation": "서버 통신에 실패했습니다.", "items": []}
+    except (ValueError, TypeError, KeyError, IndexError):
+        # [수정] 형식 검증이나 파싱 오류 등도 미측정(unmeasured)으로 구분합니다.
+        return {"analysis_status": "unmeasured", "error_code": "parse_or_validation_error", "status": "uncertain", "bonus_ids": [], "missing": [], "explanation": "판단 근거를 확인하지 못했습니다.", "items": []}
 
 def advance(flow, turn, assessment):
     # 여기부터는 다음 질문으로 넘어갈지 정하는 연결 부분입니다.

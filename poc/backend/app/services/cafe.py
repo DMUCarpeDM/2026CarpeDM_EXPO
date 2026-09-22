@@ -49,11 +49,11 @@ def initialize(flow, difficulty):
 
 
 def analyze(turn, history, flow):
-    # 예정 작업: 관찰 목록은 유지하고 처리 성공/미측정/설정 오류를 공통 형식에 담습니다.
-    # 음료 수량이나 온도는 expected와 비교합니다. E5 검색을 억지로 추가할 필요는 없습니다.
-    key = settings.openai_api_key.get_secret_value()
+    # [수정] API 키 설정이 비어 있는 경우 설정 오류(configuration_error) 처리
+    key = settings.openai_api_key.get_secret_value() if settings.openai_api_key else None
     if not key:
-        return None
+        return {"analysis_status": "configuration_error", "error_code": "missing_api_key", "observations": [], "requested": [], "final_readback": False}
+    
     state = flow["cafe"]
     payload = {"expected": state["expected"], "answer": turn.response_text,
                "history": [{"question": t.question_text, "answer": t.response_text} for t in history[-4:] if t.id != turn.id]}
@@ -67,10 +67,18 @@ def analyze(turn, history, flow):
         for hit in [*parsed.observations, *parsed.requested]:
             if hit.field not in state["expected"] or hit.quote not in turn.response_text:
                 raise ValueError("주문 항목 또는 인용 오류")
-        return parsed.model_dump()
-    except (httpx.HTTPError, ValueError, TypeError, KeyError, IndexError):
-        # 현재 실패는 None으로 반환됩니다. 실패 이유를 구분하는 형식은 앞으로 추가합니다.
-        return None
+        
+        # [수정] 정상 완료된 경우 analysis_status를 "completed"로 담아 반환
+        result = parsed.model_dump()
+        result["analysis_status"] = "completed"
+        return result
+        
+    except httpx.HTTPError:
+        # [수정] API 통신 실패 등은 미측정(unmeasured)으로 기록
+        return {"analysis_status": "unmeasured", "error_code": "http_error", "observations": [], "requested": [], "final_readback": False}
+    except (ValueError, TypeError, KeyError, IndexError):
+        # [수정] 형식 검증이나 파싱 실패 등도 미측정(unmeasured) 또는 상황에 맞게 처리
+        return {"analysis_status": "unmeasured", "error_code": "parse_or_validation_error", "observations": [], "requested": [], "final_readback": False}
 
 
 def advance(flow, turn, evidence):

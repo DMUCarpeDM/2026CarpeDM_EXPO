@@ -488,14 +488,22 @@ def submit_response(
         judgment["measured"] = [a for a in judgment["measured"] if a != "response"]
         judgment["met_goals"] = []
         judgment["interview_assessment"] = assessment
-        if assessment["status"] == "insufficient" and assessment.get("missing"):
-            current_question = flow_before["items"][flow_before["index"]]
-            tip = judgments.event(turn.id, "response", "missing_goal", "negative",
-                {"goal_id": current_question["id"]}, current_question["followup"], key=current_question["id"])
-            tip["scorable"] = False  # 기본 점수는 질문의 마지막 상태에서만 계산
-            judgment["events"].append(tip)
-        if assessment["status"] not in {"uncertain", "no_experience"}:
-            judgment["measured"].append("response")
+        
+        # [추가] 분석 상태가 정상 완료(completed)일 때만 기존 판정 로직을 수행합니다.
+        analysis_status = assessment.get("analysis_status", "completed")
+        if analysis_status == "completed":
+            if assessment.get("status") == "insufficient" and assessment.get("missing"):
+                current_question = flow_before["items"][flow_before["index"]]
+                tip = judgments.event(turn.id, "response", "missing_goal", "negative",
+                    {"goal_id": current_question["id"]}, current_question["followup"], key=current_question["id"])
+                tip["scorable"] = False  # 기본 점수는 질문의 마지막 상태에서만 계산
+                judgment["events"].append(tip)
+            if assessment.get("status") not in {"uncertain", "no_experience"}:
+                judgment["measured"].append("response")
+        else:
+            # [추가] 미측정(unmeasured) 등 실패 시 에러 상태를 판정에 기록합니다.
+            judgment["analysis_status"] = analysis_status
+            
     elif flow_before.get("cafe"):
         judgment["events"] = [e for e in judgment["events"] if e["area"] != "response"]
         judgment["measured"] = [a for a in judgment["measured"] if a != "response"]

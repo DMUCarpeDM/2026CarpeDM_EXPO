@@ -213,3 +213,23 @@ def test_job_bonus_is_final_only_and_cap_two():
     score = interaction_scoring.calculate([pending, final])
     assert score["scores"]["response"] == 80
     assert [e["points"] for e in score["changes"]["response"]] == [3, 1, 1]
+
+def test_interview_unmeasured_on_http_error(monkeypatch):
+    """API 통신 실패 시 unmeasured 상태와 http_error 코드가 반환되는지 검증"""
+    from app.core.config import settings
+    from pydantic import SecretStr
+    import httpx
+    
+    monkeypatch.setattr(settings, "openai_api_key", SecretStr("test-key"))
+    s = session()
+    flow = interaction.state(s)
+    
+    def post_error(url, **kwargs):
+        raise httpx.HTTPError("Connection failed")
+        
+    monkeypatch.setattr(interview.httpx, "post", post_error)
+    t = NS(id=2, order=2, response_text="테스트 답변입니다.")
+    res = interview.analyze(t, [t], flow)
+    
+    assert res["analysis_status"] == "unmeasured"
+    assert res["error_code"] == "http_error"
