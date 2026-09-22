@@ -217,6 +217,8 @@ def health():
     from app.services.dialogue.availability import dialogue_ready
     from app.services.tts import elevenlabs_ready
 
+    from app.services.dialogue import stats as dialogue_stats
+
     provider = get_stt_provider()
     ollama = _ollama_status()
     dialogue = dialogue_ready()
@@ -231,18 +233,26 @@ def health():
     except Exception:
         db_ok = False
 
+    dialogue_fallback = dialogue_stats.snapshot()
+
     # 조용한 폴백 강등의 종합 — 당일 아침 점검에서 이 목록이 비어 있어야 완전체다
     degraded_reasons = []
     if provider is None:
         degraded_reasons.append("서버 STT 없음 — 오프라인 음성 인식 폴백 불가")
     if not dialogue:
-        degraded_reasons.append("대화 AI 미가동 — 시뮬레이션을 시작할 수 없음")
+        degraded_reasons.append("대화 AI 미가동 — 준비된 대사로 진행하며 생성 대화는 사용할 수 없음")
+    if not settings.openai_api_key.get_secret_value():
+        degraded_reasons.append("답변 근거 분석 미가동 — OpenAI 키가 없어 응답 분석은 미측정")
     if settings.semantic_match_enabled and not semantic:
         degraded_reasons.append("의미 매칭 미가동 — 키워드 판정만 사용 (패러프레이즈 누락 오판 주의)")
     if not kiwi:
         degraded_reasons.append("kiwipiepy 미가동 — 격식 판정이 문자열 근사로 강등")
     if not db_ok:
         degraded_reasons.append("DB 접근 불가 — 체험 진행 불가")
+    if dialogue_fallback["total"] >= 5 and dialogue_fallback["fallback_rate"] >= 0.3:
+        degraded_reasons.append(
+            f"대화 폴백 비율 높음 ({dialogue_fallback['fallback_rate']:.0%}) — 대화 제공자/키/쿼터 점검"
+        )
 
     return {
         "ok": db_ok,  # DB가 죽으면 체험 자체가 불가. 그 외 강등은 degraded로 표시
@@ -250,6 +260,7 @@ def health():
         "server_stt": provider.name if provider else None,
         "dialogue_provider": settings.dialogue_provider,
         "dialogue_ready": dialogue,
+        "dialogue_fallback": dialogue_fallback,
         "tts_provider": "elevenlabs" if elevenlabs_ready() else "browser",
         "tts_ready": elevenlabs_ready(),
         # 관측성: 지금 이 부스가 폴백으로 강등된 상태인지 즉시 확인 (60초 캐시)

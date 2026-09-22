@@ -10,7 +10,7 @@ from app.seed.run import seed
 def test_pack_files_load_and_validate():
     packs = load_pack_files()
     slugs = {p["slug"] for p in packs}
-    assert {"ondo-cafe-crew", "ondo-cs-agent"} <= slugs
+    assert {"ondo-cafe-crew", "ondo-cs-agent", "workplace-conversation"} <= slugs
     for pack in packs:
         # 직무·도메인 태그 (C-10/C-11)
         assert pack["domain"] in ("office", "service", "interview")
@@ -141,5 +141,5 @@ def test_pack_scenarios_visible_in_listing():
     from app.main import app
 
     slugs = {s["slug"] for s in TestClient(app).get("/api/scenarios").json()}
-    assert {"cafe-order-taking", "interview-fullstack", "interview-marketing", "interview-sales", "release-schedule-alignment"} <= slugs
+    assert {"cafe-order-taking", "interview-fullstack", "interview-marketing", "interview-sales", "release-schedule-alignment", "workplace-conversation"} <= slugs
     assert not {"ondo-cafe-crew", "ondo-cs-agent"}.intersection(slugs)

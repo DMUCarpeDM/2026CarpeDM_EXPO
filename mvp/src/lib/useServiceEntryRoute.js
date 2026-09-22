@@ -7,7 +7,7 @@ import {
   DEMO_TURN_HISTORY,
   DEMO_TURN_SIGNALS,
 } from "../data/serviceEntryDemo";
-import { clearActiveSession, isReportFlowView, resolveReportIdleTimeoutMs } from "./exhibitionSession";
+import { clearActiveSession, resolveReportIdleTimeoutMs, shouldArmReportIdleReset } from "./exhibitionSession";
 import { currentDeploymentServiceMode } from "./deploymentServiceMode";
 import { getSession, loadActiveSession, resolveNfcCard } from "./pocApi";
 import {
@@ -19,6 +19,7 @@ import {
   savedSessionDestination,
 } from "./serviceEntryRoute";
 import { useNfcTap } from "./useNfcTap";
+import { WORKPLACE_SCENARIO_SLUG } from "./workplaceTrack";
 
 export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
   const deploymentServiceModeId = currentDeploymentServiceMode();
@@ -144,7 +145,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
   }, []);
 
   useEffect(() => {
-    if (!isReportFlowView(active)) return undefined;
+    if (!shouldArmReportIdleReset(active, report)) return undefined;
     const idleMs = resolveReportIdleTimeoutMs(window.location.search);
     if (idleMs === null) return undefined;
     let timer = 0;
@@ -159,7 +160,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
       window.clearTimeout(timer);
       events.forEach((eventName) => window.removeEventListener(eventName, resetTimer));
     };
-  }, [active]);
+  }, [active, report]);
 
   const handleMirrorTap = async (tap) => {
     if (nfcResolvingRef.current) return;
@@ -199,7 +200,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
     setCounterpartProfile(null);
     setDifficulty(null);
     setSelectedEpisodeId(null);
-    setPocScenarioSlug("");
+    setPocScenarioSlug(nextServiceModeId === "workplace" ? WORKPLACE_SCENARIO_SLUG : "");
     navigate("home", nextServiceModeId);
   };
   const chooseCounterpartProfile = (profileId) => {

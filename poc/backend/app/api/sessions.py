@@ -44,6 +44,8 @@ from app.ai.live_coaching import analyze_live_coaching
 from app.services.dialogue import DialogueGenerationError, QuestionSpec, get_dialogue_provider
 from app.services.dialogue import emotion, reactions
 from app.services.session_fsm import InvalidTransition, transition
+from app.services.workplace import WORKPLACE_SLUG, CONTINUOUS_MODE, act_bridge_line, continuous_fallback_line
+from app.services.dialogue import stats as dialogue_stats
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -68,6 +70,12 @@ def _episode_title(db: Session, episode_id: int) -> str:
 
 def _selected_episodes(session: RoleplaySession, scenario: Scenario) -> list[Episode]:
     """선택 장면이 있으면 그 장면만, 없으면 기존 전체 시나리오를 사용한다."""
+    flow = interaction.state(session)
+    if flow.get("mode") in {"workplace", "workplace_continuous"}:
+        wanted = [item["episode_id"] for item in flow.get("items") or []]
+        lookup = {episode.id: episode for episode in scenario.episodes}
+        # 연속 모드는 같은 episode_id가 반복될 수 있어 순서·중복을 보존한다.
+        return [lookup[episode_id] for episode_id in wanted if episode_id in lookup]
     if not session.selected_episode_id:
         return list(scenario.episodes)
     return [episode for episode in scenario.episodes if episode.id == session.selected_episode_id]
@@ -153,6 +161,10 @@ def create_session(
         if job_role not in JOB_ROLES:
             raise HTTPException(status_code=422, detail="알 수 없는 직무입니다")
 
+    if body.service_mode != "workplace" and scenario_slug == WORKPLACE_SLUG:
+        scenario_slug = None
+    if body.service_mode == "workplace" and not body.nfc_uid and not scenario_slug:
+        scenario_slug = WORKPLACE_SLUG
     query = db.query(Scenario).filter_by(is_active=True)
     if not scenario_slug and body.service_mode in {"interview", "training"}:
         scenario_slug = (f"interview-{job_role if job_role in {'fullstack', 'marketing', 'sales'} else 'fullstack'}"
@@ -448,7 +460,7 @@ def submit_response(
     turns = list(session.turns)
     judgment = judgments.evaluate(
         turn.id, text=turn.response_text,
-        goals=[item for item in interaction.state(session).get("items", []) if "keywords" in item],
+        goals=interaction.assessment_goals(interaction.state(session)),
         nonverbal=turn.nonverbal_metrics, duration_ms=turn.response_duration_ms,
         voice_text=turn.stt_source == "webspeech",
     )
@@ -478,8 +490,10 @@ def submit_response(
     elif flow_before:
         # 주의: 현재는 keywords가 있는 항목만 목표 분석에 보냅니다.
         # 면접 질문에도 항목별 기준을 붙이려면 이 조건과 interaction.py의 질문 형식을 함께 수정하세요.
-        goals = [item for item in flow_before["items"] if "keywords" in item]
-        requested = [flow_before["items"][flow_before["index"]]["id"]] if goals and not flow_before.get("finished") and turn.question_type != "confirmation" else []
+        goals = interaction.assessment_goals(flow_before)
+        current_item = flow_before["items"][flow_before["index"]] if not flow_before.get("finished") else {}
+        current_goal_id = goals[0]["id"] if goals and flow_before.get("mode") == CONTINUOUS_MODE else current_item.get("id")
+        requested = [current_goal_id] if goals and current_goal_id and turn.question_type != "confirmation" else []
         semantic, met, status = response_judgment.analyze(turn, turns, goals, requested)
         # 키워드 일치만으로 목표를 달성했다고 확정하지 않는다.
         judgment["events"] = [e for e in judgment["events"] if e["area"] != "response"] + semantic
@@ -495,8 +509,13 @@ def submit_response(
     flow = interaction.advance(session, turn, turns, judgment)
     if flow.get("rubric_version"):
         judgments.persist(session, judgment)
+    if flow and flow.get("mode") == CONTINUOUS_MODE:
+        flow["last_case"] = signals["case"]
+        interaction.save(session, flow)
+    next_item = flow["items"][flow["index"]] if flow and not flow.get("finished") else {}
+    next_goal_id = next_item.get("assessment_id", next_item.get("id"))
     if (selected_feedback and selected_feedback["rule"] == "missing_goal" and not flow.get("finished")
-            and selected_feedback["evidence"].get("goal_id") != flow["items"][flow["index"]]["id"]):
+            and selected_feedback["evidence"].get("goal_id") != next_goal_id):
         judgment["feedback"] = None
         judgments.persist(session, judgment)
     signals_out = TurnSignalsOut(
@@ -527,8 +546,28 @@ def submit_response(
             raise HTTPException(status_code=503, detail=str(error)) from error
         target = flow["items"][flow["index"]]
         target_episode = db.get(Episode, target["episode_id"])
-        spec = QuestionSpec(episode_id=target_episode.id, character_id=target_episode.character_id,
-            question_type="main" if flow["mode"] == "interview" else "ai_roleplay", question_text=target["text"])
+        character_id = target.get("character_id") or (target_episode.character_id if target_episode else "")
+        if flow.get("mode") == CONTINUOUS_MODE:
+            character = next(
+                (row for row in (session.scenario.characters or []) if row.get("id") == character_id),
+                {},
+            )
+            carry = flow.get("carry") or flow.get("plan", {}).get("carry_seed") or ""
+            dialogue_stats.note_fallback()
+            if target.get("act_open") and carry:
+                question_text = act_bridge_line(character, carry, target)
+            else:
+                question_text = continuous_fallback_line(
+                    character, turns, target, case=flow.get("last_case"),
+                )
+        else:
+            question_text = target["text"]
+        spec = QuestionSpec(
+            episode_id=target_episode.id,
+            character_id=character_id,
+            question_type="main" if flow["mode"] in {"interview", "workplace", CONTINUOUS_MODE} else "ai_roleplay",
+            question_text=question_text,
+        )
         judgment["dialogue_status"] = "fallback"
         judgments.persist(session, judgment)
     signals_out.judgment = judgment

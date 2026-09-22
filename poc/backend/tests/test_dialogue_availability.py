@@ -3,32 +3,37 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.seed.run import seed
+from app.services.dialogue.gemini_provider import GeminiDialogueProvider
 from app.services.dialogue.openai_provider import DialogueGenerationError, OpenAIDialogueProvider
 
 CONSENT = {"consent": {"agreed": True, "storage_policy": "none"}}
 
 
 def _create(client: TestClient) -> dict:
-    result = client.post("/api/sessions", json={"mode": 5, "difficulty": "basic", **CONSENT})
+    # 기존 직장 시나리오로 대화 생성 장애 시 준비된 목표 대사 폴백을 검증한다.
+    result = client.post("/api/sessions", json={
+        "mode": 5, "difficulty": "basic", "service_mode": "workplace",
+        "scenario_slug": "release-schedule-alignment", **CONSENT,
+    })
     assert result.status_code == 200, result.text
     return result.json()
 
 
 def test_create_session_starts_with_existing_episode_line():
-    """첫 대사는 GPT-4o 상태와 무관하게 기존 에피소드 대사로 시작한다."""
+    """첫 대사는 외부 API 상태와 무관하게 기존 에피소드 대사로 시작한다."""
     seed()
     data = _create(TestClient(app))
     assert data["current_turn"]["question_type"] == "initial"
     assert data["current_turn"]["question_text"]
 
 
-def test_session_reports_gpt4o_outage_after_the_first_answer(monkeypatch):
+def test_session_reports_dialogue_outage_after_the_first_answer(monkeypatch):
     """답변을 보존하고 폴백 상태와 준비된 목표 질문을 내려준다."""
-    monkeypatch.setattr(
-        OpenAIDialogueProvider,
-        "next_question",
-        lambda *_args: (_ for _ in ()).throw(DialogueGenerationError("GPT-4o 연결을 확인해 주세요")),
-    )
+    def boom(*_args, **_kwargs):
+        raise DialogueGenerationError("대화 모델 연결을 확인해 주세요")
+
+    monkeypatch.setattr(OpenAIDialogueProvider, "next_question", boom)
+    monkeypatch.setattr(GeminiDialogueProvider, "next_question", boom)
     seed()
     client = TestClient(app)
     data = _create(client)

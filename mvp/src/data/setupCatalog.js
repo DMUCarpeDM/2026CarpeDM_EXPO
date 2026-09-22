@@ -140,6 +140,8 @@ export function getScenarioDescription(situation = "") {
 
 export function getRoleScenarioOptions(scenarios, jobRole, mode = 5) {
   return scenarios.flatMap((scenario) => {
+    // 직장대화 전용 팩은 면접·직업훈련 선택 목록에 섞지 않는다.
+    if (scenario.slug === "workplace-conversation") return [];
     if (scenario.job_role !== jobRole) return [];
     const characterById = new Map(
       (scenario.characters || []).map((character) => [character.id, character]),

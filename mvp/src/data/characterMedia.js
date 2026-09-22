@@ -7,6 +7,32 @@ import cafeComplaintListening from "../assets/team-lead-videos/team-lead-complai
 import cafeComplaintReaction from "../assets/team-lead-videos/team-lead-complaint-reaction.mp4";
 import cafeListening from "../assets/team-lead-videos/team-lead-listening-smile.mp4";
 import cafeSpeaking from "../assets/team-lead-videos/team-lead-speaking-smile.mp4";
+import workplaceSpeakingBase from "../assets/workplace-videos/speaking-base.mp4";
+import workplaceJoy from "../assets/workplace-videos/joy.mp4";
+import workplaceDisappointment from "../assets/workplace-videos/disappointment.mp4";
+import workplaceIrritation from "../assets/workplace-videos/irritation.mp4";
+import workplaceAnger from "../assets/workplace-videos/anger.mp4";
+
+/** 직장대화 공용 클립 — 기본말하기 + 감정 4종. 인물별 촬영분이 오기 전까지 네 캐릭터가 공유한다. */
+const WORKPLACE_VIDEOS = Object.freeze({
+  speaking: workplaceSpeakingBase,
+  listening: workplaceSpeakingBase,
+  joy: workplaceJoy,
+  disappointment: workplaceDisappointment,
+  irritation: workplaceIrritation,
+  anger: workplaceAnger,
+});
+
+const WORKPLACE_REACTION_STATES = Object.freeze(["joy", "disappointment", "irritation", "anger"]);
+
+function workplaceMedia(name) {
+  return {
+    name,
+    chromaKey: true,
+    reactionStates: WORKPLACE_REACTION_STATES,
+    videos: WORKPLACE_VIDEOS,
+  };
+}
 
 /** 캐릭터별 실사 자산 등록부 — 촬영분이 준비되면 **이 파일 한 곳만** 고치면
  *  연습 화면 영상(CounterpartVideo)과 전 화면 초상(PersonaFace)에 동시에 반영된다.
@@ -47,6 +73,11 @@ export const CHARACTER_MEDIA = {
       negative: cafeComplaintListening,
     },
   },
+  // 직장대화 팩(workplace-conversation) — 기본말하기를 루프하고 감정 클립은 1회 재생 후 복귀
+  park_senior: workplaceMedia("박선임"),
+  lee_teamlead: workplaceMedia("이팀장"),
+  choi_coworker: workplaceMedia("최동료"),
+  yoon_partner: workplaceMedia("윤 담당"),
 };
 
 /** 이름·id가 모두 없는 자리(리포트 '하루의 결말' 카드)에 쓰는 기본 초상.

@@ -11,7 +11,7 @@ const EXPECTED_VALUES = {
 const EXPECTED_CTAS = {
   interview: "면접 상황 고르기",
   training: "훈련 상황 고르기",
-  workplace: "대화 상황 고르기",
+  workplace: "연습 시작하기",
 };
 
 const EXISTING_HOME_BENEFIT_TITLES = [

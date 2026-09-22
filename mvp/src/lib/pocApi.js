@@ -83,11 +83,13 @@ export async function synthesizeSpeech(text) {
   return response.blob();
 }
 
+const SESSION_DIFFICULTIES = new Set(["basic", "pressure", "ultra_pressure"]);
+
 export function createSession({ serviceMode = "workplace", difficulty, mode, scenarioSlug, selectedEpisodeId, consent, jobRole, nfcUid }) {
   return request("/sessions", {
     method: "POST",
     body: JSON.stringify({
-      difficulty,
+      difficulty: SESSION_DIFFICULTIES.has(difficulty) ? difficulty : "basic",
       mode,
       scenario_slug: scenarioSlug,
       service_mode: serviceMode,

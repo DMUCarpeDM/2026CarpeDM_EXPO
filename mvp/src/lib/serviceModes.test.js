@@ -37,6 +37,12 @@ test("getRoleScenarioOptions keeps role and mode filtering behavior", () => {
       title: "카페 응대",
       episodes: [{ id: 3, character_id: "guest", title: "다른 직무", situation: "수요일 11:00. 제외해요", modes: [5] }],
     },
+    {
+      job_role: "office_admin",
+      slug: "workplace-conversation",
+      title: "직장 대화 이어하기",
+      episodes: [{ id: 4, character_id: "team-lead", title: "출근", situation: "목요일 09:20. 섞이면 안 돼요", modes: [5] }],
+    },
   ];
 
   // When: options are requested for the office role in the default mode.

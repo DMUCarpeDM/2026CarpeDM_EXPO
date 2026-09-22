@@ -102,7 +102,7 @@ export function HomeFooter({ mode, onNext, onModeSelect }) {
           <p>중요한 대화 전에 먼저 연습해요.<br />AI와 말해보고, 다음에 바꿀 점을 찾아보세요.</p>
         </div>
         <nav className="home-site-footer__links" aria-label="하단 메뉴">
-          <div><h2>연습하기</h2><button onClick={onNext}>연습할 직무 고르기</button><button onClick={onModeSelect}>다른 모드 둘러보기</button></div>
+          <div><h2>연습하기</h2><button onClick={onNext}>{mode === "workplace" ? "연습 시작하기" : "연습할 직무 고르기"}</button><button onClick={onModeSelect}>다른 모드 둘러보기</button></div>
           <div><h2>서비스 살펴보기</h2><button onClick={() => jump(overview)}>연습 과정 살펴보기</button><button onClick={() => jump(preview)}>코칭 화면 미리보기</button></div>
           <div><h2>이용 안내</h2><button onClick={() => jump(coaching)}>{mode === "training" ? "자주 묻는 질문" : "피드백 알아보기"}</button><button onClick={() => jump("home-top")}>처음으로 돌아가기</button></div>
         </nav>

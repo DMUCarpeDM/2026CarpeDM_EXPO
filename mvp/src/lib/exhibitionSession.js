@@ -11,6 +11,17 @@ export function isReportFlowView(view) {
   return REPORT_FLOW_VIEWS.has(view);
 }
 
+/** 리포트 방치 복귀 타이머를 걸지 여부.
+ *
+ *  result 로딩(분석 중, report 없음)에는 걸지 않는다 — Whisper Voice-Fit이
+ *  90초를 넘기기 쉽고, 진행률 화면에선 조작할 UI가 없어 타이머만 소진된다.
+ */
+export function shouldArmReportIdleReset(view, report) {
+  if (!isReportFlowView(view)) return false;
+  if (view === "result" && !report) return false;
+  return true;
+}
+
 /** 리포트 흐름 방치 복귀 대기 시간 — `?idle=<초>`로 조정한다 (AttractLoop의 `?attract=`와 같은 방침).
  *
  *  `?idle=0`(또는 off/none)이면 **복귀 자체를 끈다.** 시연 영상 촬영처럼 리포트 화면을

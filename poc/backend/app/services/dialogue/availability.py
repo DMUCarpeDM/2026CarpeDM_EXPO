@@ -41,6 +41,29 @@ def openai_dialogue_ready() -> bool:
     return True
 
 
+def gemini_dialogue_ready() -> bool:
+    """선택한 모델에 키로 접근 가능한지 확인한다(생성 요청은 하지 않는다)."""
+    if settings.dialogue_provider != "gemini":
+        return False
+    api_key = settings.gemini_api_key.get_secret_value()
+    if not api_key:
+        return False
+    try:
+        response = httpx.get(
+            f"{settings.gemini_base_url.rstrip('/')}/v1beta/models/{settings.gemini_model}",
+            headers={"x-goog-api-key": api_key},
+            timeout=_PROBE_TIMEOUT_SEC,
+        )
+        response.raise_for_status()
+    except httpx.HTTPError:
+        return False
+    return True
+
+
 def dialogue_ready() -> bool:
-    """GPT-4o 역할극 대화가 새 시뮬레이션을 시작할 수 있는지 확인한다."""
-    return openai_dialogue_ready()
+    """선택한 대화 제공자가 새 시뮬레이션을 시작할 수 있는지 확인한다."""
+    if settings.dialogue_provider == "gemini":
+        return gemini_dialogue_ready()
+    if settings.dialogue_provider == "openai":
+        return openai_dialogue_ready()
+    return False
