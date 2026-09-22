@@ -18,7 +18,7 @@ ROLES = {
 }
 
 
-def question(key, text, acceptance, fulfilled, insufficient, followup, bonuses=()):
+def question(key, text, acceptance, fulfilled, insufficient, followup, bonuses=(),items=None):
     # 예시 세 문장은 비교 자료입니다. examples_status가 초안이어도 현재는 사용됩니다.
     # 예정 작업: 예시별 승인 상태와 기준 버전을 확인한 뒤 승인된 것만 전달합니다.
     # bonuses는 선택 가산 항목입니다. 빠졌다고 기본 답변을 누락으로 처리하면 안 됩니다.
@@ -27,6 +27,7 @@ def question(key, text, acceptance, fulfilled, insufficient, followup, bonuses=(
             "followup": followup, "bonuses": [
                 {"id": f"{key}-bonus-{i+1}", "acceptance": rule}
                 for i, rule in enumerate(bonuses)],
+            "items": items or [],  # 항목 정보를 담을 수 있게 합니다.
             "examples": [
                 {"status": "fulfilled", "answer": fulfilled, "reason": acceptance},
                 {"status": "insufficient", "answer": insufficient, "reason": "기본 기준 중 설명이 빠져 있음"},
@@ -42,11 +43,62 @@ COMMON = [
     question("strength", "본인의 강점을 알려 주세요.", "강점과 이를 보여 주는 평소 행동. 회사 경험이나 성공 결과 불필요.",
              "꼼꼼해서 제출 전에 빠진 내용을 다시 확인합니다.", "저는 성실합니다.", "그 강점을 보여 주는 평소 행동을 설명해 주세요."),
     question("weakness", "본인의 약점과 보완 방법을 알려 주세요.", "어려운 점과 보완하려는 방법. 이미 극복한 결과 불필요.",
-             "발표할 때 긴장해서 미리 소리 내어 연습합니다.", "발표가 어렵습니다.", "그 어려움을 보완하기 위해 무엇을 해 볼 수 있나요?"),
+             "발표할 때 긴장해서 미리 소리 내어 연습합니다.", "발표가 어렵습니다.", "그 어려움을 보완하기 위해 무엇을 해 볼 수 있나요?",
+             items=[
+                 {"item_id": "weakness_description", "acceptance": "어려운 점(약점) 설명"},
+                 {"item_id": "improvement_method", "acceptance": "보완하려는 방법 설명"}
+             ]),
     question("teamwork", "다른 사람과 함께한 활동에서 어떤 역할을 했나요?", "함께한 활동과 본인이 맡거나 도운 일. 수업·동아리·아르바이트 인정. 경험 없음은 감점하지 않고 대체 질문.",
              "팀 과제에서 친구들이 모은 자료를 발표 순서에 맞게 정리했습니다.", "팀 과제를 했습니다.", "함께한 활동에서 직접 맡거나 도운 일을 설명해 주세요."),
     question("plans", "입사하면 어떤 업무를 배우거나 해 보고 싶나요?", "채용 안내와 연결되는 업무·학습 관심 하나. 거창한 장기 목표 불필요.",
              "서버에서 데이터를 저장하고 조회하는 기능을 배워 보고 싶습니다.", "열심히 하겠습니다.", "안내된 업무 중 배우거나 해 보고 싶은 일을 구체적으로 말해 주세요."),
+]
+COMMON = [
+    # 1. intro (자기소개) 질문 수정 부분
+    question("intro", "자기소개를 해 주세요.", "관심·강점·경험 중 하나로 자신을 설명. 이름·학교만 있으면 부족. 길이·성과·STAR 형식 불필요.",
+             "저는 팀 과제에서 빠진 일을 찾아 챙기는 것을 좋아합니다.", "저는 김민수이고 대학생입니다.", "관심이나 강점, 경험 중 하나를 더 소개해 주세요.",
+             items=[
+                 {"item_id": "self_introduction_focus", "acceptance": "관심·강점·경험 중 하나로 자신을 설명"}
+             ]),
+
+    # 2. motivation (지원 동기) 질문 수정 부분
+    question("motivation", "우리 회사의 이 직무에 지원한 이유는 무엇인가요?", "제공된 채용 안내의 회사·업무 특징과 자신의 관심·강점·경험을 연결.",
+             "사람들이 쓰기 편한 화면을 만드는 데 관심이 있어 웹 서비스를 만드는 업무에 지원했습니다.", "관심이 있어서 지원했습니다.", "안내된 업무 중 어떤 부분이 본인의 관심이나 경험과 연결되나요?",
+             items=[
+                 {"item_id": "company_feature_connection", "acceptance": "회사의 업무 특징 언급"},
+                 {"item_id": "personal_experience_connection", "acceptance": "본인의 관심·강점·경험과 연결"}
+             ]),
+
+    # 3. strength (강점) 질문 수정 부분
+    question("strength", "본인의 강점을 알려 주세요.", "강점과 이를 보여 주는 평소 행동. 회사 경험이나 성공 결과 불필요.",
+             "꼼꼼해서 제출 전에 빠진 내용을 다시 확인합니다.", "저는 성실합니다.", "그 강점을 보여 주는 평소 행동을 설명해 주세요.",
+             items=[
+                 {"item_id": "strength_description", "acceptance": "본인의 강점 설명"},
+                 {"item_id": "daily_behavior_evidence", "acceptance": "강점을 보여주는 평소 행동 설명"}
+             ]),
+
+    # # 4. weakness (약점) 질문 수정 부분 
+    question("weakness", "본인의 약점과 보완 방법을 알려 주세요.", "어려운 점과 보완하려는 방법. 이미 극복한 결과 불필요.",
+                 "발표할 때 긴장해서 미리 소리 내어 연습합니다.", "발표가 어렵습니다.", "그 어려움을 보완하기 위해 무엇을 해 볼 수 있나요?",
+                 items=[
+                     {"item_id": "weakness_description", "acceptance": "어려운 점(약점) 설명"},
+                     {"item_id": "improvement_method", "acceptance": "보완하려는 방법 설명"}
+                 ]),
+
+    # 5. teamwork (협업) 질문 수정 부분
+    question("teamwork", "다른 사람과 함께한 활동에서 어떤 역할을 했나요?", "함께한 활동과 본인이 맡거나 도운 일. 수업·동아리·아르바이트 인정. 경험 없음은 감점하지 않고 대체 질문.",
+             "팀 과제에서 친구들이 모은 자료를 발표 순서에 맞게 정리했습니다.", "팀 과제를 했습니다.", "함께한 활동에서 직접 맡거나 도운 일을 설명해 주세요.",
+             items=[
+                 {"item_id": "activity_description", "acceptance": "함께한 활동 설명"},
+                 {"item_id": "personal_role", "acceptance": "본인이 맡거나 도운 일 설명"}
+             ]),
+
+    # 6. plans (입사 후 포부) 질문 수정 부분
+    question("plans", "입사하면 어떤 업무를 배우거나 해 보고 싶나요?", "채용 안내와 연결되는 업무·학습 관심 하나. 거창한 장기 목표 불필요.",
+             "서버에서 데이터를 저장하고 조회하는 기능을 배워 보고 싶습니다.", "열심히 하겠습니다.", "안내된 업무 중 배우거나 해 보고 싶은 일을 구체적으로 말해 주세요.",
+             items=[
+                 {"item_id": "desired_task", "acceptance": "채용 안내와 연결되는 업무나 학습 관심 설명"}
+             ]),
 ]
 JOBS = {
     "fullstack": [

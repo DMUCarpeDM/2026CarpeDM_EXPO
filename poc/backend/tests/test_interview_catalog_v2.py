@@ -196,7 +196,9 @@ def test_live_analyzer_uses_saved_examples_and_only_current_question_answers(mon
         assert len(payload["examples"]) == 3
         assert payload["answers"] == [{"turn_id": 2, "answer": "저는 정리를 좋아합니다."}]
         return NS(raise_for_status=lambda: None, json=lambda: {"choices": [{"message": {"content": json.dumps({
-            "status": "fulfilled", "evidence": [{"turn_id": 2, "quote": "정리를 좋아합니다"}], "explanation": "관심을 설명함"})}}]})
+                "status": "fulfilled", "evidence": [{"turn_id": 2, "quote": "정리를 좋아합니다"}], "explanation": "관심을 설명함",
+                "items": [{"item_id": "self_introduction_focus", "status": "fulfilled", "quote": "정리를 좋아합니다", "reason": "관심을 설명함"}]
+            })}}]})
     monkeypatch.setattr(interview.httpx, "post", post)
     t = NS(id=2, order=2, response_text="저는 정리를 좋아합니다.")
     assessment = interview.analyze(t, [NS(id=1, order=1, response_text="다른 질문 답변"), t], flow)
