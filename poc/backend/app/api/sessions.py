@@ -40,6 +40,11 @@ from app.schemas import (
     TurnSignalsOut,
 )
 from app.services.analysis import run_analysis
+from app.services import voice_analysis
+from app.ai import voice_measurement
+from app.api.voice import parse_input
+from typing import Annotated
+from fastapi import Form
 from app.ai.live_coaching import analyze_live_coaching
 from app.services.dialogue import DialogueGenerationError, QuestionSpec, get_dialogue_provider
 from app.services.dialogue import emotion, reactions
@@ -214,6 +219,7 @@ def create_session(
         # 영수증 QR 클레임 토큰 (S-B2B-CLAIM) — 계정 귀속 전용 능력 토큰.
         # access_token(데이터 열람권)과 분리해 QR 노출 반경을 귀속 행위로 한정한다.
         claim_token=secrets.token_urlsafe(24),
+        rapport={"voice_engine_version": voice_measurement.VERSION},
         mode=mode,
         difficulty=stored_difficulty,
         attempt_no=prev_attempts + 1,
@@ -245,6 +251,7 @@ def create_session(
     turn = _create_turn(db, session, spec, order=1)
 
     return SessionOut(
+        voice_analysis=voice_analysis.public_state(session),
         interaction=interaction.public_state(session),
         id=session.id,
         status=session.status.value,
@@ -386,6 +393,7 @@ def get_session(
     elapsed = max(0, int((datetime.now(timezone.utc) - started).total_seconds()))
 
     return SessionResumeOut(
+        voice_analysis=voice_analysis.public_state(session),
         interaction=interaction.public_state(session),
         id=session.id,
         status=session.status.value,
@@ -409,7 +417,7 @@ def observe_turn(
         raise HTTPException(status_code=409, detail="현재 답변 중인 턴이 아닙니다")
     result = judgments.evaluate(turn_id, text=body.text,
         nonverbal=body.nonverbal.model_dump(exclude_unset=True) if body.nonverbal else None,
-        duration_ms=body.duration_ms, voice_text=body.stt_source == "webspeech")
+        duration_ms=body.duration_ms, voice_text=body.stt_source == "webspeech" and not voice_analysis.enabled(session))
     # 읽기 전용. 팁 폴링이 답변 저장 트랜잭션의 JSON 상태를 덮어쓰지 않는다.
     return {"turn_id": turn_id, "judgment": result, "tip": feedback.select(result)}
 
@@ -462,8 +470,14 @@ def submit_response(
         turn.id, text=turn.response_text,
         goals=interaction.assessment_goals(interaction.state(session)),
         nonverbal=turn.nonverbal_metrics, duration_ms=turn.response_duration_ms,
-        voice_text=turn.stt_source == "webspeech",
+        voice_text=turn.stt_source == "webspeech" and not voice_analysis.enabled(session),
     )
+    if voice_analysis.enabled(session):
+        measured_voice = voice_analysis.live_turn(session, turn)
+        voice_analysis.store_measurement(session, turn.id, measured_voice)
+        judgment["voice_measurement"] = measured_voice
+        # Labels are unvalidated: raw/reference values never become roleplay criticism.
+        observation["issues"] = [item for item in observation.get("issues", []) if item.get("kind") != "voice"]
     flow_before = interaction.state(session)
     # 읽기 4/5: 답변이 들어오면 이곳에서 면접/카페/기존 흐름 중 분석기를 고릅니다.
     # 예정 작업: 새 항목별 결과와 오류 상태를 받아 저장하되, 실패를 감점으로 바꾸지 않습니다.
@@ -586,12 +600,18 @@ async def upload_audio(
     session_id: int,
     turn_id: int,
     file: UploadFile,
+    voice_input: Annotated[str, Form(max_length=12000)] = "{}",
     session: RoleplaySession = Depends(require_session),
     db: Session = Depends(get_db),
 ):
     turn = db.get(Turn, turn_id)
     if turn is None or turn.session_id != session_id:
         raise HTTPException(status_code=404, detail="턴을 찾을 수 없습니다")
+    if session.status != SessionStatus.in_progress:
+        raise HTTPException(status_code=409, detail="진행 중인 연습이 아닙니다")
+    source = parse_input(voice_input)
+    if source["calibration_id"] != (session.rapport or {}).get("voice_calibration_id"):
+        source["calibration_id"] = None
     # 텍스트 필드처럼 오디오도 상한을 건다 — 무제한 read()는 메모리·디스크 DoS 벡터.
     # 10분 모드 한 턴의 16kHz 16bit mono wav도 수 MB 수준이라 25MB면 충분히 관대하다.
     data = await file.read(MAX_AUDIO_BYTES + 1)
@@ -600,6 +620,9 @@ async def upload_audio(
     dest = settings.media_dir / f"session{session_id}_turn{turn_id}.wav"
     await run_in_threadpool(dest.write_bytes, data)
     turn.audio_path = str(dest)
+    if voice_analysis.enabled(session):
+        session.rapport = {**(session.rapport or {}), "voice_inputs": {
+            **(session.rapport or {}).get("voice_inputs", {}), str(turn_id): source}}
 
     # Chrome의 답변 원문을 유지한다. Whisper 간투어 분석은 세션 종료 후 실행한다.
     db.commit()

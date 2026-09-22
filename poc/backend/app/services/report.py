@@ -592,8 +592,10 @@ def _build_speech_stats(turn_results: list[AnalysisResult], session: RoleplaySes
     """이번 세션의 말하기 데이터 요약 — 리포트 상단 통계 스트립용."""
     response = [r for r in turn_results if r.fit_type == FitType.response]
     voice = [r for r in turn_results if r.fit_type == FitType.voice]
+    from app.services import voice_analysis
+    voice_v2 = {"voice_analysis": voice_analysis.report_data(session)} if voice_analysis.enabled(session) else {}
     if not response:
-        return {}
+        return voice_v2
     total_syllables = sum(r.raw_metrics.get("syllables", 0) for r in response)
     banned = [h["phrase"] for r in response for h in r.raw_metrics.get("banned_hits", [])]
     recommended = sum(len(r.raw_metrics.get("recommended_hits", [])) for r in response)
@@ -621,6 +623,7 @@ def _build_speech_stats(turn_results: list[AnalysisResult], session: RoleplaySes
         level = "제한적"
 
     return {
+        **voice_v2,
         "turns": len(response),
         "total_syllables": total_syllables,
         "banned_count": len(banned),

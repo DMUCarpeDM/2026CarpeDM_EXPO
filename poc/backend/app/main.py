@@ -44,10 +44,19 @@ def _purge_expired_quotes() -> None:
             .outerjoin(Consent, Consent.session_id == RoleplaySession.id)
             .filter(RoleplaySession.ended_at.isnot(None), RoleplaySession.ended_at < cutoff)
             .filter((Consent.id.is_(None)) | (Consent.storage_policy == "none"))
-            .filter(Report.evidence_segments != [])
             .all()
         )
         for report in expired:
+            import copy
+            stats = copy.deepcopy(report.speech_stats or {})
+            for measurement in stats.get("voice_analysis", {}).get("turns", []):
+                measurement.get("speed", {}).pop("transcript", None)
+                for pause in measurement.get("pauses", {}).get("segments", []):
+                    pause.pop("before", None)
+                    pause.pop("after", None)
+            for habits in stats.get("voice_analysis", {}).get("response_habits", {}).values():
+                habits.pop("transcript", None)
+            report.speech_stats = stats
             report.evidence_segments = []
             report.rebuild = {}
             report.headline = {}
@@ -172,8 +181,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from app.api import voice
+
 for router in (
-    auth.router, scenarios.router, sessions.router, reports.router,
+    auth.router, scenarios.router, sessions.router, reports.router, voice.router,
     admin.router, codes.router, orgs.router, nfc.router, tts.router,
 ):
     app.include_router(router, prefix="/api")

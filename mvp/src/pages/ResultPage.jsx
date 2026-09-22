@@ -9,6 +9,7 @@ import { useMemo, useState } from "react";
 import { TrendChart } from "../components/report/Charts";
 import { PageToolbar, ScoreRing } from "../components/report/ResultPrimitives";
 import { Badge, Button, Card, CardContent, Progress } from "../components/ui/shadcn";
+import { VoiceMeasurements } from "../components/report/VoiceMeasurements";
 import { reportFits } from "../lib/reportFits";
 import { fitAriaLabel, saveAndShareReport } from "../lib/unifiedReport";
 
@@ -97,10 +98,12 @@ export function ResultPage({
   const scoreDelta = previousTotal === null || total === null ? null : total - previousTotal;
   const trendTotals = historyData.trendAttempts.map((item) => Math.round(Number(item.total_score) || 0));
   const trendLabels = historyData.trendAttempts.map((item, index) => formatAttemptDate(item.started_at, `${index + 1}회`));
+  const habitTurns = Object.values(stats.voice_analysis?.response_habits || {}).filter((item) => item.status === "measured");
+  const fillerCount = stats.voice_analysis ? (habitTurns.length ? habitTurns.reduce((sum, item) => sum + (item.filler_count || 0), 0) : null) : para.filler_count;
   const evidenceItems = [
     stats.turns ? { label: "분석한 답변", value: `${stats.turns}개` } : null,
     para.speech_rate_spm ? { label: "말 속도", value: `분당 ${para.speech_rate_spm}음절` } : stats.avg_speech_rate ? { label: "말 속도", value: `${stats.avg_speech_rate}음절/초` } : null,
-    Number.isFinite(para.filler_count) ? { label: "간투어 추정", value: `${para.filler_count}회` } : null,
+    Number.isFinite(fillerCount) ? { label: "간투어 추정", value: `${fillerCount}회` } : null,
     measurement.frames ? { label: "영상 분석", value: `${measurement.frames}프레임` } : null,
     measurement.audio_sec ? { label: "음성 분석", value: `${Math.round(measurement.audio_sec)}초` } : null,
     typeof stats.formal_pct === "number" ? { label: "격식 표현", value: `${stats.formal_pct}%` } : null,
@@ -145,7 +148,7 @@ export function ResultPage({
               <article className="unified-report__fit" key={fit.key}>
                 <div><p>{FIT_LABELS[fit.key] || fit.label}</p><strong>{fit.measured === false ? "—" : fit.score}</strong></div>
                 <Progress value={fit.measured === false ? 0 : fit.score} aria-label={fitAriaLabel(fit, FIT_LABELS[fit.key] || fit.label)} />
-                <small>{fitGrade(fit)}{fit.provisional ? " · 참고 지표" : ""}</small>
+                <small>{stats.voice_analysis && fit.key === "Voice-Fit" ? "측정 기록 제공 · 점수 보류" : fitGrade(fit)}{fit.provisional ? " · 참고 지표" : ""}</small>
               </article>
             ))}
           </div>
@@ -183,6 +186,8 @@ export function ResultPage({
           </CardContent>
         </Card>
       </section>
+
+      <VoiceMeasurements data={stats.voice_analysis} />
 
       <footer className="unified-report__actions">
         <div><h2>한 번 더 연습하면 변화가 더 잘 보여요</h2><p>같은 상황을 다시 연습하거나, 지금 결과를 저장해 두세요.</p>{shareNotice ? <span role="status" aria-live="polite">{shareNotice}</span> : null}</div>

@@ -1,7 +1,7 @@
 """공통 판단에 따른 점수·보고서. 이전 엔진 점수와 분리한다."""
 import copy
 from app.models import AnalysisResult, FitType, Report
-from app.services import interaction, interaction_scoring as scoring, judgments
+from app.services import interaction, interaction_scoring as scoring, judgments, voice_analysis
 
 LABELS = {"response": "응답", "voice": "음성", "expression": "표정", "posture": "자세"}
 
@@ -33,13 +33,13 @@ def prepare(db, session):
             db.delete(row)
         else:
             row.score = score
-            row.engine_version = scoring.VERSION
+            row.engine_version = voice_analysis.SCORE_VERSION if voice_analysis.enabled(session) else scoring.VERSION
             present.add((row.turn_id, row.fit_type.value))
     for result in values:
         for area, score in scoring.calculate([result])["scores"].items():
             if score is not None and (result["turn_id"], area) not in present:
                 db.add(AnalysisResult(session_id=session.id, turn_id=result["turn_id"],
-                    fit_type=FitType(area), score=score, raw_metrics={}, engine_version=scoring.VERSION))
+                    fit_type=FitType(area), score=score, raw_metrics={}, engine_version=voice_analysis.SCORE_VERSION if voice_analysis.enabled(session) else scoring.VERSION))
     return scoring.calculate(values), rows
 
 
@@ -59,9 +59,9 @@ def build(db, session, outcome, raw_rows, analysis_ms):
         "evidence": e["evidence"]} for e in events]
     available = outcome["total"] is not None
     report = Report(session_id=session.id, total_score=outcome["total"] if available else 0,
-        engine_version=scoring.VERSION if available else scoring.NO_SCORE,
+        engine_version=(voice_analysis.SCORE_VERSION if voice_analysis.enabled(session) else scoring.VERSION) if available else scoring.NO_SCORE,
         fit_scores={area: {"score": score, "label": LABELS[area],
-            "summary": "판단할 측정 자료가 부족합니다." if score is None else "75점에서 확인된 근거에 따라 가감했습니다."}
+            "summary": "측정값은 목소리 기록에서 확인할 수 있습니다. 평가 기준 검증 전에는 점수를 계산하지 않습니다." if area == "voice" and voice_analysis.enabled(session) else "판단할 측정 자료가 부족합니다." if score is None else "75점에서 확인된 근거에 따라 가감했습니다."}
             for area, score in outcome["scores"].items()},
         strengths=positive, improvements=negative, evidence_segments=evidence,
         headline={"sentence": negative[0] if negative else "확인된 근거를 바탕으로 결과를 정리했습니다." if available else "측정 자료가 부족해 점수를 계산하지 않았습니다."},

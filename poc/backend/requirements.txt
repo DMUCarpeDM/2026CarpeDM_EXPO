@@ -18,3 +18,8 @@ httpx
 
 # Exported Pose-Fit classifiers (no pickle deserialization at runtime)
 onnxruntime>=1.20.0,<2
+
+# Voice measurement v2 (2026-09-17 design; reference pitch/Praat are never scored)
+librosa==0.11.0
+praat-parselmouth==0.4.7
+silero-vad==6.2.1

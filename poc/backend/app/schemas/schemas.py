@@ -226,6 +226,7 @@ class TurnOut(BaseModel):
 
 
 class SessionOut(BaseModel):
+    voice_analysis: dict = Field(default_factory=dict)
     interaction: dict = Field(default_factory=dict)
     id: int
     status: str

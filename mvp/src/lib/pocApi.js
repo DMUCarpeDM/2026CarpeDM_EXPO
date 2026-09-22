@@ -139,12 +139,13 @@ export async function submitResponse(session, turnId, input) {
     if (!input.audio || input.audio.size === 0) return;
     try {
       const form = new FormData();
+      form.append("voice_input", JSON.stringify(input.voiceInput || {}));
       form.append("file", input.audio, `turn-${turnId}.wav`);
       await request(`/sessions/${session.id}/turns/${turnId}/audio`, {
         method: "POST",
         token: session.access_token,
         body: form,
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(session.voice_analysis?.engine_version ? 4_000 : 30_000),
       });
     } catch {
       // 오디오 분석은 부가 기능 — 업로드가 실패해도 텍스트 기반 분석으로 진행한다.
@@ -160,6 +161,11 @@ export async function submitResponse(session, turnId, input) {
       nonverbal: input.nonverbal || null,
     }),
   });
+  if (session.voice_analysis?.engine_version && input.audio) {
+    // 다음 대사 전 측정용 녹음을 먼저 전달하되 업로드 대기는 제한한다.
+    await uploadAudio();
+    return postResponse();
+  }
   if (input.text?.trim()) {
     const result = await postResponse();
     // 녹음 보관은 대화 진행의 조건이 아니다. 업로드가 지연돼도 다음 턴을 막지 않는다.
@@ -217,4 +223,16 @@ export function getHistory() {
 
 export function issueCode() {
   return request("/codes", { method: "POST", body: JSON.stringify({ client_key: getClientKey() }) });
+}
+
+export function calibrateVoice(session, noise, speech, capture) {
+  const form = new FormData();
+  form.append("noise", noise, "noise.wav");
+  form.append("speech", speech, "speech.wav");
+  form.append("capture", JSON.stringify(capture));
+  return request(`/sessions/${session.id}/voice/calibration`, { method: "POST", token: session.access_token, body: form, signal: AbortSignal.timeout(30_000) });
+}
+
+export function invalidateVoiceCalibration(session) {
+  return request(`/sessions/${session.id}/voice/calibration`, { method: "DELETE", token: session.access_token });
 }

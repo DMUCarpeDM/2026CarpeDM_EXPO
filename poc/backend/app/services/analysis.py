@@ -16,7 +16,7 @@ from app.core.config import settings
 from app.core.database import SessionLocal
 from app.models import AnalysisResult, Consent, FitType, Report, RoleplaySession, SessionStatus, Turn
 from app.services import report as report_service
-from app.services import interaction, interaction_report, interaction_scoring
+from app.services import interaction, interaction_report, interaction_scoring, voice_analysis
 from app.services.session_fsm import transition
 
 STAGES = ["stt", "response", "voice", "nonverbal", "scoring", "report"]
@@ -120,6 +120,9 @@ def run_analysis(session_id: int) -> None:
         _set_progress(db, session, "voice", 45)
         voice_scores: list[tuple[float, float]] = []
         for t in turns:
+            if voice_analysis.enabled(session):
+                voice_analysis.finish_turn(session, t)
+                continue
             # 턴 단위 격리: 병리적 오디오 한 건의 DSP 예외가 리포트 전체를 날리지 않게
             try:
                 if t.audio_path:
@@ -242,7 +245,7 @@ def run_analysis(session_id: int) -> None:
                     session_id=session.id, turn_id=None, fit_type=fit,
                     # judge 투명성: 세션 레벨 Response 결과에 채점 근거 전체를 남긴다
                     raw_metrics={"judge": judge_info} if fit == FitType.response and judge_info else {},
-                    score=score, engine_version=interaction_scoring.VERSION if interaction_outcome else ENGINE_VERSION,
+                    score=score, engine_version=(voice_analysis.SCORE_VERSION if voice_analysis.enabled(session) else interaction_scoring.VERSION) if interaction_outcome else ENGINE_VERSION,
                 ))
         db.commit()
 
@@ -257,6 +260,7 @@ def run_analysis(session_id: int) -> None:
         # 7) 저장 정책 적용 (S-CBYKOH): '미저장' 동의면 분석이 끝난 음성 파일을 즉시 삭제
         consent = db.query(Consent).filter_by(session_id=session.id).first()
         if consent is None or consent.storage_policy == "none":
+            voice_analysis.strip_verbatim(session)
             # 공통 판단에도 답변 인용이 있으므로 미저장 동의에서는 함께 파기한다.
             session.rapport = {key: value for key, value in (session.rapport or {}).items() if key not in {"judgments", "confirmed_facts", "feedback_history"}}
             # 새 면접·주문 진행 기록에도 인용이 있다. 공개 진행 상태만 남긴다.

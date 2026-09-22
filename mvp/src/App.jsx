@@ -64,7 +64,7 @@ export default function App() {
       return mediaStream;
     }
     const savedMic = localStorage.getItem("mirror-ting-mic-device");
-    const audioConstraint = savedMic ? { deviceId: { ideal: savedMic } } : true;
+    const audioConstraint = { autoGainControl: false, noiseSuppression: false, echoCancellation: true, ...(savedMic ? { deviceId: { ideal: savedMic } } : {}) };
     let stream = null;
     let lastError = null;
     try {
@@ -163,7 +163,7 @@ export default function App() {
   }, [active, report, session]);
 
   const switchMicDevice = async (deviceId) => {
-    const fresh = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: deviceId } } });
+    const fresh = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: deviceId }, autoGainControl: false, noiseSuppression: false, echoCancellation: true } });
     localStorage.setItem("mirror-ting-mic-device", deviceId);
     const videoTracks = mediaStream?.getVideoTracks?.().filter((track) => track.readyState === "live") || [];
     mediaStream?.getAudioTracks?.().forEach((track) => track.stop());

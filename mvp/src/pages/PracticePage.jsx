@@ -12,6 +12,9 @@ import { TrackingOverlay, ChatBubble, AiPromptOverlay } from "../components/prac
 import { CounterpartVideo } from "../components/practice/CounterpartVideo";
 import { hasCharacterVideo } from "../data/characterMedia";
 import cafeCounterpartBackground from "../assets/cafe-counterpart-background.png";
+import { useVoiceCalibration } from "../lib/useVoiceCalibration";
+import { captureSettings, sameCapture } from "../lib/voiceCapture";
+import { MicrophoneCheck } from "../components/practice/MicrophoneCheck";
 import { blobToWav } from "../lib/audioWav";
 import { startTurnSpeech } from "../lib/turnSpeechPlayback";
 import { usePracticeTranscription } from "../lib/usePracticeTranscription";
@@ -37,6 +40,10 @@ const rise = (delay) => ({
 });
 
 export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, turn, history, turnSignals, onSubmit, busy, error, mediaStream, onRequestMedia, onSwitchMic }) {
+  const voice = useVoiceCalibration(session, mediaStream);
+  const exclusionsRef = useRef([]);
+  const excludeStartRef = useRef(null);
+  const turnCaptureRef = useRef(null);
   const [draft, setDraft] = useState("");
   const [captureError, setCaptureError] = useState("");
   const [elapsed, setElapsed] = useState(0);
@@ -78,9 +85,10 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
     if (workplace && turn?.episode_id) setSceneBriefingOpen(true);
   }, [workplace, turn?.episode_id]);
   // 직장대화만 카테고리 시작 때 상황 안내를 띄운다. 다른 모드는 바로 조작한다.
-  const entryOverlayOpen = workplace && sceneBriefingOpen && Boolean(sceneBriefing);
+  const sceneOverlayOpen = !voice.open && workplace && sceneBriefingOpen && Boolean(sceneBriefing);
+  const entryOverlayOpen = voice.open || sceneOverlayOpen;
   useEffect(() => {
-    if (!entryOverlayOpen) return undefined;
+    if (!sceneOverlayOpen) return undefined;
     const previousFocus = document.activeElement;
     briefingButtonRef.current?.focus();
     const onKeyDown = (event) => {
@@ -96,7 +104,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
       document.removeEventListener("keydown", onKeyDown);
       if (previousFocus?.isConnected) previousFocus.focus?.();
     };
-  }, [entryOverlayOpen]);
+  }, [sceneOverlayOpen]);
   const aiReady = Boolean(aiHealth?.dialogue_ready);
   // MediaPipe 실시간 얼굴·상체 트래킹 (영상 미전송 — 브라우저 안에서만 분석)
   const track = useFaceTracking(mediaStream, analysisVideoRef, overlayRef);
@@ -196,7 +204,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
     listening, interim, setInterim, micEnabled, setMicEnabled, sttMode,
     clearAutoSubmit, stopBrowserRecognition, getSttSource, resetSttUsage,
   } = usePracticeTranscription({
-    draft, setDraft, mediaStream, turn, busy, paused, aiSpeaking, entryOverlayOpen,
+    draft, setDraft, mediaStream, turn, busy, paused: paused || voice.textOnly, aiSpeaking, entryOverlayOpen,
     pushFeed, onAutoSubmit: () => submitDraftRef.current?.(),
   });
   const liveTip = useLiveCoaching({ session, turnId: turn?.id,
@@ -239,7 +247,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   };
   const analysisTools = [
     { label: "대화 AI", detail: aiHealth?.dialogue_provider === "openai" ? "GPT-4o" : aiHealth?.dialogue_provider === "browser" ? "브라우저 엔진" : "Ollama", ready: aiReady },
-    { label: "음성 인식", detail: sttMode === "webspeech" ? "브라우저 STT" : "직접 입력", ready: sttMode !== "off" && micEnabled && hasMicrophone },
+    { label: "음성 인식", detail: sttMode === "webspeech" ? "브라우저 STT" : "직접 입력", ready: !voice.textOnly && sttMode !== "off" && micEnabled && hasMicrophone },
     { label: "카메라 분석", detail: "MediaPipe", ready: hasCamera && track.status === "ready" },
     { label: "마이크", detail: micSilent ? "신호 없음" : micDeviceLabel || "입력", title: micDeviceLabel, ready: hasMicrophone && !micSilent },
   ];
@@ -372,12 +380,15 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   }, [history.length, turn?.id, busy]);
 
   useEffect(() => {
-    if (!mediaStream || !turn || entryOverlayOpen) return undefined;
+    if (!mediaStream || !turn || entryOverlayOpen || voice.textOnly) return undefined;
     if (!window.MediaRecorder) { setCaptureError("이 브라우저에서는 마이크 녹음을 시작할 수 없어요."); return undefined; }
     const audioTracks = mediaStream.getAudioTracks();
     if (audioTracks.length === 0) { setCaptureError("마이크 권한이 필요해요."); return undefined; }
     audioChunksRef.current = [];
     recordingStartedAtRef.current = performance.now();
+    turnCaptureRef.current = captureSettings(mediaStream);
+    exclusionsRef.current = [];
+    excludeStartRef.current = (aiSpeaking || paused) ? 0 : null;
     const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
     const recorder = new MediaRecorder(new MediaStream(audioTracks), { mimeType });
     recorder.ondataavailable = (event) => { if (event.data.size > 0) audioChunksRef.current.push(event.data); };
@@ -385,7 +396,18 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
     recorder.start();
     setCaptureError("");
     return () => { if (recorder.state !== "inactive") recorder.stop(); };
-  }, [mediaStream, turn, entryOverlayOpen]);
+  }, [mediaStream, turn, entryOverlayOpen, voice.textOnly]);
+
+  useEffect(() => {
+    if (!voice.enabled || !recorderRef.current || recorderRef.current.state === "inactive") return;
+    const now = Math.max(0, (performance.now() - recordingStartedAtRef.current) / 1000);
+    if (aiSpeaking || paused) {
+      if (excludeStartRef.current === null) excludeStartRef.current = now;
+    } else if (excludeStartRef.current !== null) {
+      if (now > excludeStartRef.current) exclusionsRef.current.push([excludeStartRef.current, now]);
+      excludeStartRef.current = null;
+    }
+  }, [aiSpeaking, paused, voice.enabled, turn?.id, entryOverlayOpen]);
 
   const stopTurnRecorder = () => new Promise((resolve, reject) => {
     const recorder = recorderRef.current;
@@ -412,18 +434,26 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
 
   const submitDraft = async () => {
     const text = inputValue.trim();
-    if (!text || busy || !turn) return;
+    if (!text || busy || !turn || entryOverlayOpen) return;
     try {
       clearAutoSubmit();
       stopBrowserRecognition();
       // 녹음(webm)을 서버 음성 분석이 읽을 수 있는 WAV로 변환 — 실패해도 텍스트로 진행
-      const webm = await stopTurnRecorder().catch(() => null);
+      const endSeconds = Math.max(0, (performance.now() - recordingStartedAtRef.current) / 1000);
+      if (excludeStartRef.current !== null && endSeconds > excludeStartRef.current) exclusionsRef.current.push([excludeStartRef.current, endSeconds]);
+      excludeStartRef.current = null;
+      const webm = voice.textOnly ? null : await stopTurnRecorder().catch(() => null);
       const audio = webm && webm.size > 0 ? await blobToWav(webm).catch(() => null) : null;
       stampsRef.current.set(`a-${turn.id}`, wallClock());
       pushFeed("답변 제출 — 응답·음성·비언어 지표 서버 분석");
       await onSubmit({
         text,
         audio,
+        voiceInput: voice.enabled ? {
+          calibration_id: voice.calibration?.id || null,
+          capture: sameCapture(turnCaptureRef.current, captureSettings(mediaStream)) ? turnCaptureRef.current : null,
+          excluded_intervals: exclusionsRef.current.filter(([a, b]) => a < b && b <= 120),
+        } : undefined,
         durationMs: Math.round(performance.now() - recordingStartedAtRef.current),
         sttSource: getSttSource(),
         nonverbal: buildNonverbal(),
@@ -522,6 +552,9 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
                 <span className="tool-status-state" aria-label={`${tool.label} ${tool.ready ? "켜짐" : "꺼짐"}`}><i aria-hidden="true" /><b>{tool.ready ? "ON" : "OFF"}</b></span>
               </div>)}
             </div>
+            {voice.enabled && <p className="voice-check__note">{voice.textOnly ? "이번 연습은 목소리 분석 없이 진행해요." : "목소리 측정값은 종료 후 보고서에서 확인해요."}
+              {voice.textOnly && <button type="button" className="text-link" onClick={voice.onRetry}>마이크 다시 확인</button>}
+            </p>}
             {micDevices.length > 1 && onSwitchMic && <label className={`mic-picker ${micSilent ? "is-warn" : ""}`}>
               <span>{micSilent ? "마이크 무음 — 다른 장치 선택" : "마이크 장치"}</span>
               <select value={mediaStream?.getAudioTracks?.()[0]?.getSettings?.().deviceId || ""} onChange={(event) => pickMic(event.target.value)}>
@@ -551,7 +584,8 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
         </aside>
       </div>
 
-      {entryOverlayOpen && <div className="practice-briefing" role="dialog" aria-modal="true" aria-label="상황 안내">
+      {voice.open && <MicrophoneCheck session={session} stream={mediaStream} onRequestMedia={onRequestMedia} onReady={voice.onReady} onTextOnly={voice.onTextOnly} />}
+      {sceneOverlayOpen && <div className="practice-briefing" role="dialog" aria-modal="true" aria-label="상황 안내">
         <motion.div className="practice-briefing-card practice-briefing-card--scene" initial={{ opacity: 0, y: 14, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
           <span className="briefing-kicker">{sceneBriefing.step} / {sceneBriefing.total} · {sceneBriefing.category_label}</span>
           <h2>{sceneBriefing.title}</h2>

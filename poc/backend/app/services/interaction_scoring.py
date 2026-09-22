@@ -18,6 +18,8 @@ def public_total(report):
 
 
 def audio_events(turn_id, metrics, mode):
+    if metrics and metrics.get("engine_version") == "voice-measure-v2":
+        return []  # 감점 기준 검증 전에는 측정값만 전달한다.
     if not metrics or metrics.get("estimated") or not number(metrics.get("duration_sec")) or metrics["duration_sec"] < 3:
         return []
     speed = metrics.get("speech_rate_sps")
