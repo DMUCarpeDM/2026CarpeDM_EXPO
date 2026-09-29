@@ -43,7 +43,7 @@ export function SiteIntroPage({ onPractice }) {
           {homeFitSnapshot.map((fit) => (
             <Card className="public-feature-card public-feature-card--fit" key={fit.label}>
               <CardContent>
-                <span className={`public-icon public-icon--${fit.tone}`}><IconGlyph icon={fit.icon || fit.tone} size={26} /></span>
+                <img className="public-fit-image" src={fit.image} alt="" width="72" height="72" loading="lazy" />
                 <h3>{fit.short}</h3>
                 <p>{fit.text}</p>
               </CardContent>

@@ -299,7 +299,7 @@
   height: 80px;
   border-radius: 50%;
   background: var(--setup-frost);
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .setup-flow-page .choice-card.scenario-catalog {
@@ -313,7 +313,7 @@
   height: 64px;
   border-radius: 8px;
   background: var(--setup-frost);
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .setup-flow-page .choice-card.scenario-catalog .choice-copy { padding-right: 36px; }
@@ -332,7 +332,7 @@
   height: 72px;
   border-radius: 50%;
   background: var(--setup-frost);
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .setup-flow-page .difficulty-choice-section .choice-card.difficulty .choice-copy {

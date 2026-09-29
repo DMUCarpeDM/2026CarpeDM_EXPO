@@ -3,6 +3,7 @@ import { MotionConfig } from "framer-motion";
 import { createRoot } from "react-dom/client";
 import App from "./App.jsx";
 import "./styles.css";
+import "./styles/brand-mark.css";
 
 function AppMotion() {
   useEffect(() => {

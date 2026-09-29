@@ -24,7 +24,7 @@ test("Home motion cleans up observers and respects reduced motion and focus", ()
 test("Footer uses document flow, a large brand signature and responsive navigation", () => {
   assert.doesNotMatch(source, /home-site-footer--reveal|setFits/);
   assert.match(source, /home-site-footer__signature/);
-  assert.match(source, /\/icons\/app-icon-192\.png/);
+  assert.match(source, /\/icons\/mirror-ting-mark-slim\.png/);
   assert.match(source, /onClick=\{onNext\}/);
   assert.match(source, /onClick=\{onModeSelect\}/);
   assert.match(styles, /@media \(max-width: 800px\)/);

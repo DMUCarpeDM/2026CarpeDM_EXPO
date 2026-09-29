@@ -103,7 +103,7 @@ export function HomeFooter({ mode, onNext, onModeSelect }) {
           </section>
         </div>
         <div className="home-site-footer__signature" role="img" aria-label="Mirror-Ting">
-          <img src="/icons/app-icon-192.png" alt="" />
+          <img src="/icons/mirror-ting-mark-slim.png" alt="" />
           <span aria-hidden="true">Mirror-Ting</span>
         </div>
         <div className="home-site-footer__bottom">
