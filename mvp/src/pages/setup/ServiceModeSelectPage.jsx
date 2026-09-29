@@ -1,7 +1,7 @@
 import { useLayoutEffect } from "react";
-import interviewServiceImage from "../../assets/duotone/service-interview.png";
-import trainingServiceImage from "../../assets/duotone/service-training.png";
-import workplaceServiceImage from "../../assets/duotone/service-workplace.png";
+import interviewServiceImage from "../../assets/service-modes/interview-practice-v2.png";
+import trainingServiceImage from "../../assets/service-modes/training-workflow-v3.png";
+import workplaceServiceImage from "../../assets/service-modes/workplace-chat-v2.png";
 import { Card } from "../../components/ui/shadcn";
 import { serviceModes } from "../../data/setupCatalog";
 import "../../styles/service-mode-select.css";
@@ -38,9 +38,9 @@ export function ServiceModeSelectPage({ onSelect }) {
 
 function ModePreview({ id }) {
   const preview = {
-    interview: [interviewServiceImage, "면접 연습 아이콘"],
-    training: [trainingServiceImage, "직업훈련 아이콘"],
-    workplace: [workplaceServiceImage, "직장대화 아이콘"],
+    interview: [interviewServiceImage, "노트북 앞에서 면접 답변을 연습하는 모습"],
+    training: [trainingServiceImage, "학습, 실습, 피드백 순서로 진행하는 직업훈련 화면"],
+    workplace: [workplaceServiceImage, "팀원과 업무 의견을 조율하는 직장대화 화면"],
   }[id];
 
   return <img className={`choice-asset service-mode-visual service-mode-visual--${id}`} src={preview[0]} alt={preview[1]} />;
