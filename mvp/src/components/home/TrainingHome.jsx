@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { HeroBackdrop } from "./HeroBackdrop";
 import { RisingHeadline } from "./OriginHomeEffects";
 import { ArrowRight } from "reicon-react/icons/ArrowRight";
 import { BookOpen } from "reicon-react/icons/BookOpen";
@@ -24,6 +25,7 @@ export function TrainingHome({ onNext }) {
   return (
     <>
       <section className="mode-section training-hero">
+        <HeroBackdrop />
         <div className="mode-copy training-hero__copy">
           <Badge><BookOpen size={14} /> 과업 중심 직업훈련</Badge>
           <RisingHeadline lines={["직접 해보며", "현장 과업을 익혀요"]} />

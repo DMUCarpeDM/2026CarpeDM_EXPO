@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { HeroBackdrop } from "./HeroBackdrop";
 import { RisingHeadline } from "./OriginHomeEffects";
 import { ArrowRight } from "reicon-react/icons/ArrowRight";
 import { ChartBarTrendUp } from "reicon-react/icons/ChartBarTrendUp";
@@ -24,6 +25,7 @@ export function InterviewHome({ onNext }) {
   return (
     <>
       <section className="mode-section interview-hero">
+        <HeroBackdrop />
         <div className="mode-copy interview-hero__copy">
           <Badge><Sparkles size={14} /> 실전 면접 시뮬레이션</Badge>
           <RisingHeadline lines={["날카로운 질문에도", "답변의 중심을 잡아요"]} />

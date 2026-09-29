@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { HeroBackdrop } from "./HeroBackdrop";
 import { RisingHeadline } from "./OriginHomeEffects";
 import { ArrowRight } from "reicon-react/icons/ArrowRight";
 import { CalendarCheck } from "reicon-react/icons/CalendarCheck";
@@ -16,6 +17,7 @@ export function WorkplaceHome({ onNext }) {
   return (
     <>
       <section className="mode-section workplace-hero">
+        <HeroBackdrop />
         <div className="mode-copy workplace-hero__copy">
           <Badge><ChatDots size={14} /> 협업·보고·피드백</Badge>
           <RisingHeadline lines={["어려운 직장 대화도", "먼저 연습해볼 수 있어요"]} />

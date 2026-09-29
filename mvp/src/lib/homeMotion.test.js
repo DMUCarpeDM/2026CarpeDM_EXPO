@@ -21,10 +21,14 @@ test("Home motion cleans up observers and respects reduced motion and focus", ()
   assert.match(styles, /home-reveal-target:focus-within/);
 });
 
-test("Footer falls back to document flow when it cannot fit and stacks on mobile", () => {
-  assert.match(source, /element\.offsetHeight < window\.innerHeight - 100/);
-  assert.match(source, /fits && !reduced/);
-  assert.match(styles, /@media \(max-width: 599px\)/);
-  assert.match(styles, /grid-template-columns: 1fr/);
+test("Footer uses document flow, a large brand signature and responsive navigation", () => {
+  assert.doesNotMatch(source, /home-site-footer--reveal|setFits/);
+  assert.match(source, /home-site-footer__signature/);
+  assert.match(source, /\/icons\/app-icon-192\.png/);
+  assert.match(source, /onClick=\{onNext\}/);
+  assert.match(source, /onClick=\{onModeSelect\}/);
+  assert.match(styles, /@media \(max-width: 800px\)/);
+  assert.match(styles, /repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(styles, /font-size: 16cqi/);
   assert.doesNotMatch(source, /href="#"/);
 });
