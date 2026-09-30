@@ -23,7 +23,7 @@ export function ResultsHistoryPage(props) {
       <header className="public-hero public-hero--compact">
         <p className="public-eyebrow">Results</p>
         <h1>결과 및 기록</h1>
-        <p>연습을 완료하면 이 화면에서 분석 리포트와 이전 기록 흐름을 확인할 수 있습니다.</p>
+        <p>연습을 마치면 현재 리포트를 확인할 수 있어요. 최근 기록은 서버에서 불러온 내역이 있을 때 표시해요.</p>
         <Button size="lg" type="button" onClick={onPractice}>AI 연습하러 가기 <ArrowRight size={18} /></Button>
       </header>
 
@@ -39,7 +39,7 @@ export function ResultsHistoryPage(props) {
           <CardContent>
             <span className="public-icon public-icon--accent"><Refresh3 size={24} /></span>
             <h2>재연습</h2>
-            <p>같은 흐름으로 다시 연습하면 결과 화면에서 이전 점수와 비교할 수 있습니다.</p>
+            <p>리포트에서 다음에 바꿀 행동을 확인하고 다시 연습해 보세요. 이전 기록이 제공되면 점수 변화도 확인할 수 있어요.</p>
           </CardContent>
         </Card>
       </section>
@@ -65,8 +65,8 @@ export function ResultsHistoryPage(props) {
             <Card className="records-empty">
               <CardContent>
                 <IconGlyph icon="shield" size={28} />
-                <h3>아직 표시할 연습 기록이 없어요</h3>
-                <p>연습을 마치면 현재 결과를 확인할 수 있어요. 이전 기록 조회는 준비 중이에요.</p>
+                <h3>현재 불러온 기록이 없어요</h3>
+                <p>아직 연습을 마치지 않았거나 기록을 불러오지 못했을 수 있어요. 저장된 기록이 없다는 뜻은 아니에요.</p>
               </CardContent>
             </Card>
           )}

@@ -77,7 +77,7 @@ export function TrainingHome({ onNext }) {
       </section>
 
       <section className="mode-section training-kpis">
-        <SectionIntro eyebrow="성장 기록" title="과업을 마칠수록 성장 기록이 쌓여요" text="수행 시간, 정확도, 코칭 반영 정도를 함께 기록해요." align="center" />
+        <SectionIntro eyebrow="성장 지표 예시" title="연습 후 달라진 점을 살펴봐요" text="아래 수치는 화면 설명을 위한 예시이며, 실제 개인 기록이나 검증된 효과가 아니에요." align="center" />
         <div className="training-kpi-grid">
           <SimpleKpi icon={Clock3} value="18%" label="평균 수행 시간 단축" />
           <SimpleKpi icon={ShieldCheck} value="92%" label="과업 순서 정확도" />

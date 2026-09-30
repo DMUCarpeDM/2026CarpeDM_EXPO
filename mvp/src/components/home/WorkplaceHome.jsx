@@ -81,7 +81,7 @@ export function WorkplaceHome({ onNext }) {
       </section>
 
       <section className="mode-section workplace-growth">
-        <SectionIntro eyebrow="최근 성장" title={<>반복할수록<br />표현이 또렷해져요</>} />
+        <SectionIntro eyebrow="성장 지표 예시" title={<>연습 후<br />대화 습관을 살펴봐요</>} text="아래 점수는 설명을 위한 예시이며, 현재 사용자의 분석 결과가 아니에요." />
         <div className="growth-grid">
           <GrowthItem label="핵심 먼저 말하기" value={88} />
           <GrowthItem label="의견과 근거 연결" value={76} />
@@ -92,7 +92,7 @@ export function WorkplaceHome({ onNext }) {
       <EvidenceStrip items={[
         ["3단계", "목표·대화·코칭 흐름"],
         ["4-Fit", "말과 비언어 신호 분석"],
-        ["매회", "저장되는 성장 기록"],
+        ["연습 후", "결과 리포트 확인"],
       ]} />
 
       <ContextVisual
