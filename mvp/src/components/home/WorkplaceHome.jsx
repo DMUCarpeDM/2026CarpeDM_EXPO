@@ -1,8 +1,6 @@
 import { useState } from "react";
-import { HeroBackdrop } from "./HeroBackdrop";
-import { RisingHeadline } from "./OriginHomeEffects";
+import { StudioIntro } from "./StudioIntro";
 import { ArrowRight } from "reicon-react/icons/ArrowRight";
-import { CalendarCheck } from "reicon-react/icons/CalendarCheck";
 import { ChatDots } from "reicon-react/icons/ChatDots";
 import { Check } from "reicon-react/icons/Check";
 import { FileText } from "reicon-react/icons/FileText";
@@ -10,26 +8,13 @@ import { Sparkles } from "reicon-react/icons/Sparkles";
 import { Target } from "reicon-react/icons/Target";
 import { Badge, Button, Card, CardContent, Progress } from "../ui/shadcn";
 import workplaceConversationScene from "../../assets/home-scenes/workplace-conversation-scene.webp";
-import { fitMetrics, EvidenceStrip, ContextVisual, SectionIntro, ProcessCard, FitMetric, TrustLine, FooterCta, scrollToSection } from "./HomeSections";
+import { fitMetrics, EvidenceStrip, ContextVisual, SectionIntro, ProcessCard, FitMetric, FooterCta } from "./HomeSections";
 import { workplaceCategories } from "../../data/workplaceStories";
 
 export function WorkplaceHome({ onNext }) {
   return (
     <>
-      <section className="mode-section workplace-hero">
-        <HeroBackdrop />
-        <div className="mode-copy workplace-hero__copy">
-          <Badge><ChatDots size={14} /> 협업·보고·피드백</Badge>
-          <RisingHeadline lines={["어려운 직장 대화도", "먼저 연습해볼 수 있어요"]} />
-          <p>보고, 요청, 조율, 피드백처럼 자주 하는 대화를 AI와 먼저 연습해보세요.</p>
-          <div className="hero-actions mode-actions">
-            <Button size="lg" type="button" onClick={onNext}>연습 시작하기 <ArrowRight size={18} /></Button>
-            <Button size="lg" variant="outline" type="button" onClick={() => scrollToSection("workplace-scenarios")}>추천 상황 보기</Button>
-          </div>
-          <TrustLine />
-        </div>
-        <RecommendedConversation onStart={onNext} />
-      </section>
+      <StudioIntro mode="workplace" onNext={onNext} />
 
       <section className="mode-section" id="workplace-scenarios">
         <SectionIntro highlight eyebrow="상황별 연습" title="출근·업무·퇴근 대화를 이어서 연습해요" text="상황을 미리 고를 필요 없이, 각 단계의 안내를 보고 대화를 이어가요." />
@@ -105,21 +90,6 @@ export function WorkplaceHome({ onNext }) {
 
       <FooterCta title="어려운 대화 전에 먼저 연습해보세요" text="출근·업무·퇴근의 세 단계를 따라 대화를 이어가요." button="연습 시작하기" onNext={onNext} />
     </>
-  );
-}
-
-function RecommendedConversation({ onStart }) {
-  return (
-    <Card className="recommended-conversation">
-      <div className="recommended-conversation__head"><Badge>오늘의 추천</Badge><span>3단계 연속 대화</span></div>
-      <CardContent>
-        <span className="mode-icon"><CalendarCheck size={22} /></span>
-        <h2>출근부터 퇴근까지 이어지는 대화</h2>
-        <p>출근·업무·퇴근 상황에서 상대의 말에 답하며 하루의 대화를 연습해 보세요.</p>
-        <div className="conversation-participants"><span>나</span><i /><span>AI 상대</span></div>
-        <Button type="button" onClick={onStart}>연습 시작하기 <ArrowRight size={17} /></Button>
-      </CardContent>
-    </Card>
   );
 }
 

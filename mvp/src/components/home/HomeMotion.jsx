@@ -62,7 +62,7 @@ export function HomeMotion({ children }) {
 }
 
 const destinations = {
-  interview: ["interview-flow", ".interview-report-showcase", ".interview-feedback"],
+  interview: ["interview-studio-tour", "interview-report", "interview-feedback"],
   training: ["training-scenarios", ".training-practice-section", ".training-faq"],
   workplace: ["workplace-scenarios", ".workplace-workspace-section", ".workplace-feedback"],
 };

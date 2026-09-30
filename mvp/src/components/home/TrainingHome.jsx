@@ -1,6 +1,4 @@
-import { useState } from "react";
-import { HeroBackdrop } from "./HeroBackdrop";
-import { RisingHeadline } from "./OriginHomeEffects";
+import { StudioIntro } from "./StudioIntro";
 import { ArrowRight } from "reicon-react/icons/ArrowRight";
 import { BookOpen } from "reicon-react/icons/BookOpen";
 import { Briefcase2 } from "reicon-react/icons/Briefcase2";
@@ -10,10 +8,9 @@ import { ClipboardCheck } from "reicon-react/icons/ClipboardCheck";
 import { Clock3 } from "reicon-react/icons/Clock3";
 import { Mic } from "reicon-react/icons/Mic";
 import { ShieldCheck } from "reicon-react/icons/ShieldCheck";
-import { Sparkles } from "reicon-react/icons/Sparkles";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger, Badge, Button, Card, CardContent, Progress } from "../ui/shadcn";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger, Badge, Button, Card, CardContent } from "../ui/shadcn";
 import trainingWorkScene from "../../assets/home-scenes/training-work-scene.webp";
-import { ContextVisual, SectionIntro, ProcessCard, FooterCta, scrollToSection } from "./HomeSections";
+import { ContextVisual, SectionIntro, ProcessCard, FooterCta } from "./HomeSections";
 
 const trainingScenarios = [
   { title: "아메리카노 한 잔", text: "음료와 포장 여부를 확인하고 주문을 다시 말해요.", meta: "카페 주문 · 쉬움" },
@@ -24,19 +21,7 @@ const trainingScenarios = [
 export function TrainingHome({ onNext }) {
   return (
     <>
-      <section className="mode-section training-hero">
-        <HeroBackdrop />
-        <div className="mode-copy training-hero__copy">
-          <Badge><BookOpen size={14} /> 과업 중심 직업훈련</Badge>
-          <RisingHeadline lines={["직접 해보며", "현장 과업을 익혀요"]} />
-          <p>현장에서 만나는 과업을 순서대로 수행해요. 막히면 AI 코치가 지금 필요한 행동을 알려드려요.</p>
-          <div className="hero-actions mode-actions mode-actions--center">
-            <Button size="lg" type="button" onClick={onNext}>연습할 직무 고르기 <ArrowRight size={18} /></Button>
-            <Button size="lg" variant="outline" type="button" onClick={() => scrollToSection("training-scenarios")}>추천 과업 보기</Button>
-          </div>
-        </div>
-        <TrainingTaskBoard />
-      </section>
+      <StudioIntro mode="training" onNext={onNext} />
 
       <section className="mode-section training-steps">
         <div className="training-step-row">
@@ -105,37 +90,6 @@ export function TrainingHome({ onNext }) {
 
       <FooterCta title="오늘 연습할 과업을 골라보세요" text="반복하면 현장에서 더 빠르게 대응할 수 있어요." button="연습할 직무 고르기" onNext={onNext} />
     </>
-  );
-}
-
-function TrainingTaskBoard() {
-  const tasks = ["고객 요청 듣기", "핵심 내용 정리", "처리 순서 안내", "마무리 확인"];
-  const [activeTask, setActiveTask] = useState(1);
-
-  return (
-    <Card className="training-task-board">
-      <div className="task-board__top"><strong>오늘의 과업</strong><Badge variant="outline">진행 중</Badge></div>
-      <div className="task-board__body">
-        <nav aria-label="과업 단계">
-          {tasks.map((task, index) => (
-            <button className={activeTask === index ? "active" : ""} type="button" onClick={() => setActiveTask(index)} key={task}>
-              <span>{index < activeTask ? <Check size={14} /> : index + 1}</span>{task}
-            </button>
-          ))}
-        </nav>
-        <div className="task-board__work">
-          <small>STEP {activeTask + 1}</small>
-          <h2>{tasks[activeTask]}</h2>
-          <p>상대방의 말을 끝까지 듣고, 요청 내용을 한 문장으로 확인해보세요.</p>
-          <div className="coach-note"><Sparkles size={17} /><span><b>AI 코치</b> “제가 이해한 내용이 맞는지 확인할게요”로 시작해보세요.</span></div>
-          <Progress value={(activeTask + 1) * 25} />
-          <div className="task-board__actions">
-            <Button variant="outline" size="sm" type="button" onClick={() => setActiveTask(Math.max(0, activeTask - 1))}>이전</Button>
-            <Button size="sm" type="button" onClick={() => setActiveTask(Math.min(tasks.length - 1, activeTask + 1))}>다음 단계</Button>
-          </div>
-        </div>
-      </div>
-    </Card>
   );
 }
 
