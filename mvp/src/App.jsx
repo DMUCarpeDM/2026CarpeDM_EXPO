@@ -44,6 +44,8 @@ function mediaErrorMessage(error) {
 
 export default function App() {
   const [apiScenarios, setApiScenarios] = useState([]);
+  const [scenarioStatus, setScenarioStatus] = useState("loading");
+  const [scenarioRetry, setScenarioRetry] = useState(0);
   const [aiHealth, setAiHealth] = useState(null);
   const [mediaStream, setMediaStream] = useState(null);
   const [permissionState, setPermissionState] = useState({ camera: "prompt", microphone: "prompt" });
@@ -112,18 +114,20 @@ export default function App() {
         .then((items) => {
           if (cancelled) return;
           setApiScenarios(items);
+          setScenarioStatus("ready");
           setPocScenarioSlug((currentSlug) => currentSlug || (selectedServiceModeId === "workplace" ? WORKPLACE_SCENARIO_SLUG : items[0]?.slug) || "");
           setApiError("");
         })
         .catch(() => {
           if (cancelled) return;
+          setScenarioStatus("error");
           setApiError("서버를 실행하면 연습을 시작할 수 있어요.");
           timer = window.setTimeout(load, 5000);
         });
     };
     load();
     return () => { cancelled = true; window.clearTimeout(timer); };
-  }, []);
+  }, [scenarioRetry]);
   useEffect(() => {
     setSelectedEpisodeId((currentId) => roleScenarioOptions.some((item) => item.episodeId === currentId) ? currentId : roleScenarioOptions[0]?.episodeId || null);
   }, [counterpartProfile, roleScenarioOptions]);
@@ -233,6 +237,7 @@ export default function App() {
   const view = {
     serviceMode: selectedServiceMode,
     apiScenarios: visibleScenarios,
+    scenarioStatus,
     previewScenario,
     previewEpisode,
     previewCounterpartProfile,
@@ -246,6 +251,7 @@ export default function App() {
     mode,
   };
   const actions = {
+    retryScenarios: () => { setScenarioStatus("loading"); setScenarioRetry((value) => value + 1); },
     startPractice,
     sendAnswer,
     endPractice,
