@@ -64,7 +64,20 @@
 .studio-step-number { font-size: 12px; color: var(--mode-accent); font-weight: 650; }
 .studio-tour__step > h3 { margin: 18px 0; font-size: clamp(24px, 2.4vw, 32px); letter-spacing: -.04em; line-height: 1.4; word-break: keep-all; }
 .studio-tour__step > p { max-width: 340px; margin: 0 0 24px; color: var(--mode-muted); font-size: 16px; line-height: 1.9; word-break: keep-all; }
+.studio-tour { position: relative; isolation: isolate; }
 .studio-tour__preview { position: sticky; top: 112px; }
+.intro-waves { position: absolute; z-index: -1; inset: 0; overflow: hidden; pointer-events: none; mask-image: linear-gradient(transparent, #000 10%, #000 90%, transparent), linear-gradient(90deg, #0006, #000); mask-composite: intersect; }
+.intro-waves svg { width: 100%; height: 100%; overflow: visible; fill: none; stroke: var(--mode-accent); stroke-width: 1; opacity: .2; }
+.intro-waves-toggle { display: block; margin: 0 0 16px auto; min-height: 44px; padding: 8px 12px; border: 0; border-radius: 6px; background: var(--mode-card); color: var(--mode-muted); font: inherit; font-size: 11px; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+.studio-tour__mobile-scene { background: var(--mode-card); }
+@media (min-width: 901px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .intro-waves svg { animation: intro-wave-drift 18s linear infinite alternate; animation-play-state: paused; }
+  .intro-waves[data-running="true"] svg { animation-play-state: running; }
+  @keyframes intro-wave-drift { from { transform: translate3d(-18px, -14px, 0); } to { transform: translate3d(18px, 14px, 0); } }
+}
+@media (max-width: 900px), (hover: none), (pointer: coarse), (prefers-reduced-motion: reduce) {
+  .intro-waves-toggle { display: none; }
+}
 .studio-tour__controls { display: flex; gap: 4px; padding: 12px; border-bottom: 1px solid var(--mode-border); }
 .studio-tour__controls button { flex: 1; min-height: 40px; border: 0; border-radius: 4px; background: transparent; color: var(--mode-muted); font: inherit; font-size: 12px; cursor: pointer; }
 .studio-tour__controls button[aria-pressed="true"] { background: var(--mode-accent-soft); color: var(--mode-ink); font-weight: 650; }

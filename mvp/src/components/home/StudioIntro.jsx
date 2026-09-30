@@ -4,6 +4,7 @@ import { Mic } from "reicon-react/icons/Mic";
 import { Sparkles } from "reicon-react/icons/Sparkles";
 import { Button } from "../ui/shadcn";
 import { HeroBackdrop } from "./HeroBackdrop";
+import { IntroWaves } from "./IntroWaves";
 import { scrollToSection } from "./HomeSections";
 import "../../styles/studio-intro.css";
 
@@ -118,6 +119,7 @@ export function StudioIntro({ mode, onNext }) {
     </section>
 
     <section ref={walkthrough} className="mode-section studio-tour" id={walkthroughId} aria-label="단계별 연습 안내">
+      <IntroWaves />
       <div className="studio-tour__heading"><span className="studio-eyebrow">HOW IT WORKS</span><h2>한 번의 대화가<br />다음의 나를 바꾸도록.</h2><p>{mode === "interview" ? "내 답변, 피드백, 그리고 더 또렷해진 한 문장." : "질문부터 다시 연습하기까지, 한 흐름으로."}</p></div>
       <div className="studio-tour__layout">
         <div className="studio-tour__steps">{tourSteps.map((step, index) => <article key={step.label} data-step={index + tourOffset} className="studio-tour__step"><span className="studio-step-number">0{index + 1} / {step.label}</span><h3>{step.title}</h3><p>{step.text}</p><div className="studio-tour__mobile-scene"><Scene example={example} step={index + tourOffset} /></div>{mode !== "interview" && index === 3 && <Button type="button" onClick={onNext}>{example.start}<ArrowRight size={16} /></Button>}</article>)}</div>
