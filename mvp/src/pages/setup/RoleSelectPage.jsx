@@ -13,7 +13,7 @@ import { resolveServiceMode } from "../../lib/serviceModeContext";
 export function RoleSelectPage({ serviceMode, counterpartProfile, onCounterpart, onPrev, onNext }) {
   const resolvedServiceMode = resolveServiceMode(serviceMode?.id);
   const profiles = profilesForMode(resolvedServiceMode.id);
-  const profile = profiles.find((item) => item.id === counterpartProfile) || profiles[0];
+  const profile = profiles.find((item) => item.id === counterpartProfile);
 
   return (
     <SetupMotionPage>
@@ -27,7 +27,7 @@ export function RoleSelectPage({ serviceMode, counterpartProfile, onCounterpart,
             ))}
           </ChoiceSection>
           <SetupSelectionSummary counterpart={profile} modeLabel="다음 단계에서 선택" tip={resolvedServiceMode.setupDescription} />
-          <SetupFlowActions onPrev={onPrev} label="다음 단계로" onNext={onNext} />
+          <SetupFlowActions onPrev={onPrev} label={profile ? "다음 단계로" : "직무를 선택해 주세요"} onNext={onNext} nextDisabled={!profile} />
         </div>
       </div>
     </SetupMotionPage>

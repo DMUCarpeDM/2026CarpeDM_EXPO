@@ -126,7 +126,7 @@ export function SetupSelectionSummary({ counterpart, scenario, scenarioImage, di
         <p>현재 선택한 설정을 확인해요.</p>
       </header>
       <div className="setup-summary-selections">
-        <SummaryItem image={counterpart.image} label="직무" value={counterpart.title} tone="blue" />
+        <SummaryItem image={counterpart?.image} icon="role" label="직무" value={counterpart?.title || "직무를 선택해 주세요"} tone="blue" />
         <SummaryItem image={scenarioImage} icon="briefcase" label="연습 상황" value={scenario?.title?.replace(" — ", " —\n") || "다음 단계에서 선택"} tone="blue" />
         <SummaryItem image={difficulty?.image} icon="normal" label="난이도" value={difficulty?.title || "다음 단계에서 선택"} tone={difficulty?.tone || "blue"} />
         <div className="time-box setup-summary-time">
