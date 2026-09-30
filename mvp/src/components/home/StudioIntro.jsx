@@ -99,7 +99,6 @@ export function StudioIntro({ mode, onNext }) {
     <section className="mode-section studio-hero">
       <HeroBackdrop />
       <div className="studio-hero__copy">
-        <span className="studio-eyebrow"><span aria-hidden="true">↗</span> MIRROR-TING / {example.label}</span>
         <h1>{example.headline[0]} <em>{example.headline[1]}</em></h1>
         <p>{example.description}</p>
         <div className="studio-hero__actions"><Button size="lg" type="button" onClick={onNext}>{example.start}<ArrowRight size={18} /></Button><Button size="lg" variant="outline" type="button" onClick={() => scrollToSection(walkthroughId)}>어떻게 연습하나요?</Button></div>
@@ -120,7 +119,7 @@ export function StudioIntro({ mode, onNext }) {
 
     <section ref={walkthrough} className="mode-section studio-tour" id={walkthroughId} aria-label="단계별 연습 안내">
       <IntroWaves />
-      <div className="studio-tour__heading"><span className="studio-eyebrow">HOW IT WORKS</span><h2>한 번의 대화가<br />다음의 나를 바꾸도록.</h2><p>{mode === "interview" ? "내 답변, 피드백, 그리고 더 또렷해진 한 문장." : "질문부터 다시 연습하기까지, 한 흐름으로."}</p></div>
+      <div className="studio-tour__heading"><h2>한 번의 대화가<br />다음의 나를 바꾸도록.</h2><p>{mode === "interview" ? "내 답변, 피드백, 그리고 더 또렷해진 한 문장." : "질문부터 다시 연습하기까지, 한 흐름으로."}</p></div>
       <div className="studio-tour__layout">
         <div className="studio-tour__steps">{tourSteps.map((step, index) => <article key={step.label} data-step={index + tourOffset} className="studio-tour__step"><span className="studio-step-number">0{index + 1} / {step.label}</span><h3>{step.title}</h3><p>{step.text}</p><div className="studio-tour__mobile-scene"><Scene example={example} step={index + tourOffset} /></div>{mode !== "interview" && index === 3 && <Button type="button" onClick={onNext}>{example.start}<ArrowRight size={16} /></Button>}</article>)}</div>
         <div className="studio-tour__preview"><div className="studio-window"><WindowBar label="연습의 다음 장면" /><nav className="studio-tour__controls" aria-label="단계별 예시 선택">{tourSteps.map((step, index) => <button type="button" key={step.label} aria-pressed={scrollStep === index + tourOffset} onClick={() => setScrollStep(index + tourOffset)}>{step.label}</button>)}</nav><Scene example={example} step={scrollStep} /><div className="studio-pipeline" aria-label="응답, 목소리, 표정, 자세를 종합한 코칭"><div>{["응답", "목소리", "표정", "자세"].map((label) => <span key={label}>{label}</span>)}</div><span className="studio-pipeline__line" aria-hidden="true" /><strong>4-Fit 코칭</strong></div></div><p className="studio-caption">설명을 위한 예시이며 실제 분석 결과가 아닙니다.</p></div>

@@ -1,4 +1,5 @@
 import { StudioIntro } from "./StudioIntro";
+import { FitOverview } from "./FitOverview";
 import { ArrowRight } from "reicon-react/icons/ArrowRight";
 import { BookOpen } from "reicon-react/icons/BookOpen";
 import { Briefcase2 } from "reicon-react/icons/Briefcase2";
@@ -62,7 +63,12 @@ export function TrainingHome({ onNext }) {
       </section>
 
       <section className="mode-section training-kpis">
-        <SectionIntro eyebrow="성장 지표 예시" title="연습 후 달라진 점을 살펴봐요" text="아래 수치는 화면 설명을 위한 예시이며, 실제 개인 기록이나 검증된 효과가 아니에요." align="center" />
+        <SectionIntro eyebrow="4-Fit 코칭" title="응대 내용과 전달 방식을 함께 살펴봐요" text="무엇을 말했는지뿐 아니라 목소리, 표정, 자세까지 돌아보며 다음 응대에서 바꿀 점을 찾아요." />
+        <FitOverview />
+      </section>
+
+      <section className="mode-section training-kpis">
+        <SectionIntro showEyebrow eyebrow="성장 지표 예시" title="연습 후 달라진 점을 살펴봐요" text="아래 수치는 화면 설명을 위한 예시이며, 실제 개인 기록이나 검증된 효과가 아니에요." align="center" />
         <div className="training-kpi-grid">
           <SimpleKpi icon={Clock3} value="18%" label="평균 수행 시간 단축" />
           <SimpleKpi icon={ShieldCheck} value="92%" label="과업 순서 정확도" />

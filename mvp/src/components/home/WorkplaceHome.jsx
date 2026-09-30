@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { StudioIntro } from "./StudioIntro";
+import { FitOverview } from "./FitOverview";
 import { ArrowRight } from "reicon-react/icons/ArrowRight";
 import { ChatDots } from "reicon-react/icons/ChatDots";
 import { Check } from "reicon-react/icons/Check";
@@ -8,7 +9,7 @@ import { Sparkles } from "reicon-react/icons/Sparkles";
 import { Target } from "reicon-react/icons/Target";
 import { Badge, Button, Card, CardContent, Progress } from "../ui/shadcn";
 import workplaceConversationScene from "../../assets/home-scenes/workplace-conversation-scene.webp";
-import { fitMetrics, EvidenceStrip, ContextVisual, SectionIntro, ProcessCard, FitMetric, FooterCta } from "./HomeSections";
+import { EvidenceStrip, ContextVisual, SectionIntro, ProcessCard, FooterCta } from "./HomeSections";
 import { workplaceCategories } from "../../data/workplaceStories";
 
 export function WorkplaceHome({ onNext }) {
@@ -51,9 +52,7 @@ export function WorkplaceHome({ onNext }) {
       <section className="mode-section workplace-feedback">
         <div>
           <SectionIntro eyebrow="4-Fit 피드백" title={<>대화 습관 네 가지를<br />함께 살펴봐요</>} text="응답, 목소리, 표정, 자세를 하나의 대화 맥락으로 설명해요." />
-          <div className="fit-metric-grid fit-metric-grid--compact">
-            {fitMetrics.map((metric) => <FitMetric key={metric.label} {...metric} />)}
-          </div>
+          <FitOverview />
         </div>
         <Card className="coaching-card">
           <CardContent>
@@ -66,7 +65,7 @@ export function WorkplaceHome({ onNext }) {
       </section>
 
       <section className="mode-section workplace-growth">
-        <SectionIntro eyebrow="성장 지표 예시" title={<>연습 후<br />대화 습관을 살펴봐요</>} text="아래 점수는 설명을 위한 예시이며, 현재 사용자의 분석 결과가 아니에요." />
+        <SectionIntro showEyebrow eyebrow="성장 지표 예시" title={<>연습 후<br />대화 습관을 살펴봐요</>} text="아래 점수는 설명을 위한 예시이며, 현재 사용자의 분석 결과가 아니에요." />
         <div className="growth-grid">
           <GrowthItem label="핵심 먼저 말하기" value={88} />
           <GrowthItem label="의견과 근거 연결" value={76} />

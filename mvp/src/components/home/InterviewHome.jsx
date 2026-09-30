@@ -1,4 +1,5 @@
 import { StudioIntro } from "./StudioIntro";
+import { FitOverview } from "./FitOverview";
 import { Sparkles } from "reicon-react/icons/Sparkles";
 import { Badge, Progress } from "../ui/shadcn";
 import { fitMetrics, SectionIntro, FooterCta } from "./HomeSections";
@@ -9,6 +10,7 @@ export function InterviewHome({ onNext }) {
       <StudioIntro mode="interview" onNext={onNext} />
       <section className="mode-section mode-section--canvas interview-report-showcase" id="interview-report">
         <SectionIntro eyebrow="4-Fit 코칭 리포트" title={<>한 번의 답변에서도<br />다음 행동을 찾아요</>} text="응답, 목소리, 표정, 자세를 함께 살펴보고 다음 답변에서 바꿀 행동을 알려드려요." align="center" />
+        <FitOverview />
         <div className="product-stage" aria-label="면접 코칭 리포트 예시">
           <div className="product-stage__label"><span>면접 코칭 리포트 미리보기</span><Badge variant="neutral">예시 점수 · 실제 결과 아님</Badge></div>
           <div className="product-stage__body"><InterviewReportPreview /></div>

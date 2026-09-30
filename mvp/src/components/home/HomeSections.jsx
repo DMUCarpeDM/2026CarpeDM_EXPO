@@ -24,12 +24,11 @@ export function EvidenceStrip({ items }) {
   );
 }
 
-export function ContextVisual({ image, alt, eyebrow, title, text, align = "left" }) {
+export function ContextVisual({ image, alt, title, text, align = "left" }) {
   return (
     <section className={`mode-context-visual mode-context-visual--${align}`}>
       <img src={image} alt={alt} />
       <div className="mode-context-visual__copy">
-        <span>{eyebrow}</span>
         <h2>{title}</h2>
         <p>{text}</p>
       </div>
@@ -37,8 +36,8 @@ export function ContextVisual({ image, alt, eyebrow, title, text, align = "left"
   );
 }
 
-export function SectionIntro({ eyebrow, title, text, align = "left", highlight = false }) {
-  return <div className={`section-intro section-intro--${align}`}><span>{eyebrow}</span><h2>{title}</h2>{text && (highlight ? <ScrollHighlight text={text} /> : <p>{text}</p>)}</div>;
+export function SectionIntro({ eyebrow, title, text, align = "left", highlight = false, showEyebrow = false }) {
+  return <div className={`section-intro section-intro--${align}`}>{showEyebrow && <span>{eyebrow}</span>}<h2>{title}</h2>{text && (highlight ? <ScrollHighlight text={text} /> : <p>{text}</p>)}</div>;
 }
 
 export function ProcessCard({ icon: Icon, number, title, text, compact = false }) {
