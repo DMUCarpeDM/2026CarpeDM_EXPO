@@ -5,8 +5,9 @@ import { getEpisodeImage, getScenarioDescription } from "../data/setupCatalog";
 import { resolveServiceMode } from "../lib/serviceModeContext";
 import { workplaceCategories } from "../data/workplaceStories";
 import { InterviewProgress } from "../components/setup/InterviewProgress";
+import { InterviewPreflight } from "../components/setup/InterviewPreflight";
 
-export function PreviewPage({ serviceMode, onNext, starting, scenario, selectedEpisode, counterpartProfile, difficulty, aiHealth, consented, onConsent, error, permissionState, mode = 5 }) {
+export function PreviewPage({ serviceMode, onNext, onPrev, starting, scenario, selectedEpisode, counterpartProfile, difficulty, aiHealth, consented, onConsent, error, permissionState, mode = 5 }) {
   const resolvedServiceMode = resolveServiceMode(serviceMode?.id);
   const workplace = resolvedServiceMode.id === "workplace";
   const focused = resolvedServiceMode.id === "interview";
@@ -19,7 +20,7 @@ export function PreviewPage({ serviceMode, onNext, starting, scenario, selectedE
   const canStart = consented && !starting;
   const objectives = workplace
     ? workplaceCategories.map((category) => category.label)
-    : episode?.points?.length ? episode.points : ["대화의 핵심을 먼저 말해요", "상대가 다음에 할 일을 분명히 요청해요", "마무리 전에 합의 내용을 확인해요"];
+    : episode?.points?.length ? episode.points : focused ? ["질문에 대한 결론부터 말해요", "내 경험을 한 가지 덧붙여요", "추가 질문을 듣고 답변을 이어가요"] : ["대화의 핵심을 먼저 말해요", "상대가 다음에 할 일을 분명히 요청해요", "마무리 전에 합의 내용을 확인해요"];
   const facts = workplace
     ? [
       { label: "진행 방식", value: `${workplaceCategories.length}개 단계 이어하기`, subtext: "출근·업무·퇴근 상황의 대화를 이어가요", icon: "briefcase" },
@@ -36,6 +37,8 @@ export function PreviewPage({ serviceMode, onNext, starting, scenario, selectedE
     { icon: "voice", label: "음성 인식", value: permissionState.microphone === "granted" ? "권한 허용됨" : "시작할 때 확인" },
     { icon: "eye", label: "카메라", value: permissionState.camera === "granted" ? "권한 허용됨" : "시작할 때 확인" },
   ];
+
+  if (focused) return <InterviewPreflight {...{ facts, mode, lead, objectives, aiReady, permissionState, consented, onConsent, starting, onNext, onPrev, error }} />;
 
   return <section className={`page preview-page preview-redesign preflight-preview ${focused ? "interview-preflight" : ""}`} aria-labelledby="preview-title">
     {focused && <InterviewProgress active={3} />}

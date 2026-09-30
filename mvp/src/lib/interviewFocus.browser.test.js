@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { startVite, withPage } from "./serviceEntryRouteHarness.js";
 
@@ -35,7 +36,16 @@ test("interview question-focused setup retains choices at responsive widths", { 
         await page.locator(".interview-preflight").waitFor();
         await checkLayout();
         assert.equal(await page.getByRole("checkbox").isChecked(), false);
-        await page.goBack();
+        assert.equal(await page.getByRole("button", { name: "면접 시작하기", exact: true }).isDisabled(), true);
+        await page.getByText("면접 진행 안내", { exact: true }).click();
+        assert.equal(await page.locator(".interview-ready details").getAttribute("open"), "");
+        await page.getByText("면접 진행 안내", { exact: true }).click();
+        const artifacts = "../.omo/evidence/interview-preflight";
+        await mkdir(artifacts, { recursive: true });
+        await page.screenshot({ path: `${artifacts}/${width}.png`, fullPage: true });
+        await page.getByRole("checkbox").check();
+        assert.equal(await page.getByRole("button", { name: "면접 시작하기", exact: true }).isEnabled(), true);
+        await page.getByRole("button", { name: "이전", exact: true }).click();
         await page.locator(".difficulty-choice-section").waitFor();
         assert.equal(await page.locator('.difficulty-choice-section [aria-pressed="true"]').count(), 1);
         assert.deepEqual(pageErrors, []);
