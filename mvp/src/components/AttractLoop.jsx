@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { LockKeyhole } from "reicon-react/icons/LockKeyhole";
 import { Sparkles } from "reicon-react/icons/Sparkles";
 import { IconGlyph } from "./ui/IconGlyph";
 
 /** 전시 어트랙트 루프 — 홈 화면에서 일정 시간 조작이 없으면 가치 제안 슬라이드를
- *  순환하며 관람객의 발길을 잡는다. 아무 곳이나 터치하면 즉시 사라진다.
+ *  순환하며 관람객의 발길을 잡는다. 전환을 멈추거나 메인으로 돌아갈 수 있다.
  *  대기 시간은 ?attract=<초>로 조정할 수 있다 (전시 운영·검증용). */
 const IDLE_MS = 45_000;
 const SLIDE_MS = 4_600;
@@ -19,26 +19,29 @@ const SLIDES = [
   {
     key: "roleplay",
     icon: <Sparkles size={46} />,
-    title: "AI 팀장과 실전처럼\n대화를 연습해요",
+    title: "중요한 대화 전,\n먼저 연습해요",
     sub: "역할극이 끝나면 잘한 점과 개선점을 바로 알려드려요",
   },
   {
     key: "fit",
     fits: true,
     title: "응답·목소리·표정·자세\n4-Fit 실시간 분석",
-    sub: "카메라와 마이크 신호를 이 기기 안에서 바로 분석해요",
+    sub: "사용 가능한 카메라·마이크 신호와 답변을 함께 살펴봐요",
   },
   {
     key: "privacy",
     icon: <LockKeyhole size={46} />,
-    title: "당신의 영상은\n이 기기를 떠나지 않아요",
-    sub: "100% 온디바이스 AI · API 비용 0원 · 인터넷 없이도 동작",
+    title: "시작하기 전에\n정보 처리를 확인해요",
+    sub: "음성·대화 내용은 서버로 전송될 수 있어요. 민감한 정보는 말하지 마세요.",
   },
 ];
 
 export function AttractLoop({ active, onStart }) {
   const [visible, setVisible] = useState(false);
   const [slide, setSlide] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const reducedMotion = useReducedMotion();
+  const dialogRef = useRef(null);
   const timerRef = useRef(0);
   const visibleRef = useRef(false);
   visibleRef.current = visible;
@@ -52,7 +55,7 @@ export function AttractLoop({ active, onStart }) {
       timerRef.current = window.setTimeout(() => setVisible(true), delay);
     };
     const onActivity = () => {
-      if (visibleRef.current) setVisible(false);
+      if (visibleRef.current) return;
       arm();
     };
     arm();
@@ -65,23 +68,27 @@ export function AttractLoop({ active, onStart }) {
   }, [active]);
 
   useEffect(() => {
-    if (!visible) return undefined;
-    setSlide(0);
+    const dialog = dialogRef.current;
+    if (visible) { setSlide(0); dialog.showModal(); }
+    else dialog.close();
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible || paused || reducedMotion) return undefined;
     const timer = window.setInterval(() => setSlide((value) => (value + 1) % SLIDES.length), SLIDE_MS);
     return () => window.clearInterval(timer);
-  }, [visible]);
+  }, [visible, paused, reducedMotion]);
 
   const current = SLIDES[slide];
 
-  // 항상 마운트 + CSS 클래스 전환. AnimatePresence 언마운트에 기대던 이전 구조는
-  // 중첩 exit가 완료되지 않으면 투명한 전체 화면 벽(pointer-events: auto)이
-  // 영구 잔류해 아래 UI 터치를 전부 막았다 — 숨김/차단은 attract.css가 책임진다.
+  // 닫힌 native dialog는 포커스와 포인터를 차단하지 않는다.
   return (
-    <div
+    <dialog
+      ref={dialogRef}
       className={`attract-overlay${visible ? " is-on" : ""}`}
-      role="button"
-      aria-label="화면을 터치하면 시작돼요"
-      aria-hidden={!visible}
+      aria-label="연습 서비스 안내"
+      data-paused={paused || reducedMotion}
+      onCancel={() => setVisible(false)}
     >
       <div className="attract-glow" aria-hidden="true" />
       <div className="attract-brand"><span className="brand-mark brand-mark--mirror" aria-hidden="true"><img src="/icons/mirror-ting-mark-slim.png" alt="" /></span><strong>Mirror-Ting</strong></div>
@@ -105,7 +112,11 @@ export function AttractLoop({ active, onStart }) {
       <div className="attract-dots" aria-hidden="true">
         {SLIDES.map((item, index) => <i key={item.key} className={index === slide ? "on" : ""} />)}
       </div>
-      <button type="button" className="attract-cta" onClick={onStart} tabIndex={visible ? 0 : -1}>화면을 터치하면 시작돼요</button>
-    </div>
+      <button type="button" className="attract-cta" onClick={onStart}>연습 시작하기</button>
+      <div className="attract-actions">
+        {!reducedMotion && <button type="button" onClick={() => setPaused((value) => !value)} aria-pressed={paused}>{paused ? "자동 전환 재개" : "자동 전환 멈추기"}</button>}
+        <button type="button" onClick={() => setVisible(false)}>메인으로 돌아가기</button>
+      </div>
+    </dialog>
   );
 }

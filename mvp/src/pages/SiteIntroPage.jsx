@@ -9,9 +9,9 @@ export function SiteIntroPage({ onPractice }) {
     <section className="page public-page site-intro-page">
       <header className="public-hero public-hero--compact">
         <p className="public-eyebrow">Service intro</p>
-        <h1>Mirror-Ting은 직장 대화를 연습하는 AI 코칭 서비스입니다</h1>
-        <p>실제 업무 상황을 AI 역할극으로 경험하고, 응답·목소리·표정·자세 네 축의 4-Fit 지표로 다음 연습 방향을 확인합니다.</p>
-        <Button size="lg" type="button" onClick={onPractice}>연습 시작하기 <ArrowRight size={18} /></Button>
+        <h1>중요한 대화 전에,<br />먼저 연습해요.</h1>
+        <p>Mirror-Ting은 면접·직업훈련·직장대화를 연습하는 AI 코칭 서비스예요. 응답·목소리·표정·자세를 함께 살펴보고, 다음 대화에서 바꿀 한 가지를 찾아요.</p>
+        <Button size="lg" type="button" onClick={onPractice}>연습 홈으로 가기 <ArrowRight size={18} /></Button>
       </header>
 
       <section className="public-section" aria-labelledby="intro-mode-title">

@@ -40,11 +40,9 @@
 .topbar-item { display: flex; flex-direction: column; gap: 1px; padding-left: 18px; border-left: 1px solid var(--color-border); }
 .topbar-item-label { color: var(--color-muted); font-size: 11px; font-weight: 500; letter-spacing: 0.01em; }
 .topbar-scenario { display: inline-flex; align-items: center; gap: 5px; padding: 0; border: 0; background: transparent; color: var(--color-ink); font-size: 15px; font-weight: 680; letter-spacing: -0.01em; }
-.topbar-scenario:hover { color: var(--color-blue); }
-.topbar-scenario svg { color: var(--color-muted); }
 .topbar-item.counterpart { flex-direction: row; align-items: center; gap: 9px; }
-.counterpart-card { position: relative; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; overflow: hidden; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--color-border), 0 2px 6px rgba(16, 24, 40, 0.12); background: linear-gradient(135deg, #2f7cff, #0064ff); color: #fff; }
-.counterpart-card img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.counterpart-avatar { position: relative; display: grid; place-items: center; flex: 0 0 36px; width: 36px; height: 36px; border-radius: 50%; overflow: hidden; border: 2px solid #fff; background: var(--color-fog); }
+.counterpart-avatar img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
 .counterpart-meta { display: flex; flex-direction: column; gap: 1px; }
 .counterpart-meta strong { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 680; letter-spacing: -0.01em; }
 .presence-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.16); }
@@ -167,23 +165,25 @@
 
 /* ---------- 상황 브리핑 팝업 ---------- */
 .practice-briefing {
-  position: absolute; inset: 0; z-index: 30;
-  display: grid; place-items: center;
-  padding: 24px;
-  background: rgba(7, 13, 26, 0.56);
-  backdrop-filter: blur(7px);
+  position: fixed; inset: 0;
+  width: 100%; max-width: none; height: 100dvh; max-height: none;
+  margin: 0; border: 0; padding: 16px;
+  background: transparent; color: var(--color-ink);
+  overflow-y: auto; overscroll-behavior: contain;
 }
+.practice-briefing[open] { display: grid; place-items: center; }
+.practice-briefing::backdrop { background: rgba(7, 13, 26, 0.56); backdrop-filter: blur(7px); }
 .practice-briefing-card {
-  width: min(560px, 92vw);
-  padding: 26px 30px 22px;
+  width: min(560px, 100%);
+  padding: clamp(20px, 4vw, 30px);
   border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: 24px;
   background: rgba(255, 255, 255, 0.97);
   box-shadow: 0 30px 80px rgba(4, 12, 30, 0.42);
 }
 .practice-briefing-card--scene {
-  width: min(820px, 94vw);
-  padding: 40px 44px 32px;
+  width: min(820px, 100%);
+  padding: clamp(20px, 4vw, 40px);
   border-radius: 28px;
 }
 .practice-briefing-card--scene h2 { margin: 16px 0 12px; font-size: 30px; line-height: 1.28; }
@@ -233,7 +233,7 @@
 .briefing-foot button:hover { filter: brightness(1.06); }
 
 /* 종료 확인 — 브리핑 카드 스타일 재사용, 촬영 중 오클릭 보호 */
-.practice-confirm .practice-briefing-card { width: min(420px, 92vw); }
+.practice-confirm .practice-briefing-card { width: min(420px, 100%); }
 .confirm-foot { justify-content: flex-end; }
 .confirm-foot .confirm-stay { background: var(--color-blue); }
 .confirm-foot .confirm-leave { background: #fff; color: #e5484d; border: 1px solid rgba(229, 72, 77, 0.45); box-shadow: none; }
@@ -321,7 +321,7 @@
 .tool-status-row { display: grid; justify-items: center; align-content: center; gap: 4px; min-height: 72px; padding: 8px 6px; border: 1px solid var(--color-border); border-radius: 11px; background: #fff; text-align: center; }
 .tool-status-copy { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
 .tool-status-copy strong { color: var(--color-ink); font-size: 12px; font-weight: 680; }
-.tool-status-copy small { overflow: hidden; color: var(--color-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.tool-status-copy small { color: var(--color-graphite); font-size: 12px; line-height: 1.5; }
 .tool-status-state { display: inline-flex; align-items: center; justify-content: space-between; width: 44px; height: 20px; padding: 2px; border-radius: var(--radius-pill); background: #667085; color: #fff; font-size: 8px; font-weight: 800; line-height: 1; }
 .tool-status-state i { width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(25, 31, 40, 0.18); }
 .tool-status-state b { min-width: 18px; font: inherit; white-space: nowrap; }
@@ -356,7 +356,7 @@
 .practice-screen .chat-message.ai .chat-avatar { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 50%; overflow: hidden; border: 1.5px solid #fff; box-shadow: 0 0 0 1px var(--color-border), 0 2px 5px rgba(16, 24, 40, 0.1); background: linear-gradient(135deg, #34d399, #0ea5e9); color: #fff; }
 .practice-screen .chat-message.ai .chat-avatar img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
 .practice-screen .chat-content { min-width: 0; }
-.practice-screen .chat-meta { display: block; margin-bottom: 4px; color: var(--color-muted); font-size: 11.5px; font-weight: 550; }
+.practice-screen .chat-meta { display: block; margin-bottom: 4px; color: var(--color-graphite); font-size: 12px; font-weight: 550; }
 .practice-screen .chat-bubble { padding: 11px 14px; border-radius: 4px 14px 14px 14px; background: var(--color-fog); }
 .practice-screen .chat-bubble p { margin: 0; color: var(--color-ink); font-size: 13px; line-height: 1.58; word-break: keep-all; }
 .practice-screen .chat-message.mine { flex-direction: column; gap: 0; align-items: flex-end; }
@@ -404,7 +404,7 @@
 @keyframes dot-blink { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
 .control-speak input { flex: 1; min-width: 80px; border: 0; background: transparent; color: #fff; font-size: 14px; caret-color: #7eb0ff; }
 .control-speak input::placeholder { color: rgba(231, 239, 255, 0.65); }
-.control-speak input:focus { outline: none; }
+.control-speak input:focus-visible { outline: 2px solid #fff; outline-offset: 4px; border-radius: 4px; }
 .control-clock { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; }
 .control-clock time { font-variant-numeric: tabular-nums; color: #fff; font-size: 14px; font-weight: 720; }
 .control-clock small { font-variant-numeric: tabular-nums; color: rgba(231, 239, 255, 0.64); font-size: 11px; }
@@ -442,7 +442,10 @@
   .control-wave { display: none; }
   .control-speak { gap: 8px; padding-left: 12px; min-height: 56px; }
   .control-speak-label { padding-right: 4px; }
-  .control-speak input { min-width: 0; }
+  .control-speak { flex-wrap: wrap; }
+  .control-speak input { min-width: 0; flex-basis: 100%; order: -1; font-size: 16px; min-height: 44px; }
+  .control-send { margin-left: auto; }
+  .mic-picker select { font-size: 16px; }
   .control-clock small { display: none; }
   .control-send { min-width: 58px; height: 38px; padding: 0 9px 0 11px; }
 }

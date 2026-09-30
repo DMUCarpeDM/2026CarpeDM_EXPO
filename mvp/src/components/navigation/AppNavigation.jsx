@@ -64,7 +64,7 @@ export function TopNav({ active, serviceMode, scenarioTitle, menuOpen, onMenuOpe
         <span className="brand-mark brand-mark--mirror" aria-hidden="true"><img src="/icons/mirror-ting-mark-slim.png" alt="" /></span><span>Mirror-Ting</span>
       </button>
       <nav aria-label="주요 화면">
-        {Object.entries(currentNavMap).map(([label, target]) => <button key={label} className={active === target ? "active" : ""} type="button" onClick={() => onNavigate(target)}>{label}</button>)}
+        {Object.entries(currentNavMap).map(([label, target]) => <button key={label} className={active === target ? "active" : ""} aria-current={active === target ? "page" : undefined} type="button" onClick={() => onNavigate(target)}>{label}</button>)}
       </nav>
       <div className="nav-actions">
         {active === "practice" && (
@@ -119,7 +119,7 @@ export function MobileMenuSheet({ open, active, onClose, onNavigate, practiceMod
       <section className="mobile-menu-sheet">
         <div className="sheet-handle" />
         <div className="sheet-head"><strong>Mirror-Ting</strong><button type="button" autoFocus aria-label="메뉴 닫기" onClick={onClose}><X size={20} /></button></div>
-        <nav aria-label="모바일 주요 화면">{Object.entries(practiceMode ? practiceNavMap : navMap).map(([label, target]) => <button key={label} className={active === target ? "active" : ""} type="button" onClick={() => onNavigate(target)}><IconGlyph icon={mobileIconByTarget[target] || "coach"} size={23} /><span>{label}</span><ArrowRight size={17} /></button>)}</nav>
+        <nav aria-label="모바일 주요 화면">{Object.entries(practiceMode ? practiceNavMap : navMap).map(([label, target]) => <button key={label} className={active === target ? "active" : ""} aria-current={active === target ? "page" : undefined} type="button" onClick={() => onNavigate(target)}><IconGlyph icon={mobileIconByTarget[target] || "coach"} size={23} /><span>{label}</span><ArrowRight size={17} /></button>)}</nav>
       </section>
     </dialog>
   );

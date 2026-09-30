@@ -8,6 +8,7 @@ import { workplaceCategories } from "../data/workplaceStories";
 export function PreviewPage({ serviceMode, onNext, starting, scenario, selectedEpisode, counterpartProfile, difficulty, aiHealth, consented, onConsent, error, permissionState, mode = 5 }) {
   const resolvedServiceMode = resolveServiceMode(serviceMode?.id);
   const workplace = resolvedServiceMode.id === "workplace";
+  const difficultyTitle = resolvedServiceMode.id === "interview" ? "일반면접" : difficulty?.title || "기본 모드";
   const episode = selectedEpisode || scenario?.episodes?.[0];
   const lead = scenario?.characters?.find((character) => character.id === episode?.character_id) || scenario?.characters?.[0];
   const permissionsGranted = permissionState.camera === "granted" && permissionState.microphone === "granted";
@@ -26,7 +27,7 @@ export function PreviewPage({ serviceMode, onNext, starting, scenario, selectedE
     : [
     { label: "직무", value: counterpartProfile?.title || "선택한 직무", subtext: counterpartProfile?.text || "선택한 업무 상황을 바탕으로 연습해요", image: counterpartProfile?.image },
     { label: "연습 상황", value: episode?.title || scenario?.title || "상황을 불러오고 있어요", subtext: getScenarioDescription(episode?.situation || scenario?.description || "선택한 업무 상황을 바탕으로 연습해요"), image: getEpisodeImage(scenario?.slug, episode?.id), icon: "briefcase" },
-    { label: "난이도", value: difficulty?.title || "기본 모드", subtext: difficulty?.text || "편안한 질문 흐름으로 시작해요.", image: difficulty?.image, icon: "normal" },
+    { label: "난이도", value: difficultyTitle, subtext: difficulty?.text || "편안한 질문 흐름으로 시작해요.", image: difficulty?.image, icon: "normal" },
   ];
   const readiness = [
     { icon: "chat", label: dialogueName, value: aiReady ? "준비됨" : "실행 필요" },
@@ -47,7 +48,7 @@ export function PreviewPage({ serviceMode, onNext, starting, scenario, selectedE
       </CardContent>
     </Card>
     <div className="preview-support-grid" aria-label="연습 준비 정보">
-      <Card className="preview-counterpart-card"><CardContent><div className="preview-panel-heading"><span>AI 상대 정보</span><p>선택한 역할에 맞춰 대화가 이어져요.</p></div><div className="preview-counterpart"><span className="preview-counterpart-image">{counterpartProfile?.image ? <img src={counterpartProfile.image} alt="" /> : <IconGlyph icon="person" size={32} />}</span><div><h2>{lead?.name || counterpartProfile?.title || "AI 상대"}</h2><strong>{counterpartProfile?.title || lead?.role || "역할극 상대"}</strong><p>{lead?.personality || counterpartProfile?.text || "이번 역할극에서 함께 대화할 사람이에요."}</p></div></div><dl className="preview-role-details"><div><dt>대화 방식</dt><dd>{counterpartProfile?.text || "핵심부터 듣고, 근거를 확인해요"}</dd></div><div><dt>난이도</dt><dd>{difficulty?.title || "기본 모드"} · {difficulty?.text || "질문에 차분히 답해요"}</dd></div></dl></CardContent></Card>
+      <Card className="preview-counterpart-card"><CardContent><div className="preview-panel-heading"><span>AI 상대 정보</span><p>선택한 역할에 맞춰 대화가 이어져요.</p></div><div className="preview-counterpart"><span className="preview-counterpart-image">{counterpartProfile?.image ? <img src={counterpartProfile.image} alt="" /> : <IconGlyph icon="person" size={32} />}</span><div><h2>{lead?.name || counterpartProfile?.title || "AI 상대"}</h2><strong>{counterpartProfile?.title || lead?.role || "역할극 상대"}</strong><p>{lead?.personality || counterpartProfile?.text || "이번 역할극에서 함께 대화할 사람이에요."}</p></div></div><dl className="preview-role-details"><div><dt>대화 방식</dt><dd>{counterpartProfile?.text || "핵심부터 듣고, 근거를 확인해요"}</dd></div><div><dt>난이도</dt><dd>{difficultyTitle} · {difficulty?.text || "질문에 차분히 답해요"}</dd></div></dl></CardContent></Card>
       <Card className="preview-readiness-card"><CardContent><div className="preview-panel-heading"><span>시스템 준비 상태</span><p>{permissionsGranted ? "카메라와 마이크가 준비됐어요." : "시작할 때 권한을 확인해요."}</p></div><ul>{readiness.map((item) => <li key={item.label}><IconGlyph icon={item.icon} size={20} /><span>{item.label}</span><Badge variant="neutral">{item.value}</Badge></li>)}</ul></CardContent></Card>
     </div>
     <div className="preview-start-area"><label className="consent-check"><input type="checkbox" checked={consented} onChange={(event) => onConsent(event.target.checked)} /><span>카메라·음성 분석에 동의해요. AI 상대 음성은 외부 음성 서비스로 만들 수 있어요. 연습 음성과 분석 결과는 이 브라우저에 보관되며, 서버의 세션·기록 처리도 이루어져요.</span></label>{error && <p className="preview-error" role="alert">{error}</p>}<Button className="preview-start-button" size="lg" type="button" onClick={onNext} disabled={!canStart}>{starting ? "연습을 준비하고 있어요" : "동의하고 시작하기"}<ArrowRight size={20} /></Button></div>

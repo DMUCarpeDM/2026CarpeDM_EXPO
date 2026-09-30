@@ -10,7 +10,7 @@ export async function runFreshSelection(pageHarness, runDir) {
   return withPage(pageHarness, {}, async ({ page, calls, pageErrors }) => {
     await openServiceSelector(page);
     assert.equal(await page.locator(".top-nav, .mobile-menu-layer, .attract-overlay, .nfc-fallback-overlay").count(), 0);
-    assert.deepEqual(await page.locator(".service-mode-card").evaluateAll((cards) => cards.map((card) => card.getAttribute("aria-pressed"))), ["false", "false", "false"]);
+    assert.deepEqual(await page.locator(".service-mode-card").evaluateAll((cards) => cards.map((card) => card.getAttribute("aria-pressed"))), [null, null, null]);
     const selectorNfcCalls = calls.filter((path) => path === "/api/nfc/tap").length;
     assert.equal(selectorNfcCalls, 0);
     assert.equal(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight), true);
@@ -22,22 +22,22 @@ export async function runFreshSelection(pageHarness, runDir) {
     await nfcRequest;
     assert.equal(await page.locator(".attract-overlay").count(), 1);
     await capture(page, join(runDir, "selected-home.png"), ".home-page");
-    await page.locator(".hero-actions button").first().click();
+    await page.locator(".studio-hero__actions button").first().click();
     await page.locator(".role-choice-section").waitFor();
     await capture(page, join(runDir, "selected-role.png"), ".selection-page");
     await page.locator(".setup-back-button").click();
     await page.locator(".home-page").waitFor();
 
-    await page.locator(".hero-actions button").first().click();
+    await page.locator(".studio-hero__actions button").first().click();
     await page.locator(".role-choice-section").waitFor();
     await page.goBack();
     await page.locator(".home-page").waitFor();
     await page.goBack();
     await page.locator(".service-mode-page").waitFor();
-    assert.equal(await page.getByRole("button", { name: "면접", exact: true }).getAttribute("aria-pressed"), "false");
+    assert.equal(await page.getByRole("button", { name: "면접", exact: true }).getAttribute("aria-pressed"), null);
 
     await page.getByRole("button", { name: "면접", exact: true }).click();
-    await page.locator(".hero-actions button").first().click();
+    await page.locator(".studio-hero__actions button").first().click();
     await page.getByRole("button", { name: /개발자/ }).click();
     await page.locator(".setup-next-button").click();
     await page.getByRole("button", { name: /일반면접 6개 질문/ }).click();
@@ -53,14 +53,14 @@ export async function runFreshSelection(pageHarness, runDir) {
     await capture(page, join(runDir, "reset-service.png"), ".setup-flow-page");
 
     await page.getByRole("button", { name: "직업훈련", exact: true }).click();
-    await page.locator(".hero-actions button").first().click();
+    await page.locator(".studio-hero__actions button").first().click();
     assert.equal(await page.locator('.role-choice-section [aria-pressed="true"]').count(), 0);
     assert.equal(await page.getByRole("button", { name: /개발자/ }).count(), 0);
     await page.getByRole("button", { name: /카페 파트너/ }).click();
     await page.locator(".setup-next-button").click();
     assert.equal(await page.getByRole("button", { name: /주문 응대/ }).getAttribute("aria-pressed"), "true");
     await page.locator(".setup-next-button").click();
-    assert.equal(await page.locator('.difficulty-choice-section [aria-pressed="true"]').count(), 0);
+    assert.equal(await page.locator('.difficulty-choice-section [aria-pressed="true"]').count(), 1);
     await page.getByRole("button", { name: /기본 모드/ }).click();
     await page.locator(".setup-next-button").click();
     assert.equal(await page.getByRole("checkbox").isChecked(), false);
@@ -107,7 +107,7 @@ export async function runServiceCards(pageHarness, runDir) {
       if (serviceModeId === "interview") await capture(page, join(runDir, "usage-mobile.png"), ".usage-page");
       await page.getByRole("button", { name: "연습하러 가기", exact: true }).click();
       await page.setViewportSize({ width: 1280, height: 900 });
-      await page.locator(".hero-actions button").first().click();
+      await page.locator(".studio-hero__actions button").first().click();
       await page.locator(serviceModeId === "workplace" ? ".preview-page" : ".role-choice-section").waitFor();
       if (serviceModeId === "workplace") await page.goBack();
       else await page.locator(".setup-back-button").click();

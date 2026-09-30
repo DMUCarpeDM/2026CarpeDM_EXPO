@@ -17,7 +17,6 @@ import { useNfcTap } from "../lib/useNfcTap";
  *  자체 복귀(8초)만 사용한다.
  */
 const DONE_RETURN_MS = 8000;
-const TOAST_MS = 4000;
 
 const stepRise = {
   initial: { opacity: 0, y: 18 },
@@ -35,15 +34,11 @@ export function KioskIssuePage() {
   const [manualOpen, setManualOpen] = useState(false);
   const [manualUid, setManualUid] = useState("");
   const busyRef = useRef(false);
-  const toastTimerRef = useRef(0);
+  const manualInputRef = useRef(null);
+  const [invalidUid, setInvalidUid] = useState(false);
 
-  // 운영자용 오류 토스트 — 잠깐 보여주고 스스로 사라진다 (관람객 흐름을 막지 않는다).
-  const showToast = (message) => {
-    window.clearTimeout(toastTimerRef.current);
-    setToast(message);
-    toastTimerRef.current = window.setTimeout(() => setToast(""), TOAST_MS);
-  };
-  useEffect(() => () => window.clearTimeout(toastTimerRef.current), []);
+  // 오류는 운영자가 읽고 닫거나 다시 시도할 때까지 유지한다.
+  const showToast = (message) => setToast(message);
 
   const reset = () => {
     setStage("select");
@@ -51,6 +46,8 @@ export function KioskIssuePage() {
     setIssuedCard(null);
     setManualOpen(false);
     setManualUid("");
+    setToast("");
+    setInvalidUid(false);
   };
 
   // 발급 완료 화면은 8초 뒤 직무 선택으로 자동 복귀한다 (다음 관람객 준비).
@@ -64,6 +61,8 @@ export function KioskIssuePage() {
     if (busyRef.current || !jobRole) return;
     busyRef.current = true;
     setBusy(true);
+    setToast("");
+    setInvalidUid(false);
     try {
       const card = await issueNfcCard({ uid, jobRole: jobRole.id });
       setIssuedCard(card);
@@ -90,6 +89,8 @@ export function KioskIssuePage() {
     const uid = manualUid.trim();
     if (!isValidUid(uid)) {
       showToast("UID 형식이 올바르지 않아요 — 16진수 4~32자로 입력해 주세요.");
+      setInvalidUid(true);
+      manualInputRef.current?.focus();
       return;
     }
     issue(uid);
@@ -150,6 +151,9 @@ export function KioskIssuePage() {
                   <div className="kiosk-manual-row">
                     <input
                       id="kiosk-manual-uid"
+                      ref={manualInputRef}
+                      aria-invalid={invalidUid || undefined}
+                      aria-describedby={invalidUid && toast ? "kiosk-issue-error" : undefined}
                       value={manualUid}
                       onChange={(event) => setManualUid(event.target.value)}
                       onKeyDown={(event) => { if (event.key === "Enter") submitManualUid(); }}
@@ -158,7 +162,7 @@ export function KioskIssuePage() {
                       spellCheck="false"
                       disabled={busy}
                     />
-                    <button type="button" onClick={submitManualUid} disabled={busy || !manualUid.trim()}>발급</button>
+                    <button type="button" onClick={submitManualUid} disabled={busy}>발급</button>
                   </div>
                   <small>카드 뒷면·리더 프로그램에 표시된 UID(16진수)를 입력해요.</small>
                 </div>
@@ -196,13 +200,14 @@ export function KioskIssuePage() {
         {toast && (
           <motion.div
             className="kiosk-toast"
-            role="status"
+            role="alert"
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
             transition={{ duration: 0.25 }}
           >
-            {toast}
+            <span id="kiosk-issue-error">{toast}</span>
+            <button type="button" onClick={() => setToast("")}>안내 닫기</button>
           </motion.div>
         )}
       </AnimatePresence>

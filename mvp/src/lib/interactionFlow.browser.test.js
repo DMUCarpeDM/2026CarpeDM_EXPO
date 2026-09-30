@@ -41,7 +41,7 @@ await page.getByRole('button',{name:'일시정지',exact:true}).click();
 await page.locator('.practice-live-tip').waitFor({state:'hidden'});
 const before=observations; await page.waitForTimeout(5500); if(observations!==before)throw new Error('polling during pause');
 await page.getByRole('button',{name:'연습 종료',exact:true}).click();
-await page.getByRole('dialog',{name:'연습 종료 확인'}).getByRole('button',{name:'종료',exact:true}).click();
+await page.getByRole('dialog',{name:'연습 종료 확인'}).getByRole('button',{name:'연습 종료',exact:true}).click();
 await page.waitForTimeout(500);
 if(finishes!==1)throw new Error(`finish requests ${finishes}`);
 

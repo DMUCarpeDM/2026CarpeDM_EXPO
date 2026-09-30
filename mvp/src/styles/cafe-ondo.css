@@ -259,11 +259,12 @@
 
 /* 운영자용 오류 토스트 */
 .kiosk-toast {
+  display: flex; align-items: center; gap: 16px;
   position: fixed;
   bottom: 34px;
   left: 50%;
   z-index: 40;
-  transform: translateX(-50%);
+  translate: -50% 0;
   max-width: min(560px, calc(100vw - 48px));
   padding: 13px 22px;
   border-radius: var(--radius-pill);
@@ -273,11 +274,14 @@
   font-weight: 650;
   box-shadow: 0 16px 38px rgba(42, 24, 14, 0.35);
 }
+.kiosk-toast button { flex-shrink: 0; min-height: 44px; border: 1px solid currentColor; border-radius: 999px; padding: 8px 12px; background: transparent; color: inherit; font: inherit; }
 
 .kiosk-issue-foot { padding: 18px 0 4px; color: rgba(74, 46, 31, 0.45); font-size: 12.5px; }
 
 @media (max-width: 900px) {
   .kiosk-role-grid { grid-template-columns: minmax(0, 1fr); }
+  .kiosk-manual-row input { font-size: 16px; }
+  .kiosk-toast { width: calc(100vw - 32px); max-width: none; flex-wrap: wrap; border-radius: 16px; }
 }
 
 /* ---- 미러 NFC 수동 폴백 시트 (E-20) — 홈 위 오버레이 ---- */

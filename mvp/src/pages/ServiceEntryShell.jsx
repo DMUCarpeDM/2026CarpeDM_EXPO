@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { AttractLoop } from "../components/AttractLoop";
 import { MobileMenuSheet, TopNav } from "../components/navigation/AppNavigation";
 import { NfcStartFallback } from "../components/nfc/NfcStartFallback";
@@ -39,21 +40,29 @@ export function ServiceEntryShell({
   const {
     startPractice, sendAnswer, endPractice, requestExerciseMedia, switchMicDevice, issueCode, retryScenarios,
   } = actions;
+  const contentRef = useRef(null);
+  useEffect(() => {
+    if (kioskIssueMode) return;
+    const label = SERVICE_ENTRY_FLOW.find((item) => item.id === active)?.label;
+    if (label) document.title = `${label} · Mirror-Ting`;
+    contentRef.current?.focus({ preventScroll: true });
+  }, [active, kioskIssueMode]);
 
   if (kioskIssueMode) return <KioskIssuePage />;
   if (active === "boot") return <main className="app-boot" aria-busy="true" />;
   if (isChromelessView(active)) {
-    return <main className="chromeless"><ServiceModeSelectPage selectedServiceModeId={selectedServiceModeId} onSelect={chooseServiceMode} /></main>;
+    return <div className="chromeless"><ServiceModeSelectPage selectedServiceModeId={selectedServiceModeId} onSelect={chooseServiceMode} /></div>;
   }
 
   const current = SERVICE_ENTRY_FLOW.find((item) => item.id === active) || SERVICE_ENTRY_FLOW[0];
   const navigationView = SETUP_NAV_VIEWS.has(active) ? "service" : active === "result" ? "records" : active;
   const startView = workplaceStartView(serviceMode?.id);
 
-  return <main className={`app-shell ${active === "practice" ? "practice-mode" : ""} ${active === "home" ? `home-mode home-mode-${serviceMode?.id || "workplace"}` : ""}`}>
+  return <div className={`app-shell ${active === "practice" ? "practice-mode" : ""} ${active === "home" ? `home-mode home-mode-${serviceMode?.id || "workplace"}` : ""}`}>
+    <a className="skip-link" href="#main-content">본문으로 건너뛰기</a>
     <TopNav active={navigationView} serviceMode={serviceMode} scenarioTitle={session?.scenario?.title || previewScenario?.title} menuOpen={menuOpen} onMenuOpen={setMenuOpen} onNavigate={navigate} scenarios={apiScenarios} onScenarioSelect={(slug) => { setPocScenarioSlug(slug); navigate("role"); }} practiceMode={active === "practice"} hasReport={Boolean(report)} />
     <MobileMenuSheet open={menuOpen} active={navigationView} onClose={() => setMenuOpen(false)} onNavigate={navigate} practiceMode={active === "practice"} />
-    <div className="screen-frame">
+    <main className="screen-frame" id="main-content" ref={contentRef} tabIndex={-1}>
       {active === "usage" && <UsagePage onPractice={() => navigate("home")} />}
       {active === "intro" && <SiteIntroPage onPractice={() => navigate("home")} />}
       {active === "records" && <ResultsHistoryPage onResultBack={() => navigate("home")} onPractice={() => navigate("home")} report={report} history={history} onIssueCode={issueCode} selectedDifficulty={difficulty} progress={analysisProgress} error={apiError} />}
@@ -64,9 +73,9 @@ export function ServiceEntryShell({
       {active === "preview" && <PreviewPage serviceMode={serviceMode} onNext={startPractice} starting={starting} scenario={previewScenario} selectedEpisode={previewEpisode} counterpartProfile={previewCounterpartProfile} difficulty={difficultyOption} aiHealth={aiHealth} consented={consented} onConsent={setConsented} error={apiError} permissionState={permissionState} mode={mode} />}
       {active === "practice" && <PracticePage session={session} onFinish={endPractice} onPrev={() => go(-1)} scenario={session?.scenario} aiHealth={aiHealth} turn={turn} history={turnHistory} turnSignals={turnSignals} onSubmit={sendAnswer} busy={submitting} error={apiError} mediaStream={mediaStream} onRequestMedia={requestExerciseMedia} onSwitchMic={switchMicDevice} />}
       {active === "result" && <ResultPage onPrev={() => go(-1)} onPractice={() => navigate("preview")} report={report} history={history} onIssueCode={issueCode} selectedDifficulty={difficulty} progress={analysisProgress} error={apiError} />}
-    </div>
+    </main>
     <span className="screen-reader-note" aria-live="polite">현재 화면: {current.label}</span>
     {active === "home" && nfcFallback && <NfcStartFallback serviceMode={serviceMode?.id} onPick={startFromJobRole} onClose={() => setNfcFallback(false)} />}
     {active === "home" && <AttractLoop active onStart={() => navigate(startView)} />}
-  </main>;
+  </div>;
 }

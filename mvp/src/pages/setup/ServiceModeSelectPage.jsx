@@ -15,12 +15,12 @@ export function ServiceModeSelectPage({ onSelect }) {
   return (
     <div className="setup-flow-page service-mode-page">
       <main className="service-mode-main" aria-label="서비스 모드 선택">
+        <h1 className="screen-reader-note">연습할 서비스를 선택해 주세요</h1>
         <div className="service-mode-grid">
           {serviceModes.map((item) => (
             <Card className={`service-mode-card-v2 service-mode-card-v2--${item.id}`} key={item.id}>
               <button
                 aria-label={item.label}
-                aria-pressed="false"
                 className="choice-card service-mode-card service-mode-card-button"
                 type="button"
                 onClick={() => onSelect(item.id)}

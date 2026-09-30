@@ -13,7 +13,7 @@ export function PageTitle({ eyebrow, title, subtitle }) {
     <div className="page-title">
       {eyebrow && <p>{eyebrow}</p>}
       <h1>{title}</h1>
-      {subtitle && <h2>{subtitle}</h2>}
+      {subtitle && <p className="page-subtitle">{subtitle}</p>}
     </div>
   );
 }
@@ -58,7 +58,7 @@ export function MiniStepper({ items, active }) {
       <div className="mini-step-track">
         {items.map(([num, label], index) => (
           <React.Fragment key={label}>
-            <span className={index === active ? "active" : ""}><b>{num}</b>{label}</span>
+            <span className={index === active ? "active" : ""} aria-current={index === active ? "step" : undefined}><b>{num}</b>{label}</span>
             {index < items.length - 1 && <i />}
           </React.Fragment>
         ))}

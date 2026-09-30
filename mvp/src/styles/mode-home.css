@@ -129,7 +129,7 @@
 .console-stage small,
 .task-board__work > small,
 .training-coach-panel small,
-.workspace-column > small { color: var(--mode-accent); font-size: 12px; font-weight: 800; letter-spacing: .06em; }
+.workspace-column > small { color: var(--color-link-blue); font-size: 12px; font-weight: 800; letter-spacing: .06em; }
 .console-stage h2 { max-width: 380px; margin: 12px 0; font-size: 30px; line-height: 1.27; letter-spacing: -.04em; word-break: keep-all; }
 .console-stage p { margin: 0; color: var(--mode-muted); font-size: 14px; line-height: 1.65; }
 .console-wave { display: flex; min-height: 74px; align-items: center; gap: 12px; margin-top: 30px; padding: 0 18px; border: 1px solid var(--mode-border); border-radius: var(--mode-radius); background: #fff; color: var(--mode-muted); font-size: 13px; }

@@ -73,7 +73,7 @@
 .studio-pipeline > div > span { border: 1px solid var(--mode-border); border-radius: 4px; padding: 5px 10px; background: var(--mode-card); }
 .studio-pipeline__line { flex: 1; height: 1px; background: var(--mode-border); margin-inline: 12px; position: relative; }
 .studio-pipeline__line::after { content: ""; position: absolute; top: -2px; inset-inline-start: 50%; width: 5px; height: 5px; background: var(--mode-accent); border-radius: 50%; }
-.studio-pipeline > strong { color: var(--mode-accent); }
+.studio-pipeline > strong { color: var(--color-link-blue); }
 .studio-tour__mobile-scene { display: none; }
 .studio-hero button:focus-visible, .studio-tour button:focus-visible { outline: 2px solid var(--mode-accent); outline-offset: 3px; }
 @media (hover: hover) and (pointer: fine) {

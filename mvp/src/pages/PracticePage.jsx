@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ChevronDown } from "reicon-react/icons/ChevronDown";
 import { ChevronRight } from "reicon-react/icons/ChevronRight";
 import { Expand } from "reicon-react/icons/Expand";
 import { Mic } from "reicon-react/icons/Mic";
@@ -32,6 +31,15 @@ function formatClock(totalSeconds) {
 }
 
 const wallClock = () => new Date().toLocaleTimeString("ko-KR", { hour12: false, hour: "2-digit", minute: "2-digit" });
+
+function containDialogTab(event) {
+  if (event.key !== "Tab") return;
+  const buttons = event.currentTarget.querySelectorAll("button:not(:disabled)");
+  const first = buttons[0];
+  const last = buttons[buttons.length - 1];
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+}
 
 const rise = (delay) => ({
   initial: { opacity: 0, y: 14 },
@@ -81,6 +89,8 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   const sceneBriefing = workplaceBriefing(session?.interaction);
   const [sceneBriefingOpen, setSceneBriefingOpen] = useState(workplace);
   const briefingButtonRef = useRef(null);
+  const briefingDialogRef = useRef(null);
+  const confirmDialogRef = useRef(null);
   useEffect(() => {
     if (workplace && turn?.episode_id) setSceneBriefingOpen(true);
   }, [workplace, turn?.episode_id]);
@@ -89,22 +99,20 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   const entryOverlayOpen = voice.open || sceneOverlayOpen;
   useEffect(() => {
     if (!sceneOverlayOpen) return undefined;
+    const dialog = briefingDialogRef.current;
     const previousFocus = document.activeElement;
+    dialog.showModal();
     briefingButtonRef.current?.focus();
-    const onKeyDown = (event) => {
-      if (event.key === "Tab") {
-        event.preventDefault();
-        briefingButtonRef.current?.focus();
-      } else if (event.key === "Escape") {
-        setSceneBriefingOpen(false);
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      if (previousFocus?.isConnected) previousFocus.focus?.();
-    };
+    return () => { dialog.close(); if (previousFocus?.isConnected) previousFocus.focus(); };
   }, [sceneOverlayOpen]);
+  useEffect(() => {
+    if (!confirmEnd) return undefined;
+    const dialog = confirmDialogRef.current;
+    const previousFocus = document.activeElement;
+    dialog.showModal();
+    dialog.querySelector(".confirm-stay")?.focus();
+    return () => { dialog.close(); if (previousFocus?.isConnected) previousFocus.focus(); };
+  }, [confirmEnd]);
   const aiReady = Boolean(aiHealth?.dialogue_ready);
   // MediaPipe 실시간 얼굴·상체 트래킹 (영상 미전송 — 브라우저 안에서만 분석)
   const track = useFaceTracking(mediaStream, analysisVideoRef, overlayRef);
@@ -473,12 +481,13 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
 
   return (
     <motion.section className={`practice-screen ${paused ? "is-paused" : ""}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
+      <h1 className="screen-reader-note">AI와 연습하기</h1>
       {liveTip && <div className="practice-live-tip" role="status" aria-live="polite"><strong>대화 팁</strong><span>{liveTip.message}</span></div>}
       <motion.div className="practice-contextbar" {...rise(0)}>
         <div className="practice-contextbar-left">
           <div className="topbar-item">
             <span className="topbar-item-label">시나리오</span>
-            <button type="button" className="topbar-scenario">{sceneBriefing?.category_label || scenario?.title || "업무 보고 및 피드백 논의"} <ChevronDown size={15} /></button>
+            <strong className="topbar-scenario">{sceneBriefing?.category_label || scenario?.title || "업무 보고 및 피드백 논의"}</strong>
           </div>
           <div className="topbar-item counterpart">
             <span className="counterpart-avatar"><PersonaFace name={characterName} /></span>
@@ -490,8 +499,8 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
         </div>
         <div className="practice-contextbar-right">
           <span className="practice-timer"><i className="rec-dot" aria-hidden="true" />{formatClock(elapsed)}</span>
-          <button type="button" className="practice-utility" onClick={() => setPaused((value) => !value)}>{paused ? <><Play size={16} /> 다시 시작</> : <><Pause size={16} /> 일시정지</>}</button>
-          <button type="button" className="practice-utility" onClick={() => { clearAutoSubmit(); setDraft(""); setInterim(""); setCaptureError(""); }}><Refresh3 size={16} /> 재시도</button>
+          <button type="button" className="practice-utility" aria-pressed={paused} onClick={() => setPaused((value) => !value)}>{paused ? <><Play size={16} /> 연습 재개</> : <><Pause size={16} /> 일시정지</>}</button>
+          <button type="button" className="practice-utility" onClick={() => { clearAutoSubmit(); setDraft(""); setInterim(""); setCaptureError(""); }}><Refresh3 size={16} /> 입력 지우기</button>
           <button type="button" className="practice-end" onClick={() => setConfirmEnd(true)}><Power size={16} /> {scenario?.slug === "cafe-order-taking" ? "주문 접수 완료" : "연습 종료"}</button>
         </div>
       </motion.div>
@@ -534,7 +543,8 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
                 <Mic size={18} /> {busy ? "분석 중..." : listening ? "듣는 중..." : sttMode === "off" || !micEnabled || !hasMicrophone ? "직접 입력" : "말하는 중..."}
               </button>
               <span className={`control-wave ${listening ? "is-listening" : ""} ${hasMicrophone ? "is-real" : ""}`} ref={waveRef} aria-hidden="true">{Array.from({ length: 30 }, (_, i) => <i key={i} />)}</span>
-              <input value={inputValue} onChange={(event) => { clearAutoSubmit(); setDraft(event.target.value); setInterim(""); }} onKeyDown={(event) => { if (event.key === "Enter" && inputValue.trim() && !busy && turn) submitDraft(); }} placeholder="말 끝나면 전송" aria-label="말을 마치면 3초 뒤 자동으로 전달해요" disabled={busy || !turn} />
+              <label className="screen-reader-note" htmlFor="practice-answer">답변 입력</label>
+              <input id="practice-answer" value={inputValue} onChange={(event) => { clearAutoSubmit(); setDraft(event.target.value); setInterim(""); }} onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing && inputValue.trim() && !busy && turn) submitDraft(); }} placeholder="답변을 입력하세요" disabled={busy || !turn} />
               <span className="control-clock"><time>{formatClock(recSeconds)}</time><small>{formatClock(elapsed)}</small></span>
               <button type="button" className="control-send" onClick={submitDraft} disabled={busy || !inputValue.trim() || !turn}><span>전송</span><ChevronRight size={16} aria-hidden="true" /></button>
             </div>
@@ -567,7 +577,6 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
           <motion.section className="card chat-log-card" {...rise(0.18)}>
             <div className="chat-log-head">
               <h2>대화 로그 <em className="live-label"><i aria-hidden="true" />실시간</em></h2>
-              <button type="button" className="text-link">전체 보기 <ChevronRight size={14} /></button>
             </div>
             <div className="chat-log-body" ref={chatBodyRef}>
               {history.map((item) => (
@@ -578,14 +587,14 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
               ))}
               {turn && <ChatBubble ai name={characterName} time={turn.asked_at || stampFor(`q-${turn.id}`, `턴 ${turn.order}`)}>{turn.question_text}</ChatBubble>}
               <div className={`typing-bubble ${busy ? "busy" : ""}`} aria-label={busy ? "AI가 답을 준비하고 있어요" : "답변을 기다리고 있어요"}><i /><i /><i /></div>
-              {(error || captureError) && <p className="practice-error">{error || captureError}</p>}
+              {(error || captureError) && <p className="practice-error" role="alert">{error || captureError}</p>}
             </div>
           </motion.section>
         </aside>
       </div>
 
       {voice.open && <MicrophoneCheck session={session} stream={mediaStream} onRequestMedia={onRequestMedia} onReady={voice.onReady} onTextOnly={voice.onTextOnly} />}
-      {sceneOverlayOpen && <div className="practice-briefing" role="dialog" aria-modal="true" aria-label="상황 안내">
+      {sceneOverlayOpen && <dialog ref={briefingDialogRef} className="practice-briefing" aria-label="상황 안내" onKeyDown={containDialogTab} onCancel={() => setSceneBriefingOpen(false)}>
         <motion.div className="practice-briefing-card practice-briefing-card--scene" initial={{ opacity: 0, y: 14, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
           <span className="briefing-kicker">{sceneBriefing.step} / {sceneBriefing.total} · {sceneBriefing.category_label}</span>
           <h2>{sceneBriefing.title}</h2>
@@ -595,19 +604,19 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
             <button ref={briefingButtonRef} type="button" onClick={() => setSceneBriefingOpen(false)}>대화 시작</button>
           </div>
         </motion.div>
-      </div>}
+      </dialog>}
 
-      {confirmEnd && <div className="practice-briefing practice-confirm" role="dialog" aria-label="연습 종료 확인">
+      {confirmEnd && <dialog ref={confirmDialogRef} className="practice-briefing practice-confirm" aria-label="연습 종료 확인" onKeyDown={containDialogTab} onCancel={() => setConfirmEnd(false)}>
         <motion.div className="practice-briefing-card" initial={{ opacity: 0, y: 14, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
           <span className="briefing-kicker">확인</span>
           <h2>{scenario?.slug === "cafe-order-taking" ? "주문 접수를 완료할까요?" : "연습을 종료할까요?"}</h2>
           <p className="briefing-situation">지금까지 제출한 답변으로 결과를 확인합니다. 남은 질문과 목표는 완료 처리하지 않아요.</p>
           <div className="briefing-foot confirm-foot">
             <button type="button" className="confirm-stay" onClick={() => setConfirmEnd(false)}>계속 연습</button>
-            <button type="button" className="confirm-leave" disabled={busy} onClick={() => { setConfirmEnd(false); (onFinish || onPrev)(); }}>종료</button>
+            <button type="button" className="confirm-leave" disabled={busy} onClick={() => { setConfirmEnd(false); (onFinish || onPrev)(); }}>연습 종료</button>
           </div>
         </motion.div>
-      </div>}
+      </dialog>}
 
     </motion.section>
   );

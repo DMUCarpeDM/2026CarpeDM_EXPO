@@ -78,16 +78,19 @@ export class ServiceModeSelectAssertions {
   async initialContract() {
     const initial = await inspectRenderedPage(this.page);
     const excludedKeys = [
-      "h1Count", "paragraphCount", "headingCount", "sectionCount", "headerCount",
+      "paragraphCount", "sectionCount", "headerCount",
       "navCount", "helperCount", "statusCount", "nonCardButtonCount", "boldCount",
     ];
     for (const key of excludedKeys) assert.equal(initial[key], 0, `${key} excluded`);
+    assert.equal(initial.h1Count, 1, "one accessible page heading");
+    assert.equal(initial.headingCount, 1);
+    assert.equal(await this.page.locator("h1.screen-reader-note").count(), 1, "heading keeps the visual card-only layout");
     assert.deepEqual({ buttons: initial.buttonCount, cards: initial.cardCount }, { buttons: 3, cards: 3 });
     assert.deepEqual(initial.labels, this.serviceModeLabels);
     for (const label of this.serviceModeLabels) {
       assert.equal(await this.page.getByRole("button", { name: label, exact: true }).count(), 1, `accessible name is ${label}`);
     }
-    assert.deepEqual(initial.pressed, ["false", "false", "false"]);
+    assert.deepEqual(initial.pressed, [null, null, null], "navigation cards are not toggles");
     assert.deepEqual(initial.cardContent, this.serviceModeLabels.map((text) => ({
       text,
       strongCount: 1,
@@ -114,7 +117,7 @@ export class ServiceModeSelectAssertions {
       pressed: item.getAttribute("aria-pressed"),
       selected: item.classList.contains("selected"),
       checkCount: item.querySelectorAll(":scope > b").length,
-    }))), this.serviceModeIds.map(() => ({ pressed: "false", selected: false, checkCount: 0 })));
+    }))), this.serviceModeIds.map(() => ({ pressed: null, selected: false, checkCount: 0 })));
     for (const [index, id] of this.serviceModeIds.entries()) {
       await this.page.locator(cardSelector).nth(index).focus();
       await this.page.keyboard.press("Enter");
@@ -134,7 +137,7 @@ export class ServiceModeSelectAssertions {
     await waitForServiceModeCards(this.page);
     const returned = await inspectRenderedPage(this.page);
     assert.equal(await this.page.evaluate(() => document.activeElement?.matches("button.choice-card.service-mode-card")), false, "return does not restore card focus");
-    assert.deepEqual(returned.pressed, ["false", "false", "false"]);
+    assert.deepEqual(returned.pressed, [null, null, null]);
     assert.equal(returned.boldCount, 0);
     assert.equal(returned.cardContent.some((card) => card.selectedClass || card.focusVisible || card.checkCount > 0), false);
     return returned;
