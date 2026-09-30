@@ -15,7 +15,7 @@ const mobileIconByTarget = {
   result: "report",
 };
 
-export function TopNav({ active, serviceMode, scenarioTitle, menuOpen, onMenuOpen, onNavigate, scenarios = [], onScenarioSelect, practiceMode = false }) {
+export function TopNav({ active, serviceMode, scenarioTitle, menuOpen, onMenuOpen, onNavigate, scenarios = [], onScenarioSelect, practiceMode = false, hasReport = false }) {
   const [bellOpen, setBellOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [scenarioOpen, setScenarioOpen] = useState(false);
@@ -69,8 +69,8 @@ export function TopNav({ active, serviceMode, scenarioTitle, menuOpen, onMenuOpe
           </div>
         )}
         <div className="nav-dropdown-wrapper">
-          <button className={`bell-button ${bellOpen ? "active" : ""}`} type="button" aria-label="알림" onClick={toggleBell}><Bell size={20} /><b>3</b></button>
-          {bellOpen && <div className="nav-dropdown bell-dropdown glass-panel" onClick={(event) => event.stopPropagation()}><h3>최신 알림</h3><ul>{practiceMode ? <><li onClick={() => { onNavigate("records"); setBellOpen(false); }}><strong>[기록 비교]</strong> 첫 출근 연습 기록의 성장 추이를 확인해 보세요.</li><li onClick={() => { onNavigate("records"); setBellOpen(false); }}><strong>[코칭 안내]</strong> 새로운 난이도 [압박 질문]에 대한 대응 팁이 추가되었습니다.</li><li onClick={() => { onNavigate("result"); setBellOpen(false); }}><strong>[분석 완료]</strong> ㈜클라우드밋 신입 백엔드 개발자 시뮬레이션 분석 완료!</li></> : <><li onClick={() => { onNavigate("records"); setBellOpen(false); }}><strong>[분석 완료]</strong> 이번 연습의 코칭 보고서를 확인해 보세요.</li><li onClick={() => { onNavigate("records"); setBellOpen(false); }}><strong>[성장 기록]</strong> 이전 연습과 달라진 점을 한 화면에 정리했어요.</li></>}</ul></div>}
+          <button className={`bell-button ${bellOpen ? "active" : ""}`} type="button" aria-label={hasReport ? "알림 1개" : "알림"} onClick={toggleBell}><Bell size={20} />{hasReport && <b>1</b>}</button>
+          {bellOpen && <div className="nav-dropdown bell-dropdown glass-panel" onClick={(event) => event.stopPropagation()}><h3>최신 알림</h3>{hasReport ? <button type="button" onClick={() => { onNavigate("records"); setBellOpen(false); }}>완료된 연습 리포트 확인하기</button> : <p>새 알림이 없어요. 분석이 끝나면 여기서 알려드려요.</p>}</div>}
         </div>
         <div className="nav-dropdown-wrapper">
           <button className={`profile-button ${profileOpen ? "active" : ""}`} type="button" onClick={toggleProfile}><Avatar size="sm" /><strong>체험자</strong><ChevronDown size={16} /></button>
