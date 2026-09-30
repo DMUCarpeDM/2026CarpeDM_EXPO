@@ -60,7 +60,13 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   const [recSeconds, setRecSeconds] = useState(0);
   const analysisVideoRef = useRef(null);
   const overlayRef = useRef(null);
-  const cameraRef = useRef(null);
+  const screenRef = useRef(null);
+  const [fullscreen, setFullscreen] = useState(false);
+  useEffect(() => {
+    const syncFullscreen = () => setFullscreen(document.fullscreenElement === screenRef.current);
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    return () => document.removeEventListener("fullscreenchange", syncFullscreen);
+  }, []);
   const chatBodyRef = useRef(null);
   const recorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -439,7 +445,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
 
   const submitDraft = async () => {
     const text = inputValue.trim();
-    if (!text || busy || !turn || entryOverlayOpen) return;
+    if (!text || busy || paused || !turn || entryOverlayOpen) return;
     try {
       clearAutoSubmit();
       stopBrowserRecognition();
@@ -473,11 +479,11 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
 
   const toggleCameraFullscreen = () => {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    else cameraRef.current?.requestFullscreen?.().catch(() => {});
+    else screenRef.current?.requestFullscreen?.().catch(() => {});
   };
 
   return (
-    <motion.section className={`practice-screen ${paused ? "is-paused" : ""}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
+    <motion.section ref={screenRef} className={`practice-screen ${paused ? "is-paused" : ""}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
       <h1 className="screen-reader-note">AI와 연습하기</h1>
       {liveTip && <div className="practice-live-tip" role="status" aria-live="polite"><strong>대화 팁</strong><span>{liveTip.message}</span></div>}
       <motion.div className="practice-contextbar" {...rise(0)}>
@@ -497,18 +503,20 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
         <div className="practice-contextbar-right">
           <span className="practice-timer"><i className="rec-dot" aria-hidden="true" />{formatClock(elapsed)}</span>
           <button type="button" className="practice-utility" aria-pressed={paused} onClick={() => setPaused((value) => !value)}>{paused ? <><Play size={16} /> 연습 재개</> : <><Pause size={16} /> 일시정지</>}</button>
-          <button type="button" className="practice-utility" onClick={() => { clearAutoSubmit(); setDraft(""); setInterim(""); setCaptureError(""); }}><Refresh3 size={16} /> 입력 지우기</button>
           <button type="button" className="practice-end" onClick={() => setConfirmEnd(true)}><Power size={16} /> {scenario?.slug === "cafe-order-taking" ? "주문 접수 완료" : "연습 종료"}</button>
         </div>
       </motion.div>
 
       <div className="practice-input-status" role="status" aria-live="polite" aria-atomic="true"><strong>{inputStatus.title}</strong><span>{inputStatus.hint}</span></div>
       <div className="practice-stage">
+        <section className="practice-question-panel" aria-labelledby="practice-question">
+          <span className="practice-question-label">{aiSpeaking ? "AI 질문 듣는 중" : "현재 질문"}</span>
+          <h2 id="practice-question">{turnSpeech || "다음 질문을 준비하고 있어요."}</h2>
+        </section>
         <motion.section
           className={`practice-camera ${isChromaCounterpart ? (isCafeCounterpart ? "is-cafe-counterpart" : "is-workplace-counterpart") : ""}`}
           style={isCafeCounterpart && !mirrorMain ? { "--counterpart-background": `url(${cafeCounterpartBackground})` } : undefined}
           aria-label={hasCounterpartVideo ? "AI 상대 반응 영상" : "연습 카메라"}
-          ref={cameraRef}
           {...rise(0.06)}
         >
           <div className={`camera-user-feed ${mirrorMain ? "is-main" : "is-pip"}`} aria-label={mirrorMain ? "내 카메라 미러" : "내 모습 미리보기"}>
@@ -531,7 +539,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
           </div>
           <div className="camera-topline right">
             {hasCounterpartVideo && <button type="button" className="camera-expand camera-swap" onClick={() => setStageView(mirrorMain ? "counterpart" : "mirror")}>{mirrorMain ? "상대 크게" : "내 분석 크게"}</button>}
-            <button type="button" className="camera-expand" onClick={toggleCameraFullscreen} aria-label="카메라 전체 화면">
+            <button type="button" className="camera-expand" onClick={toggleCameraFullscreen} aria-label={fullscreen ? "전체 화면 닫기" : "연습 전체 화면"} aria-pressed={fullscreen}>
               <Expand size={15} />
             </button>
           </div>
@@ -548,12 +556,11 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
 
         <aside className="practice-side">
           <section className="practice-answer-panel" aria-labelledby="practice-question">
-            <span className="practice-question-label">{aiSpeaking ? "AI 질문 듣는 중" : "현재 질문"}</span>
-            <h2 id="practice-question">{turnSpeech || "다음 질문을 준비하고 있어요."}</h2>
             <label htmlFor="practice-answer">답변 입력</label>
             <textarea id="practice-answer" value={inputValue} onChange={(event) => { clearAutoSubmit(); setDraft(event.target.value); setInterim(""); }} placeholder="답변을 입력하세요" disabled={busy || !turn} />
             <div className="practice-answer-actions">
-              <button type="button" className="control-send" onClick={submitDraft} disabled={busy || !inputValue.trim() || !turn}><span>전송</span><ChevronRight size={16} aria-hidden="true" /></button>
+              <button type="button" className="control-send" onClick={submitDraft} disabled={busy || paused || entryOverlayOpen || !inputValue.trim() || !turn}><span>전송</span><ChevronRight size={16} aria-hidden="true" /></button>
+              <button type="button" className="practice-utility" disabled={busy || !inputValue} onClick={() => { clearAutoSubmit(); setDraft(""); setInterim(""); setCaptureError(""); }}><Refresh3 size={16} /> 입력 지우기</button>
             </div>
             {(error || captureError) && <p className="practice-error" role="alert">{error || captureError}</p>}
           </section>
