@@ -17,6 +17,10 @@
 
 .service-mode-main { width: min(100%, 1180px); }
 
+.service-mode-heading { display: grid; gap: 12px; margin-block-end: clamp(32px, 4vw, 48px); text-align: center; }
+.service-mode-heading h1 { margin: 0; color: var(--color-carbon); font-family: var(--font-display); font-size: clamp(30px, 3.4vw, 44px); font-weight: 560; line-height: 1.25; letter-spacing: -.025em; word-break: keep-all; text-wrap: balance; }
+.service-mode-heading p { max-width: 620px; margin: 0 auto; color: var(--color-graphite); font-size: 16px; line-height: 1.7; word-break: keep-all; text-wrap: balance; }
+
 .service-mode-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -41,7 +45,7 @@
   border-radius: 0;
   background: #fff;
   color: #1d1d1f;
-  text-align: left;
+  text-align: center;
 }
 
 .service-mode-page .service-mode-card-button:hover { transform: none; box-shadow: none; }

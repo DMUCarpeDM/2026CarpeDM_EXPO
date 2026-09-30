@@ -78,13 +78,18 @@ export class ServiceModeSelectAssertions {
   async initialContract() {
     const initial = await inspectRenderedPage(this.page);
     const excludedKeys = [
-      "paragraphCount", "sectionCount", "headerCount",
+      "sectionCount",
       "navCount", "helperCount", "statusCount", "nonCardButtonCount", "boldCount",
     ];
     for (const key of excludedKeys) assert.equal(initial[key], 0, `${key} excluded`);
     assert.equal(initial.h1Count, 1, "one accessible page heading");
     assert.equal(initial.headingCount, 1);
-    assert.equal(await this.page.locator("h1.screen-reader-note").count(), 1, "heading keeps the visual card-only layout");
+    assert.equal(initial.paragraphCount, 1);
+    assert.equal(initial.headerCount, 1);
+    assert.equal(await this.page.locator(".service-mode-heading h1").isVisible(), true);
+    assert.equal(await this.page.locator(".service-mode-heading").evaluate(el => getComputedStyle(el).textAlign), "center");
+    assert.deepEqual(await this.page.locator(".service-mode-card-button").evaluateAll(items => items.map(el => getComputedStyle(el).textAlign)), ["center", "center", "center"]);
+    assert.deepEqual(await this.page.locator(".service-mode-card-title").evaluateAll(items => items.map(el => getComputedStyle(el).display)), ["flex", "flex", "flex"]);
     assert.deepEqual({ buttons: initial.buttonCount, cards: initial.cardCount }, { buttons: 3, cards: 3 });
     assert.deepEqual(initial.labels, this.serviceModeLabels);
     for (const label of this.serviceModeLabels) {

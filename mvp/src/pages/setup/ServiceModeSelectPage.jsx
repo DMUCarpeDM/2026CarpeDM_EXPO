@@ -15,7 +15,10 @@ export function ServiceModeSelectPage({ onSelect }) {
   return (
     <div className="setup-flow-page service-mode-page">
       <main className="service-mode-main" aria-label="서비스 모드 선택">
-        <h1 className="screen-reader-note">연습할 서비스를 선택해 주세요</h1>
+        <header className="service-mode-heading">
+          <h1>중요한 대화 전에, 먼저 연습해요.</h1>
+          <p>면접부터 현장 업무, 직장대화까지. 지금 필요한 연습을 골라보세요.</p>
+        </header>
         <div className="service-mode-grid">
           {serviceModes.map((item) => (
             <Card className={`service-mode-card-v2 service-mode-card-v2--${item.id}`} key={item.id}>
