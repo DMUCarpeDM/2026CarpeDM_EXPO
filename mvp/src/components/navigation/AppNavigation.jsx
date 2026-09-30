@@ -54,7 +54,12 @@ export function TopNav({ active, serviceMode, scenarioTitle, menuOpen, onMenuOpe
   const currentNavMap = practiceMode ? practiceNavMap : navMap;
 
   return (
-    <header className="top-nav glass-panel">
+    <header className="top-nav glass-panel" onKeyDown={(event) => {
+      if (event.key !== "Escape" || !(bellOpen || profileOpen || scenarioOpen)) return;
+      event.preventDefault();
+      setBellOpen(false); setProfileOpen(false); setScenarioOpen(false);
+      event.target.closest(".nav-dropdown-wrapper")?.querySelector("button")?.focus();
+    }}>
       <button className="brand" type="button" aria-label="Mirror-Ting 모드 선택" onClick={() => onNavigate("service")}>
         <span className="brand-mark brand-mark--mirror" aria-hidden="true"><img src="/icons/mirror-ting-mark-slim.png" alt="" /></span><span>Mirror-Ting</span>
       </button>
@@ -64,17 +69,17 @@ export function TopNav({ active, serviceMode, scenarioTitle, menuOpen, onMenuOpe
       <div className="nav-actions">
         {active === "practice" && (
           <div className="nav-dropdown-wrapper">
-            <button className="scenario-select" type="button" onClick={toggleScenario}>{scenarioTitle || "역할극"} <ChevronDown size={16} /></button>
-            {scenarioOpen && scenarios.length > 0 && <div className="nav-dropdown scenario-dropdown glass-panel" onClick={(event) => event.stopPropagation()}><h3>시나리오 전환</h3><ul>{scenarios.map((scenario) => <li key={scenario.slug} onClick={() => { onScenarioSelect(scenario.slug); setScenarioOpen(false); }} className={scenario.title === scenarioTitle ? "active" : ""}>{scenario.title}</li>)}</ul></div>}
+            <button className="scenario-select" type="button" aria-expanded={scenarioOpen} onClick={toggleScenario}>{scenarioTitle || "역할극"} <ChevronDown size={16} /></button>
+            {scenarioOpen && scenarios.length > 0 && <div className="nav-dropdown scenario-dropdown glass-panel" onClick={(event) => event.stopPropagation()}><h3>시나리오 전환</h3><ul>{scenarios.map((scenario) => <li key={scenario.slug} className={scenario.title === scenarioTitle ? "active" : ""}><button type="button" onClick={() => { onScenarioSelect(scenario.slug); setScenarioOpen(false); }}>{scenario.title}</button></li>)}</ul></div>}
           </div>
         )}
         <div className="nav-dropdown-wrapper">
-          <button className={`bell-button ${bellOpen ? "active" : ""}`} type="button" aria-label={hasReport ? "알림 1개" : "알림"} onClick={toggleBell}><Bell size={20} />{hasReport && <b>1</b>}</button>
+          <button className={`bell-button ${bellOpen ? "active" : ""}`} type="button" aria-label={hasReport ? "알림 1개" : "알림"} aria-expanded={bellOpen} onClick={toggleBell}><Bell size={20} />{hasReport && <b>1</b>}</button>
           {bellOpen && <div className="nav-dropdown bell-dropdown glass-panel" onClick={(event) => event.stopPropagation()}><h3>최신 알림</h3>{hasReport ? <button type="button" onClick={() => { onNavigate("records"); setBellOpen(false); }}>완료된 연습 리포트 확인하기</button> : <p>새 알림이 없어요. 분석이 끝나면 여기서 알려드려요.</p>}</div>}
         </div>
         <div className="nav-dropdown-wrapper">
-          <button className={`profile-button ${profileOpen ? "active" : ""}`} type="button" onClick={toggleProfile}><Avatar size="sm" /><strong>체험자</strong><ChevronDown size={16} /></button>
-          {profileOpen && <div className="nav-dropdown profile-dropdown glass-panel" onClick={(event) => event.stopPropagation()}><div className="user-info"><strong>체험자님</strong><span>mirror-ting-user@kiosk</span></div><hr /><ul><li onClick={() => { onNavigate("records"); setProfileOpen(false); }}>나의 결과 및 기록</li><li onClick={() => { onNavigate(NEW_PRACTICE_TARGET); setProfileOpen(false); }}>새 연습 시작</li><li onClick={() => { window.location.href = "/admin"; setProfileOpen(false); }}>운영 대시보드</li></ul></div>}
+          <button className={`profile-button ${profileOpen ? "active" : ""}`} type="button" aria-label="체험자 메뉴" aria-expanded={profileOpen} onClick={toggleProfile}><Avatar size="sm" /><strong>체험자</strong><ChevronDown size={16} /></button>
+          {profileOpen && <div className="nav-dropdown profile-dropdown glass-panel" onClick={(event) => event.stopPropagation()}><div className="user-info"><strong>체험자님</strong><span>mirror-ting-user@kiosk</span></div><hr /><ul><li><button type="button" onClick={() => { onNavigate("records"); setProfileOpen(false); }}>나의 결과 및 기록</button></li><li><button type="button" onClick={() => { onNavigate(NEW_PRACTICE_TARGET); setProfileOpen(false); }}>새 연습 시작</button></li><li><button type="button" onClick={() => { window.location.href = "/admin"; setProfileOpen(false); }}>운영 대시보드</button></li></ul></div>}
         </div>
         <button className="mobile-menu-button" type="button" aria-label="메뉴 열기" aria-expanded={menuOpen} onClick={() => onMenuOpen(true)}><Menu4 size={22} /></button>
       </div>
