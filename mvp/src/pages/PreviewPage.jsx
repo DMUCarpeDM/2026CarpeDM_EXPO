@@ -4,10 +4,12 @@ import { Badge, Button, Card, CardContent } from "../components/ui/shadcn";
 import { getEpisodeImage, getScenarioDescription } from "../data/setupCatalog";
 import { resolveServiceMode } from "../lib/serviceModeContext";
 import { workplaceCategories } from "../data/workplaceStories";
+import { InterviewProgress } from "../components/setup/InterviewProgress";
 
 export function PreviewPage({ serviceMode, onNext, starting, scenario, selectedEpisode, counterpartProfile, difficulty, aiHealth, consented, onConsent, error, permissionState, mode = 5 }) {
   const resolvedServiceMode = resolveServiceMode(serviceMode?.id);
   const workplace = resolvedServiceMode.id === "workplace";
+  const focused = resolvedServiceMode.id === "interview";
   const difficultyTitle = resolvedServiceMode.id === "interview" ? "일반면접" : difficulty?.title || "기본 모드";
   const episode = selectedEpisode || scenario?.episodes?.[0];
   const lead = scenario?.characters?.find((character) => character.id === episode?.character_id) || scenario?.characters?.[0];
@@ -35,9 +37,10 @@ export function PreviewPage({ serviceMode, onNext, starting, scenario, selectedE
     { icon: "eye", label: "카메라", value: permissionState.camera === "granted" ? "권한 허용됨" : "시작할 때 확인" },
   ];
 
-  return <section className="page preview-page preview-redesign preflight-preview" aria-labelledby="preview-title">
+  return <section className={`page preview-page preview-redesign preflight-preview ${focused ? "interview-preflight" : ""}`} aria-labelledby="preview-title">
+    {focused && <InterviewProgress active={3} />}
     <header className="preview-heading">
-      <div><p>{resolvedServiceMode.previewEyebrow}</p><h1 id="preview-title">{workplace ? "이어서 만날 대화를 확인해요" : "상황을 미리 확인해요"}</h1><span>{workplace ? "출근·업무·퇴근의 세 단계를 따라 상황 안내를 보고 대화를 이어가요." : `선택한 ${resolvedServiceMode.label} 연습 설정을 확인하고, 바로 시작해요.`}</span></div>
+      <div>{!focused && <p>{resolvedServiceMode.previewEyebrow}</p>}<h1 id="preview-title">{focused ? "시작 전, 잠깐 확인할게요." : workplace ? "이어서 만날 대화를 확인해요" : "상황을 미리 확인해요"}</h1><span>{workplace ? "출근·업무·퇴근의 세 단계를 따라 상황 안내를 보고 대화를 이어가요." : `선택한 ${resolvedServiceMode.label} 연습 설정을 확인하고, 바로 시작해요.`}</span></div>
       <dl className="preview-duration"><dt>예상 소요 시간</dt><dd>약 {mode}분</dd></dl>
     </header>
     <Card className="preview-scenario-panel preview-overview-card">

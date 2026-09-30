@@ -1,0 +1,37 @@
+/* Interview-only layout: shared setup components retain their other service layouts. */
+.setup-flow-page.interview-focus { background: var(--mode-card); padding: 64px 24px 80px; }
+.setup-flow-page.interview-focus .setup-flow-layout { max-width: 880px; }
+.interview-progress { text-align: center; margin: 0 0 28px; }
+.interview-progress > div { display: flex; justify-content: center; gap: 8px; }
+.interview-progress > div span { width: 46px; height: 4px; background: var(--mode-border); border-radius: 4px; }
+.interview-progress > div span.complete { background: var(--mode-accent); }
+.interview-progress > p { margin: 20px 0 0; color: var(--color-link-blue); font-size: 13px; font-weight: 600; }
+.setup-flow-page.interview-focus .page-title { text-align: center; margin: 0 auto 40px; }
+.setup-flow-page.interview-focus .page-title h1 { max-width: 800px; margin: 0 auto; font-size: clamp(30px, 3.4vw, 44px); font-weight: 650; line-height: 1.3; letter-spacing: -.035em; }
+.setup-flow-page.interview-focus .page-title .page-subtitle { max-width: 620px; margin: 16px auto 0; font-size: 16px; }
+.setup-flow-page.interview-focus .choice-section { margin: 0 0 28px; }
+.setup-flow-page.interview-focus .choice-grid { gap: 20px; justify-content: center; }
+.setup-flow-page.interview-focus .choice-grid.one { max-width: 440px; margin-inline: auto; }
+.setup-flow-page.interview-focus .choice-card.ui-button { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-height: 248px; padding: 32px 24px; gap: 24px; text-align: center; }
+.setup-flow-page.interview-focus .choice-card .choice-asset { width: 80px; height: 80px; object-fit: contain; border-radius: 0; background: transparent; }
+.setup-flow-page.interview-focus .choice-card .choice-copy { padding: 0; }
+.setup-flow-page.interview-focus .choice-card strong { font-size: 18px; }
+.setup-flow-page.interview-focus .choice-card.selected { outline: 1px solid var(--mode-accent); outline-offset: -2px; }
+.setup-flow-page.interview-focus .choice-card.ui-button:focus-visible { outline: 3px solid var(--mode-accent); outline-offset: 4px; }
+.setup-flow-page.interview-focus .interview-selection { text-align: center; color: var(--mode-muted); font-size: 14px; line-height: 1.6; margin: 0 0 24px; }
+.setup-flow-page.interview-focus .setup-flow-actions { justify-content: center; gap: 12px; }
+.setup-flow-page.interview-focus .setup-flow-actions .ui-button { width: auto; }
+.preflight-preview.interview-preflight { max-width: 928px; margin-inline: auto; background: var(--mode-card); }
+.preflight-preview.interview-preflight .preview-heading { display: grid; justify-items: center; text-align: center; gap: 20px; }
+.preflight-preview.interview-preflight .preview-heading h1 { font-size: clamp(30px, 3.4vw, 44px); line-height: 1.3; font-weight: 650; }
+.preflight-preview.interview-preflight .preview-support-grid { grid-template-columns: 1fr; }
+.preflight-preview.interview-preflight .preview-start-area { max-width: 720px; margin-inline: auto; }
+@media (max-width: 640px) {
+  .setup-flow-page.interview-focus { padding: 36px 20px 48px; }
+  .setup-flow-page.interview-focus .choice-grid.three { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .setup-flow-page.interview-focus .choice-grid.two { grid-template-columns: minmax(0, 1fr); }
+  .setup-flow-page.interview-focus .choice-card.ui-button { min-height: 220px; padding: 28px 16px; gap: 18px; }
+  .setup-flow-page.interview-focus .choice-card .choice-asset { width: 64px; height: 64px; }
+  .setup-flow-page.interview-focus .setup-flow-actions { flex-direction: row; flex-wrap: wrap; }
+  .setup-flow-page.interview-focus .setup-next-button.primary-bar.ui-button { min-width: 0; }
+}

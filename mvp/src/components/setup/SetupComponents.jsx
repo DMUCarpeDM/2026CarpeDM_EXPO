@@ -18,11 +18,11 @@ export function PageTitle({ eyebrow, title, subtitle }) {
   );
 }
 
-export function SetupMotionPage({ children, as = "section" }) {
+export function SetupMotionPage({ children, as = "section", className = "" }) {
   const MotionPage = as === "div" ? "div" : "section";
   return (
     <MotionPage
-      className="page selection-page setup-flow-page"
+      className={`page selection-page setup-flow-page ${className}`}
     >
       {children}
     </MotionPage>
@@ -67,16 +67,16 @@ export function MiniStepper({ items, active }) {
   );
 }
 
-export function ChoiceSection({ icon, image, title, description, children, columns = "three", className = "" }) {
+export function ChoiceSection({ icon, image, title, description, children, columns = "three", className = "", quiet = false }) {
   return (
-    <section className={`choice-section ${className}`}>
-      <div className="choice-section-heading">
+    <section className={`choice-section ${className}`} aria-label={quiet ? title : undefined}>
+      {!quiet && <div className="choice-section-heading">
         {(image || icon) && <span className="choice-section-icon">{image ? <img className="selection-section-asset" src={image} alt="" aria-hidden="true" width="256" height="256" /> : <IconGlyph icon={icon} size={24} />}</span>}
         <div>
           <h2>{title}</h2>
           {description && <p>{description}</p>}
         </div>
-      </div>
+      </div>}
       <div className={`choice-grid ${columns}`}>{children}</div>
     </section>
   );
