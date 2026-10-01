@@ -57,9 +57,11 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
   };
 
   const navigate = (target, serviceModeId = selectedServiceModeId) => {
-    const requestedTarget = target === "service" && deploymentServiceModeId ? "home" : target;
-    const destination = normalizeDestination(requestedTarget, serviceModeId);
+    const destination = normalizeDestination(target, serviceModeId);
+    const url = new URL(window.location.href);
     if (destination === "service") {
+      url.searchParams.delete("service");
+      url.searchParams.delete("demo");
       clearActiveSession(localStorage);
       setSelectedServiceModeId(null);
       setCounterpartProfile(null);
@@ -70,7 +72,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
       setNfcCard(null);
       setNfcFallback(false);
     }
-    window.history.pushState({ mirrorTingView: destination }, "");
+    window.history.pushState({ mirrorTingView: destination }, "", url);
     showView(destination);
   };
 
@@ -195,7 +197,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
     navigate(SERVICE_ENTRY_FLOW[Math.min(Math.max(currentIndex + offset, 0), SERVICE_ENTRY_FLOW.length - 1)].id);
   };
   const chooseServiceMode = (serviceModeId) => {
-    const nextServiceModeId = deploymentServiceModeId || serviceModeId;
+    const nextServiceModeId = serviceModeId;
     setSelectedServiceModeId(nextServiceModeId);
     setCounterpartProfile(null);
     setDifficulty(null);
