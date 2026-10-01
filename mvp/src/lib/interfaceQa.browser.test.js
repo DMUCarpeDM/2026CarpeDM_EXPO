@@ -3,7 +3,7 @@ import test from "node:test";
 import { chromium } from "playwright";
 import { startVite } from "./serviceEntryRouteHarness.js";
 
-test("interface QA: mobile practice, modal focus and reduced-motion idle screen", { timeout: 45000 }, async (t) => {
+test("interface QA: mobile practice, modal focus and no idle screen", { timeout: 45000 }, async (t) => {
   const { server, url } = await startVite();
   const browser = await chromium.launch({ channel: "chrome", headless: true });
   t.after(() => Promise.all([browser.close(), server.close()]));
@@ -35,14 +35,12 @@ test("interface QA: mobile practice, modal focus and reduced-motion idle screen"
   await page.keyboard.press("Escape");
   assert.equal(await finish.evaluate(el => el === document.activeElement), true);
   await page.goto(`${url}?service=interview&attract=1`);
-  const idle = page.getByRole("dialog", { name: "연습 서비스 안내" });
-  await idle.waitFor();
-  assert.equal(await idle.getAttribute("data-paused"), "true");
-  assert.equal(await idle.getByRole("button", { name: "자동 전환 멈추기" }).count(), 0);
-  const heading = await idle.getByRole("heading").innerText();
-  await page.waitForTimeout(4800);
-  assert.equal(await idle.getByRole("heading").innerText(), heading, "reduced motion stops slide rotation");
-  await page.keyboard.press("Escape");
-  await idle.waitFor({ state: "hidden" });
+  await page.locator('.home-page').waitFor();
+  await page.waitForTimeout(1500);
+  assert.equal(await page.locator('.attract-overlay').count(), 0);
+  assert.equal(await page.locator('.home-page').isVisible(), true);
+  await page.goto(url);
+  await page.locator('.service-mode-page').waitFor();
+  assert.equal(await page.locator('.service-mode-card').count(), 3);
   assert.deepEqual(errors, []);
 });

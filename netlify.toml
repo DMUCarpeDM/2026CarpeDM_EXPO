@@ -4,7 +4,6 @@
   publish = "dist"
 
 [build.environment]
-  VITE_SERVICE_MODE = "interview"
   VITE_STATIC_DEMO = "true"
   NODE_VERSION = "22"
 

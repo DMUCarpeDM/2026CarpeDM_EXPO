@@ -20,7 +20,7 @@ export async function runFreshSelection(pageHarness, runDir) {
     await page.getByRole("button", { name: "면접", exact: true }).click();
     await page.locator(".home-page").waitFor();
     await nfcRequest;
-    assert.equal(await page.locator(".attract-overlay").count(), 1);
+    assert.equal(await page.locator(".attract-overlay").count(), 0);
     await capture(page, join(runDir, "selected-home.png"), ".home-page");
     await page.locator(".studio-hero__actions button").first().click();
     await page.locator(".role-choice-section").waitFor();

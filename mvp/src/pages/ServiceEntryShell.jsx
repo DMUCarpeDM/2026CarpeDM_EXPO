@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react";
-import { AttractLoop } from "../components/AttractLoop";
 import { MobileMenuSheet, TopNav } from "../components/navigation/AppNavigation";
 import { NfcStartFallback } from "../components/nfc/NfcStartFallback";
 import { HomePage } from "./HomePage";
@@ -76,6 +75,5 @@ export function ServiceEntryShell({
     </main>
     <span className="screen-reader-note" aria-live="polite">현재 화면: {current.label}</span>
     {active === "home" && nfcFallback && <NfcStartFallback serviceMode={serviceMode?.id} onPick={startFromJobRole} onClose={() => setNfcFallback(false)} />}
-    {active === "home" && <AttractLoop active onStart={() => navigate(startView)} />}
   </div>;
 }

@@ -1,6 +1,6 @@
 # 면접 서비스 제출 배포
 
-제출용 빌드는 `VITE_SERVICE_MODE=interview`로 고정되어 서비스 선택 화면 없이 면접 홈으로 진입한다. 로컬 기본 실행은 기존 세 가지 서비스 선택 흐름을 유지한다.
+일반 접속은 로컬·제출용 빌드 모두 3컬럼 서비스 선택 화면으로 진입한다. 면접 홈 바로가기는 `?service=interview`를 사용한다. 진행 중인 세션 복구는 유지하며, 홈의 자동 대기 슬라이드는 사용하지 않는다. 기존 `VITE_SERVICE_MODE` 설정은 첫 화면을 고정하지 않는다.
 
 ## 로컬 확인
 
@@ -29,7 +29,7 @@ SQLite DB, 업로드 음성, 최초 다운로드되는 Whisper 모델은 `/app/s
 ## Netlify 무료 제출용 배포
 
 구독 없이 제출 링크를 운영할 때는 루트의 `netlify.toml`을 사용한다. Netlify 빌드는
-`VITE_SERVICE_MODE=interview`, `VITE_STATIC_DEMO=true`로 고정된다.
+`VITE_STATIC_DEMO=true`로 설정된다. 서비스는 첫 화면에서 선택한다.
 
 - 공개 제출 URL: `https://mirror-ting-interview.netlify.app/`
 - 배포 브랜치: `codex/interview-submission-deploy`
