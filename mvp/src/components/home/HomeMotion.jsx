@@ -64,7 +64,7 @@ export function HomeMotion({ children }) {
 const destinations = {
   interview: ["interview-studio-tour", "interview-report", "interview-feedback"],
   training: ["training-scenarios", ".training-practice-section", ".training-faq"],
-  workplace: ["workplace-scenarios", ".workplace-workspace-section", ".workplace-feedback"],
+  workplace: ["workplace-scenarios", "workplace-studio-tour", ".workplace-feedback"],
 };
 
 export function HomeFooter({ mode, onNext, onModeSelect }) {

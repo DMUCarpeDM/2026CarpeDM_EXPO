@@ -1,15 +1,8 @@
-import { useState } from "react";
 import { StudioIntro } from "./StudioIntro";
 import { FitOverview } from "./FitOverview";
 import { ArrowRight } from "reicon-react/icons/ArrowRight";
-import { ChatDots } from "reicon-react/icons/ChatDots";
-import { Check } from "reicon-react/icons/Check";
-import { FileText } from "reicon-react/icons/FileText";
-import { Sparkles } from "reicon-react/icons/Sparkles";
-import { Target } from "reicon-react/icons/Target";
-import { Badge, Button, Card, CardContent, Progress } from "../ui/shadcn";
-import workplaceConversationScene from "../../assets/home-scenes/workplace-conversation-scene.webp";
-import { EvidenceStrip, ContextVisual, SectionIntro, ProcessCard, FooterCta } from "./HomeSections";
+import { Badge, Button, Card, CardContent } from "../ui/shadcn";
+import { SectionIntro, FooterCta } from "./HomeSections";
 import { workplaceCategories } from "../../data/workplaceStories";
 
 export function WorkplaceHome({ onNext }) {
@@ -26,22 +19,13 @@ export function WorkplaceHome({ onNext }) {
                 <span className="scenario-number">0{index + 1}</span>
                 <h3>{category.label}</h3>
                 <p>{category.summary}</p>
-                <Button variant="ghost" size="sm" type="button" onClick={onNext}>이어서 연습하기 <ArrowRight size={15} /></Button>
               </CardContent>
             </Card>
           ))}
         </div>
-      </section>
-
-      <section className="mode-section workplace-workspace-section">
-        <SectionIntro eyebrow="대화 워크스페이스" title={<>대화 목표부터 피드백까지<br />한 화면에서 확인해요</>} text="목표를 정하고 AI와 대화한 뒤, 바로 코칭을 확인해요." />
-        <WorkplaceWorkspace />
-      </section>
-
-      <section className="mode-section workplace-process-strip">
-        <ProcessCard number="01" icon={Target} title="목표 정하기" text="이번 대화에서 얻을 결과를 골라요." compact />
-        <ProcessCard number="02" icon={ChatDots} title="대화하기" text="AI 상대와 자연스럽게 대화해요." compact />
-        <ProcessCard number="03" icon={FileText} title="피드백 받기" text="다음 대화에 쓸 표현을 확인해요." compact />
+        <div className="workplace-scenario-action">
+          <Button type="button" onClick={onNext}>연습 시작하기 <ArrowRight size={15} /></Button>
+        </div>
       </section>
 
       <section className="mode-section mode-section--canvas workplace-compare-section">
@@ -64,62 +48,8 @@ export function WorkplaceHome({ onNext }) {
         </Card>
       </section>
 
-      <section className="mode-section workplace-growth">
-        <SectionIntro showEyebrow eyebrow="성장 지표 예시" title={<>연습 후<br />대화 습관을 살펴봐요</>} text="아래 점수는 설명을 위한 예시이며, 현재 사용자의 분석 결과가 아니에요." />
-        <div className="growth-grid">
-          <GrowthItem label="핵심 먼저 말하기" value={88} />
-          <GrowthItem label="의견과 근거 연결" value={76} />
-          <GrowthItem label="대안 제시하기" value={81} />
-        </div>
-      </section>
-
-      <EvidenceStrip items={[
-        ["3단계", "목표·대화·코칭 흐름"],
-        ["4-Fit", "말과 비언어 신호 분석"],
-        ["연습 후", "결과 리포트 확인"],
-      ]} />
-
-      <ContextVisual
-        image={workplaceConversationScene}
-        alt="밝은 회의실에서 차분하게 업무 대화를 나누는 두 직장인"
-        eyebrow="어려운 대화 전 리허설"
-        title={<>상대와 마주하기 전에<br />먼저 말해볼 수 있어요</>}
-        text="보고, 요청, 조율처럼 부담되는 대화를 미리 연습하면 실제 자리에서는 핵심과 근거에 더 집중할 수 있어요."
-      />
-
       <FooterCta title="어려운 대화 전에 먼저 연습해보세요" text="출근·업무·퇴근의 세 단계를 따라 대화를 이어가요." button="연습 시작하기" onNext={onNext} />
     </>
-  );
-}
-
-function WorkplaceWorkspace() {
-  const [activeLine, setActiveLine] = useState(0);
-  const lines = ["진행 상황부터 보고할게요.", "현재 막힌 점은 API 검토예요.", "오늘 안에 대안을 정리하겠습니다."];
-
-  return (
-    <Card className="workplace-workspace">
-      <div className="workspace-column workspace-brief">
-        <small>대화 목표</small>
-        <h3>진행 상황을 짧고 분명하게 보고하기</h3>
-        <ul><li><Check size={14} /> 완료한 일</li><li><Check size={14} /> 막힌 일</li><li><Check size={14} /> 다음 행동</li></ul>
-      </div>
-      <div className="workspace-column workspace-chat">
-        <div className="workspace-chat__head"><span><i /> AI 팀장</span><Badge variant="neutral">대화 중</Badge></div>
-        <div className="chat-message incoming">오늘 진행 상황을 짧게 공유해 주세요.</div>
-        <div className="chat-message outgoing">{lines[activeLine]}</div>
-        <div className="workspace-replies">
-          {lines.map((line, index) => <button className={activeLine === index ? "active" : ""} type="button" onClick={() => setActiveLine(index)} key={line}>{line}</button>)}
-        </div>
-      </div>
-      <div className="workspace-column workspace-coach">
-        <small>실시간 코칭</small>
-        <h3>결론을 먼저 말했어요</h3>
-        <Progress value={82} />
-        <p>이제 막힌 점과 필요한 지원을 한 문장으로 덧붙여보세요.</p>
-        <Badge variant="outline"><Sparkles size={13} /> 추천 표현</Badge>
-        <blockquote>“일정에 영향을 줄 수 있어 오늘 확인이 필요합니다.”</blockquote>
-      </div>
-    </Card>
   );
 }
 
@@ -139,8 +69,4 @@ function DialogueComparison() {
       </div>
     </div>
   );
-}
-
-function GrowthItem({ label, value }) {
-  return <div className="growth-item"><div><strong>{label}</strong><span>{value}%</span></div><Progress value={value} /></div>;
 }

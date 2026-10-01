@@ -247,7 +247,7 @@
 .workplace-scenario-card .ui-card__content { display: flex; min-height: 240px; flex-direction: column; align-items: flex-start; }
 .scenario-number { color: var(--mode-accent); font-size: 12px; font-weight: 800; }
 .workplace-scenario-card h3 { margin-top: 38px; }
-.workplace-scenario-card .ui-button { margin-top: auto; margin-left: -14px; color: var(--mode-accent); }
+.workplace-scenario-action { display: flex; justify-content: center; margin-top: 24px; }
 
 .workplace-workspace-section { width: 100%; max-width: none; padding-right: max(24px, calc((100vw - 1180px) / 2)); padding-left: max(24px, calc((100vw - 1180px) / 2)); background: var(--mode-surface); }
 .workplace-workspace { display: grid; grid-template-columns: .78fr 1.3fr .92fr; overflow: hidden; }
