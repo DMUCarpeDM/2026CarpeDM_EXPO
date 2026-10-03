@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "reicon-react/icons/ArrowLeft";
 import { ArrowRight } from "reicon-react/icons/ArrowRight";
 import { Button } from "../ui/shadcn";
@@ -15,9 +15,28 @@ const permissionLabel = (state) => state === "granted" ? "권한 허용됨" : st
 
 export function WorkplacePreflight({ mode, aiReady, permissionState, consented, onConsent, starting, onNext, error }) {
   const [current, setCurrent] = useState(0);
+  const [animateNavigation, setAnimateNavigation] = useState(false);
+  const sceneContent = useRef(null);
+  const sceneFade = useRef(null);
   const scene = scenes[current];
 
-  return <section className="page preview-page workplace-journey" aria-labelledby="workplace-preview-title">
+  useEffect(() => () => sceneFade.current?.cancel(), []);
+
+  const selectScene = (event, index) => {
+    if (index === current) return;
+    // 키보드 선택은 즉시 반영하고, 연속 클릭은 진행 중인 투명도에서 이어감.
+    const pointer = event.detail > 0;
+    const opacity = sceneFade.current?.playState === "running" ? getComputedStyle(sceneContent.current).opacity : 0.65;
+    sceneFade.current?.cancel();
+    setAnimateNavigation(pointer);
+    setCurrent(index);
+    if (pointer) sceneFade.current = sceneContent.current.animate([{ opacity }, { opacity: 1 }], {
+      duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 120 : 180,
+      easing: "cubic-bezier(0.23, 1, 0.32, 1)",
+    });
+  };
+
+  return <section className="page preview-page workplace-journey" data-animate={animateNavigation} aria-labelledby="workplace-preview-title">
     <header className="workplace-journey-heading">
       <p>직장 커뮤니케이션 · 약 {mode}분</p>
       <h1 id="workplace-preview-title">회사에서 보내는 <em>하루.</em></h1>
@@ -26,10 +45,10 @@ export function WorkplacePreflight({ mode, aiReady, permissionState, consented, 
     <div className="workplace-journey-body">
       <div className="workplace-journey-map">
         <img src={officeMap} width="1448" height="1086" alt="로비, 업무 공간, 출구가 이어지는 회사 입체 지도" />
-        {scenes.map((item, index) => <button key={item.name} type="button" className={`workplace-journey-pin pin-${index}`} aria-pressed={current === index} aria-label={`${item.name} 공간 미리보기`} onClick={() => setCurrent(index)}><b>{item.time}</b><span>{item.name}</span></button>)}
+        {scenes.map((item, index) => <button key={item.name} type="button" className={`workplace-journey-pin pin-${index}`} aria-pressed={current === index} aria-label={`${item.name} 공간 미리보기`} onClick={(event) => selectScene(event, index)}><b>{item.time}</b><span>{item.name}</span></button>)}
       </div>
       <aside className="workplace-journey-context">
-        <div aria-live="polite" aria-atomic="true">
+        <div ref={sceneContent} aria-live="polite" aria-atomic="true">
           <span className="workplace-journey-stamp">0{current + 1} · {scene.name} 미리보기</span>
           <h2>{scene.title}</h2>
           <div className="workplace-journey-quote"><span>{scene.person}</span><p>“{scene.line}”</p></div>
@@ -43,9 +62,12 @@ export function WorkplacePreflight({ mode, aiReady, permissionState, consented, 
       </aside>
     </div>
     <nav className="workplace-journey-nav" aria-label="시간대 미리보기">
-      <button type="button" className="workplace-journey-arrow" aria-label="이전 장면" disabled={current === 0} onClick={() => setCurrent(current - 1)}><ArrowLeft size={22} aria-hidden="true" /></button>
-      <div className="workplace-journey-stops">{scenes.map((item, index) => <button type="button" key={item.name} aria-pressed={current === index} onClick={() => setCurrent(index)}><b>{item.time}</b><span>{item.name}</span></button>)}</div>
-      <button type="button" className="workplace-journey-arrow" aria-label="다음 장면" disabled={current === scenes.length - 1} onClick={() => setCurrent(current + 1)}><ArrowRight size={22} aria-hidden="true" /></button>
+      <button type="button" className="workplace-journey-arrow" aria-label="이전 장면" disabled={current === 0} onClick={(event) => selectScene(event, current - 1)}><ArrowLeft size={22} aria-hidden="true" /></button>
+      <div className="workplace-journey-stops">
+        <span className="workplace-journey-indicator" aria-hidden="true" data-animate={animateNavigation} style={{ transform: `translateX(calc(${current * 100}% + ${current} * var(--journey-stop-gap)))` }} />
+        {scenes.map((item, index) => <button type="button" key={item.name} aria-pressed={current === index} onClick={(event) => selectScene(event, index)}><b>{item.time}</b><span>{item.name}</span></button>)}
+      </div>
+      <button type="button" className="workplace-journey-arrow" aria-label="다음 장면" disabled={current === scenes.length - 1} onClick={(event) => selectScene(event, current + 1)}><ArrowRight size={22} aria-hidden="true" /></button>
     </nav>
   </section>;
 }
