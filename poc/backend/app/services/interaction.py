@@ -36,7 +36,7 @@ def _plan_workplace(session, scenario, episodes, rng):
     from app.core.config import settings
     from app.services.dialogue import get_dialogue_provider
 
-    if settings.dialogue_provider == "gemini":
+    if settings.dialogue_provider in {"gemini", "ollama"}:
         provider = get_dialogue_provider()
         plan_fn = getattr(provider, "plan_workplace_day", None)
         if plan_fn is not None:

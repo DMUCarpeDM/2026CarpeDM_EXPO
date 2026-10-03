@@ -15,11 +15,11 @@ def ollama_dialogue_ready() -> bool:
     try:
         response = httpx.get(f"{settings.ollama_base_url}/api/tags", timeout=_PROBE_TIMEOUT_SEC)
         response.raise_for_status()
-    except httpx.HTTPError:
+        names = {model.get("name", "") for model in response.json().get("models", [])}
+    except (httpx.HTTPError, AttributeError, TypeError, ValueError):
         return False
-    names = {model.get("name", "") for model in response.json().get("models", [])}
-    model_stem = settings.ollama_model.split(":")[0]
-    return settings.ollama_model in names or model_stem in {name.split(":")[0] for name in names}
+    selected = settings.ollama_model
+    return selected in names or (":" not in selected and f"{selected}:latest" in names)
 
 
 def openai_dialogue_ready() -> bool:
@@ -66,4 +66,6 @@ def dialogue_ready() -> bool:
         return gemini_dialogue_ready()
     if settings.dialogue_provider == "openai":
         return openai_dialogue_ready()
+    if settings.dialogue_provider == "ollama":
+        return ollama_dialogue_ready()
     return False

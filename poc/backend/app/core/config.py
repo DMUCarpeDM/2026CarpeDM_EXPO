@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     )
 
     # 기존 OpenAI 설정을 유지하며 Gemini는 명시적으로 선택한다.
-    dialogue_provider: Literal["gemini", "openai"] = "openai"
+    dialogue_provider: Literal["ollama", "gemini", "openai"] = "openai"
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "exaone3.5:2.4b"
     # 초과 시 템플릿 질문으로 즉시 폴백하므로 상한일 뿐 평균 지연이 아니다.
@@ -76,6 +76,11 @@ class Settings(BaseSettings):
     elevenlabs_voice_id: str = ""
     elevenlabs_model: str = "eleven_multilingual_v2"
     elevenlabs_timeout_sec: float = 20.0
+    # 추가 런타임이 준비된 경우에만 iris를 선택한다. 기존 기본값은 유지한다.
+    tts_provider: Literal["elevenlabs", "iris"] = "elevenlabs"
+    iris_voice_base_url: str = "http://127.0.0.1:18765"
+    iris_voice_timeout_sec: float = 20.0
+    iris_audio_dir: Path = Path.home() / ".iris-light" / "audio"
 
     # 의미 매칭 (마스터리 ②): Response-Fit 데이터로 fine-tuning한 로컬 E5로
     # 패러프레이즈 커버리지를 인식한다. 모델 파일이 없으면 키워드 매칭만 사용한다.
