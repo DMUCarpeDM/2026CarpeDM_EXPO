@@ -31,21 +31,9 @@ const stylesheetFiles = [
 const styles = stylesheetFiles.map((file) => readFileSync(new URL(file, import.meta.url), "utf8")).join("\n");
 const appSource = readFileSync(new URL("../App.jsx", import.meta.url), "utf8");
 const setupCatalogSource = readFileSync(new URL("../data/setupCatalog.js", import.meta.url), "utf8");
-const setupAssetFiles = [
-  "setup-icons/job-developer.webp",
-  "setup-icons/job-cafe-partner.webp",
-  "setup-icons/job-counselor.webp",
-  "setup-icons/difficulty-basic.webp",
-  "setup-icons/difficulty-rude-customer.webp",
-  "setup-icons/difficulty-extreme-rude-customer.webp",
-  "setup-icons/scenario-kickoff.webp",
-  "setup-icons/scenario-feature-priority.webp",
-  "setup-icons/scenario-scope-schedule.webp",
-];
+const setupAssetFiles = [...setupCatalogSource.matchAll(/from "\.\.\/assets\/([^"]+)"/g)].map((match) => match[1]);
 const homeSceneAssetFiles = [
-  "home-scenes/interview-practice-scene.webp",
   "home-scenes/training-work-scene.webp",
-  "home-scenes/workplace-conversation-scene.webp",
 ];
 const componentSources = [
   appSource,
@@ -55,7 +43,9 @@ const componentSources = [
   readFileSync(new URL("../components/home/TrainingHome.jsx", import.meta.url), "utf8"),
   readFileSync(new URL("../components/home/WorkplaceHome.jsx", import.meta.url), "utf8"),
   readFileSync(new URL("../components/home/HomeSections.jsx", import.meta.url), "utf8"),
+  readFileSync(new URL("../components/home/HomeMotion.jsx", import.meta.url), "utf8"),
   readFileSync(new URL("../pages/PracticePage.jsx", import.meta.url), "utf8"),
+  readFileSync(new URL("../lib/turnSpeechPlayback.js", import.meta.url), "utf8"),
   readFileSync(new URL("../pages/PreviewPage.jsx", import.meta.url), "utf8"),
   readFileSync(new URL("../pages/ResultPage.jsx", import.meta.url), "utf8"),
   readFileSync(new URL("../components/report/ResultPrimitives.jsx", import.meta.url), "utf8"),
@@ -121,7 +111,9 @@ test("the unified report reuses app navigation and shared components", () => {
   assert.match(styles, /--report-blue:\s*var\(--color-apple-blue\)/);
   assert.deepEqual([...CHROMELESS_VIEWS], ["service"], "only the service selector omits shared navigation chrome");
   assert.match(functionBody("PracticePage"), /practice-contextbar/, "PracticePage keeps only its live context controls");
-  assert.match(functionBody("PracticePage"), /finishSpeaking[\s\S]*setShowQuestionOverlay\(false\)/, "PracticePage closes the AI question overlay when TTS finishes");
+  assert.match(functionBody("PracticePage"), /startTurnSpeech\([\s\S]*onFinish: \(\) => \{\}/, "PracticePage keeps the question visible after TTS finishes");
+  assert.match(sourceBundle, /utter\.onend = finishSpeaking/);
+  assert.match(sourceBundle, /audio\.onended = finishSpeaking/);
 
   const previewPage = functionBody("PreviewPage");
   assert.doesNotMatch(previewPage, /<PageToolbar\b/, "PreviewPage removes toolbar pill controls");
@@ -171,7 +163,8 @@ test("home keeps each mode action-led and reuses shared section primitives", () 
   assert.match(sourceBundle, /function ProcessCard\(/);
   assert.match(sourceBundle, /function FitMetric\(/);
   assert.match(sourceBundle, /function FooterCta\(/);
-  assert.match(sourceBundle, /function ProductStage\(/);
+  assert.match(sourceBundle, /export function HomeMotion\(/);
+  assert.match(sourceBundle, /export function HomeFooter\(/);
   assert.match(sourceBundle, /function ContextVisual\(/);
   assert.match(sourceBundle, /function EvidenceStrip\(/);
   assert.match(sourceBundle, /function DialogueComparison\(/);
@@ -182,7 +175,7 @@ test("home keeps each mode action-led and reuses shared section primitives", () 
   assert.match(styles, /\.mode-evidence-strip\s*\{/);
 
   for (const assetName of homeSceneAssetFiles) {
-    assert.match(sourceBundle, new RegExp(assetName.replace(".", "\\.")), `${assetName} is imported by HomePage`);
+    assert.match(sourceBundle, new RegExp(assetName.replace(".", "\\.")), `${assetName} is imported by a home component`);
     assert.ok(existsSync(new URL(`../assets/${assetName}`, import.meta.url)), `${assetName} exists for Vite to bundle`);
   }
 });

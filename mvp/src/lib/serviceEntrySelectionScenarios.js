@@ -94,7 +94,7 @@ export async function runServiceCards(pageHarness, runDir) {
       assert.equal(await question.getAttribute("aria-expanded"), "false");
       await page.locator(".top-nav nav button").filter({ hasText: "결과 및 기록" }).click();
       await page.locator(".records-page").waitFor();
-      await page.getByRole("button", { name: "AI 연습하러 가기", exact: true }).click();
+      await page.getByRole("button", { name: "연습 홈으로 가기", exact: true }).click();
       await page.locator(`.home-mode-${serviceModeId} .home-page`).waitFor();
       await page.setViewportSize({ width: 390, height: 844 });
       await page.getByRole("button", { name: "메뉴 열기", exact: true }).click();
