@@ -6,6 +6,7 @@ import { resolveServiceMode } from "../lib/serviceModeContext";
 import { workplaceCategories } from "../data/workplaceStories";
 import { InterviewProgress } from "../components/setup/InterviewProgress";
 import { InterviewPreflight } from "../components/setup/InterviewPreflight";
+import { WorkplacePreflight } from "../components/setup/WorkplacePreflight";
 
 export function PreviewPage({ serviceMode, onNext, onPrev, starting, scenario, selectedEpisode, counterpartProfile, difficulty, aiHealth, consented, onConsent, error, permissionState, mode = 5 }) {
   const resolvedServiceMode = resolveServiceMode(serviceMode?.id);
@@ -39,6 +40,7 @@ export function PreviewPage({ serviceMode, onNext, onPrev, starting, scenario, s
   ];
 
   if (focused) return <InterviewPreflight {...{ facts, mode, lead, objectives, aiReady, permissionState, consented, onConsent, starting, onNext, onPrev, error }} />;
+  if (workplace) return <WorkplacePreflight {...{ mode, aiReady, permissionState, consented, onConsent, starting, onNext, error }} />;
 
   return <section className={`page preview-page preview-redesign preflight-preview ${focused ? "interview-preflight" : ""}`} aria-labelledby="preview-title">
     {focused && <InterviewProgress active={3} />}
