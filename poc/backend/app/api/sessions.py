@@ -4,6 +4,7 @@ import secrets
 import time
 import uuid
 from datetime import datetime, timezone
+from datetime import timedelta
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
@@ -21,6 +22,10 @@ from app.models import (
     Scenario,
     SessionStatus,
     SurveyResponse,
+    AiFeedback,
+    CoachingLog,
+    SessionRawFile,
+    SystemLog,
     Turn,
     User,
     utcnow,
@@ -456,9 +461,16 @@ def submit_response(
     # 리액션 비트 + 수행도 갱신 — 이 답변이 상대의 반응과 하루의 전개를 결정한다
     episode = db.get(Episode, turn.episode_id)
     signals = reactions.classify(turn.response_text, episode.checklist if episode else [])
+    vision_started = time.perf_counter()
     observation = analyze_live_coaching(
         turn.nonverbal_metrics, turn.response_text, turn.response_duration_ms,
     )
+    vision_latency_ms = round((time.perf_counter() - vision_started) * 1000)
+    if turn.nonverbal_metrics:
+        db.add(SystemLog(
+            device_id=session.device_id, organization_id=session.institution_id,
+            vision_latency_ms=vision_latency_ms, status_code=200,
+        ))
     reactions.update_rapport(session, signals["case"])
     # 감정 상태 전이 (S-B2B-EMOTION) — 대응 품질이 상대의 감정 온도를 실제로 움직인다
     emotion.update(session, signals["case"], turn.order)
@@ -527,6 +539,21 @@ def submit_response(
             judgment["measured"].append("response")
         judgment["semantic_status"] = status
     selected_feedback = feedback.assign(session, judgment, turn.order)
+    if selected_feedback:
+        db.add(AiFeedback(
+            session_id=session.id,
+            feedback_category=selected_feedback.get("rule", "general"),
+            commentary=selected_feedback.get("message", ""),
+            sentence_template=(selected_feedback.get("evidence") or {}).get("suggestion")
+            or selected_feedback.get("message", ""),
+        ))
+    elapsed_seconds = max(0.0, (utcnow() - session.started_at).total_seconds())
+    for issue in observation.get("issues", []):
+        db.add(CoachingLog(
+            session_id=session.id, turn_number=turn.order,
+            timestamp_seconds=elapsed_seconds, log_type=issue.get("kind", "observation"),
+            message=" / ".join(issue.get("reasons") or []),
+        ))
     judgments.persist(session, judgment)
     flow = interaction.advance(session, turn, turns, judgment)
     if flow.get("rubric_version"):
@@ -628,6 +655,18 @@ async def upload_audio(
     dest = settings.media_dir / f"session{session_id}_turn{turn_id}.wav"
     await run_in_threadpool(dest.write_bytes, data)
     turn.audio_path = str(dest)
+    consent = db.query(Consent).filter_by(session_id=session_id).first()
+    retention_days = settings.media_retention_days if consent and consent.storage_policy != "none" else 1
+    raw_file = db.query(SessionRawFile).filter_by(
+        session_id=session_id, audio_file_path=str(dest),
+    ).first()
+    if raw_file:
+        raw_file.expires_at = utcnow() + timedelta(days=retention_days)
+    else:
+        db.add(SessionRawFile(
+            session_id=session_id, audio_file_path=str(dest),
+            expires_at=utcnow() + timedelta(days=retention_days),
+        ))
     if voice_analysis.enabled(session):
         session.rapport = {**(session.rapport or {}), "voice_inputs": {
             **(session.rapport or {}).get("voice_inputs", {}), str(turn_id): source}}
