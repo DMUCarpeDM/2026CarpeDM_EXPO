@@ -21,6 +21,27 @@ def _purge_expired_media() -> None:
             removed += 1
     if removed:
         print(f"보관 기간 만료 음성 {removed}건 삭제")
+    # DB가 추적 중인 업로드 파일은 mtime 대신 명시한 만료일 기준으로 파기한다.
+    from app.core.database import SessionLocal
+    from app.models import SessionRawFile, utcnow
+
+    db = SessionLocal()
+    try:
+        expired = db.query(SessionRawFile).filter(
+            SessionRawFile.expires_at.isnot(None), SessionRawFile.expires_at <= utcnow(),
+        ).all()
+        for raw in expired:
+            from pathlib import Path
+            if raw.audio_file_path:
+                Path(raw.audio_file_path).unlink(missing_ok=True)
+            if raw.video_capture_path:
+                Path(raw.video_capture_path).unlink(missing_ok=True)
+            db.delete(raw)
+        if expired:
+            db.commit()
+            print(f"보관 기간 만료 원본 파일 {len(expired)}건 파기")
+    finally:
+        db.close()
 
 
 def _purge_expired_quotes() -> None:

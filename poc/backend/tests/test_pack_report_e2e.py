@@ -26,6 +26,18 @@ ANSWERS = [
 ]
 
 
+def activate_legacy_cafe_pack_for_test():
+    """Keep legacy report coverage while production hides the retired pack from selection."""
+    from app.core.database import SessionLocal
+    from app.models import Scenario
+
+    with SessionLocal() as db:
+        scenario = db.query(Scenario).filter_by(slug="ondo-cafe-crew").first()
+        assert scenario is not None, "legacy cafe crew pack should remain seeded for compatibility"
+        scenario.is_active = True
+        db.commit()
+
+
 def use_legacy_engine(sid):
     """이 파일은 기존 B2B 보고서의 호환성 회귀를 검증한다."""
     from app.core.database import SessionLocal
@@ -38,6 +50,7 @@ def use_legacy_engine(sid):
 
 def test_cafe_crew_session_report_carries_b2b_fields():
     seed()
+    activate_legacy_cafe_pack_for_test()
     created = client.post("/api/sessions", json={
         "mode": 5, "difficulty": "basic", "consent": CONSENT,
         "scenario_slug": "ondo-cafe-crew",
@@ -114,6 +127,7 @@ def test_none_consent_purges_judge_reasoning(monkeypatch):
     from app.services import analysis as analysis_module
 
     seed()
+    activate_legacy_cafe_pack_for_test()
     monkeypatch.setattr(
         analysis_module.judge, "judge_response_session",
         lambda turns, brand="", world_hint="": {
