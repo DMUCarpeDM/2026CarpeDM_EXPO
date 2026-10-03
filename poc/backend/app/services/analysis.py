@@ -124,7 +124,7 @@ def run_analysis(session_id: int) -> None:
         voice_scores: list[tuple[float, float]] = []
         for t in turns:
             if voice_analysis.enabled(session):
-                _, stt_log = voice_analysis.finish_turn(session, t)
+                _, stt_log = voice_analysis.finish_turn(session, t, include_stt_log=True)
                 if stt_log:
                     db.add(SystemLog(
                         device_id=session.device_id, organization_id=session.institution_id,

@@ -83,14 +83,18 @@ def _measure(path, session_id, turn_id, baseline, source, references):
     return measurement, habits, stt_log
 
 
-def finish_turn(session, turn):
+def finish_turn(session, turn, *, include_stt_log=False):
     baseline, source = _input(session, turn)
     stt_log = None
     if not turn.audio_path:
         measurement, habits = engine.empty_result(session.id, turn.id), None
     else:
         try:
-            measurement, habits, stt_log = _measure(turn.audio_path, session.id, turn.id, baseline, source, True)
+            result = _measure(turn.audio_path, session.id, turn.id, baseline, source, True)
+            if len(result) == 2:  # 기존 테스트/확장 구현의 (measurement, habits) 계약 유지
+                measurement, habits = result
+            else:
+                measurement, habits, stt_log = result
         except Exception:
             # One failed recording must not prevent the remaining turns/report.
             measurement, habits = engine.empty_result(session.id, turn.id, "analysis_failed"), None
@@ -100,7 +104,7 @@ def finish_turn(session, turn):
     if habits is not None:
         response_habits[str(turn.id)] = habits
     session.rapport = {**session.rapport, "response_habits": response_habits}
-    return measurement, stt_log
+    return (measurement, stt_log) if include_stt_log else measurement
 
 
 def live_turn(session, turn):
@@ -112,7 +116,8 @@ def live_turn(session, turn):
                           copy.deepcopy(baseline), copy.deepcopy(source), False)
     future.add_done_callback(lambda _: _SLOT.release())
     try:
-        result, _, _ = future.result(timeout=LIVE_BUDGET_SEC)
+        result = future.result(timeout=LIVE_BUDGET_SEC)
+        result = result[0] if isinstance(result, tuple) else result
         return result
     except TimeoutError:
         return engine.empty_result(session.id, turn.id, "analysis_timeout")
