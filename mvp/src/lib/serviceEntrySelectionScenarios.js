@@ -105,7 +105,7 @@ export async function runServiceCards(pageHarness, runDir) {
       await page.waitForFunction(() => Number(getComputedStyle(document.querySelector(".mobile-menu-layer")).opacity) < 0.01);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
       if (serviceModeId === "interview") await capture(page, join(runDir, "usage-mobile.png"), ".usage-page");
-      await page.getByRole("button", { name: "연습하러 가기", exact: true }).click();
+      await page.getByRole("button", { name: "연습 홈으로 가기", exact: true }).click();
       await page.setViewportSize({ width: 1280, height: 900 });
       await page.locator(".studio-hero__actions button").first().click();
       await page.locator(serviceModeId === "workplace" ? ".preview-page" : ".role-choice-section").waitFor();
