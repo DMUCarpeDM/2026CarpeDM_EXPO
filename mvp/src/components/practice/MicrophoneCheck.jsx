@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { Soundwave } from "reicon-react/icons/Soundwave";
+import { ChatRound } from "reicon-react/icons/ChatRound";
+import microphoneIllustration from "../../assets/voice-check-microphone.png";
 import { Button } from "../ui/shadcn";
 import { blobToWav } from "../../lib/audioWav";
 import { calibrateVoice } from "../../lib/pocApi";
@@ -67,8 +70,18 @@ export function MicrophoneCheck({ session, stream, onRequestMedia, onReady, onTe
   };
   const busy = ["connecting", "noise", "speech", "checking"].includes(step);
   return <dialog ref={dialog} className="voice-check" aria-labelledby="voice-check-title" onCancel={(event) => event.preventDefault()}>
+    <div className="voice-check__layout">
+    <aside className="voice-check__intro">
+      <img src={microphoneIllustration} className="voice-check__microphone" alt="" />
+      <div><h3>연습 전 목소리 확인</h3><p>목소리 크기를 비교할<br />기준을 준비해요.</p></div>
+    </aside>
+    <div className="voice-check__content">
     <h2 id="voice-check-title">내 목소리의 기준을 확인해요</h2>
     <p>주변 소음을 확인한 뒤 평소 목소리로 문장을 읽어 주세요. 이 녹음은 목소리 크기를 비교하는 데 사용해요.</p>
+    <ol className="voice-check__steps" aria-label="마이크 확인 순서">
+      <li aria-current={["ready", "connecting", "noise"].includes(step) ? "step" : undefined}><Soundwave size={24} style={{ color: "var(--voice-accent)" }} aria-hidden="true" /><div><strong>주변 소음 2초</strong><span>주변 소음을 짧게 확인해요.</span></div></li>
+      <li aria-current={["read", "speech", "checking"].includes(step) ? "step" : undefined}><ChatRound size={30} style={{ color: "var(--voice-accent)" }} aria-hidden="true" /><div><strong>문장 읽기 10초</strong><span>화면에 표시된 문장을 평소 목소리로 읽어 주세요.</span></div></li>
+    </ol>
     <div role="status" aria-live="polite">
       {step === "noise" && <p>2초 동안 조용히 기다려 주세요.</p>}
       {["read", "speech"].includes(step) && <blockquote>안녕하세요. 오늘 맡은 업무와 진행 상황을 말씀드리겠습니다.</blockquote>}
@@ -81,5 +94,7 @@ export function MicrophoneCheck({ session, stream, onRequestMedia, onReady, onTe
       <Button variant="outline" disabled={busy} onClick={onTextOnly}>목소리 분석 없이 연습</Button>
     </div>
     <p className="voice-check__note">마이크 확인을 건너뛰면 음성은 평가하지 않아요. 검사 녹음은 확인 후 삭제해요.</p>
+    </div>
+    </div>
   </dialog>;
 }
