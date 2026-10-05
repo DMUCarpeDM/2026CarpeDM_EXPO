@@ -226,6 +226,15 @@ class RoleplaySession(Base):
         back_populates="session", uselist=False,
         cascade="all, delete-orphan", passive_deletes=True,
     )
+    raw_files: Mapped[list["SessionRawFile"]] = relationship(
+        back_populates="session", cascade="all, delete-orphan", passive_deletes=True,
+    )
+    feedbacks: Mapped[list["AiFeedback"]] = relationship(
+        back_populates="session", cascade="all, delete-orphan", passive_deletes=True,
+    )
+    coaching_logs: Mapped[list["CoachingLog"]] = relationship(
+        back_populates="session", cascade="all, delete-orphan", passive_deletes=True,
+    )
 
 
 class Turn(Base):
@@ -447,4 +456,70 @@ class AnonymousId(Base):
     code: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     # 한 client_key에 코드가 중복 발급되지 않도록 DB 수준에서 보장 (동시 요청 대비)
     client_key: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class SessionRawFile(Base):
+    """세션 원본 음성·영상 파일의 위치와 보관 만료 시점."""
+    __tablename__ = "session_raw_files"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    session_id: Mapped[int] = mapped_column(
+        ForeignKey("roleplay_sessions.id", ondelete="CASCADE"), index=True
+    )
+    audio_file_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    video_capture_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+    session: Mapped["RoleplaySession"] = relationship(back_populates="raw_files")
+
+
+class AiFeedback(Base):
+    """AI가 턴 중 생성한 피드백과 개선 문장."""
+    __tablename__ = "ai_feedbacks"
+
+    feedback_id: Mapped[int] = mapped_column(primary_key=True)
+    session_id: Mapped[int] = mapped_column(
+        ForeignKey("roleplay_sessions.id", ondelete="CASCADE"), index=True
+    )
+    feedback_category: Mapped[str] = mapped_column(String(50))
+    commentary: Mapped[str] = mapped_column(Text, default="")
+    sentence_template: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+    session: Mapped["RoleplaySession"] = relationship(back_populates="feedbacks")
+
+
+class CoachingLog(Base):
+    """롤플레이 턴에서 생성된 코칭 기록."""
+    __tablename__ = "coaching_logs"
+
+    log_id: Mapped[int] = mapped_column(primary_key=True)
+    session_id: Mapped[int] = mapped_column(
+        ForeignKey("roleplay_sessions.id", ondelete="CASCADE"), index=True
+    )
+    turn_number: Mapped[int] = mapped_column(Integer)
+    timestamp_seconds: Mapped[float] = mapped_column(Float, default=0.0)
+    log_type: Mapped[str] = mapped_column(String(50))
+    message: Mapped[str] = mapped_column(Text, default="")
+
+    session: Mapped["RoleplaySession"] = relationship(back_populates="coaching_logs")
+
+
+class SystemLog(Base):
+    """기기별 STT·Vision 지연과 시스템 상태 기록."""
+    __tablename__ = "system_logs"
+
+    sys_log_id: Mapped[int] = mapped_column(primary_key=True)
+    device_id: Mapped[int | None] = mapped_column(
+        ForeignKey("devices.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    organization_id: Mapped[int | None] = mapped_column(
+        ForeignKey("institutions.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    stt_latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    vision_latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    status_code: Mapped[int] = mapped_column(Integer, default=200)
+    error_message: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

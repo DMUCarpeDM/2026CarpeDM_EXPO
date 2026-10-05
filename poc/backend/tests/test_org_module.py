@@ -195,8 +195,8 @@ def test_job_role_selection_without_nfc():
 
     # 시나리오 목록에 직무 태그가 실린다 — 웹앱이 직무로 시나리오를 고르는 축
     by_slug = {s["slug"]: s for s in client.get("/api/scenarios").json()}
-    assert by_slug["ondo-cafe-crew"]["job_role"] == "cafe_crew"
-    assert by_slug["ondo-cafe-crew"]["domain"] == "service"
+    assert by_slug["cafe-order-taking"]["job_role"] == "cafe_crew"
+    assert by_slug["cafe-order-taking"]["domain"] == "service"
     assert by_slug["release-schedule-alignment"]["job_role"] == "office_admin"
 
     # 초대 코드 없이도 가입 시 직무 지정 (개인 연습 사용자)

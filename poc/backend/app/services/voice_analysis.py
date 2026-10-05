@@ -1,5 +1,6 @@
 """Versioned voice measurements stored independently from non-null legacy score rows."""
 import copy
+import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 import threading
 
@@ -39,21 +40,35 @@ def store_measurement(session, turn_id, measurement):
 
 def _measure(path, session_id, turn_id, baseline, source, references):
     if not baseline or baseline.get("status") != "measured":
-        return engine.empty_result(session_id, turn_id, "calibration_required"), None
+        return engine.empty_result(session_id, turn_id, "calibration_required"), None, None
     if not engine.capture_matches(baseline.get("capture"), source.get("capture")):
-        return engine.empty_result(session_id, turn_id, "capture_changed"), None
+        return engine.empty_result(session_id, turn_id, "capture_changed"), None, None
     # Reject corrupt/oversized decoded audio before STT can spend time on it.
     try:
         engine.load_audio(path)
     except Exception:
-        return engine.analyze(path, session_id=session_id, turn_id=turn_id, references=False), None
+        return engine.analyze(path, session_id=session_id, turn_id=turn_id, references=False), None, None
     words = None
+    stt_log = None
     try:
         provider = get_stt_provider()
         if provider:
-            words = provider.transcribe_words(path)
-    except Exception:
-        pass
+            started = time.perf_counter()
+            try:
+                words = provider.transcribe_words(path)
+                stt_log = {
+                    "latency_ms": round((time.perf_counter() - started) * 1000),
+                    "status_code": 200,
+                    "error_message": "",
+                }
+            except Exception as exc:
+                stt_log = {
+                    "latency_ms": round((time.perf_counter() - started) * 1000),
+                    "status_code": 500,
+                    "error_message": str(exc)[:1000],
+                }
+    except Exception as exc:
+        stt_log = {"latency_ms": 0, "status_code": 500, "error_message": str(exc)[:1000]}
     measurement = engine.analyze(path, session_id=session_id, turn_id=turn_id,
         calibration=baseline, capture=source.get("capture"), words=words,
         excluded=source.get("excluded_intervals", ()), references=references)
@@ -65,16 +80,21 @@ def _measure(path, session_id, turn_id, baseline, source, references):
         transcript = " ".join(word["word"] for word in words)
         habits = {**paralinguistics.analyze_fillers(transcript), "source": "whisper-filler-prompt",
                   "estimated": True, "status": "measured" if words else "unmeasured", "transcript": transcript}
-    return measurement, habits
+    return measurement, habits, stt_log
 
 
-def finish_turn(session, turn):
+def finish_turn(session, turn, *, include_stt_log=False):
     baseline, source = _input(session, turn)
+    stt_log = None
     if not turn.audio_path:
         measurement, habits = engine.empty_result(session.id, turn.id), None
     else:
         try:
-            measurement, habits = _measure(turn.audio_path, session.id, turn.id, baseline, source, True)
+            result = _measure(turn.audio_path, session.id, turn.id, baseline, source, True)
+            if len(result) == 2:  # 기존 테스트/확장 구현의 (measurement, habits) 계약 유지
+                measurement, habits = result
+            else:
+                measurement, habits, stt_log = result
         except Exception:
             # One failed recording must not prevent the remaining turns/report.
             measurement, habits = engine.empty_result(session.id, turn.id, "analysis_failed"), None
@@ -84,7 +104,7 @@ def finish_turn(session, turn):
     if habits is not None:
         response_habits[str(turn.id)] = habits
     session.rapport = {**session.rapport, "response_habits": response_habits}
-    return measurement
+    return (measurement, stt_log) if include_stt_log else measurement
 
 
 def live_turn(session, turn):
@@ -96,7 +116,8 @@ def live_turn(session, turn):
                           copy.deepcopy(baseline), copy.deepcopy(source), False)
     future.add_done_callback(lambda _: _SLOT.release())
     try:
-        result, _ = future.result(timeout=LIVE_BUDGET_SEC)
+        result = future.result(timeout=LIVE_BUDGET_SEC)
+        result = result[0] if isinstance(result, tuple) else result
         return result
     except TimeoutError:
         return engine.empty_result(session.id, turn.id, "analysis_timeout")
