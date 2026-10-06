@@ -8,3 +8,9 @@ poc/backend/models/response_e5_v1/
 
 # Local Whisper filler model (prepared by setup_offline_stt.py)
 poc/backend/whisper-models/
+
+# Browser evidence run outputs are generated artifacts (screenshots/results), not source.
+.omo/evidence/task-*-browser/run-*/
+
+# Temporary local runtime bundles and logs used while running the backend/MVP.
+poc/backend/work/

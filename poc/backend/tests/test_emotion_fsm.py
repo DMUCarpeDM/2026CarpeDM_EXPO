@@ -15,6 +15,19 @@ client = TestClient(app)
 CONSENT = {"agreed": True, "storage_policy": "none"}
 
 
+def _activate_legacy_cafe_pack_for_test():
+    """Legacy emotion API tests opt into the retired pack without changing production seed policy."""
+    seed()
+    db = SessionLocal()
+    try:
+        scenario = db.query(Scenario).filter_by(slug="ondo-cafe-crew").first()
+        assert scenario is not None, "legacy cafe crew pack should remain seeded for compatibility"
+        scenario.is_active = True
+        db.commit()
+    finally:
+        db.close()
+
+
 def _session_with_profile(db, enabled=True, initial=72.0):
     scenario = db.query(Scenario).filter_by(slug="ondo-cafe-crew").first()
     assert scenario is not None, "카페 크루 팩이 시드되어야 한다"
@@ -98,7 +111,7 @@ def test_emotion_scenario_keeps_first_question_as_script_then_personalizes(monke
     from app.services.dialogue.base import QuestionSpec
     from app.services.dialogue.openai_provider import OpenAIDialogueProvider
 
-    seed()
+    _activate_legacy_cafe_pack_for_test()
     calls = []
     monkeypatch.setattr(
         OpenAIDialogueProvider,
@@ -139,7 +152,7 @@ def test_emotion_scenario_keeps_first_question_as_script_then_personalizes(monke
 
 def test_turn_signals_carry_emotion_via_api():
     """관통: 팩 세션의 턴 제출 응답에 감정 게이지가 실린다."""
-    seed()
+    _activate_legacy_cafe_pack_for_test()
     created = client.post("/api/sessions", json={
         "mode": 5, "difficulty": "basic", "consent": CONSENT,
         "scenario_slug": "ondo-cafe-crew",
@@ -179,7 +192,7 @@ def test_semantically_good_cafe_reply_skips_keyword_only_complaint_followup(monk
         "semantic_checklist_ids",
         lambda _text, checklist: ({item["id"] for item in checklist}, {}),
     )
-    seed()
+    _activate_legacy_cafe_pack_for_test()
     created = client.post("/api/sessions", json={
         "mode": 5, "difficulty": "basic", "consent": CONSENT,
         "scenario_slug": "ondo-cafe-crew",
