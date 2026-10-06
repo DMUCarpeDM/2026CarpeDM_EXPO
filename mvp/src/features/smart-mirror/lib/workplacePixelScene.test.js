@@ -21,15 +21,13 @@ test('reduced motion, consent errors and overview stop the sprite', () => {
   assert.equal(pixelSceneState(mirrorPhase(40000)).walking,false);
 });
 
-test('anonymous arrivals remain distinct and stop for reduced motion or consent errors', async () => {
+test('one anonymous arrival walks and stops for reduced motion or consent errors', async () => {
   const { anonymousSceneState } = await import('./workplacePixelScene.js');
   const phase = mirrorPhase(6000);
-  const workers = [0,1,2].map(i => anonymousSceneState(phase,i));
-  assert.equal(new Set(workers.map(w => w.left)).size,3);
-  assert.equal(workers.filter(w => w.walking).length,1);
-  assert.deepEqual(workers.slice(1).map(w=>w.left),[17,29]);
-  assert.equal(anonymousSceneState(phase,0,true).walking,false);
-  assert.equal(anonymousSceneState(phase,0,false,true).walking,false);
+  assert.equal(anonymousSceneState(phase).walking,true);
+  assert.equal(anonymousSceneState(phase,true).walking,false);
+  assert.equal(anonymousSceneState(phase,false,true).walking,false);
+  assert.equal(anonymousSceneState(mirrorPhase(1000)).walking,false);
   assert.equal(pixelSceneState(mirrorPhase(43000)).left,82);
 });
 

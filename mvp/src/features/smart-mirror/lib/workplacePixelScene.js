@@ -11,9 +11,8 @@ export function pixelSceneState(phase, reduced = false, blocked = false, stopLef
 
 export const PIXEL_ACTOR_WIDTH = 10;
 
-// One arrival walks; the other two remain together in a separate lane.
-export function anonymousSceneState(phase, index, reduced = false, blocked = false) {
-  if (index > 0) return { left: 17 + (index - 1) * 12, walking: false, opacity: 1 };
+// The single anonymous arrival uses a separate lane.
+export function anonymousSceneState(phase, reduced = false, blocked = false) {
   if (reduced || blocked || phase.kind === 'overview') return { left: 5, walking: false, opacity: 1 };
   const progress = Math.max(0, Math.min(1, phase.progress));
   const distance = progress * 110;
