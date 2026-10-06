@@ -201,6 +201,10 @@ class RoleplaySession(Base):
     # 생성 시 발급하며 URL에 실려도 세션 access_token(데이터 열람권)은 노출되지 않는다.
     # UNIQUE는 기존 전시 DB에 ALTER로 추가할 수 없어 앱 레벨(충돌 무시 가능한 128bit 난수)로 보장.
     claim_token: Mapped[str] = mapped_column(String(64), default="", index=True)
+    # Original kiosk card snapshot, persisted for safe retry after a failed link.
+    kiosk_session_id: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    kiosk_card_uid: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    kiosk_link_status: Mapped[str] = mapped_column(String(20), default="not_requested")
     # 감정 상태 머신 (S-B2B-EMOTION): {"state", "temperature", "history": [...]}
     emotion: Mapped[dict] = mapped_column(JSON, default=dict)
     mode: Mapped[int] = mapped_column(Integer, default=5)  # 5 | 10 (분)

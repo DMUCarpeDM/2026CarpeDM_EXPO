@@ -5,6 +5,7 @@ import {
   buildRetainedRecord,
   isReportFlowView,
   readRetainedRecords,
+  resetVisitorStorage,
   resolveReportIdleTimeoutMs,
   retainedAudioReference,
   saveRetainedRecord,
@@ -19,6 +20,17 @@ function memoryStorage() {
     removeItem: (key) => items.delete(key),
   };
 }
+
+test("visitor reset separates history identity without deleting consented retained records", () => {
+  const storage = memoryStorage();
+  storage.setItem("mirror-ting-active-session", "old-token");
+  storage.setItem("mirror-ting-client-key", "visitor-a");
+  storage.setItem("mirror-ting-retained-records", "consented-records");
+  resetVisitorStorage(storage);
+  assert.equal(storage.getItem("mirror-ting-active-session"), null);
+  assert.equal(storage.getItem("mirror-ting-client-key"), null);
+  assert.equal(storage.getItem("mirror-ting-retained-records"), "consented-records");
+});
 
 test("buildRetainedRecord keeps completed audio references and analysis result", () => {
   const record = buildRetainedRecord({

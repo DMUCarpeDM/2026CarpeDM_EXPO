@@ -85,7 +85,7 @@ export async function synthesizeSpeech(text) {
 
 const SESSION_DIFFICULTIES = new Set(["basic", "pressure", "ultra_pressure"]);
 
-export function createSession({ serviceMode = "workplace", difficulty, mode, scenarioSlug, selectedEpisodeId, consent, jobRole, nfcUid, nfcIssuedCount }) {
+export function createSession({ serviceMode = "workplace", difficulty, mode, scenarioSlug, selectedEpisodeId, consent, jobRole, nfcUid, nfcIssuedCount, kioskSessionId }) {
   return request("/sessions", {
     method: "POST",
     body: JSON.stringify({
@@ -99,6 +99,7 @@ export function createSession({ serviceMode = "workplace", difficulty, mode, sce
       ...(jobRole ? { job_role: jobRole } : {}),
       ...(nfcUid ? { nfc_uid: nfcUid } : {}),
       ...(nfcIssuedCount != null ? { nfc_issued_count: nfcIssuedCount } : {}),
+      ...(kioskSessionId ? { kiosk_session_id: kioskSessionId } : {}),
       client_key: getClientKey(),
       consent: { agreed: consent, storage_policy: "none" },
     }),
@@ -237,4 +238,9 @@ export function calibrateVoice(session, noise, speech, capture) {
 
 export function invalidateVoiceCalibration(session) {
   return request(`/sessions/${session.id}/voice/calibration`, { method: "DELETE", token: session.access_token });
+}
+
+// Re-link the committed session using its stored card snapshot, never create a new session.
+export function retryKioskLink(session) {
+  return request(`/sessions/${session.id}/kiosk-link`, { method: "POST", token: session.access_token });
 }

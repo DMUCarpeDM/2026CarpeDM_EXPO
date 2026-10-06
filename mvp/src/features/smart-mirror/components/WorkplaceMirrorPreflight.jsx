@@ -5,7 +5,7 @@ import { workplacePreviewScenes } from "../data/workplacePreview";
 import { createVisibleClock, mirrorPhase, MIRROR_OVERVIEW_MS } from "../lib/workplaceMirrorTimeline";
 import "../styles/workplace-mirror-flow.css";
 
-export function WorkplaceMirrorPreflight({ mode = 5, consented, starting, onNext, error }) {
+export function WorkplaceMirrorPreflight({ mode = 5, consented, starting, onNext, error, onConsent, externalCard = false }) {
   const [elapsed, setElapsed] = useState(0);
   const [visible, setVisible] = useState(!document.hidden);
   const started = useRef(false);
@@ -42,7 +42,7 @@ export function WorkplaceMirrorPreflight({ mode = 5, consented, starting, onNext
     <div className="mirror-scene-area" aria-live="polite" aria-atomic="true">
       <AnimatePresence initial={false} mode="wait">
         <motion.article key={blocked ? "blocked" : phase.scene < 0 ? "overview" : index} className="mirror-scene-card" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduced ? 0 : .2 }}>
-          {blocked ? <><p className="mirror-card-eyebrow">운영자 확인</p><h2>{error ? "연습을 준비하지 못했어요." : "키오스크에서 먼저 동의해 주세요."}</h2><p className="mirror-scene-tip">{error ? `${error} 운영자에게 준비 상태를 확인해 달라고 요청해 주세요.` : "동의 후 발급한 카드를 다시 태그해 주세요."}</p></> : phase.scene < 0 ? <><p className="mirror-card-eyebrow">세 가지 장면 · 자동 안내</p><h2>오늘 만날 대화를 살펴볼게요.</h2><p className="mirror-scene-tip">안내가 끝나면 출근 대화가 시작돼요.</p></> : <><p className="mirror-card-eyebrow">0{index + 1} · {scene.time} · {scene.person}</p><h2>{scene.title}</h2><blockquote>“{scene.line}”</blockquote><p className="mirror-scene-tip">{scene.tip}</p></>}
+          {blocked ? <><p className="mirror-card-eyebrow">운영자 확인</p><h2>{error ? "연습을 준비하지 못했어요." : externalCard ? "분석과 결과 처리에 동의해 주세요." : "키오스크에서 먼저 동의해 주세요."}</h2><p className="mirror-scene-tip">{error ? `${error} 운영자에게 준비 상태를 확인해 달라고 요청해 주세요.` : externalCard ? "동의하면 하루 안내가 자동으로 시작돼요." : "동의 후 발급한 카드를 다시 태그해 주세요."}</p>{externalCard && !error && <label className="consent-check"><input type="checkbox" checked={consented} onChange={(event) => onConsent(event.target.checked)} /><span>카메라·음성 분석과 결과 처리에 동의해요. AI 상대 음성은 외부 음성 서비스를 사용할 수 있고, 연습 음성과 결과는 이 브라우저에 보관되며 서버에서도 세션·기록을 처리해요.</span></label>}</> : phase.scene < 0 ? <><p className="mirror-card-eyebrow">세 가지 장면 · 자동 안내</p><h2>오늘 만날 대화를 살펴볼게요.</h2><p className="mirror-scene-tip">안내가 끝나면 출근 대화가 시작돼요.</p></> : <><p className="mirror-card-eyebrow">0{index + 1} · {scene.time} · {scene.person}</p><h2>{scene.title}</h2><blockquote>“{scene.line}”</blockquote><p className="mirror-scene-tip">{scene.tip}</p></>}
         </motion.article>
       </AnimatePresence>
     </div>

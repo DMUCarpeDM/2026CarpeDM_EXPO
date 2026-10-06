@@ -7,7 +7,7 @@ import {
   DEMO_TURN_HISTORY,
   DEMO_TURN_SIGNALS,
 } from "../data/serviceEntryDemo";
-import { clearActiveSession, resolveReportIdleTimeoutMs, shouldArmReportIdleReset } from "./exhibitionSession";
+import { clearActiveSession, resetVisitorStorage, resolveReportIdleTimeoutMs, shouldArmReportIdleReset } from "./exhibitionSession";
 import { currentDeploymentServiceMode } from "./deploymentServiceMode";
 import { getSession, loadActiveSession, resolveNfcCard } from "./pocApi";
 import {
@@ -22,7 +22,7 @@ import { hasCurrentCardConsent, isMirrorDeployment } from "../features/smart-mir
 import { useNfcTap } from "./useNfcTap";
 import { WORKPLACE_SCENARIO_SLUG } from "./workplaceTrack";
 
-export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
+export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, visitorEpochRef, onVisitorReset }) {
   const deploymentServiceModeId = currentDeploymentServiceMode();
   const [active, setActive] = useState("boot");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -42,6 +42,20 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
   const [consented, setConsented] = useState(false);
   const [apiError, setApiError] = useState("");
   const nfcResolvingRef = useRef(false);
+  const localEpochRef = useRef(0);
+  const epochRef = visitorEpochRef || localEpochRef;
+  const resetVisitor = (keepServiceMode = false) => {
+    epochRef.current += 1;
+    nfcResolvingRef.current = false;
+    resetVisitorStorage(localStorage);
+    setSession(null); setTurn(null); setTurnHistory([]); setTurnSignals(null);
+    setReport(null); setHistory([]); setApiError("");
+    if (!keepServiceMode) setSelectedServiceModeId(null);
+    setCounterpartProfile(null);
+    setPocScenarioSlug(""); setSelectedEpisodeId(null); setDifficulty(null);
+    setConsented(false); setNfcCard(null); setNfcFallback(false);
+    onVisitorReset?.();
+  };
 
   const showView = (target) => {
     if (["homepage", "home", "role"].includes(target)) {
@@ -64,15 +78,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
     if (destination === "service") {
       url.searchParams.delete("service");
       url.searchParams.delete("demo");
-      clearActiveSession(localStorage);
-      setSelectedServiceModeId(null);
-      setCounterpartProfile(null);
-      setPocScenarioSlug("");
-      setSelectedEpisodeId(null);
-      setDifficulty(null);
-      setConsented(false);
-      setNfcCard(null);
-      setNfcFallback(false);
+      resetVisitor();
     }
     window.history.pushState({ mirrorTingView: destination }, "", url);
     showView(destination);
@@ -84,6 +90,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
       const savedTarget = event.state?.mirrorTingView;
       if (!isKnownView(savedTarget)) return;
       const destination = normalizeDestination(savedTarget, selectedServiceModeId);
+      if (destination === "service") resetVisitor();
       if (destination !== savedTarget) window.history.replaceState({ mirrorTingView: destination }, "");
       showView(destination);
     };
@@ -94,6 +101,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
   useEffect(() => {
     if (kioskIssueMode) return undefined;
     let cancelled = false;
+    const epoch = epochRef.current;
     let lookupTimer = 0;
     const enter = (target) => { if (!cancelled) replaceView(target); };
     const enterPractice = () => requestExerciseMedia().catch(() => {});
@@ -124,7 +132,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
             lookupTimer = window.setTimeout(() => reject(new Error("saved session lookup timed out")), ENTRY_LOOKUP_TIMEOUT_MS);
           }),
         ]);
-        if (cancelled) return;
+        if (cancelled || epoch !== epochRef.current) return;
         const destination = savedSessionDestination(resumed.status);
         if (!destination) {
           clearActiveSession(localStorage);
@@ -136,7 +144,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
         enter(destination);
         if (destination === "practice") enterPractice();
       } catch {
-        if (!cancelled) {
+        if (!cancelled && epoch === epochRef.current) {
           clearActiveSession(localStorage);
           enter(deploymentServiceModeId ? "home" : "service");
         }
@@ -157,8 +165,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
       window.clearTimeout(timer);
       timer = window.setTimeout(() => {
         if (isMirrorDeployment()) {
-          clearActiveSession(localStorage);
-          setSession(null);
+          resetVisitor(true);
           navigate("home");
         } else navigate("service");
       }, idleMs);
@@ -174,19 +181,31 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
 
   const handleMirrorTap = async (tap) => {
     if (nfcResolvingRef.current) return;
+    resetVisitor(true);
     nfcResolvingRef.current = true;
-    setConsented(false);
+    const epoch = epochRef.current;
     try {
       const card = await resolveNfcCard(tap.uid);
+      if (epoch !== epochRef.current) return;
+      if (card.requires_role_selection) {
+        if (!card.uid || !card.kiosk_session_id) throw new Error("사원증 확인 응답이 올바르지 않아요.");
+        setNfcCard({ uid: card.uid, kioskSessionId: card.kiosk_session_id });
+        setNfcFallback(true); setApiError("");
+        return;
+      }
       setNfcCard({ uid: card.uid, jobRole: card.job_role, scenarioSlug: card.scenario_slug, jobRoleLabel: card.job_role_label, issuedCount: card.issued_count });
       setConsented(hasCurrentCardConsent(card));
       setNfcFallback(false);
       setApiError("");
       navigate("preview");
-    } catch {
-      setNfcFallback(true);
+    } catch (error) {
+      if (epoch === epochRef.current) {
+        setNfcCard(null);
+        setNfcFallback(error.status === 404);
+        setApiError(error.status === 404 ? "" : "사원증 서버 연결을 확인한 뒤 다시 태그해주세요.");
+      }
     } finally {
-      nfcResolvingRef.current = false;
+      if (epoch === epochRef.current) nfcResolvingRef.current = false;
     }
   };
 
@@ -197,7 +216,8 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
   });
 
   const startFromJobRole = (role) => {
-    setNfcCard({ uid: "", jobRole: role.id, scenarioSlug: role.scenarioSlug, jobRoleLabel: role.label });
+    setNfcCard({ uid: nfcCard?.uid || "", kioskSessionId: nfcCard?.kioskSessionId, jobRole: role.id,
+      scenarioSlug: selectedServiceModeId === "workplace" ? WORKPLACE_SCENARIO_SLUG : role.scenarioSlug, jobRoleLabel: role.label });
     setNfcFallback(false);
     setApiError("");
     navigate("preview");
@@ -233,7 +253,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
     setters: {
       setMenuOpen, setCounterpartProfile, setDifficulty, setSession, setTurn, setTurnHistory,
       setTurnSignals, setReport, setHistory, setPocScenarioSlug, setSelectedEpisodeId,
-      setNfcFallback, setConsented, setApiError,
+      setNfcFallback, setNfcCard, setConsented, setApiError,
     },
     actions: {
       navigate, go, chooseServiceMode, chooseCounterpartProfile, chooseScenario, startFromJobRole,

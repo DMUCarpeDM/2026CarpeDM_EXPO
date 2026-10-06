@@ -54,6 +54,7 @@ from app.ai.live_coaching import analyze_live_coaching
 from app.services.dialogue import DialogueGenerationError, QuestionSpec, get_dialogue_provider
 from app.services.dialogue import emotion, reactions
 from app.services.session_fsm import InvalidTransition, transition
+from app.services.idprinter_bridge import BridgeError, CardSnapshot, IDPrinterBridge
 from app.services.workplace import WORKPLACE_SLUG, CONTINUOUS_MODE, act_bridge_line, continuous_fallback_line
 from app.services.dialogue import stats as dialogue_stats
 
@@ -122,6 +123,55 @@ def _turn_out(db: Session, turn: Turn) -> TurnOut:
     return out
 
 
+def _idprinter_bridge() -> IDPrinterBridge | None:
+    url = settings.idprinter_base_url.strip()
+    token = settings.idprinter_bridge_token.get_secret_value()
+    if not url and not token:
+        return None
+    if not url or not token:
+        raise HTTPException(status_code=503, detail={"code": "KIOSK_BRIDGE_UNCONFIGURED"})
+    try:
+        return IDPrinterBridge(url, token)
+    except BridgeError as error:
+        raise HTTPException(status_code=503, detail={"code": error.code}) from error
+
+
+def _bridge_error_status(error: BridgeError) -> int:
+    if error.code == "KIOSK_CARD_NOT_FOUND":
+        return 404
+    if error.code == "KIOSK_LINK_CONFLICT":
+        return 409
+    return 503
+
+
+def _link_kiosk_session(db: Session, session: RoleplaySession) -> str:
+    """Retry a committed session against its original card snapshot.
+
+    IDPrinter performs the final atomic active-card check. A card reused for
+    another visitor cannot change this stored snapshot to its new owner.
+    """
+    if not session.kiosk_session_id or not session.kiosk_card_uid:
+        return "not_requested"
+    try:
+        bridge = _idprinter_bridge()
+        if bridge is None:
+            status = "pending"
+        else:
+            with bridge:
+                bridge.link(
+                    CardSnapshot(session.kiosk_card_uid, session.kiosk_session_id),
+                    session.id, session.access_token,
+                )
+            status = "linked"
+    except BridgeError as error:
+        status = "conflict" if error.code in {"KIOSK_LINK_CONFLICT", "KIOSK_CARD_NOT_FOUND"} else "pending"
+    except HTTPException:
+        status = "pending"
+    session.kiosk_link_status = status
+    db.commit()
+    return status
+
+
 @router.post("", response_model=SessionOut)
 def create_session(
     body: SessionCreateIn,
@@ -138,8 +188,11 @@ def create_session(
     # 등록되지 않은 카드는 404 — 프론트가 수동 카드 선택 폴백을 띄운다.
     if body.nfc_issued_count is not None and not body.nfc_uid:
         raise HTTPException(status_code=400, detail="자동 시작에는 NFC 카드가 필요합니다")
+    if body.kiosk_session_id and not body.nfc_uid:
+        raise HTTPException(status_code=400, detail="사원증 확인에는 NFC 카드가 필요합니다")
     card = None
     card_org_id = None
+    kiosk_snapshot = None
     scenario_slug = body.scenario_slug
     job_role = body.job_role
     if body.nfc_uid:
@@ -147,27 +200,46 @@ def create_session(
         from app.models import NfcCard
         from app.services import nfc_bridge
 
-        card = db.query(NfcCard).filter_by(uid=_normalize_uid(body.nfc_uid)).first()
-        if card is None or card.status != "active":
-            raise HTTPException(status_code=404, detail="등록되지 않았거나 폐기된 카드입니다")
-        if body.nfc_issued_count is not None:
-            if card.issued_count != body.nfc_issued_count:
-                raise HTTPException(status_code=409, detail="카드가 다시 발급됐어요. 카드를 다시 태그해 주세요.")
-            if not card.consent_agreed or card.consent_agreed_at is None:
-                raise HTTPException(status_code=400, detail="키오스크에서 개인정보 처리에 동의해 주세요.")
-        card.last_seen_at = utcnow()
-        job_role = card.job_role or job_role
-        if not scenario_slug:
-            scenario_slug = card.scenario_slug or DEFAULT_PACK_BY_ROLE.get(card.job_role, "")
-        if card.job_role == "cafe_crew" and scenario_slug == "ondo-cafe-crew":
-            scenario_slug = "cafe-order-taking"
-        # 기관 스탬프는 '최근 실물 태그 증거'가 있을 때만 인정한다. 카드 UID는
-        # 비밀이 아니라(휴대폰으로 읽힘) UID 지식만으로 기관 귀속을 허용하면
-        # 익명 공격자가 타 기관 대시보드·KPI에 세션을 무한 주입할 수 있다.
-        # 증거가 없어도 체험은 그대로 진행된다(직무·시나리오는 민감하지 않음) —
-        # 익명 세션으로 시작하고, 귀속은 영수증 QR 클레임이 담당한다.
-        if nfc_bridge.recent_tap_matches(body.nfc_uid):
-            card_org_id = card.institution_id
+        bridge = _idprinter_bridge()
+        if bridge is None:
+            card = db.query(NfcCard).filter_by(uid=_normalize_uid(body.nfc_uid)).first()
+            if card is None or card.status != "active":
+                raise HTTPException(status_code=404, detail="등록되지 않았거나 폐기된 카드입니다")
+            if body.nfc_issued_count is not None:
+                if card.issued_count != body.nfc_issued_count:
+                    raise HTTPException(status_code=409, detail="카드가 다시 발급됐어요. 카드를 다시 태그해 주세요.")
+                if not card.consent_agreed or card.consent_agreed_at is None:
+                    raise HTTPException(status_code=400, detail="키오스크에서 개인정보 처리에 동의해 주세요.")
+            card.last_seen_at = utcnow()
+            job_role = card.job_role or job_role
+            if not scenario_slug:
+                scenario_slug = card.scenario_slug or DEFAULT_PACK_BY_ROLE.get(card.job_role, "")
+            if card.job_role == "cafe_crew" and scenario_slug == "ondo-cafe-crew":
+                scenario_slug = "cafe-order-taking"
+            # 기관 스탬프는 '최근 실물 태그 증거'가 있을 때만 인정한다. 카드 UID는
+            # 비밀이 아니라(휴대폰으로 읽힘) UID 지식만으로 기관 귀속을 허용하면
+            # 익명 공격자가 타 기관 대시보드·KPI에 세션을 무한 주입할 수 있다.
+            # 증거가 없어도 체험은 그대로 진행된다(직무·시나리오는 민감하지 않음) —
+            # 익명 세션으로 시작하고, 귀속은 영수증 QR 클레임이 담당한다.
+            if nfc_bridge.recent_tap_matches(body.nfc_uid):
+                card_org_id = card.institution_id
+
+        else:
+            if body.nfc_issued_count is not None:
+                raise HTTPException(status_code=422, detail="외부 사원증은 방문 회차로 확인해주세요")
+            if not body.kiosk_session_id or not job_role:
+                raise HTTPException(status_code=422, detail="사원증 확인과 체험 역할 선택이 필요합니다")
+            if not nfc_bridge.recent_tap_matches(body.nfc_uid, max_age_sec=600):
+                raise HTTPException(status_code=409, detail="사원증을 다시 태그해주세요")
+            with bridge:
+                try:
+                    kiosk_snapshot = bridge.resolve(body.nfc_uid)
+                except BridgeError as error:
+                    raise HTTPException(status_code=_bridge_error_status(error), detail={"code": error.code}) from error
+            if kiosk_snapshot.kiosk_session_id != body.kiosk_session_id:
+                raise HTTPException(status_code=409, detail="사원증이 새 방문객에게 등록됐어요. 다시 태그해주세요")
+            if not scenario_slug:
+                scenario_slug = WORKPLACE_SLUG if body.service_mode == "workplace" else DEFAULT_PACK_BY_ROLE.get(job_role, "")
 
     # 직무 검증 — 다른 모든 job_role 입력 경로(signup·/orgs/join·PATCH /me·nfc/issue)와
     # 같은 화이트리스트를 쓴다. 무검증 스탬프는 기관 대시보드의 직무 필터·KPI 집계에서
@@ -228,6 +300,9 @@ def create_session(
         user_id=user.id if user else None,
         client_key=client_key,
         access_token=secrets.token_urlsafe(24),
+        kiosk_session_id=kiosk_snapshot.kiosk_session_id if kiosk_snapshot else None,
+        kiosk_card_uid=kiosk_snapshot.uid if kiosk_snapshot else None,
+        kiosk_link_status="pending" if kiosk_snapshot else "not_requested",
         # 영수증 QR 클레임 토큰 (S-B2B-CLAIM) — 계정 귀속 전용 능력 토큰.
         # access_token(데이터 열람권)과 분리해 QR 노출 반경을 귀속 행위로 한정한다.
         claim_token=secrets.token_urlsafe(24),
@@ -261,6 +336,7 @@ def create_session(
     # 첫 대사는 시나리오가 정한 역할·상황을 방문객에게 정확히 전달해야 한다.
     # 따라서 LLM은 첫 응답을 받은 다음 질문부터만 문장을 개인화한다.
     turn = _create_turn(db, session, spec, order=1)
+    kiosk_link_status = _link_kiosk_session(db, session) if kiosk_snapshot else "not_requested"
 
     return SessionOut(
         voice_analysis=voice_analysis.public_state(session),
@@ -273,7 +349,17 @@ def create_session(
         scenario=to_scenario_out(scenario),
         current_turn=_turn_out(db, turn),
         access_token=session.access_token,
+        kiosk_link_status=kiosk_link_status,
     )
+
+
+@router.post("/{session_id}/kiosk-link")
+def retry_kiosk_link(
+    session: RoleplaySession = Depends(require_session), db: Session = Depends(get_db),
+):
+    if not session.kiosk_session_id or not session.kiosk_card_uid:
+        raise HTTPException(status_code=404, detail={"code": "KIOSK_LINK_NOT_REQUESTED"})
+    return {"status": _link_kiosk_session(db, session)}
 
 
 @router.get("/mine")
@@ -416,6 +502,7 @@ def get_session(
         current_turn=_turn_out(db, current) if current else None,
         history=history,
         elapsed_sec=elapsed,
+        kiosk_link_status=session.kiosk_link_status or "not_requested",
     )
 
 
