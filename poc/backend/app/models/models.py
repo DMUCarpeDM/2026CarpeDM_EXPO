@@ -417,6 +417,8 @@ class NfcCard(Base):
     status: Mapped[str] = mapped_column(String(10), default="active")  # active | revoked
     issued_count: Mapped[int] = mapped_column(Integer, default=0)  # 재발급 횟수 (운영 관측)
     issued_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    consent_agreed: Mapped[bool] = mapped_column(default=False)
+    consent_agreed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 

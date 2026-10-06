@@ -85,7 +85,7 @@ export async function synthesizeSpeech(text) {
 
 const SESSION_DIFFICULTIES = new Set(["basic", "pressure", "ultra_pressure"]);
 
-export function createSession({ serviceMode = "workplace", difficulty, mode, scenarioSlug, selectedEpisodeId, consent, jobRole, nfcUid }) {
+export function createSession({ serviceMode = "workplace", difficulty, mode, scenarioSlug, selectedEpisodeId, consent, jobRole, nfcUid, nfcIssuedCount }) {
   return request("/sessions", {
     method: "POST",
     body: JSON.stringify({
@@ -98,6 +98,7 @@ export function createSession({ serviceMode = "workplace", difficulty, mode, sce
       // nfc_uid를 주면 서버가 카드의 직무·시나리오를 세션에 스탬프한다 (미등록 카드 404).
       ...(jobRole ? { job_role: jobRole } : {}),
       ...(nfcUid ? { nfc_uid: nfcUid } : {}),
+      ...(nfcIssuedCount != null ? { nfc_issued_count: nfcIssuedCount } : {}),
       client_key: getClientKey(),
       consent: { agreed: consent, storage_policy: "none" },
     }),
@@ -112,11 +113,12 @@ export function getNfcTap(reader, since = 0) {
 }
 
 // 카드 발급/재발급 — 같은 uid는 직무를 덮어쓴다 (카드는 회전 소모품). 알 수 없는 직무면 422.
-export function issueNfcCard({ uid, jobRole, scenarioSlug }) {
+export function issueNfcCard({ uid, jobRole, scenarioSlug, consentAgreed }) {
   return request("/nfc/issue", {
     method: "POST",
     body: JSON.stringify({
       uid,
+      ...(consentAgreed != null ? { consent_agreed: consentAgreed } : {}),
       job_role: jobRole,
       ...(scenarioSlug ? { scenario_slug: scenarioSlug } : {}),
     }),

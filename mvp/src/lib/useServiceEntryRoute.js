@@ -18,6 +18,7 @@ import {
   normalizeDestination,
   savedSessionDestination,
 } from "./serviceEntryRoute";
+import { hasCurrentCardConsent, isMirrorDeployment } from "../features/smart-mirror/lib/workplaceMirrorTimeline";
 import { useNfcTap } from "./useNfcTap";
 import { WORKPLACE_SCENARIO_SLUG } from "./workplaceTrack";
 
@@ -45,6 +46,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
   const showView = (target) => {
     if (["homepage", "home", "role"].includes(target)) {
       setNfcCard(null);
+      setConsented(false);
       setNfcFallback(false);
     }
     setActive(target);
@@ -153,7 +155,13 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
     let timer = 0;
     const resetTimer = () => {
       window.clearTimeout(timer);
-      timer = window.setTimeout(() => navigate("service"), idleMs);
+      timer = window.setTimeout(() => {
+        if (isMirrorDeployment()) {
+          clearActiveSession(localStorage);
+          setSession(null);
+          navigate("home");
+        } else navigate("service");
+      }, idleMs);
     };
     resetTimer();
     const events = ["pointerdown", "keydown", "touchstart"];
@@ -167,9 +175,11 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia }) {
   const handleMirrorTap = async (tap) => {
     if (nfcResolvingRef.current) return;
     nfcResolvingRef.current = true;
+    setConsented(false);
     try {
       const card = await resolveNfcCard(tap.uid);
-      setNfcCard({ uid: card.uid, jobRole: card.job_role, scenarioSlug: card.scenario_slug, jobRoleLabel: card.job_role_label });
+      setNfcCard({ uid: card.uid, jobRole: card.job_role, scenarioSlug: card.scenario_slug, jobRoleLabel: card.job_role_label, issuedCount: card.issued_count });
+      setConsented(hasCurrentCardConsent(card));
       setNfcFallback(false);
       setApiError("");
       navigate("preview");

@@ -16,6 +16,8 @@ import { ServiceModeSelectPage } from "./setup/ServiceModeSelectPage";
 import { SERVICE_ENTRY_FLOW, isChromelessView } from "../lib/serviceEntryRoute";
 import { workplaceStartView } from "../lib/workplaceTrack";
 
+import { isMirrorDeployment } from "../features/smart-mirror/lib/workplaceMirrorTimeline";
+
 const SETUP_NAV_VIEWS = new Set(["role", "scenario", "difficulty", "preview", "practice"]);
 
 export function ServiceEntryShell({
@@ -39,6 +41,7 @@ export function ServiceEntryShell({
   const {
     startPractice, sendAnswer, endPractice, requestExerciseMedia, switchMicDevice, issueCode, retryScenarios,
   } = actions;
+  const mirror = isMirrorDeployment();
   const contentRef = useRef(null);
   useEffect(() => {
     if (kioskIssueMode) return;
@@ -57,10 +60,10 @@ export function ServiceEntryShell({
   const navigationView = SETUP_NAV_VIEWS.has(active) ? "service" : active === "result" ? "records" : active;
   const startView = workplaceStartView(serviceMode?.id);
 
-  return <div className={`app-shell ${active === "practice" ? "practice-mode" : ""} ${active === "home" ? `home-mode home-mode-${serviceMode?.id || "workplace"}` : ""}`}>
+  return <div className={`app-shell ${mirror ? "mirror-deployment" : ""} ${active === "practice" ? "practice-mode" : ""} ${active === "home" ? `home-mode home-mode-${serviceMode?.id || "workplace"}` : ""}`}>
     <a className="skip-link" href="#main-content">본문으로 건너뛰기</a>
-    <TopNav active={navigationView} serviceMode={serviceMode} scenarioTitle={session?.scenario?.title || previewScenario?.title} menuOpen={menuOpen} onMenuOpen={setMenuOpen} onNavigate={navigate} scenarios={apiScenarios} onScenarioSelect={(slug) => { setPocScenarioSlug(slug); navigate("role"); }} practiceMode={active === "practice"} hasReport={Boolean(report)} />
-    <MobileMenuSheet open={menuOpen} active={navigationView} onClose={() => setMenuOpen(false)} onNavigate={navigate} practiceMode={active === "practice"} />
+    {!mirror && <TopNav active={navigationView} serviceMode={serviceMode} scenarioTitle={session?.scenario?.title || previewScenario?.title} menuOpen={menuOpen} onMenuOpen={setMenuOpen} onNavigate={navigate} scenarios={apiScenarios} onScenarioSelect={(slug) => { setPocScenarioSlug(slug); navigate("role"); }} practiceMode={active === "practice"} hasReport={Boolean(report)} />}
+    {!mirror && <MobileMenuSheet open={menuOpen} active={navigationView} onClose={() => setMenuOpen(false)} onNavigate={navigate} practiceMode={active === "practice"} />}
     <main className="screen-frame" id="main-content" ref={contentRef} tabIndex={-1}>
       {active === "usage" && <UsagePage onPractice={() => navigate("home")} />}
       {active === "intro" && <SiteIntroPage onPractice={() => navigate("home")} />}
@@ -74,6 +77,7 @@ export function ServiceEntryShell({
       {active === "result" && <ResultPage onPrev={() => go(-1)} onPractice={() => navigate("preview")} report={report} history={history} onIssueCode={issueCode} selectedDifficulty={difficulty} progress={analysisProgress} error={apiError} />}
     </main>
     <span className="screen-reader-note" aria-live="polite">현재 화면: {current.label}</span>
-    {active === "home" && nfcFallback && <NfcStartFallback serviceMode={serviceMode?.id} onPick={startFromJobRole} onClose={() => setNfcFallback(false)} />}
+    {active === "home" && mirror && nfcFallback && <p role="alert">카드를 확인하지 못했어요. 운영자에게 도움을 요청해 주세요.</p>}
+    {active === "home" && !mirror && nfcFallback && <NfcStartFallback serviceMode={serviceMode?.id} onPick={startFromJobRole} onClose={() => setNfcFallback(false)} />}
   </div>;
 }

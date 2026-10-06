@@ -341,3 +341,16 @@ test("finish waits for the last audio upload before starting Whisper analysis", 
     assert.ok(calls.at(-1).endsWith("/finish"));
   } finally { globalThis.fetch = originalFetch; }
 });
+
+test("mirror start binds the kiosk consent to a specific card issuance", async () => {
+  const bodies = [];
+  globalThis.fetch = async (_url, options) => {
+    bodies.push(JSON.parse(options.body));
+    return new Response(JSON.stringify({ id: 1 }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  await issueNfcCard({ uid: "AABB", jobRole: "office_admin", scenarioSlug: "workplace-conversation", consentAgreed: true });
+  await createSession({ mode: 5, consent: true, nfcUid: "AABB", nfcIssuedCount: 3 });
+  assert.equal(bodies[0].consent_agreed, true);
+  assert.equal(bodies[0].scenario_slug, "workplace-conversation");
+  assert.equal(bodies[1].nfc_issued_count, 3);
+});

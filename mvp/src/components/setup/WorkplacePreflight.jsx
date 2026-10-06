@@ -2,15 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "reicon-react/icons/ArrowLeft";
 import { ArrowRight } from "reicon-react/icons/ArrowRight";
 import { Button } from "../ui/shadcn";
+import { workplacePreviewScenes as scenes } from "../../features/smart-mirror/data/workplacePreview";
 import officeMap from "../../assets/workplace-office-map.png";
 import "../../styles/workplace-journey.css";
 
 // 시간과 대사는 흐름을 이해하기 위한 예시임. 선택해도 실제 시작 단계는 바뀌지 않음.
-const scenes = [
-  { time: "09:00", name: "출근", person: "박선임", title: "첫 부탁을 받았어요.", line: "지금 이 일 좀 먼저 봐줄 수 있어요?", tip: "부탁받은 내용과 가능한 시간을 이야기해요." },
-  { time: "14:00", name: "업무", person: "김팀장", title: "진행 상황을 공유해요.", line: "진행 상황이랑 다음 일정 알려주세요.", tip: "완료한 일과 남은 일을 차례로 이야기해요." },
-  { time: "18:00", name: "퇴근", person: "이동료", title: "내일의 일을 정리해요.", line: "내일 이어서 할 일은 정리됐나요?", tip: "남은 일과 다음 할 일을 확인하고 마무리해요." },
-];
+
 const permissionLabel = (state) => state === "granted" ? "권한 허용됨" : state === "denied" ? "권한 차단됨" : "시작 시 확인";
 
 export function WorkplacePreflight({ mode, aiReady, permissionState, consented, onConsent, starting, onNext, error }) {

@@ -1,3 +1,4 @@
+import { isMirrorDeployment } from "./features/smart-mirror/lib/workplaceMirrorTimeline";
 import { useEffect, useRef, useState } from "react";
 import { counterpartProfiles, difficulties, getRoleScenarioOptions } from "./data/setupCatalog";
 import { ServiceEntryShell } from "./pages/ServiceEntryShell";
@@ -53,6 +54,7 @@ export default function App() {
   const [submitting, setSubmitting] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(null);
   const turnAudioReferencesRef = useRef([]);
+  const startInFlight = useRef(false);
   const retainedSessionIdRef = useRef("");
 
   const requestExerciseMedia = async () => {
@@ -178,30 +180,37 @@ export default function App() {
   };
 
   const startPractice = async () => {
+    if (startInFlight.current) return;
+    startInFlight.current = true;
+    const mirror = isMirrorDeployment();
     setStarting(true); setApiError(""); setReport(null); setTurnHistory([]); setTurnSignals(null);
     turnAudioReferencesRef.current = [];
     retainedSessionIdRef.current = "";
     try {
       if (!consented) throw new Error("개인정보 처리에 동의하면 역할극을 시작할 수 있어요.");
       try {
-        await requestExerciseMedia();
+        const stream = await requestExerciseMedia();
+        if (mirror && (!stream.getAudioTracks().some(t => t.readyState === "live") || !stream.getVideoTracks().some(t => t.readyState === "live"))) throw new Error("카메라와 마이크를 모두 준비해 주세요.");
       } catch (mediaError) {
+        if (mirror) throw mediaError;
         console.warn("[media] 카메라·마이크 없이 시작:", mediaError?.message || mediaError);
       }
+      if (mirror && (!nfcCard?.uid || !nfcCard?.issuedCount)) throw new Error("키오스크에서 동의 후 카드를 발급해 주세요.");
       const workplace = selectedServiceModeId === "workplace" && !nfcCard;
       const nextSession = await createSession({
         serviceMode: selectedServiceModeId || selectedServiceMode.id,
         difficulty: workplace ? "basic" : (difficulty || "basic"),
         mode,
-        scenarioSlug: workplace ? WORKPLACE_SCENARIO_SLUG : (previewScenario.slug || nfcCard?.scenarioSlug),
+        scenarioSlug: mirror || workplace ? WORKPLACE_SCENARIO_SLUG : (previewScenario.slug || nfcCard?.scenarioSlug),
         selectedEpisodeId: workplace || nfcCard ? null : selectedEpisodeId,
         jobRole: nfcCard?.jobRole,
         nfcUid: nfcCard?.uid || "",
         consent: consented,
+        ...(mirror ? { nfcIssuedCount: nfcCard.issuedCount } : {}),
       });
       saveActiveSession(nextSession);
       setSession(nextSession); setTurn(nextSession.current_turn); navigate("practice");
-    } catch (error) { setApiError(error.message); } finally { setStarting(false); }
+    } catch (error) { setApiError(error.message); } finally { startInFlight.current = false; setStarting(false); }
   };
   const sendAnswer = async (input) => {
     if (!session || !turn || !input.text.trim()) return;

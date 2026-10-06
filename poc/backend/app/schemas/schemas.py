@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal
 from pydantic import BaseModel, EmailStr, Field, model_validator, field_validator
 
@@ -111,6 +112,7 @@ class OrgSessionListOut(BaseModel):
 # ---- NFC (S-B2B-NFC) ----
 
 class NfcIssueIn(BaseModel):
+    consent_agreed: bool = False
     uid: str = Field(min_length=4, max_length=32, pattern=r"^[0-9A-Fa-f:\-]+$")
     job_role: str = Field(min_length=1, max_length=30)
     scenario_slug: str = Field(default="", max_length=50)
@@ -123,6 +125,8 @@ class NfcCardOut(BaseModel):
     scenario_slug: str
     status: str
     issued_count: int
+    consent_agreed: bool = False
+    consent_agreed_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 
@@ -132,6 +136,9 @@ class NfcResolveIn(BaseModel):
 
 
 class NfcResolveOut(BaseModel):
+    issued_count: int = 0
+    consent_agreed: bool = False
+    consent_agreed_at: datetime | None = None
     uid: str
     job_role: str
     scenario_slug: str  # 발급 시 지정이 없으면 직무 기본 팩 슬러그
@@ -207,6 +214,7 @@ class SessionCreateIn(BaseModel):
     job_role: str = Field(default="", max_length=30)
     # 미러 NFC 시작: 태그된 카드 uid — 카드의 직무·시나리오가 세션에 스탬프된다
     nfc_uid: str = Field(default="", max_length=32)
+    nfc_issued_count: int | None = Field(default=None, ge=1)
 
 
 class TurnOut(BaseModel):

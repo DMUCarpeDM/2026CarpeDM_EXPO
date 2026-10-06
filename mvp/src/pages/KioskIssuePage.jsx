@@ -4,6 +4,8 @@ import { Check } from "reicon-react/icons/Check";
 import { ChevronRight } from "reicon-react/icons/ChevronRight";
 import cafeOndoLogo from "../assets/brand/cafe-ondo-logo.svg";
 import cafeOndoMark from "../assets/brand/cafe-ondo-mark.svg";
+import { currentDeploymentServiceMode } from "../lib/deploymentServiceMode";
+import { WORKPLACE_SCENARIO_SLUG } from "../lib/workplaceTrack";
 import { JOB_ROLES, isValidUid } from "../lib/nfc";
 import { issueNfcCard } from "../lib/pocApi";
 import { useNfcTap } from "../lib/useNfcTap";
@@ -26,6 +28,9 @@ const stepRise = {
 };
 
 export function KioskIssuePage() {
+  const workplace = currentDeploymentServiceMode() === "workplace";
+  const roles = workplace ? [{ id: "office_admin", label: "직장 대화", text: "출근·업무·퇴근의 대화를 경험해요.", brand: "" }] : JOB_ROLES;
+  const [consentAgreed, setConsentAgreed] = useState(false);
   const [stage, setStage] = useState("select"); // select | wait | done
   const [jobRole, setJobRole] = useState(null);
   const [issuedCard, setIssuedCard] = useState(null);
@@ -42,6 +47,7 @@ export function KioskIssuePage() {
 
   const reset = () => {
     setStage("select");
+    setConsentAgreed(false);
     setJobRole(null);
     setIssuedCard(null);
     setManualOpen(false);
@@ -58,13 +64,13 @@ export function KioskIssuePage() {
   }, [stage]);
 
   const issue = async (uid) => {
-    if (busyRef.current || !jobRole) return;
+    if (busyRef.current || !jobRole || (workplace && !consentAgreed)) return;
     busyRef.current = true;
     setBusy(true);
     setToast("");
     setInvalidUid(false);
     try {
-      const card = await issueNfcCard({ uid, jobRole: jobRole.id });
+      const card = await issueNfcCard({ uid, jobRole: jobRole.id, ...(workplace ? { scenarioSlug: WORKPLACE_SCENARIO_SLUG, consentAgreed } : {}) });
       setIssuedCard(card);
       setStage("done");
       setManualOpen(false);
@@ -99,7 +105,7 @@ export function KioskIssuePage() {
   return (
     <main className="kiosk-issue-screen" data-stage={stage}>
       <header className="kiosk-issue-brand">
-        <img src={cafeOndoLogo} alt="카페 온도 (CAFE ONDO)" />
+        {workplace ? <strong>Mirror-Ting</strong> : <img src={cafeOndoLogo} alt="카페 온도 (CAFE ONDO)" />}
         <span className="kiosk-issue-badge">직무 카드 발급</span>
       </header>
 
@@ -109,12 +115,12 @@ export function KioskIssuePage() {
             <h1>어떤 직무로 일해볼까요?</h1>
             <p className="kiosk-issue-sub">직무를 고르면 카드를 발급해 드려요. 미러에 카드를 태그하면 바로 근무가 시작돼요.</p>
             <div className="kiosk-role-grid">
-              {JOB_ROLES.map((role) => (
+              {roles.map((role) => (
                 <button
                   key={role.id}
                   type="button"
                   className={`kiosk-role-card ${role.brand}`}
-                  onClick={() => { setJobRole(role); setStage("wait"); }}
+                  onClick={() => { setJobRole(role); setConsentAgreed(false); setStage(workplace ? "consent" : "wait"); }}
                 >
                   <img src={cafeOndoMark} alt="" aria-hidden="true" />
                   <strong>{role.label}</strong>
@@ -125,6 +131,14 @@ export function KioskIssuePage() {
             </div>
           </motion.section>
         )}
+
+        {stage === "consent" && <motion.section key="consent" className="kiosk-issue-step" {...stepRise} aria-label="체험 동의">
+          <h1>시작 전에 확인해 주세요.</h1>
+          <p className="kiosk-issue-sub">미러에서 안내가 끝나면 카메라와 마이크를 사용해 대화를 시작해요. 연습 음성과 분석 결과는 이 브라우저에 보관되며, 서버의 세션·기록 처리도 이루어져요. AI 상대 음성은 외부 음성 서비스로 만들 수 있어요.</p>
+          <label className="consent-check"><input type="checkbox" checked={consentAgreed} onChange={event => setConsentAgreed(event.target.checked)} /><span>안내한 카메라·음성 분석 및 개인정보 처리에 동의해요.</span></label>
+          <button type="button" className="kiosk-role-card" disabled={!consentAgreed} onClick={() => setStage("wait")}>동의하고 카드 발급하기</button>
+          <button type="button" className="kiosk-back-link" onClick={reset}>돌아가기</button>
+        </motion.section>}
 
         {stage === "wait" && (
           <motion.section key="wait" className="kiosk-issue-step" {...stepRise} aria-label="카드 태그 대기">
@@ -213,7 +227,7 @@ export function KioskIssuePage() {
       </AnimatePresence>
 
       <footer className="kiosk-issue-foot">
-        <span>카페 온도에서 손님 응대 대화를 연습해요.</span>
+        <span>{workplace ? "직장에서의 하루를 따라 대화를 연습해요." : "카페 온도에서 손님 응대 대화를 연습해요."}</span>
       </footer>
     </main>
   );

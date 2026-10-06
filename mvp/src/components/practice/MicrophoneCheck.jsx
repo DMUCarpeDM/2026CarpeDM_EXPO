@@ -1,3 +1,4 @@
+import { createVisibleClock } from "../../features/smart-mirror/lib/workplaceMirrorTimeline";
 import { useEffect, useRef, useState } from "react";
 import { Soundwave } from "reicon-react/icons/Soundwave";
 import { ChatRound } from "reicon-react/icons/ChatRound";
@@ -8,7 +9,7 @@ import { calibrateVoice } from "../../lib/pocApi";
 import { captureSettings, sameCapture, voiceReason } from "../../lib/voiceCapture";
 import "../../styles/voice-measurement.css";
 
-export function MicrophoneCheck({ session, stream, onRequestMedia, onReady, onTextOnly }) {
+export function MicrophoneCheck({ automatic = false, session, stream, onRequestMedia, onReady, onTextOnly }) {
   const dialog = useRef(null);
   const recorder = useRef(null);
   const timer = useRef(null);
@@ -68,6 +69,21 @@ export function MicrophoneCheck({ session, stream, onRequestMedia, onReady, onTe
       onReady(result);
     } catch (error) { if (alive.current) { setMessage(error.message); setStep("ready"); } }
   };
+  useEffect(() => {
+    if (!automatic || message || !["ready", "read"].includes(step)) return undefined;
+    // Leave time to read the instruction before each automatic recording.
+    const clock = createVisibleClock(performance.now(), !document.hidden);
+    let started = false;
+    const tick = () => {
+      if (!started && clock.tick(performance.now(), !document.hidden) >= 5000 && !document.hidden) {
+        started = true;
+        void (step === "read" ? startSpeech() : startNoise());
+      }
+    };
+    const interval = setInterval(tick, 100);
+    document.addEventListener("visibilitychange", tick);
+    return () => { clearInterval(interval); document.removeEventListener("visibilitychange", tick); };
+  }, [automatic, step, message]);
   const busy = ["connecting", "noise", "speech", "checking"].includes(step);
   return <dialog ref={dialog} className="voice-check" aria-labelledby="voice-check-title" onCancel={(event) => event.preventDefault()}>
     <div className="voice-check__layout">
@@ -89,10 +105,10 @@ export function MicrophoneCheck({ session, stream, onRequestMedia, onReady, onTe
       {step === "checking" && <p>녹음 상태를 확인하고 있어요.</p>}
     </div>
     {message && <p role="alert">{message}</p>}
-    <div className="voice-check__actions">
+    {automatic ? <p role="status">{message ? "운영자에게 마이크 확인을 요청해 주세요." : "잠시 후 자동으로 확인해요. 화면의 안내를 따라 주세요."}</p> : <div className="voice-check__actions">
       {step === "read" ? <Button onClick={startSpeech}>문장 읽기 시작</Button> : <Button disabled={busy} onClick={startNoise}>{busy ? "확인 중" : "마이크 확인 시작"}</Button>}
       <Button variant="outline" disabled={busy} onClick={onTextOnly}>목소리 분석 없이 연습</Button>
-    </div>
+    </div>}
     <p className="voice-check__note">마이크 확인을 건너뛰면 음성은 평가하지 않아요. 검사 녹음은 확인 후 삭제해요.</p>
     </div>
     </div>

@@ -74,6 +74,9 @@ def issue_card(
     card.status = "active"
     card.issued_count = (card.issued_count or 0) + 1
     card.issued_at = utcnow()
+    # Each issuance belongs to a new participant; old consent is never inherited.
+    card.consent_agreed = body.consent_agreed
+    card.consent_agreed_at = card.issued_at if body.consent_agreed else None
     db.commit()
     return card
 
@@ -110,6 +113,9 @@ def resolve_card(body: NfcResolveIn, db: Session = Depends(get_db)):
         slug = "cafe-order-taking"  # 기존 카드는 보존하면서 새 주문 훈련으로 연결
     return NfcResolveOut(
         uid=card.uid,
+        issued_count=card.issued_count,
+        consent_agreed=card.consent_agreed,
+        consent_agreed_at=card.consent_agreed_at,
         job_role=card.job_role,
         scenario_slug=slug,
         job_role_label=JOB_ROLE_LABELS.get(card.job_role, card.job_role),

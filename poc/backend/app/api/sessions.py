@@ -131,6 +131,8 @@ def create_session(
 
     # NFC 시작 (S-B2B-NFC): 태그된 카드가 직무·시나리오를 결정한다.
     # 등록되지 않은 카드는 404 — 프론트가 수동 카드 선택 폴백을 띄운다.
+    if body.nfc_issued_count is not None and not body.nfc_uid:
+        raise HTTPException(status_code=400, detail="자동 시작에는 NFC 카드가 필요합니다")
     card = None
     card_org_id = None
     scenario_slug = body.scenario_slug
@@ -143,6 +145,11 @@ def create_session(
         card = db.query(NfcCard).filter_by(uid=_normalize_uid(body.nfc_uid)).first()
         if card is None or card.status != "active":
             raise HTTPException(status_code=404, detail="등록되지 않았거나 폐기된 카드입니다")
+        if body.nfc_issued_count is not None:
+            if card.issued_count != body.nfc_issued_count:
+                raise HTTPException(status_code=409, detail="카드가 다시 발급됐어요. 카드를 다시 태그해 주세요.")
+            if not card.consent_agreed or card.consent_agreed_at is None:
+                raise HTTPException(status_code=400, detail="키오스크에서 개인정보 처리에 동의해 주세요.")
         card.last_seen_at = utcnow()
         job_role = card.job_role or job_role
         if not scenario_slug:

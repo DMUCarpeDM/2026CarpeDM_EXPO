@@ -11,6 +11,7 @@ import { TrackingOverlay, ChatBubble } from "../components/practice/PracticePres
 import { CounterpartVideo } from "../components/practice/CounterpartVideo";
 import { hasCharacterVideo } from "../data/characterMedia";
 import cafeCounterpartBackground from "../assets/cafe-counterpart-background.png";
+import { createVisibleClock, isMirrorDeployment } from "../features/smart-mirror/lib/workplaceMirrorTimeline";
 import { useVoiceCalibration } from "../lib/useVoiceCalibration";
 import { captureSettings, sameCapture } from "../lib/voiceCapture";
 import { MicrophoneCheck } from "../components/practice/MicrophoneCheck";
@@ -49,6 +50,7 @@ const rise = (delay) => ({
 });
 
 export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, turn, history, turnSignals, onSubmit, busy, error, mediaStream, onRequestMedia, onSwitchMic }) {
+  const mirror = isMirrorDeployment();
   const voice = useVoiceCalibration(session, mediaStream);
   const exclusionsRef = useRef([]);
   const excludeStartRef = useRef(null);
@@ -104,6 +106,14 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   // 직장대화만 카테고리 시작 때 상황 안내를 띄운다. 다른 모드는 바로 조작한다.
   const sceneOverlayOpen = !voice.open && workplace && sceneBriefingOpen && Boolean(sceneBriefing);
   const entryOverlayOpen = voice.open || sceneOverlayOpen;
+  useEffect(() => {
+    if (!mirror || !sceneOverlayOpen) return undefined;
+    const clock = createVisibleClock(performance.now(), !document.hidden);
+    const tick = () => { if (clock.tick(performance.now(), !document.hidden) >= 12000) setSceneBriefingOpen(false); };
+    const timer = setInterval(tick, 100);
+    document.addEventListener("visibilitychange", tick);
+    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", tick); };
+  }, [mirror, sceneOverlayOpen, turn?.episode_id]);
   useEffect(() => {
     if (!sceneOverlayOpen) return undefined;
     const dialog = briefingDialogRef.current;
@@ -610,7 +620,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
         </aside>
       </div>
 
-      {voice.open && <MicrophoneCheck session={session} stream={mediaStream} onRequestMedia={onRequestMedia} onReady={voice.onReady} onTextOnly={voice.onTextOnly} />}
+      {voice.open && <MicrophoneCheck automatic={mirror} session={session} stream={mediaStream} onRequestMedia={onRequestMedia} onReady={voice.onReady} onTextOnly={voice.onTextOnly} />}
       {sceneOverlayOpen && <dialog ref={briefingDialogRef} className="practice-briefing" aria-label="상황 안내" onKeyDown={containDialogTab} onCancel={() => setSceneBriefingOpen(false)}>
         <motion.div className="practice-briefing-card practice-briefing-card--scene" initial={{ opacity: 0, y: 14, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
           <span className="briefing-kicker">{sceneBriefing.step} / {sceneBriefing.total} · {sceneBriefing.category_label}</span>
@@ -618,7 +628,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
           <p className="briefing-situation">{sceneBriefing.situation}</p>
           {sceneBriefing.tip && <div className="briefing-tip" role="note"><strong>TIP</strong><span>{sceneBriefing.tip}</span></div>}
           <div className="briefing-foot">
-            <button ref={briefingButtonRef} type="button" onClick={() => setSceneBriefingOpen(false)}>대화 시작</button>
+            {mirror ? <p role="status">상황 안내 후 대화가 자동으로 시작돼요.</p> : <button ref={briefingButtonRef} type="button" onClick={() => setSceneBriefingOpen(false)}>대화 시작</button>}
           </div>
         </motion.div>
       </dialog>}
