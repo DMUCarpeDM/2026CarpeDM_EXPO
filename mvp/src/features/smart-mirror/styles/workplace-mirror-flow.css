@@ -44,8 +44,8 @@
 .mirror-pixel-stage { position: relative; isolation: isolate; overflow: hidden; aspect-ratio: 3/2; background: #222f43; outline: 1px solid #ffffff1a; outline-offset: -1px; }
 .mirror-pixel-background { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
 .mirror-pixel-location { position: absolute; inset-block-start: 1.2vh; inset-inline-start: 1.2vh; padding: .6vh .8vh; font-size: max(.75rem, 1.05vh); background: #101a29e6; border: 1px solid #c3d7e652; box-shadow: inset 0 1px #ffffff22; }
-.mirror-pixel-counterpart, .mirror-pixel-participant { position: absolute; bottom: 9%; width: 16%; }
-.mirror-pixel-counterpart { width: 13%; }
+.mirror-pixel-counterpart, .mirror-pixel-participant { position: absolute; bottom: 9%; width: var(--mirror-actor-width); }
+.mirror-pixel-counterpart { width: var(--mirror-actor-width); }
 .mirror-pixel-counterpart img { display: block; width: 100%; height: auto; image-rendering: pixelated; }
 .mirror-pixel-participant { left: 0; }
 .mirror-pixel-participant > span, .mirror-pixel-counterpart > span { display: block; width: max-content; max-width: 160%; position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); padding: .25vh .5vh; background: #121c2ae6; color: #f4ecdc; font-size: max(.625rem, .85vh); white-space: nowrap; border: 1px solid #d8e1e533; }
@@ -66,4 +66,16 @@
 @supports not (backdrop-filter: blur(5px)) { .mirror-scene-card { background: #1b2b40f5; } }
 @media (prefers-reduced-motion: reduce) { .mirror-pixel-sprite.is-walking { animation: none; } }
 
-.mirror-pixel-anonymous { position: absolute; left: 0; width: 9%; pointer-events: none; }
+.mirror-pixel-anonymous { position: absolute; left: 0; width: var(--mirror-actor-width); pointer-events: none; }
+
+/* All standing sprites share the same source-frame ratio and stage-relative size. */
+.mirror-pixel-bubble, .mirror-pixel-smalltalk { position: absolute; z-index: 3; transform: translateX(-50%); max-width: 72%; padding: .8vh 1vh; background: #121c2af2; color: var(--mirror-white); border: 1px solid #d7e4ed66; box-shadow: 0 .4vh 1vh #0005; font-size: max(.75rem, 1.15vh); line-height: 1.5; text-align: start; pointer-events: none; }
+.mirror-pixel-bubble strong { display: block; color: var(--mirror-muted); font-weight: 400; font-size: .85em; margin-bottom: .35vh; }
+.mirror-pixel-bubble span { display: block; }
+.mirror-pixel-bubble::after, .mirror-pixel-smalltalk::after { content: ''; position: absolute; inset-block-start: 100%; inset-inline-start: 46%; width: .65vh; height: .65vh; background: #121c2af2; border-inline-end: 1px solid #d7e4ed66; border-block-end: 1px solid #d7e4ed66; transform: translateY(-50%) rotate(45deg); }
+.mirror-pixel-smalltalk { z-index: 2; max-width: 31%; font-size: max(.625rem, .9vh); padding: .5vh .65vh; }
+@media (prefers-reduced-motion: no-preference) { .mirror-pixel-stage .is-talking { transform-origin: bottom center; animation: mirror-pixel-talk 1.2s steps(2,end) infinite; } }
+@keyframes mirror-pixel-talk { 0%, 100% { scale: 1 1; } 50% { scale: 1 .98; } }
+
+.mirror-pixel-bubble[data-speaker='counterpart']::after { inset-inline-start: 62%; }
+.mirror-pixel-bubble[data-speaker='participant']::after { inset-inline-start: 38%; }
