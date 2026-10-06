@@ -11,7 +11,7 @@
 
 ## 설치와 설정
 
-검증 환경은 Intel macOS/CPython 3.12.13이다. 음성 의존성을 작업공간에 따로 설치해 기존 가상환경을 보존했다. 아래 제약 파일은 검증한 오디오 호환 조합이며 **전체 배포 lockfile은 아니다**. 실제 운영 OS의 새 가상환경에서도 검사해야 한다.
+검증 환경은 Intel macOS/CPython 3.12.13이다. 음성·E5 라이브러리를 작업공간에 따로 설치해 기존 가상환경을 보존했다. 현재 Transformers가 Torch 2.5 미만을 비활성화하므로 Intel Mac에는 호환 Transformers/SentenceTransformer도 고정했다. 실제 E5 가중치 로딩·정확도는 검증하지 않았다. 아래 제약 파일은 검증한 라이브러리 호환 조합이며 **전체 배포 lockfile은 아니다**. 실제 운영 OS의 새 가상환경에서도 검사해야 한다.
 
 ```sh
 cd poc/backend
@@ -60,6 +60,8 @@ node --test --test-force-exit --test-concurrency=2 src/lib/*.test.js
 ```
 
 `tests/test_idprinter_integration.py`는 `IDPRINTER_SOURCE=/absolute/path/to/CarpeDM_EXPO_IDPrinter`와 해당 서버의 Python 의존성을 준비한 경우만 실행한다. 실제 두 FastAPI 앱과 DB·인증·정규화를 사용하고 transport, NFC 읽기, 캐릭터 결과와 출력은 모의 처리한다. 완료 전 pending, 연결 장애와 재시도, 인증 거부, 무키 대체 대화→결과, 중복 화면 출력, 재발급 후 이전 결과 차단을 검사한다. 얼굴 모델과 실물 출력의 성공을 입증하지 않는다.
+
+`tests/test_core_runtime.py`는 라이브 E5 검사가 건너뛰어져도 Torch 활성화와 SentenceTransformer import를 따로 검사한다. 모델을 다운로드하거나 가중치를 로딩하지 않는다.
 
 새 자동검사 목록은 `visitorIsolation.browser.test.js`, `kioskBridge.browser.test.js`, `test_idprinter_bridge.py`, `test_idprinter_kiosk_flow.py`, 선택형 두 앱 검사다. 실제 번들 Silero ONNX 로딩은 `test_voice_measurement.py`에 추가했다. 음성 보정의 모의 segmentation 검사만으로 torchaudio 누락을 놓치지 않도록 한다.
 
