@@ -25,4 +25,4 @@ Default: compact silver glass. Alternatives: stepped pixel window and horizontal
 ## Evidence
 Local review: `/src/features/smart-mirror/previews/bubbles/index.html`.
 Local captures: `/Users/yanghyojae/Documents/Expo Design/output/mirror-bubbles/` (`comparison.png`, `4k-after.png`, `4k-qa.json`, `walk-samples.json`).
-Lazyweb reference search succeeded; screenshot report requested, still processing at time of implementation verification.
+Lazyweb reference search and screenshot report completed. Public report: https://www.lazyweb.com/report/lazyweb/a41c0973-4bd4-4d9d-86da-704a1c98e2f1/?source=create (free preview).
