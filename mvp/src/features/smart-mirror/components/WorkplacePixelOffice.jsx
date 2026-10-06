@@ -41,7 +41,7 @@ export function WorkplacePixelOffice({ phase, reduced, blocked, visible }) {
         <span>나</span>
         <div className={`mirror-pixel-sprite${actor.walking ? " is-walking" : ""}${conversation.animated && conversation.speaker === "participant" ? " is-talking" : ""}`} style={{ backgroundImage: `url(${actor.walking ? walk : idle})`, animationPlayState: visible ? "running" : "paused" }} />
       </div>
-      {conversation.active && <div className="mirror-pixel-bubble" aria-hidden="true" data-speaker={conversation.speaker} style={{left: `${(actor.left + scene.deskLeft) / 2 + PIXEL_ACTOR_WIDTH / 2}%`, bottom: `${scene.deskBottom + 27}%`}}><strong>{conversation.speaker === "counterpart" ? scene.name : "나"}</strong><span>{speech}</span></div>}
+      {conversation.active && <div className="mirror-pixel-bubble" aria-hidden="true" data-speaker={conversation.speaker} style={{left: `${(actor.left + scene.deskLeft) / 2 + PIXEL_ACTOR_WIDTH / 2}%`, bottom: `calc(${scene.deskBottom + 25}% + 3.5vh)`}}><strong>{conversation.speaker === "counterpart" ? scene.name : "나"}</strong><span>{speech}</span></div>}
 
     </div>
     <p className="mirror-office-caption"><span className="mirror-participant-dot" />{blocked ? "운영자 확인이 끝나면 안내를 시작해요." : "아이보리 옷이 나예요. 장면은 자동으로 이어져요."}</p>

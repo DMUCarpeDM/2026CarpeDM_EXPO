@@ -69,10 +69,10 @@
 .mirror-pixel-anonymous { position: absolute; left: 0; width: var(--mirror-actor-width); pointer-events: none; }
 
 /* All standing sprites share the same source-frame ratio and stage-relative size. */
-.mirror-pixel-bubble { position: absolute; z-index: 3; transform: translateX(-50%); width: max-content; max-width: 72%; padding: .65vh .85vh; background: #121c2af2; color: var(--mirror-white); border: 1px solid #d7e4ed66; box-shadow: 0 .4vh 1vh #0005; font-size: max(.75rem, 1.05vh); line-height: 1.5; text-align: start; pointer-events: none; }
+.mirror-pixel-bubble { position: absolute; z-index: 3; transform: translateX(-50%); width: max-content; max-width: 72%; padding: .8vh 1.05vh; background: #121c2af2; color: var(--mirror-white); border: 1px solid #d7e4ed66; box-shadow: 0 .4vh 1vh #0005; font-size: max(.75rem, 1.15vh); line-height: 1.5; text-align: start; pointer-events: none; }
 .mirror-pixel-bubble strong { display: block; color: var(--mirror-muted); font-weight: 400; font-size: .85em; margin-bottom: .25vh; }
 .mirror-pixel-bubble span { display: block; }
-.mirror-pixel-bubble::after { content: ''; position: absolute; inset-block-start: 100%; inset-inline-start: 46%; width: 1vh; height: 1vh; background: #121c2af2; border-inline-end: 1px solid #d7e4ed66; border-block-end: 1px solid #d7e4ed66; transform: translateY(-50%) rotate(45deg); }
+.mirror-pixel-bubble::after { content: ''; position: absolute; inset-block-start: 100%; inset-inline-start: 46%; width: 1.2vh; height: 1.2vh; background: #121c2af2; border-inline-end: 1px solid #d7e4ed66; border-block-end: 1px solid #d7e4ed66; transform: translateY(-50%) rotate(45deg); }
 @media (prefers-reduced-motion: no-preference) { .mirror-pixel-stage .is-talking { transform-origin: bottom center; animation: mirror-pixel-talk 1.2s steps(2,end) infinite; } }
 @keyframes mirror-pixel-talk { 0%, 100% { scale: 1 1; } 50% { scale: 1 .98; } }
 
