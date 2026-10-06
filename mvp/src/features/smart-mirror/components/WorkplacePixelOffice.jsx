@@ -23,7 +23,7 @@ export function WorkplacePixelOffice({ phase, reduced, blocked, visible }) {
   const scene = pixelOfficeScenes[index];
   const actor = pixelSceneState(phase, reduced, blocked);
   return <div className="mirror-office">
-    <div className="mirror-pixel-stage" role="img" aria-label={`${scene.label}. 아이보리 옷의 참여자가 왼쪽에서 오른쪽으로 이동하며 책상 앞의 ${scene.name}을 만나요.${index === 0 ? " 익명 회사원 세 명이 출근하고, 리셉션 직원과 원형 테이블에서 대화하는 직원 두 명이 있어요." : ""}`}>
+    <div className="mirror-pixel-stage" role="img" aria-label={`${scene.label}. 아이보리 옷이 참여자예요. ${scene.name}에게 말을 거는 장면이에요.${index === 0 ? " 익명 회사원 세 명이 출근하고, 리셉션 직원과 원형 테이블에서 대화하는 직원 두 명이 있어요." : ""}`}>
       <AnimatePresence initial={false}>
         <motion.img key={index} className="mirror-pixel-background" src={scene.background} alt="" width="1536" height="1024" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduced ? 0 : .2 }} />
       </AnimatePresence>
@@ -40,6 +40,6 @@ export function WorkplacePixelOffice({ phase, reduced, blocked, visible }) {
         <div className={`mirror-pixel-sprite${actor.walking ? " is-walking" : ""}`} style={{ backgroundImage: `url(${actor.walking ? walk : idle})`, animationPlayState: visible ? "running" : "paused" }} />
       </div>
     </div>
-    <p className="mirror-office-caption"><span className="mirror-participant-dot" />아이보리 옷이 나예요. 장면은 자동으로 이어져요.</p>
+    <p className="mirror-office-caption"><span className="mirror-participant-dot" />{blocked ? "운영자 확인이 끝나면 안내를 시작해요." : "아이보리 옷이 나예요. 장면은 자동으로 이어져요."}</p>
   </div>;
 }
