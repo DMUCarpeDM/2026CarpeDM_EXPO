@@ -8,7 +8,6 @@ import senior from "../assets/senior.png";
 import leader from "../assets/leader.png";
 import colleague from "../assets/colleague.png";
 import anonymousOne from "../assets/anonymous-1.png";
-import { WorkplaceSpeechBubble } from "./WorkplaceSpeechBubble";
 import { workplacePreviewScenes } from "../data/workplacePreview";
 import { pixelSceneState, anonymousSceneState, conversationSceneState, PIXEL_ACTOR_WIDTH } from "../lib/workplacePixelScene";
 
@@ -18,7 +17,7 @@ export const pixelOfficeScenes = [
   { background: departure, counterpart: colleague, label: "퇴근 · 저녁 업무 공간", name: "이동료", tone: "green", deskLeft: 62, deskBottom: 36 },
 ];
 
-export function WorkplacePixelOffice({ phase, reduced, blocked, visible, bubbleStyle = "glass" }) {
+export function WorkplacePixelOffice({ phase, reduced, blocked, visible }) {
   const index = Math.max(0, phase.scene);
   const scene = pixelOfficeScenes[index];
   const actor = pixelSceneState(phase, reduced, blocked, scene.deskLeft - 12);
@@ -42,7 +41,7 @@ export function WorkplacePixelOffice({ phase, reduced, blocked, visible, bubbleS
         <span>나</span>
         <div className={`mirror-pixel-sprite${actor.walking ? " is-walking" : ""}${conversation.animated && conversation.speaker === "participant" ? " is-talking" : ""}`} style={{ backgroundImage: `url(${actor.walking ? walk : idle})`, animationPlayState: visible ? "running" : "paused" }} />
       </div>
-      {conversation.active && <WorkplaceSpeechBubble variant={bubbleStyle} speaker={conversation.speaker} name={conversation.speaker === "counterpart" ? scene.name : "나"} text={speech} style={{left: `${(actor.left + scene.deskLeft) / 2 + PIXEL_ACTOR_WIDTH / 2}%`, bottom: `${scene.deskBottom + 27}%`}} />}
+      {conversation.active && <div className="mirror-pixel-bubble" aria-hidden="true" data-speaker={conversation.speaker} style={{left: `${(actor.left + scene.deskLeft) / 2 + PIXEL_ACTOR_WIDTH / 2}%`, bottom: `${scene.deskBottom + 27}%`}}><strong>{conversation.speaker === "counterpart" ? scene.name : "나"}</strong><span>{speech}</span></div>}
 
     </div>
     <p className="mirror-office-caption"><span className="mirror-participant-dot" />{blocked ? "운영자 확인이 끝나면 안내를 시작해요." : "아이보리 옷이 나예요. 장면은 자동으로 이어져요."}</p>
