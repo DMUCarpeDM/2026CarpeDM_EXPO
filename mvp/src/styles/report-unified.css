@@ -175,6 +175,7 @@
 .unified-report__fit .ui-progress { height: 3px; margin: 18px 0 10px; background: var(--report-line); }
 .unified-report__fit .ui-progress__indicator { background: var(--report-blue); }
 .unified-report__fit small { color: var(--report-muted); font-size: 12px; }
+.unified-report__fit .unified-report__fit-reason { margin-top: 8px; color: var(--report-muted); font-size: 12px; font-weight: 400; line-height: 1.6; }
 
 .unified-report__summary-notes {
   display: contents;

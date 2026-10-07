@@ -80,7 +80,8 @@ test("voice report displays raw and reference values without a fabricated voice 
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await page.addInitScript(() => localStorage.setItem("mirror-ting-active-session", JSON.stringify({ id: 21, access_token: "test-token" })));
   const metric = (fields) => ({ status: "measured", ...fields });
-  const report = { session_id: 21, total_score: 75, fit_scores: { voice: { score: null } },
+  const expressionReason = "표정 분석 연결과 현장 검증이 완료되지 않아 이번 결과에서 표정 점수를 제공하지 않습니다.";
+  const report = { session_id: 21, total_score: 75, fit_scores: { voice: { score: null }, expression: { score: null, summary: expressionReason } },
     speech_stats: { voice_analysis: { engine_version: "voice-measure-v2", turns: [{ turn_id: 31, duration_sec: 8,
       volume: metric({ relative_db: -6.02 }), speed: metric({ syllables_per_second: 4.6 }),
       pauses: metric({ count: 1, segments: [{ id: "p1", start: 3, end: 4, duration_sec: 1 }] }),
@@ -105,8 +106,29 @@ test("voice report displays raw and reference values without a fabricated voice 
   assert.match(await section.innerText(), /jitter 0.10%/);
   assert.equal(await section.locator("circle").count(), 3);
   await page.getByText("측정 기록 제공 · 점수 보류", { exact: true }).waitFor();
+  await page.getByText(expressionReason, { exact: true }).waitFor();
+  assert.equal(await page.locator(".unified-report__fit").nth(2).locator("strong").innerText(), "—");
   await section.screenshot({ path: "../.omo/evidence/voice-v2/report-mobile.png" });
   const box = await section.boundingBox();
   assert.ok(box.x >= 0 && box.x + box.width <= 390);
+
+  // A failed/absent recording must not be described as a successful measurement.
+  report.speech_stats.voice_analysis.turns = [{ turn_id: 31,
+    volume: { status: "unmeasured", reason: "capture_changed", relative_db: null },
+    speed: { status: "uncertain", reason: "transcript_quality", syllables_per_second: null },
+  }];
+  await page.reload();
+  await page.getByText("목소리 미측정 · 점수 보류", { exact: true }).waitFor();
+  await page.getByText("1번째 답변의 측정값", { exact: true }).click();
+  assert.match(await section.innerText(), /목소리 측정값을 확인하지 못했어요/);
+  assert.match(await section.innerText(), /마이크 연결이나 설정이 바뀌었어요/);
+  assert.match(await section.innerText(), /받아쓰기 품질이 충분하지 않아요/);
+  assert.doesNotMatch(await section.innerText(), /4.60음절|-6.02dB|크기·속도·멈춤을 기록했어요/);
+  assert.equal(await page.getByText("측정 기록 제공 · 점수 보류", { exact: true }).count(), 0);
+  assert.equal(await page.locator(".unified-report__fit").nth(1).locator("strong").innerText(), "—");
+  report.speech_stats.voice_analysis.turns = [];
+  await page.reload();
+  await page.getByText("확인할 녹음이 없어요. 음성은 감점하지 않아요.", { exact: true }).waitFor();
+  await page.getByText("목소리 미측정 · 점수 보류", { exact: true }).waitFor();
   assert.deepEqual(errors, []);
 });

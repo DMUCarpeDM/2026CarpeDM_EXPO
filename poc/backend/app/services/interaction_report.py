@@ -6,6 +6,14 @@ from app.services import interaction, interaction_scoring as scoring, judgments,
 LABELS = {"response": "응답", "voice": "음성", "expression": "표정", "posture": "자세"}
 
 
+def _fit_summary(session, area, score):
+    if area == "voice" and voice_analysis.enabled(session):
+        return "측정값과 측정 불가 사유는 목소리 기록에서 확인할 수 있습니다. 평가 기준 검증 전에는 점수를 계산하지 않습니다."
+    if area == "expression" and score is None:
+        return "표정 분석 연결과 현장 검증이 완료되지 않아 이번 결과에서 표정 점수를 제공하지 않습니다."
+    return "판단할 측정 자료가 부족합니다." if score is None else "75점에서 확인된 근거에 따라 가감했습니다."
+
+
 def prepare(db, session):
     # 종료 후 보고서 준비 단계입니다. 기존 계산 결과의 점수를 공통 판단 점수로 교체합니다.
     # 기존 점수와 새 점수를 더하는 구조가 아닙니다. 미측정 영역은 점수에서 제외합니다.
@@ -61,7 +69,7 @@ def build(db, session, outcome, raw_rows, analysis_ms):
     report = Report(session_id=session.id, total_score=outcome["total"] if available else 0,
         engine_version=(voice_analysis.SCORE_VERSION if voice_analysis.enabled(session) else scoring.VERSION) if available else scoring.NO_SCORE,
         fit_scores={area: {"score": score, "label": LABELS[area],
-            "summary": "측정값은 목소리 기록에서 확인할 수 있습니다. 평가 기준 검증 전에는 점수를 계산하지 않습니다." if area == "voice" and voice_analysis.enabled(session) else "판단할 측정 자료가 부족합니다." if score is None else "75점에서 확인된 근거에 따라 가감했습니다."}
+            "summary": _fit_summary(session, area, score)}
             for area, score in outcome["scores"].items()},
         strengths=positive, improvements=negative, evidence_segments=evidence,
         headline={"sentence": negative[0] if negative else "확인된 근거를 바탕으로 결과를 정리했습니다." if available else "측정 자료가 부족해 점수를 계산하지 않았습니다."},

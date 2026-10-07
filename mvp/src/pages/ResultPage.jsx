@@ -10,7 +10,7 @@ import { TrendChart } from "../components/report/Charts";
 import { PageToolbar, ScoreRing } from "../components/report/ResultPrimitives";
 import { Badge, Button, Card, CardContent, Progress } from "../components/ui/shadcn";
 import { VoiceMeasurements } from "../components/report/VoiceMeasurements";
-import { reportFits } from "../lib/reportFits";
+import { hasVoiceMeasurements, reportFits } from "../lib/reportFits";
 import { fitAriaLabel, saveAndShareReport } from "../lib/unifiedReport";
 
 const DIFFICULTY_LABELS = { basic: "기본 모드", pressure: "압박 모드", ultra_pressure: "고강도 압박 모드" };
@@ -148,7 +148,8 @@ export function ResultPage({
               <article className="unified-report__fit" key={fit.key}>
                 <div><p>{FIT_LABELS[fit.key] || fit.label}</p><strong>{fit.measured === false ? "—" : fit.score}</strong></div>
                 <Progress value={fit.measured === false ? 0 : fit.score} aria-label={fitAriaLabel(fit, FIT_LABELS[fit.key] || fit.label)} />
-                <small>{stats.voice_analysis && fit.key === "Voice-Fit" ? "측정 기록 제공 · 점수 보류" : fitGrade(fit)}{fit.provisional ? " · 참고 지표" : ""}</small>
+                <small>{stats.voice_analysis && fit.key === "Voice-Fit" ? (hasVoiceMeasurements(stats.voice_analysis) ? "측정 기록 제공 · 점수 보류" : "목소리 미측정 · 점수 보류") : fitGrade(fit)}{fit.provisional ? " · 참고 지표" : ""}</small>
+                {fit.measured === false && <p className="unified-report__fit-reason">{fit.text}</p>}
               </article>
             ))}
           </div>
