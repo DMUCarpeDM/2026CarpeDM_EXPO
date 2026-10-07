@@ -10,7 +10,7 @@ const report = { session_id: 21, total_score: 75,
   speech_stats: {}, evidence_segments: [], deep_analysis: {}, rebuild: {}, mode: 5 };
 const json = (route, body) => route.fulfill({ contentType: "application/json", body: JSON.stringify(body) });
 
-async function open(t, { saved = true, holdReport = false, holdCreate = false } = {}) {
+async function open(t, { saved = true, holdReport = false, holdCreate = false, mirror = false } = {}) {
   const { server, url } = await startVite();
   let browser;
   t.after(async () => { await browser?.close(); await server.close(); });
@@ -42,7 +42,7 @@ async function open(t, { saved = true, holdReport = false, holdCreate = false } 
     return json(route, body);
   });
   const page = await context.newPage();
-  await page.goto(`${url}?service=workplace`);
+  await page.goto(`${url}?service=workplace${mirror ? "&mirror=1&idle=1" : ""}`);
   return { page, requestSeen, release };
 }
 
@@ -89,4 +89,17 @@ test("a session creation arriving after reset cannot start the next visitor prac
   await page.waitForTimeout(500);
   assert.equal(await page.locator(".practice-screen").count(), 0);
   assert.equal(await page.evaluate(() => localStorage.getItem("mirror-ting-active-session")), null);
+});
+
+
+test("mirror idle returns to card waiting with no prior report or history capability", { timeout: 45000 }, async t => {
+  const { page } = await open(t, { mirror: true });
+  await page.getByText(marker, { exact: true }).first().waitFor();
+  await page.clock.install();
+  await page.clock.fastForward(1500);
+  await page.locator(".home-mode-workplace").waitFor();
+  assert.equal((await page.locator("body").innerText()).includes(marker), false);
+  assert.equal(await page.locator(".report-page").count(), 0);
+  assert.equal(await page.evaluate(() => localStorage.getItem("mirror-ting-active-session")), null);
+  assert.equal(await page.evaluate(() => localStorage.getItem("mirror-ting-client-key")), null);
 });

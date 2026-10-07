@@ -147,3 +147,22 @@ def test_bridge_outage_retries_original_session_without_creating_another(monkeyp
     assert retried.status_code == 200
     assert retried.json()["status"] == "linked"
     assert FakeBridge.links == [(CardSnapshot(CARD_UID, KIOSK_ID), payload["id"], payload["access_token"])]
+
+
+def test_external_card_requires_new_explicit_consent(monkeypatch):
+    client = _configured(monkeypatch)
+    body = _body()
+    body["consent"] = {"agreed": False, "storage_policy": "none"}
+    assert client.post("/api/sessions", json=body).status_code == 400
+    assert FakeBridge.links == []
+
+
+def test_external_snapshot_cannot_use_an_unverified_local_issuance(monkeypatch):
+    client = _configured(monkeypatch)
+    body = _body()
+    body["nfc_issued_count"] = 3
+    assert client.post("/api/sessions", json=body).status_code == 422
+    body.pop("nfc_issued_count")
+    body.pop("nfc_uid")
+    assert client.post("/api/sessions", json=body).status_code == 400
+    assert FakeBridge.links == []
