@@ -1,4 +1,5 @@
 .mirror-deployment { background: #000; color: #f5f7fc; min-height: 100dvh; }
+.mirror-deployment .practice-question-panel h2 { color: #f5f7fc; }
 .mirror-deployment .screen-frame { width: 100%; max-width: none; margin: 0; padding: 0; }
 .mirror-summary { --mirror-white: #f5f7fc; --mirror-muted: #c3cbd7; width: min(100%, 56.25vh); min-height: 100dvh; margin: auto; background: #000; color: var(--mirror-white); padding: 2.8vh 4.1vh; box-sizing: border-box; display: flex; flex-direction: column; align-items: stretch; font-family: inherit; overflow-wrap: anywhere; word-break: keep-all; }
 .mirror-summary-brand { text-align: center; display: grid; gap: .6vh; }

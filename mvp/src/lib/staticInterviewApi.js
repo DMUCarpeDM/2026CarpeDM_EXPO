@@ -79,62 +79,49 @@ function turnFor(session, index) {
 
 function reportFor(session) {
   const answers = session.history || [];
-  const lengths = answers.map((item) => item.response_text.trim().length);
-  const averageLength = lengths.length ? lengths.reduce((sum, value) => sum + value, 0) / lengths.length : 0;
-  const responseScore = Math.max(62, Math.min(92, Math.round(64 + averageLength / 8)));
-  const nonverbal = answers.map((item) => item.nonverbal).filter(Boolean);
-  const postureScore = nonverbal.length ? 84 : 78;
-  const expressionScore = nonverbal.length ? 82 : 76;
-  const voiceScore = answers.some((item) => item.stt_source === "webspeech") ? 84 : 79;
-  const total = Math.round((responseScore + postureScore + expressionScore + voiceScore) / 4);
-  const weakest = answers.reduce((result, item) => item.response_text.length < result.response_text.length ? item : result, answers[0] || { response_text: "" });
-  const quote = weakest?.response_text || "답변 내용을 조금 더 구체적으로 설명하겠습니다.";
-  const suggestion = `${quote.replace(/[.。!?]?$/, "")} 또한 제가 맡은 행동과 배운 점을 한 문장으로 덧붙이겠습니다.`;
+  const submitted = answers.filter((item) => item.response_text?.trim());
+  const weakest = submitted.reduce((result, item) => item.response_text.length < result.response_text.length ? item : result, submitted[0]);
+  // This static build has no validated scoring/ranking engine. Browser input
+  // and nonverbal payload presence alone cannot establish personal scores.
+  const quote = weakest?.response_text;
+  const suggestion = quote ? `${quote.replace(/[.。!?]?$/, "")} 또한 제가 맡은 행동과 배운 점을 한 문장으로 덧붙이겠습니다.` : null;
   return {
     session_id: session.id,
-    total_score: total,
-    percentile_top: Math.max(12, 42 - Math.round((total - 70) * 1.4)),
+    source: "static-demo",
+    total_score: null,
+    percentile_top: null,
     mode: 5,
     difficulty: "basic",
     finished_label: new Date().toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" }),
     character_name: "AI 면접관",
     scenario_title: session.scenario.title,
-    grade: total >= 85 ? "우수" : total >= 70 ? "좋아요" : "연습이 필요해요",
+    grade: "점수 미제공",
     fit_scores: {
-      "Response-Fit": { score: responseScore, summary: "질문과 연결되는 핵심 표현을 확인했어요." },
-      "Voice-Fit": { score: voiceScore, summary: "브라우저 음성 인식 결과를 바탕으로 전달 흐름을 확인했어요." },
-      "Expression-Fit": { score: expressionScore, summary: "카메라에서 관찰한 표정 변화를 참고했어요.", provisional: true },
-      "Posture-Fit": { score: postureScore, summary: "카메라에서 관찰한 자세 안정도를 참고했어요." },
+      "Response-Fit": { score: null, summary: submitted.length ? "답변 원문만 기록했어요. 정적 데모는 답변 점수를 계산하지 않아요." : "제출한 답변이 없어 평가하지 않았어요." },
+      "Voice-Fit": { score: null, summary: "정적 데모에서는 검증된 목소리 평가를 제공하지 않아요." },
+      "Expression-Fit": { score: null, summary: "정적 데모에서는 검증된 표정 평가를 제공하지 않아요." },
+      "Posture-Fit": { score: null, summary: "정적 데모에서는 검증된 자세 평가를 제공하지 않아요." },
     },
-    strengths: [
-      "질문을 끝까지 듣고 답변을 완성했어요.",
-      "자신의 경험을 직무와 연결하려는 흐름이 좋았어요.",
-      "면접 전 과정에서 차분한 태도를 유지했어요.",
-    ],
+    strengths: [submitted.length ? `${submitted.length}개 답변 원문을 기록했어요. 평가 결과는 아니에요.` : "제출한 답변이 없어 잘한 점을 판단하지 않았어요."],
     improvements: [
       "첫 문장에서 결론을 먼저 말해 보세요.",
       "경험을 말할 때 본인이 한 행동을 구체적으로 덧붙여 보세요.",
       "답변 마지막에 직무와 연결되는 배운 점을 정리해 보세요.",
     ],
-    headline: { sentence: "결론, 행동, 배운 점의 순서로 답하면 더 분명하게 전달할 수 있어요." },
+    headline: { sentence: submitted.length ? "일반 연습 팁: 결론, 행동, 배운 점의 순서로 답해 보세요." : "답변을 제출한 뒤 기록을 확인해 보세요." },
     speech_stats: {
-      turns: answers.length,
-      formal_pct: 86,
-      measurement: { frames: nonverbal.length * 90 },
-      paralinguistics: { speech_rate_note: "안정적", filler_count: 0 },
+      turns: submitted.length,
     },
-    coaching: [{
+    coaching: quote ? [{
       turn_order: weakest?.order || 1,
       quote,
-      issue: "구체적인 행동과 배운 점을 한 문장 더 보완해 보세요.",
+      issue: "일반 연습 예시이며 AI 평가 결과가 아니에요. 실제 경험에 맞게 바꿔 보세요.",
       suggestion,
-    }],
+    }] : [],
     evidence_segments: [{
-      turn_id: weakest?.id || "local-turn-1",
+      turn_id: weakest?.id || null,
       fit_type: "response",
-      observed: `${answers.length}개 답변의 길이와 질문 관련 표현, 브라우저에서 측정한 비언어 신호를 함께 살펴봤어요.`,
-      interpretation: "핵심을 먼저 말하면 답변의 설득력이 더 높아져요.",
-      suggestion: "결론 뒤에 본인의 행동과 배운 점을 덧붙여 보세요.",
+      observed: `${submitted.length}개 답변 원문을 기록했어요. 점수·순위·음성·영상 측정값을 제공하지 않아요.`,
     }],
   };
 }
@@ -174,6 +161,8 @@ export function createStaticInterviewApi(storage) {
       const session = loadSession();
       if (!session) throw new Error("브라우저 면접 세션을 찾을 수 없어요.");
       const body = parseBody(options);
+      if (session.status !== "in_progress" || !session.current_turn || !path.endsWith(`/turns/${session.current_turn.id}/response`)) throw new Error("현재 답변할 질문이 아니에요.");
+      if (!body.text?.trim()) throw new Error("답변을 입력해 주세요.");
       session.history.push({
         ...session.current_turn,
         answered_at: new Date().toISOString(),
@@ -197,20 +186,24 @@ export function createStaticInterviewApi(storage) {
     }
     if (/\/finish$/.test(path) && method === "POST") {
       const session = loadSession();
-      if (session) { session.status = "completed"; saveSession(session); }
+      if (session) { session.status = "completed"; session.current_turn = null; saveSession(session); }
       return { status: "completed" };
     }
     if (/\/progress$/.test(path)) return { status: "completed", stage: "done", pct: 100 };
     if (/\/report$/.test(path)) {
       const session = loadSession();
       const report = reportFor(session);
-      const history = read(HISTORY_KEY, []).filter((item) => item.session_id !== report.session_id);
-      history.push({ session_id: report.session_id, total_score: report.total_score, started_at: new Date().toISOString(), fit_scores: report.fit_scores });
+      const history = read(HISTORY_KEY, []).filter((item) => item.session_id !== report.session_id).map(unscoreHistory);
+      history.push({ session_id: report.session_id, source: "static-demo", total_score: report.total_score, started_at: new Date().toISOString(), fit_scores: report.fit_scores });
       write(HISTORY_KEY, history.slice(-6));
       return report;
     }
-    if (path.startsWith("/history")) return { items: read(HISTORY_KEY, []) };
+    if (path.startsWith("/history")) return { items: read(HISTORY_KEY, []).map(unscoreHistory) };
     if (path === "/codes" && method === "POST") return { code: "BROWSER-DEMO", expires_in: 600 };
     throw new Error(`지원하지 않는 브라우저 데모 요청입니다: ${method} ${path}`);
   };
+}
+
+function unscoreHistory(item) {
+  return { ...item, source: "static-demo", total_score: null, percentile_top: null, grade: null, fit_scores: Object.fromEntries(Object.entries(item.fit_scores || {}).map(([key, fit]) => [key, { ...fit, score: null, summary: "정적 데모 기록은 검증된 평가 점수를 제공하지 않아요." }])) };
 }

@@ -14,6 +14,7 @@ import {
   ENTRY_LOOKUP_TIMEOUT_MS,
   SERVICE_ENTRY_FLOW,
   demoDestination,
+  guardSessionDestination,
   isKnownView,
   normalizeDestination,
   savedSessionDestination,
@@ -89,14 +90,19 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
     const handlePopState = (event) => {
       const savedTarget = event.state?.mirrorTingView;
       if (!isKnownView(savedTarget)) return;
-      const destination = normalizeDestination(savedTarget, selectedServiceModeId);
+      const destination = guardSessionDestination(normalizeDestination(savedTarget, selectedServiceModeId), session?.status);
       if (destination === "service") resetVisitor();
       if (destination !== savedTarget) window.history.replaceState({ mirrorTingView: destination }, "");
       showView(destination);
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [selectedServiceModeId]);
+  }, [selectedServiceModeId, session?.status]);
+
+  useEffect(() => {
+    const destination = guardSessionDestination(active, session?.status);
+    if (destination !== active) replaceView(destination);
+  }, [active, session?.status]);
 
   useEffect(() => {
     if (kioskIssueMode) return undefined;

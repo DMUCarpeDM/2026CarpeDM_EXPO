@@ -14,6 +14,7 @@ import { runFreshSelection, runNfcReset, runServiceCards } from "./serviceEntryS
 import {
   CHROMELESS_VIEWS,
   demoDestination,
+  guardSessionDestination,
   isKioskIssue,
   normalizeDestination,
   savedSessionDestination,
@@ -30,6 +31,10 @@ test("service entry policy declares deterministic precedence and chrome", () => 
   assert.equal(savedSessionDestination("analyzing"), "result");
   assert.equal(savedSessionDestination("completed"), "result");
   assert.equal(savedSessionDestination("unknown"), null);
+  assert.equal(guardSessionDestination("practice", "completed"), "result");
+  assert.equal(guardSessionDestination("practice", "analyzing"), "result");
+  assert.equal(guardSessionDestination("practice", "in_progress"), "practice");
+  assert.equal(guardSessionDestination("preview", "completed"), "preview");
   assert.equal(normalizeDestination("home", null), "service");
   assert.equal(normalizeDestination("home", "training"), "home");
   assert.equal(normalizeDestination("homepage", "training"), "service");

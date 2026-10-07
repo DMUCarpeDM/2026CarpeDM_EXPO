@@ -176,6 +176,7 @@ export default function App() {
         const completedReport = await getReport(session);
         if (cancelled || epoch !== visitorEpochRef.current) return;
         setReport(completedReport);
+        setSession((previous) => ({ ...previous, status: "completed" }));
         if (retainedSessionIdRef.current !== session.id) {
           saveRetainedRecord(localStorage, buildRetainedRecord({ session, report: completedReport, audioReferences: turnAudioReferencesRef.current }));
           retainedSessionIdRef.current = session.id;
@@ -273,6 +274,7 @@ export default function App() {
       if (result.finished) {
         await finishSession(session);
         if (epoch !== visitorEpochRef.current) return;
+        setSession((previous) => ({ ...previous, status: "analyzing" }));
         setTurn(null); navigate("result");
       } else setTurn(result.next_turn);
     } catch (error) { if (epoch === visitorEpochRef.current) setApiError(error.message); }
@@ -286,6 +288,7 @@ export default function App() {
     try {
       await finishSession(session);
       if (epoch !== visitorEpochRef.current) return;
+      setSession((previous) => ({ ...previous, status: "analyzing" }));
       setTurn(null); navigate("result");
     } catch (error) { if (epoch === visitorEpochRef.current) setApiError(error.message); }
     finally { if (epoch === visitorEpochRef.current) setSubmitting(false); }

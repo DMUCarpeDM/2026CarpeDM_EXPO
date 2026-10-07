@@ -68,7 +68,7 @@ export function ResultPage({
     const progressValue = Math.max(0, Math.min(100, Number(progress?.pct) || 0));
     return (
       <section className="page report-page unified-report unified-report--loading">
-        <PageToolbar onPrev={onPrev} leftLabel="연습 화면으로 돌아가기" />
+        <PageToolbar onPrev={onPrev} leftLabel="홈으로 돌아가기" />
         <Card className="unified-report__loading-card" role="status" aria-live="polite">
           <CardContent>
             <span className="unified-report__loading-value">{progressValue}%</span>
@@ -87,6 +87,7 @@ export function ResultPage({
   const topImprovement = report.headline?.sentence || improvements[0];
   const difficulty = selectedDifficulty || report.difficulty;
   const stats = report.speech_stats || {};
+  const staticDemo = report.source === "static-demo";
   const para = stats.paralinguistics || {};
   const measurement = stats.measurement || {};
   const coachingCard = Array.isArray(report.coaching) ? report.coaching.find((item) => item?.suggestion) : null;
@@ -125,7 +126,7 @@ export function ResultPage({
 
   return (
     <section className="page report-page unified-report">
-      <PageToolbar onPrev={onPrev} leftLabel="연습 화면으로 돌아가기" />
+      <PageToolbar onPrev={onPrev} leftLabel="홈으로 돌아가기" />
 
       <header className="unified-report__heading">
         <div><p className="unified-report__eyebrow">연습 결과</p><h1>이번 대화를 한눈에 정리했어요</h1><p>잘한 점부터 다음 연습에서 바꿀 한 가지까지 순서대로 확인해 보세요.</p></div>
@@ -161,14 +162,14 @@ export function ResultPage({
       </Card>
 
       <section className="unified-report__section" aria-labelledby="coaching-title">
-        <div className="unified-report__section-heading"><p>AI 코칭</p><h2 id="coaching-title">이 답변부터 바꿔 보세요</h2><span>{coachingCard?.issue || report.headline?.context || "결론을 먼저 말하면 상대가 핵심을 더 빠르게 이해할 수 있어요."}</span></div>
-        <Card className="unified-report__rewrite">
+        <div className="unified-report__section-heading"><p>{staticDemo ? "일반 연습 예시" : "AI 코칭"}</p><h2 id="coaching-title">{staticDemo && !coachingCard ? "제출한 답변이 없어요" : "이 답변부터 바꿔 보세요"}</h2><span>{coachingCard?.issue || report.headline?.context || (staticDemo ? "아래 내용은 일반 연습 팁이며 개인 평가 결과가 아니에요." : "결론을 먼저 말하면 상대가 핵심을 더 빠르게 이해할 수 있어요.")}</span></div>
+        {(!staticDemo || coachingCard) && <Card className="unified-report__rewrite">
           <CardContent>
             <div><span>내 답변</span><blockquote>“{beforeAnswer}”</blockquote></div>
             <ArrowRight className="unified-report__rewrite-arrow" size={24} aria-hidden="true" />
             <div><span>이렇게 말해 보세요</span><blockquote>“{afterAnswer}”</blockquote></div>
           </CardContent>
-        </Card>
+        </Card>}
         <div className="unified-report__next-actions"><h3>다음 연습에서 바꿔요</h3><ol>{improvements.slice(0, 3).map((item, index) => <li key={item}><span>{index + 1}</span>{item}</li>)}</ol></div>
       </section>
 
@@ -176,14 +177,14 @@ export function ResultPage({
         <Card className="unified-report__evidence">
           <CardContent>
             <div className="unified-report__card-heading"><p>분석 근거</p><h2>어떤 신호를 살펴봤나요?</h2></div>
-            {evidenceItems.length ? <dl className="unified-report__evidence-stats">{evidenceItems.map((item) => <div key={item.label}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl> : <p className="unified-report__empty">이번 연습에서 수집한 대화 신호를 바탕으로 분석했어요.</p>}
+            {evidenceItems.length ? <dl className="unified-report__evidence-stats">{evidenceItems.map((item) => <div key={item.label}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl> : <p className="unified-report__empty">{staticDemo ? "제출한 답변이나 제공할 측정값이 없어요." : "이번 연습에서 수집한 대화 신호를 바탕으로 분석했어요."}</p>}
             {evidenceSegments[0]?.observed ? <p className="unified-report__evidence-note">{evidenceSegments[0].observed}</p> : null}
           </CardContent>
         </Card>
         <Card className="unified-report__history">
           <CardContent>
             <div className="unified-report__card-heading"><p>이전 기록</p><h2>{scoreDelta === null ? "두 번째 연습부터 변화를 보여드려요" : `이전보다 ${Math.abs(scoreDelta)}점 ${scoreDelta >= 0 ? "올랐어요" : "낮아졌어요"}`}</h2></div>
-            {trendTotals.length >= 2 ? <TrendChart height={178} min={Math.max(0, Math.min(...trendTotals) - 10)} max={100} series={[{ name: "종합 점수", color: "var(--color-apple-blue)", values: trendTotals, fill: false }]} xLabels={trendLabels} /> : <div className="unified-report__history-empty"><strong>{total === null ? "미측정" : `${total}점`}</strong><p>지금 결과를 기준으로 다음 연습과 비교할게요.</p></div>}
+            {trendTotals.length >= 2 ? <TrendChart height={178} min={Math.max(0, Math.min(...trendTotals) - 10)} max={100} series={[{ name: "종합 점수", color: "var(--color-apple-blue)", values: trendTotals, fill: false }]} xLabels={trendLabels} /> : <div className="unified-report__history-empty"><strong>{total === null ? "미측정" : `${total}점`}</strong><p>{total === null ? "점수가 없어 점수 변화는 비교하지 않아요." : "지금 결과를 기준으로 다음 연습과 비교할게요."}</p></div>}
           </CardContent>
         </Card>
       </section>

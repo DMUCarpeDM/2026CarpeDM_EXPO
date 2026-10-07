@@ -79,7 +79,7 @@ export function TopNav({ active, serviceMode, scenarioTitle, menuOpen, onMenuOpe
         </div>
         <div className="nav-dropdown-wrapper">
           <button className={`profile-button ${profileOpen ? "active" : ""}`} type="button" aria-label="체험자 메뉴" aria-expanded={profileOpen} onClick={toggleProfile}><Avatar size="sm" /><strong>체험자</strong><ChevronDown size={16} /></button>
-          {profileOpen && <div className="nav-dropdown profile-dropdown glass-panel" onClick={(event) => event.stopPropagation()}><div className="user-info"><strong>체험자님</strong><span>mirror-ting-user@kiosk</span></div><hr /><ul><li><button type="button" onClick={() => { onNavigate("records"); setProfileOpen(false); }}>나의 결과 및 기록</button></li><li><button type="button" onClick={() => { onNavigate(NEW_PRACTICE_TARGET); setProfileOpen(false); }}>새 연습 시작</button></li><li><button type="button" onClick={() => { window.location.href = "/admin"; setProfileOpen(false); }}>운영 대시보드</button></li></ul></div>}
+          {profileOpen && <div className="nav-dropdown profile-dropdown glass-panel" onClick={(event) => event.stopPropagation()}><div className="user-info"><strong>체험자님</strong><span>mirror-ting-user@kiosk</span></div><hr /><ul><li><button type="button" onClick={() => { onNavigate("records"); setProfileOpen(false); }}>나의 결과 및 기록</button></li><li><button type="button" onClick={() => { onNavigate(NEW_PRACTICE_TARGET); setProfileOpen(false); }}>새 연습 시작</button></li><li><button type="button" disabled>운영 대시보드 · 연결 준비 중</button></li></ul></div>}
         </div>
         <button className="mobile-menu-button" type="button" aria-label="메뉴 열기" aria-expanded={menuOpen} onClick={() => onMenuOpen(true)}><Menu4 size={22} /></button>
       </div>
