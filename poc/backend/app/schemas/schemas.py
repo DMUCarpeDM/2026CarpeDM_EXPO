@@ -143,6 +143,9 @@ class NfcResolveOut(BaseModel):
     job_role: str
     scenario_slug: str  # 발급 시 지정이 없으면 직무 기본 팩 슬러그
     job_role_label: str = ""
+    # A kiosk-issued card keeps its identity while the visitor selects a role.
+    kiosk_session_id: str = ""
+    requires_role_selection: bool = False
 
 
 class NfcTapOut(BaseModel):
@@ -215,6 +218,7 @@ class SessionCreateIn(BaseModel):
     # 미러 NFC 시작: 태그된 카드 uid — 카드의 직무·시나리오가 세션에 스탬프된다
     nfc_uid: str = Field(default="", max_length=32)
     nfc_issued_count: int | None = Field(default=None, ge=1)
+    kiosk_session_id: str = Field(default="", max_length=16)
 
 
 class TurnOut(BaseModel):
@@ -245,6 +249,7 @@ class SessionOut(BaseModel):
     current_turn: TurnOut | None = None
     # 세션 접근 능력 토큰 — 이후 세션 조회 시 X-Session-Token 헤더로 되돌려준다 (생성 응답에만 값)
     access_token: str = ""
+    kiosk_link_status: Literal["not_requested", "pending", "linked", "conflict"] = "not_requested"
 
 
 class HistoryTurnOut(TurnOut):

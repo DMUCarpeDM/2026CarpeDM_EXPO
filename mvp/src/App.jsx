@@ -17,6 +17,7 @@ import {
   getScenarios,
   issueCode,
   saveActiveSession,
+  retryKioskLink,
   submitResponse,
 } from "./lib/pocApi";
 import { findJobRole } from "./lib/nfc";
@@ -51,13 +52,24 @@ export default function App() {
   const [mediaStream, setMediaStream] = useState(null);
   const [permissionState, setPermissionState] = useState({ camera: "prompt", microphone: "prompt" });
   const [starting, setStarting] = useState(false);
+  const [linkRetrying, setLinkRetrying] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(null);
   const turnAudioReferencesRef = useRef([]);
   const startInFlight = useRef(false);
   const retainedSessionIdRef = useRef("");
+  const visitorEpochRef = useRef(0);
+
+  const resetVisitorMedia = () => {
+    mediaStream?.getTracks().forEach((track) => track.stop());
+    setMediaStream(null); setPermissionState({ camera: "prompt", microphone: "prompt" });
+    startInFlight.current = false;
+    setStarting(false); setSubmitting(false); setLinkRetrying(false); setAnalysisProgress(null);
+    turnAudioReferencesRef.current = []; retainedSessionIdRef.current = "";
+  };
 
   const requestExerciseMedia = async () => {
+    const epoch = visitorEpochRef.current;
     if (!navigator.mediaDevices?.getUserMedia) {
       setPermissionState({ camera: "denied", microphone: "denied" });
       throw new Error("이 브라우저에서는 카메라와 마이크 권한을 사용할 수 없어요.");
@@ -74,6 +86,7 @@ export default function App() {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: audioConstraint });
     } catch (error) {
+      if (epoch !== visitorEpochRef.current) throw new DOMException("방문자가 변경되었습니다", "AbortError");
       lastError = error;
       const parts = [];
       try { parts.push(await navigator.mediaDevices.getUserMedia({ video: true })); } catch (videoError) { lastError = videoError; }
@@ -83,6 +96,10 @@ export default function App() {
     }
     const camera = alive(stream, "getVideoTracks");
     const microphone = alive(stream, "getAudioTracks");
+    if (epoch !== visitorEpochRef.current) {
+      stream?.getTracks().forEach((track) => track.stop());
+      throw new DOMException("방문자가 변경되었습니다", "AbortError");
+    }
     setPermissionState({ camera: camera ? "granted" : "denied", microphone: microphone ? "granted" : "denied" });
     if (!camera && !microphone) throw new Error(mediaErrorMessage(lastError));
     if (mediaStream && mediaStream !== stream) mediaStream.getTracks().forEach((track) => track.stop());
@@ -90,7 +107,7 @@ export default function App() {
     return stream;
   };
 
-  const entry = useServiceEntryRoute({ kioskIssueMode: KIOSK_ISSUE_MODE, requestExerciseMedia });
+  const entry = useServiceEntryRoute({ kioskIssueMode: KIOSK_ISSUE_MODE, requestExerciseMedia, visitorEpochRef, onVisitorReset: resetVisitorMedia });
   const {
     active, selectedServiceModeId, counterpartProfile, difficulty,
     session, turn, report, pocScenarioSlug, selectedEpisodeId, nfcCard, consented,
@@ -145,23 +162,30 @@ export default function App() {
   useEffect(() => {
     if (active !== "result" || !session || report) return undefined;
     let cancelled = false;
+    const epoch = visitorEpochRef.current;
+    let inFlight = false;
     const poll = async () => {
+      if (inFlight) return;
+      inFlight = true;
       try {
         const progress = await getProgress(session);
-        if (cancelled) return;
+        if (cancelled || epoch !== visitorEpochRef.current) return;
         setAnalysisProgress(progress);
         if (progress.stage === "error") throw new Error("분석 중 문제가 생겼어요. 잠시 후 다시 확인해 주세요.");
         if (progress.status !== "completed" && progress.stage !== "done") return;
         const completedReport = await getReport(session);
+        if (cancelled || epoch !== visitorEpochRef.current) return;
         setReport(completedReport);
+        setSession((previous) => ({ ...previous, status: "completed" }));
         if (retainedSessionIdRef.current !== session.id) {
           saveRetainedRecord(localStorage, buildRetainedRecord({ session, report: completedReport, audioReferences: turnAudioReferencesRef.current }));
           retainedSessionIdRef.current = session.id;
         }
-        setHistory((await getHistory()).items || []);
+        const nextHistory = await getHistory();
+        if (epoch === visitorEpochRef.current) setHistory(nextHistory.items || []);
       } catch (error) {
-        if (!cancelled) setApiError(error.message);
-      }
+        if (!cancelled && epoch === visitorEpochRef.current) setApiError(error.message);
+      } finally { inFlight = false; }
     };
     poll();
     const timer = window.setInterval(poll, 800);
@@ -169,7 +193,12 @@ export default function App() {
   }, [active, report, session]);
 
   const switchMicDevice = async (deviceId) => {
+    const epoch = visitorEpochRef.current;
     const fresh = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: deviceId }, autoGainControl: false, noiseSuppression: false, echoCancellation: true } });
+    if (epoch !== visitorEpochRef.current) {
+      fresh.getTracks().forEach((track) => track.stop());
+      throw new DOMException("방문자가 변경되었습니다", "AbortError");
+    }
     localStorage.setItem("mirror-ting-mic-device", deviceId);
     const videoTracks = mediaStream?.getVideoTracks?.().filter((track) => track.readyState === "live") || [];
     mediaStream?.getAudioTracks?.().forEach((track) => track.stop());
@@ -183,6 +212,7 @@ export default function App() {
     if (startInFlight.current) return;
     startInFlight.current = true;
     const mirror = isMirrorDeployment();
+    const epoch = visitorEpochRef.current;
     setStarting(true); setApiError(""); setReport(null); setTurnHistory([]); setTurnSignals(null);
     turnAudioReferencesRef.current = [];
     retainedSessionIdRef.current = "";
@@ -195,7 +225,8 @@ export default function App() {
         if (mirror) throw mediaError;
         console.warn("[media] 카메라·마이크 없이 시작:", mediaError?.message || mediaError);
       }
-      if (mirror && (!nfcCard?.uid || !nfcCard?.issuedCount)) throw new Error("키오스크에서 동의 후 카드를 발급해 주세요.");
+      if (mirror && (!nfcCard?.uid || (!nfcCard?.issuedCount && !nfcCard?.kioskSessionId))) throw new Error("키오스크에서 동의 후 카드를 발급해 주세요.");
+      if (epoch !== visitorEpochRef.current) return;
       const workplace = selectedServiceModeId === "workplace" && !nfcCard;
       const nextSession = await createSession({
         serviceMode: selectedServiceModeId || selectedServiceMode.id,
@@ -205,38 +236,62 @@ export default function App() {
         selectedEpisodeId: workplace || nfcCard ? null : selectedEpisodeId,
         jobRole: nfcCard?.jobRole,
         nfcUid: nfcCard?.uid || "",
+        kioskSessionId: nfcCard?.kioskSessionId,
         consent: consented,
-        ...(mirror ? { nfcIssuedCount: nfcCard.issuedCount } : {}),
+        ...(mirror && !nfcCard?.kioskSessionId ? { nfcIssuedCount: nfcCard.issuedCount } : {}),
       });
+      if (epoch !== visitorEpochRef.current) return;
       saveActiveSession(nextSession);
       setSession(nextSession); setTurn(nextSession.current_turn); navigate("practice");
-    } catch (error) { setApiError(error.message); } finally { startInFlight.current = false; setStarting(false); }
+    } catch (error) { if (epoch === visitorEpochRef.current) setApiError(error.message); }
+    finally { if (epoch === visitorEpochRef.current) { startInFlight.current = false; setStarting(false); } }
+  };
+  const retryCardLink = async () => {
+    if (!session || linkRetrying) return;
+    const epoch = visitorEpochRef.current;
+    setLinkRetrying(true);
+    try {
+      const result = await retryKioskLink(session);
+      if (epoch === visitorEpochRef.current) setSession((previous) => ({ ...previous, kiosk_link_status: result.status }));
+    } catch (error) { if (epoch === visitorEpochRef.current) setApiError(error.message); }
+    finally { if (epoch === visitorEpochRef.current) setLinkRetrying(false); }
   };
   const sendAnswer = async (input) => {
     if (!session || !turn || !input.text.trim()) return;
+    const epoch = visitorEpochRef.current;
     setSubmitting(true); setApiError("");
     try {
       const result = await submitResponse(session, turn.id, { ...input, text: input.text.trim() });
+      if (epoch !== visitorEpochRef.current) return;
       void retainTurnAudio(session.id, turn.id, input.audio).then((audioReference) => {
-        if (audioReference) turnAudioReferencesRef.current = [...turnAudioReferencesRef.current, audioReference];
+        if (audioReference && epoch === visitorEpochRef.current) turnAudioReferencesRef.current = [...turnAudioReferencesRef.current, audioReference];
       }).catch((error) => {
         console.warn("[audio] turn recording was not retained:", error);
       });
       setTurnHistory((items) => [...items, { ...turn, response_text: input.text.trim() }]);
       setTurnSignals(result.turn_signals || null);
       setSession((previous) => ({ ...previous, interaction: result.interaction }));
-      if (result.finished) { await finishSession(session); setTurn(null); navigate("result"); } else setTurn(result.next_turn);
-    } catch (error) { setApiError(error.message); } finally { setSubmitting(false); }
+      if (result.finished) {
+        await finishSession(session);
+        if (epoch !== visitorEpochRef.current) return;
+        setSession((previous) => ({ ...previous, status: "analyzing" }));
+        setTurn(null); navigate("result");
+      } else setTurn(result.next_turn);
+    } catch (error) { if (epoch === visitorEpochRef.current) setApiError(error.message); }
+    finally { if (epoch === visitorEpochRef.current) setSubmitting(false); }
   };
 
   const endPractice = async () => {
     if (!session || submitting) return;
+    const epoch = visitorEpochRef.current;
     setSubmitting(true); setApiError("");
     try {
       await finishSession(session);
+      if (epoch !== visitorEpochRef.current) return;
+      setSession((previous) => ({ ...previous, status: "analyzing" }));
       setTurn(null); navigate("result");
-    } catch (error) { setApiError(error.message); }
-    finally { setSubmitting(false); }
+    } catch (error) { if (epoch === visitorEpochRef.current) setApiError(error.message); }
+    finally { if (epoch === visitorEpochRef.current) setSubmitting(false); }
   };
 
   const nfcRole = nfcCard ? findJobRole(nfcCard.jobRole) : null;
@@ -257,6 +312,7 @@ export default function App() {
     analysisProgress,
     starting,
     submitting,
+    linkRetrying,
     mode,
   };
   const actions = {
@@ -266,6 +322,7 @@ export default function App() {
     endPractice,
     requestExerciseMedia,
     switchMicDevice,
+    retryCardLink,
     issueCode,
   };
 

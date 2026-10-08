@@ -107,3 +107,8 @@ def test_real_libraries_measure_periodic_reference_without_inventing_confidence(
     assert irregularity["segments"][0]["jitter_local_pct"] < .1
     assert pitch["reference_only"] and irregularity["reference_only"]
     assert "confidence" not in pitch
+
+
+def test_real_bundled_vad_loads_and_rejects_silence_without_model_download():
+    # Calibration tests mock segmentation; they cannot detect a missing torchaudio.
+    assert voice.speech_segments(np.zeros(16000, dtype=np.float32), 16000) == []

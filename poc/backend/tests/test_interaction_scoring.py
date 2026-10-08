@@ -86,6 +86,8 @@ def test_training_report_uses_shared_score_and_purges_internal_quotes(monkeypatc
     report = client.get(f'/api/sessions/{sid}/report', headers=auth).json()
     assert report["total_score"] == 81  # 카페 가점은 +6 상한
     assert report["fit_scores"]["voice"]["score"] is None
+    assert report["fit_scores"]["expression"]["score"] is None
+    assert "표정 분석 연결과 현장 검증이 완료되지 않아" in report["fit_scores"]["expression"]["summary"]
     assert report["deep_analysis"]["interaction"]["version"] == "interaction-score-v1"
     with SessionLocal() as db:
         session = db.get(RoleplaySession, sid)

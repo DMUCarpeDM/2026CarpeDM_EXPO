@@ -1,4 +1,5 @@
 import { voiceReason } from "../../lib/voiceCapture";
+import { hasVoiceMeasurements } from "../../lib/reportFits";
 import "../../styles/voice-measurement.css";
 
 const value = (metric, field, unit) => metric?.status === "measured" && Number.isFinite(metric[field])
@@ -21,7 +22,7 @@ export function VoiceMeasurements({ data }) {
   if (!data?.engine_version) return null;
   return <section className="voice-report" aria-labelledby="voice-report-title">
     <h2 id="voice-report-title">목소리 측정 기록</h2>
-    <p>크기·속도·멈춤을 기록했어요. 평가 기준을 검증하는 단계라 음성 점수와 감점에는 반영하지 않아요.</p>
+    <p>{hasVoiceMeasurements(data) ? "확인된 측정값과 항목별 측정 상태를 표시해요." : "이번 연습에서는 목소리 측정값을 확인하지 못했어요."} 평가 기준을 검증하는 단계라 음성 점수와 감점에는 반영하지 않아요.</p>
     {(data.turns || []).map((turn, index) => <details key={turn.turn_id}>
       <summary>{index + 1}번째 답변의 측정값</summary>
       <dl>

@@ -5,6 +5,11 @@ const fitPresentation = [
   ["Posture-Fit", "Posture", "posture", "posture"],
 ];
 
+export function hasVoiceMeasurements(data) {
+  return (data?.turns || []).some((turn) =>
+    ["volume", "speed", "pauses", "pitch", "voice_irregularity"].some((key) => turn?.[key]?.status === "measured"));
+}
+
 function fitScore(item) {
   const rawScore = typeof item === "object" && item !== null ? item.score : item;
   const parsedScore = typeof rawScore === "string" ? Number(rawScore) : rawScore;

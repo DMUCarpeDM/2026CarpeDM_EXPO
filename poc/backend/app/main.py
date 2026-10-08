@@ -83,8 +83,19 @@ def _purge_expired_quotes() -> None:
             report.headline = {}
             report.deep_analysis = {}
             report.coaching = []  # Before→After 카드도 발화 인용을 담는다 (S-B2B-COACH)
-        if expired:
+        # A card UID is needed only while the kiosk link can still be retried.
+        stale_cards = (
+            db.query(RoleplaySession)
+            .filter(RoleplaySession.started_at < cutoff)
+            .filter(RoleplaySession.kiosk_card_uid.isnot(None))
+            .all()
+        )
+        for session in stale_cards:
+            session.kiosk_card_uid = None
+            session.kiosk_session_id = None
+        if expired or stale_cards:
             db.commit()
+        if expired:
             print(f"보관 기간 만료 미저장 리포트 인용 {len(expired)}건 파기")
     finally:
         db.close()

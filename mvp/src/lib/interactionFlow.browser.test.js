@@ -45,6 +45,5 @@ await page.getByRole('dialog',{name:'연습 종료 확인'}).getByRole('button',
 await page.waitForTimeout(500);
 if(finishes!==1)throw new Error(`finish requests ${finishes}`);
 
-await browser.close();
 if(errors.length)throw new Error(errors.join('\n'));
 });

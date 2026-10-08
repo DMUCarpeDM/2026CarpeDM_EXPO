@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { reportFits, scoreFromFit } from "./reportFits.js";
+import { hasVoiceMeasurements, reportFits, scoreFromFit } from "./reportFits.js";
 
 test("reportFits reads backend four-Fit top-level scores", () => {
   const fits = reportFits({
@@ -51,4 +51,11 @@ test("scoreFromFit normalizes previous comparison score shapes", () => {
   assert.equal(scoreFromFit({ score: "72" }), 72);
   assert.equal(scoreFromFit(68.4), 68);
   assert.equal(scoreFromFit(undefined), 0);
+});
+
+test("voice report availability preserves missing, uncertain, and partial measurements", () => {
+  assert.equal(hasVoiceMeasurements(undefined), false);
+  assert.equal(hasVoiceMeasurements({ turns: [] }), false);
+  assert.equal(hasVoiceMeasurements({ turns: [{ volume: { status: "unmeasured", relative_db: null }, speed: { status: "uncertain" } }] }), false);
+  assert.equal(hasVoiceMeasurements({ turns: [{ volume: { status: "unmeasured" }, pauses: { status: "measured", count: 0 } }] }), true);
 });

@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     require_secure: bool = False
     # 익명/계정 저장 동의 시 음성 파일 보관 일수 (S-CBYKOH). '미저장' 동의는 분석 직후 삭제.
     media_retention_days: int = 7
+    # Server-to-server kiosk bridge. Never include its secret in browser responses.
+    idprinter_base_url: str = ""
+    idprinter_bridge_token: SecretStr = SecretStr("")
     # 관리자 API(/admin/*) 인증 강제 여부 — 전시 키오스크는 False(로컬 단독 운영),
     # 기관 납품 시 True + role='admin' 계정 필수 (app.seed.make_admin으로 승격)
     admin_auth_required: bool = False
