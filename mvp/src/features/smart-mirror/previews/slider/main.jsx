@@ -17,7 +17,7 @@ function SceneSlider() {
     let cancelled = false;
     Promise.all(images.map(name => new Promise(resolve => {
       const image = new Image(); image.onload = resolve; image.onerror = resolve;
-      image.src = new URL(`./assets/${name}`, import.meta.url).href;
+      image.src = new URL(`../../assets/${name}`, import.meta.url).href;
     }))).then(() => { if (!cancelled) setLoaded(true); });
     return () => { cancelled = true; };
   }, []);
@@ -38,7 +38,7 @@ function SceneSlider() {
     <div className="slider-stage" aria-live="polite" aria-atomic="true">
       <AnimatePresence initial={false}>
         <motion.article key={index} className="slider-scene" initial={{ opacity: 0, x: reduced ? 0 : "100%" }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: reduced ? 0 : "-100%" }} transition={{ duration: reduced ? .15 : .85, ease: [.22,1,.36,1] }}>
-          <figure><img src={new URL(`./assets/${images[index]}`, import.meta.url).href} alt={imageAlt[index]} /><figcaption><span>0{index + 1}</span><strong>{scene.name}</strong><time>{scene.time}</time></figcaption></figure>
+          <figure><img src={new URL(`../../assets/${images[index]}`, import.meta.url).href} alt={imageAlt[index]} /><figcaption><span>0{index + 1}</span><strong>{scene.name}</strong><time>{scene.time}</time></figcaption></figure>
           <div className="slider-explanation"><p>{scene.person}과의 대화</p><h2>{scene.title}</h2><blockquote>“{scene.line}”</blockquote><span>{scene.tip}</span></div>
         </motion.article>
       </AnimatePresence>
