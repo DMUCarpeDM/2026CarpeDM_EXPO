@@ -23,6 +23,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "reicon-react": "^1.1.2",
+    "shaders": "4.0.2",
     "tailwind-merge": "^3.6.0",
     "vite": "^6.0.7"
   },

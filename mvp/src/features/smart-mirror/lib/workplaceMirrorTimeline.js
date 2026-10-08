@@ -1,11 +1,12 @@
-export const MIRROR_OVERVIEW_MS = 43000;
-const phases = [[0,2000,-1,"overview"],[2000,14000,0,"scene"],[14000,15000,1,"move"],[15000,27000,1,"scene"],[27000,28000,2,"move"],[28000,40000,2,"scene"],[40000,43000,2,"countdown"]];
+export const MIRROR_SCENE_MS = 18000;
+export const MIRROR_OVERVIEW_MS = MIRROR_SCENE_MS * 3 + 3000;
 export function mirrorPhase(elapsed) {
   const time = Math.max(0, elapsed);
-  const phase = phases.find(([, end]) => time < end);
-  if (!phase) return { kind: "complete", scene: 2, progress: 1, remaining: 0 };
-  const [start, end, scene, kind] = phase;
-  return { kind, scene, progress: (time - start) / (end - start), remaining: Math.ceil((end - time) / 1000) };
+  if (time >= MIRROR_OVERVIEW_MS) return { kind: "complete", scene: 2, progress: 1, remaining: 0 };
+  if (time >= MIRROR_SCENE_MS * 3) return { kind: "countdown", scene: 2, progress: 1, remaining: Math.ceil((MIRROR_OVERVIEW_MS - time) / 1000) };
+  const scene = Math.floor(time / MIRROR_SCENE_MS);
+  const withinScene = time - scene * MIRROR_SCENE_MS;
+  return { kind: "scene", scene, progress: withinScene / MIRROR_SCENE_MS, remaining: Math.ceil((MIRROR_SCENE_MS - withinScene) / 1000) };
 }
 // Hidden tabs never consume reading time.
 export function createVisibleClock(now = 0, visible = true) {

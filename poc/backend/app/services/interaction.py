@@ -183,6 +183,22 @@ def public_state(session):
         return {}
     payload = {key: value[key] for key in ("version", "mode", "index", "met", "unmet", "finished", "reason")} | {"total": len(value["items"]), "pending_confirmation": value.get("pending_confirmation", False), "unverified": value.get("unverified", []),
         "finished": value["finished"] and not value.get("pending_confirmation", False)}
+    if value.get("mode") == CONTINUOUS_MODE:
+        overview = []
+        seen = set()
+        for item in value.get("items") or []:
+            category = item.get("category_id") or item.get("act_id")
+            if category in seen:
+                continue
+            seen.add(category)
+            overview.append({
+                "category_id": category,
+                **{key: item.get(key, "") for key in (
+                    "episode_id", "character_id", "virtual_time", "title", "situation", "goal", "tip",
+                )},
+                "opening_line": item.get("text", ""),
+            })
+        payload["overview"] = overview
     briefing = current_briefing(value)
     if briefing:
         payload["briefing"] = briefing

@@ -27,7 +27,8 @@ async function open(t, { external = true, agreed = true, media = true } = {}) {
     if (path === "/api/sessions" && req.method() === "POST") {
       creates.push(req.postDataJSON());
       body = { id: 22, access_token: "test-only-capability", kiosk_link_status: "linked", mode: 5,
-        scenario: { slug: "workplace-conversation", title: "테스트", characters: [] }, current_turn: { id: 221, question_text: "질문" } };
+        scenario: { slug: "workplace-conversation", title: "테스트", characters: [] },
+        interaction: { overview: ["morning", "work", "leaving"].map(category_id => ({ category_id, virtual_time: "09:00", situation: "테스트 상황", goal: "테스트 연습 목표" })) }, current_turn: { id: 221, question_text: "질문" } };
     }
     await route.fulfill({ contentType: "application/json", body: JSON.stringify(body) });
   });
@@ -37,17 +38,18 @@ async function open(t, { external = true, agreed = true, media = true } = {}) {
     await page.getByRole("heading", { name: "사원증을 확인했어요" }).waitFor();
     await page.locator(".nfc-fallback-roles button").click();
   }
-  await page.locator(".mirror-summary").waitFor();
+  await page.locator(external || !agreed ? ".mirror-summary" : ".mirror-overview").waitFor();
   await page.clock.install();
   return { page, creates };
 }
 
 test("external mirror card waits for explicit consent, then starts once with its snapshot", { timeout: 45000 }, async t => {
   const { page, creates } = await open(t);
-  await page.clock.fastForward(44000);
+  await page.clock.fastForward(58000);
   assert.equal(creates.length, 0);
   await page.getByRole("checkbox").click();
-  await page.clock.fastForward(44000);
+  await page.locator(".mirror-overview").waitFor();
+  await page.clock.fastForward(58000);
   await page.locator(".practice-screen").waitFor();
   assert.equal(creates.length, 1);
   assert.equal(creates[0].kiosk_session_id, "MW2610070001");
@@ -55,13 +57,13 @@ test("external mirror card waits for explicit consent, then starts once with its
   assert.equal(creates[0].consent.agreed, true);
   assert.notEqual(creates[0].client_key, "prior-test-only-key");
   assert.equal("nfc_issued_count" in creates[0], false);
-  await page.clock.fastForward(44000);
+  await page.clock.fastForward(58000);
   assert.equal(creates.length, 1);
 });
 
 test("local kiosk consent retains the current issuance guard and automatic scene flow", { timeout: 45000 }, async t => {
   const { page, creates } = await open(t, { external: false });
-  await page.clock.fastForward(44000);
+  await page.clock.fastForward(58000);
   await page.locator(".practice-screen").waitFor();
   assert.equal(creates.length, 1);
   assert.equal(creates[0].nfc_issued_count, 3);
@@ -70,7 +72,7 @@ test("local kiosk consent retains the current issuance guard and automatic scene
 
 test("a local card without current consent cannot start after automatic scene time", { timeout: 45000 }, async t => {
   const { page, creates } = await open(t, { external: false, agreed: false });
-  await page.clock.fastForward(44000);
+  await page.clock.fastForward(58000);
   await page.getByRole("heading", { name: "키오스크에서 먼저 동의해 주세요." }).waitFor();
   assert.equal(await page.getByRole("checkbox").count(), 0);
   assert.equal(creates.length, 0);
@@ -79,7 +81,7 @@ test("a local card without current consent cannot start after automatic scene ti
 test("mirror device failure cannot create a session even with explicit consent", { timeout: 45000 }, async t => {
   const { page, creates } = await open(t, { media: false });
   await page.getByRole("checkbox").click();
-  await page.clock.fastForward(44000);
+  await page.clock.fastForward(58000);
   await page.getByRole("heading", { name: "연습을 준비하지 못했어요." }).waitFor();
   assert.equal(creates.length, 0);
 });

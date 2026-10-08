@@ -41,3 +41,5 @@
 .mirror-total-progress { height: .14vh; margin-top: 1.2vh; background: #e2ecfa25; overflow: hidden; border-radius: 1vh; }
 .mirror-total-progress i { display: block; height: 100%; background: #e8eef8; }
 .mirror-summary .consent-check { font-size: max(.875rem,1.2vh); line-height: 1.6; margin-top: 1.2vh; }
+
+.slider-explanation .mirror-scene-situation { margin: 1vh 0 0; line-height: 1.6; }

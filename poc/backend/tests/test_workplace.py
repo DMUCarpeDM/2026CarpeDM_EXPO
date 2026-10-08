@@ -354,3 +354,24 @@ def test_workplace_api_starts_with_briefing_and_script_line():
     characters = {c["id"]: c["name"] for c in body["scenario"]["characters"]}
     assert char_id in characters
     assert "에 대해 구체적으로 말씀해 주시겠어요?" not in body["current_turn"]["question_text"]
+
+
+def test_public_overview_uses_selected_scene_openings_without_internal_rubric():
+    session = NS(rapport={}, mode=5, difficulty="basic")
+    scenario = NS(title="직장", description="", characters=[{"id": "park_senior", "name": "박선임"}],
+                  world_setting={"workplace_categories": _categories()})
+    interaction.initialize(session, scenario, _episodes(), "workplace", rng=Random(7))
+    first_items = {}
+    for item in interaction.state(session)["items"]:
+        first_items.setdefault(item["category_id"], item)
+    overview = interaction.public_state(session)["overview"]
+    assert [row["category_id"] for row in overview] == ["morning", "work", "leaving"]
+    for row in overview:
+        item = first_items[row["category_id"]]
+        assert row["episode_id"] == item["episode_id"]
+        assert row["opening_line"] == item["text"]
+        assert row["character_id"] == item["character_id"]
+        assert row["situation"] == item["situation"]
+        assert "keywords" not in row and "fallback_pool" not in row
+    interaction.advance(session, NS(response_text="답변", question_type="initial"), [])
+    assert interaction.public_state(session)["overview"] == overview

@@ -57,6 +57,9 @@ export default function App() {
   const [analysisProgress, setAnalysisProgress] = useState(null);
   const turnAudioReferencesRef = useRef([]);
   const startInFlight = useRef(false);
+  const preparedMirrorSession = useRef(null);
+  const mirrorPreparationKey = useRef("");
+  const mirrorPreparationContext = useRef({ key: "", revision: 0 });
   const retainedSessionIdRef = useRef("");
   const visitorEpochRef = useRef(0);
 
@@ -117,6 +120,13 @@ export default function App() {
     setPocScenarioSlug, setSelectedEpisodeId, setApiError,
   } = entry.setters;
   const { navigate } = entry.actions;
+  const contextKey = JSON.stringify([active, nfcCard?.uid, nfcCard?.issuedCount, nfcCard?.kioskSessionId, consented]);
+  if (mirrorPreparationContext.current.key !== contextKey) {
+    mirrorPreparationContext.current = { key: contextKey, revision: mirrorPreparationContext.current.revision + 1 };
+    preparedMirrorSession.current = null;
+  }
+  const preparationKey = `${contextKey}:${mirrorPreparationContext.current.revision}`;
+  mirrorPreparationKey.current = preparationKey;
   const mode = 5;
   const selectedServiceMode = resolveServiceMode(selectedServiceModeId);
   const visibleScenarios = apiScenarios.filter((item) => !item.world_setting?.service_modes || item.world_setting.service_modes.includes(selectedServiceMode.id));
@@ -208,11 +218,12 @@ export default function App() {
     return next;
   };
 
-  const startPractice = async () => {
+  const startPractice = async (prepareOnly = false) => {
     if (startInFlight.current) return;
     startInFlight.current = true;
     const mirror = isMirrorDeployment();
     const epoch = visitorEpochRef.current;
+    const requestKey = preparationKey;
     setStarting(true); setApiError(""); setReport(null); setTurnHistory([]); setTurnSignals(null);
     turnAudioReferencesRef.current = [];
     retainedSessionIdRef.current = "";
@@ -228,7 +239,8 @@ export default function App() {
       if (mirror && (!nfcCard?.uid || (!nfcCard?.issuedCount && !nfcCard?.kioskSessionId))) throw new Error("키오스크에서 동의 후 카드를 발급해 주세요.");
       if (epoch !== visitorEpochRef.current) return;
       const workplace = selectedServiceModeId === "workplace" && !nfcCard;
-      const nextSession = await createSession({
+      const prepared = mirror && preparedMirrorSession.current?.key === requestKey ? preparedMirrorSession.current.session : null;
+      const nextSession = prepared || await createSession({
         serviceMode: selectedServiceModeId || selectedServiceMode.id,
         difficulty: workplace ? "basic" : (difficulty || "basic"),
         mode,
@@ -241,6 +253,12 @@ export default function App() {
         ...(mirror && !nfcCard?.kioskSessionId ? { nfcIssuedCount: nfcCard.issuedCount } : {}),
       });
       if (epoch !== visitorEpochRef.current) return;
+      if (mirror && mirrorPreparationKey.current !== requestKey) return;
+      if (mirror && prepareOnly === true) {
+        preparedMirrorSession.current = { key: requestKey, session: nextSession };
+        return nextSession;
+      }
+      preparedMirrorSession.current = null;
       saveActiveSession(nextSession);
       setSession(nextSession); setTurn(nextSession.current_turn); navigate("practice");
     } catch (error) { if (epoch === visitorEpochRef.current) setApiError(error.message); }
@@ -318,6 +336,7 @@ export default function App() {
   const actions = {
     retryScenarios: () => { setScenarioStatus("loading"); setScenarioRetry((value) => value + 1); },
     startPractice,
+    prepareMirror: () => startPractice(true),
     sendAnswer,
     endPractice,
     requestExerciseMedia,
