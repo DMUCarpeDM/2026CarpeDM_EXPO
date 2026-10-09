@@ -68,6 +68,12 @@ export function clearActiveSession(storage) {
   storage.removeItem(ACTIVE_SESSION);
 }
 
+export function resetVisitorStorage(storage) {
+  clearActiveSession(storage);
+  // 재연습은 같은 client_key를 쓰지만, 다음 방문자의 비교·기록은 분리한다.
+  storage.removeItem("mirror-ting-client-key");
+}
+
 function openAudioDb() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(AUDIO_DB, AUDIO_DB_VERSION);

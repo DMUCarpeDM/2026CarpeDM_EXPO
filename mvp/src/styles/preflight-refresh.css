@@ -16,7 +16,7 @@
   --mode-accent-soft: var(--preflight-wash);
   --mode-ink: var(--preflight-ink);
   --mode-muted: var(--preflight-muted);
-  --mode-subtle: var(--color-mist);
+  --mode-subtle: var(--color-ash);
   --mode-border: var(--preflight-divider);
   --mode-surface: var(--preflight-canvas);
   --mode-card: var(--preflight-white);
@@ -25,7 +25,7 @@
   font-family: var(--font-text);
 }
 
-/* Mode selection stays intentionally free of headings or explanatory copy. */
+/* Service selection keeps the shared Apple Light spacing and card system. */
 .service-mode-page {
   padding: clamp(32px, 6vh, 64px) 24px;
   background: var(--preflight-white);
@@ -61,7 +61,8 @@
   background: var(--preflight-white);
 }
 
-.service-mode-page .service-mode-card-title {
+.service-mode-page .service-mode-card-button > .service-mode-card-title {
+  display: flex;
   min-height: 76px;
   justify-content: center;
   padding: 0 24px;
@@ -86,8 +87,8 @@
 }
 
 .mode-home-page .mode-section {
-  padding-top: 96px;
-  padding-bottom: 96px;
+  padding-top: 120px;
+  padding-bottom: 120px;
   border-bottom: 1px solid var(--preflight-divider);
 }
 
@@ -98,7 +99,7 @@
 .mode-home-page .mode-footer-cta h2 {
   color: var(--preflight-ink);
   font-family: var(--font-display);
-  font-weight: 540;
+  font-weight: 590;
   letter-spacing: -.025em;
 }
 
@@ -528,7 +529,7 @@
   color: var(--preflight-ink);
   font-family: var(--font-display);
   font-size: clamp(34px, 3.4vw, 48px);
-  font-weight: 540;
+  font-weight: 590;
   letter-spacing: -.025em;
   line-height: 1.16;
 }
@@ -727,13 +728,13 @@
 
 @media (max-width: 820px) {
   .service-mode-page { padding: 24px; }
-  .service-mode-page .service-mode-card-title { min-height: 68px; }
+  .service-mode-page .service-mode-card-button > .service-mode-card-title { min-height: 68px; }
 }
 
 @media (max-width: 760px) {
   .mode-home-page .mode-section {
-    padding-top: 72px;
-    padding-bottom: 72px;
+    padding-top: 88px;
+    padding-bottom: 88px;
   }
 
   .mode-home-page .mode-section:first-child { padding-top: 56px; }

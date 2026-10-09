@@ -1,0 +1,5 @@
+.ambient-preview { position: relative; isolation: isolate; }
+.ambient-preview[data-backdrop] .mirror-overview { position: relative; z-index: 1; background: transparent; }
+.ambient-backdrop { position: absolute; inset: 0; width: min(100%, 56.25dvh); height: 100dvh; margin-inline: auto; overflow: hidden; pointer-events: none; background: #000; }
+.ambient-backdrop i { position: absolute; display: block; }
+[data-backdrop="city"] .ambient-backdrop i:first-child { inset: 0; background: url("/src/features/smart-mirror/previews/backgrounds/assets/glass-city.png") center bottom / 100% 100% no-repeat; opacity: .6; }

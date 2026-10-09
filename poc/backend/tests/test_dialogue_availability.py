@@ -10,9 +10,9 @@ CONSENT = {"consent": {"agreed": True, "storage_policy": "none"}}
 
 
 def _create(client: TestClient) -> dict:
-    # training은 턴마다 LLM 대사를 쓰므로 장애 시 sessions 폴백 경로를 검증하기 쉽다.
+    # 기존 직장 시나리오로 대화 생성 장애 시 준비된 목표 대사 폴백을 검증한다.
     result = client.post("/api/sessions", json={
-        "mode": 5, "difficulty": "basic", "service_mode": "training",
+        "mode": 5, "difficulty": "basic", "service_mode": "workplace",
         "scenario_slug": "release-schedule-alignment", **CONSENT,
     })
     assert result.status_code == 200, result.text

@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api import admin, auth, codes, nfc, orgs, reports, scenarios, sessions, tts
 from app.core.config import settings
@@ -20,6 +21,27 @@ def _purge_expired_media() -> None:
             removed += 1
     if removed:
         print(f"보관 기간 만료 음성 {removed}건 삭제")
+    # DB가 추적 중인 업로드 파일은 mtime 대신 명시한 만료일 기준으로 파기한다.
+    from app.core.database import SessionLocal
+    from app.models import SessionRawFile, utcnow
+
+    db = SessionLocal()
+    try:
+        expired = db.query(SessionRawFile).filter(
+            SessionRawFile.expires_at.isnot(None), SessionRawFile.expires_at <= utcnow(),
+        ).all()
+        for raw in expired:
+            from pathlib import Path
+            if raw.audio_file_path:
+                Path(raw.audio_file_path).unlink(missing_ok=True)
+            if raw.video_capture_path:
+                Path(raw.video_capture_path).unlink(missing_ok=True)
+            db.delete(raw)
+        if expired:
+            db.commit()
+            print(f"보관 기간 만료 원본 파일 {len(expired)}건 파기")
+    finally:
+        db.close()
 
 
 def _purge_expired_quotes() -> None:
@@ -43,17 +65,37 @@ def _purge_expired_quotes() -> None:
             .outerjoin(Consent, Consent.session_id == RoleplaySession.id)
             .filter(RoleplaySession.ended_at.isnot(None), RoleplaySession.ended_at < cutoff)
             .filter((Consent.id.is_(None)) | (Consent.storage_policy == "none"))
-            .filter(Report.evidence_segments != [])
             .all()
         )
         for report in expired:
+            import copy
+            stats = copy.deepcopy(report.speech_stats or {})
+            for measurement in stats.get("voice_analysis", {}).get("turns", []):
+                measurement.get("speed", {}).pop("transcript", None)
+                for pause in measurement.get("pauses", {}).get("segments", []):
+                    pause.pop("before", None)
+                    pause.pop("after", None)
+            for habits in stats.get("voice_analysis", {}).get("response_habits", {}).values():
+                habits.pop("transcript", None)
+            report.speech_stats = stats
             report.evidence_segments = []
             report.rebuild = {}
             report.headline = {}
             report.deep_analysis = {}
             report.coaching = []  # Before→After 카드도 발화 인용을 담는다 (S-B2B-COACH)
-        if expired:
+        # A card UID is needed only while the kiosk link can still be retried.
+        stale_cards = (
+            db.query(RoleplaySession)
+            .filter(RoleplaySession.started_at < cutoff)
+            .filter(RoleplaySession.kiosk_card_uid.isnot(None))
+            .all()
+        )
+        for session in stale_cards:
+            session.kiosk_card_uid = None
+            session.kiosk_session_id = None
+        if expired or stale_cards:
             db.commit()
+        if expired:
             print(f"보관 기간 만료 미저장 리포트 인용 {len(expired)}건 파기")
     finally:
         db.close()
@@ -171,12 +213,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from app.api import voice
+
 for router in (
-    auth.router, scenarios.router, sessions.router, reports.router,
+    auth.router, scenarios.router, sessions.router, reports.router, voice.router,
     admin.router, codes.router, orgs.router, nfc.router, tts.router,
 ):
     app.include_router(router, prefix="/api")
-
 
 # Ollama 상태 캐시 — health는 자주 불리므로 프로브는 60초에 한 번만
 _OLLAMA_CACHE: dict = {"at": 0.0, "status": {"reachable": False, "dialogue": False, "embedding": False}}
@@ -216,6 +259,7 @@ def health():
     from app.core.database import engine
     from app.services.dialogue.availability import dialogue_ready
     from app.services.tts import elevenlabs_ready
+    from app.services.iris_tts import iris_female_ready
 
     from app.services.dialogue import stats as dialogue_stats
 
@@ -234,6 +278,7 @@ def health():
         db_ok = False
 
     dialogue_fallback = dialogue_stats.snapshot()
+    tts_ready = iris_female_ready() if settings.tts_provider == "iris" else elevenlabs_ready()
 
     # 조용한 폴백 강등의 종합 — 당일 아침 점검에서 이 목록이 비어 있어야 완전체다
     degraded_reasons = []
@@ -261,8 +306,8 @@ def health():
         "dialogue_provider": settings.dialogue_provider,
         "dialogue_ready": dialogue,
         "dialogue_fallback": dialogue_fallback,
-        "tts_provider": "elevenlabs" if elevenlabs_ready() else "browser",
-        "tts_ready": elevenlabs_ready(),
+        "tts_provider": settings.tts_provider if tts_ready else "browser",
+        "tts_ready": tts_ready,
         # 관측성: 지금 이 부스가 폴백으로 강등된 상태인지 즉시 확인 (60초 캐시)
         "ollama": ollama,
         "semantic_match": semantic,
@@ -271,3 +316,9 @@ def health():
         "degraded": bool(degraded_reasons),
         "degraded_reasons": degraded_reasons,
     }
+
+
+# catch-all mount는 모든 API route보다 뒤에 등록해야 /api 요청을 가리지 않는다.
+# 로컬 개발은 이 설정이 비어 있어 기존 Vite(5173) 흐름을 그대로 사용한다.
+if settings.frontend_dist_dir and settings.frontend_dist_dir.is_dir():
+    app.mount("/", StaticFiles(directory=settings.frontend_dist_dir, html=True), name="frontend")

@@ -13,16 +13,16 @@ export function PageTitle({ eyebrow, title, subtitle }) {
     <div className="page-title">
       {eyebrow && <p>{eyebrow}</p>}
       <h1>{title}</h1>
-      {subtitle && <h2>{subtitle}</h2>}
+      {subtitle && <p className="page-subtitle">{subtitle}</p>}
     </div>
   );
 }
 
-export function SetupMotionPage({ children, as = "section" }) {
+export function SetupMotionPage({ children, as = "section", className = "" }) {
   const MotionPage = as === "div" ? "div" : "section";
   return (
     <MotionPage
-      className="page selection-page setup-flow-page"
+      className={`page selection-page setup-flow-page ${className}`}
     >
       {children}
     </MotionPage>
@@ -58,7 +58,7 @@ export function MiniStepper({ items, active }) {
       <div className="mini-step-track">
         {items.map(([num, label], index) => (
           <React.Fragment key={label}>
-            <span className={index === active ? "active" : ""}><b>{num}</b>{label}</span>
+            <span className={index === active ? "active" : ""} aria-current={index === active ? "step" : undefined}><b>{num}</b>{label}</span>
             {index < items.length - 1 && <i />}
           </React.Fragment>
         ))}
@@ -67,16 +67,16 @@ export function MiniStepper({ items, active }) {
   );
 }
 
-export function ChoiceSection({ icon, image, title, description, children, columns = "three", className = "" }) {
+export function ChoiceSection({ icon, image, title, description, children, columns = "three", className = "", quiet = false }) {
   return (
-    <section className={`choice-section ${className}`}>
-      <div className="choice-section-heading">
+    <section className={`choice-section ${className}`} aria-label={quiet ? title : undefined}>
+      {!quiet && <div className="choice-section-heading">
         {(image || icon) && <span className="choice-section-icon">{image ? <img className="selection-section-asset" src={image} alt="" aria-hidden="true" width="256" height="256" /> : <IconGlyph icon={icon} size={24} />}</span>}
         <div>
           <h2>{title}</h2>
           {description && <p>{description}</p>}
         </div>
-      </div>
+      </div>}
       <div className={`choice-grid ${columns}`}>{children}</div>
     </section>
   );
@@ -126,7 +126,7 @@ export function SetupSelectionSummary({ counterpart, scenario, scenarioImage, di
         <p>현재 선택한 설정을 확인해요.</p>
       </header>
       <div className="setup-summary-selections">
-        <SummaryItem image={counterpart.image} label="직무" value={counterpart.title} tone="blue" />
+        <SummaryItem image={counterpart?.image} icon="role" label="직무" value={counterpart?.title || "직무를 선택해 주세요"} tone="blue" />
         <SummaryItem image={scenarioImage} icon="briefcase" label="연습 상황" value={scenario?.title?.replace(" — ", " —\n") || "다음 단계에서 선택"} tone="blue" />
         <SummaryItem image={difficulty?.image} icon="normal" label="난이도" value={difficulty?.title || "다음 단계에서 선택"} tone={difficulty?.tone || "blue"} />
         <div className="time-box setup-summary-time">

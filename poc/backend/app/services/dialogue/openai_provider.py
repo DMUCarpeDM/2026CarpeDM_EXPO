@@ -174,7 +174,7 @@ class OpenAIDialogueProvider:
         return QuestionSpec(
             episode_id=episode.id,
             question_type="initial",
-            question_text=episode.initial_question,
+            question_text=flow["cafe"]["next_line"] if flow.get("cafe") else flow["items"][0]["text"] if flow.get("mode") == "interview" else episode.initial_question,
             character_id=episode.character_id,
             virtual_time=episode.virtual_time or "",
         )
@@ -224,16 +224,21 @@ class OpenAIDialogueProvider:
             episode = next(ep for ep in episodes if ep.id == flow["items"][flow["index"]]["episode_id"])
         character = _character_for(scenario, episode.character_id)
         reaction = ""
-        if flow.get("mode") in {"interview", "workplace"}:
-            if flow.get("mode") == "interview" and for_dialogue(session):
+        if flow.get("mode") == "interview":
+            if for_dialogue(session) and not flow.get("rubric_version"):
                 reaction = self._generate_line(session, scenario, episode, character, turns, reaction_only=True)
-            # 주요 질문·직장대화 상대 대사는 모델이 바꾸지 않는다.
+            # 주요 질문 자체를 모델이 바꾸지 않도록 준비된 질문을 유지한다.
+            line = flow.get("followup_text") or flow["items"][flow["index"]]["text"]
+        elif flow.get("cafe"):
+            # 주문 수량·옵션은 승인된 주문 기록에서만 말한다. LLM 임의 주문 방지.
+            line = flow["cafe"]["next_line"]
+        elif flow.get("mode") == "workplace":
             line = flow["items"][flow["index"]]["text"]
         else:
             line = self._generate_line(session, scenario, episode, character, turns)
         return QuestionSpec(
             episode_id=episode.id,
-            question_type="main" if flow.get("mode") in {"interview", "workplace"} else "ai_roleplay",
+            question_type=("followup" if flow.get("followup_text") else "main") if flow.get("mode") == "interview" else "main" if flow.get("mode") == "workplace" else "ai_roleplay",
             question_text=line,
             reaction_text=reaction,
             character_id=episode.character_id,

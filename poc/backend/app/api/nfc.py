@@ -15,6 +15,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
+from app.core.config import settings
+from app.services.idprinter_bridge import BridgeError, IDPrinterBridge
 from app.core.database import get_db
 from app.models import NfcCard, Scenario, User, utcnow
 from app.schemas import (
@@ -32,7 +34,7 @@ router = APIRouter(prefix="/nfc", tags=["nfc"])
 # 직무 기본 시나리오 팩 (S-B2B-PACK) — 발급 시 시나리오를 지정하지 않은 카드의 기본값.
 # office_admin은 기존 전시 시나리오(클라우드밋)를 재사용한다 (도메인 결정 근거 (c)).
 DEFAULT_PACK_BY_ROLE = {
-    "cafe_crew": "ondo-cafe-crew",
+    "cafe_crew": "cafe-order-taking",
     "cs_agent": "ondo-cs-agent",
     "office_admin": "release-schedule-alignment",
 }
@@ -74,6 +76,9 @@ def issue_card(
     card.status = "active"
     card.issued_count = (card.issued_count or 0) + 1
     card.issued_at = utcnow()
+    # Each issuance belongs to a new participant; old consent is never inherited.
+    card.consent_agreed = body.consent_agreed
+    card.consent_agreed_at = card.issued_at if body.consent_agreed else None
     db.commit()
     return card
 
@@ -100,14 +105,34 @@ def resolve_card(body: NfcResolveIn, db: Session = Depends(get_db)):
     404면 프론트는 수동 카드 선택 폴백 UI를 띄운다 (전시 원칙: 미인식이
     체험 중단이 되어선 안 된다).
     """
+    url = settings.idprinter_base_url.strip()
+    token = settings.idprinter_bridge_token.get_secret_value()
+    if url or token:
+        if not url or not token:
+            raise HTTPException(status_code=503, detail="사원증 연결 설정을 확인해주세요")
+        try:
+            with IDPrinterBridge(url, token) as bridge:
+                snapshot = bridge.resolve(body.uid)
+        except BridgeError as error:
+            status = 404 if error.code == "KIOSK_CARD_NOT_FOUND" else 503
+            raise HTTPException(status_code=status, detail="사원증을 확인하지 못했어요") from error
+        return NfcResolveOut(
+            uid=snapshot.uid, job_role="", scenario_slug="", job_role_label="",
+            kiosk_session_id=snapshot.kiosk_session_id, requires_role_selection=True,
+        )
     card = db.query(NfcCard).filter_by(uid=_normalize_uid(body.uid)).first()
     if card is None or card.status != "active":
         raise HTTPException(status_code=404, detail="등록되지 않았거나 폐기된 카드입니다")
     card.last_seen_at = utcnow()
     db.commit()
     slug = card.scenario_slug or DEFAULT_PACK_BY_ROLE.get(card.job_role, "")
+    if card.job_role == "cafe_crew" and slug == "ondo-cafe-crew":
+        slug = "cafe-order-taking"  # 기존 카드는 보존하면서 새 주문 훈련으로 연결
     return NfcResolveOut(
         uid=card.uid,
+        issued_count=card.issued_count,
+        consent_agreed=card.consent_agreed,
+        consent_agreed_at=card.consent_agreed_at,
         job_role=card.job_role,
         scenario_slug=slug,
         job_role_label=JOB_ROLE_LABELS.get(card.job_role, card.job_role),

@@ -1,0 +1,30 @@
+.mirror-scene-simulation { --u: min(1dvh, 1.77778vw); --ink: #f5f7fc; --muted: #e0e5ef; --surface: #070b12d9; --divider: #ffffff24; position: relative; isolation: isolate; width: min(100%, 56.25dvh); height: 100dvh; margin: auto; overflow: hidden; background: #000; color: var(--ink); font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', Arial, sans-serif; }
+.mirror-scene-simulation * { box-sizing: border-box; }
+.simulation-environment { position: absolute; inset: 0; z-index: -2; overflow: hidden; }
+.simulation-environment img { position: absolute; width: 100%; height: 100%; object-fit: cover; filter: blur(calc(.45 * var(--u))); transform: scale(1.025); }
+.mirror-scene-simulation::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, #000b, #0003 24%, transparent 42%, #0001 67%, #0008); pointer-events: none; }
+.simulation-card-slot { position: absolute; inset-inline: calc(3.6 * var(--u)); top: 55%; }
+
+.simulation-actor { position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
+.simulation-actor .counterpart-video-stage { position: absolute; top: 2%; left: -100%; width: 300%; aspect-ratio: 16 / 9; }
+.simulation-actor .counterpart-video-source { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.simulation-actor .counterpart-video { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center bottom; mask-image: radial-gradient(ellipse 27% 100% at 50% 50%, #000 55%, transparent 96%); }
+.simulation-card-slot { z-index: 1; }
+.simulation-dialogue-name { margin: 0; color: var(--muted); font-size: max(.8125rem, calc(1.2 * var(--u))); }
+.simulation-dialogue-text { margin: 0; font-size: max(1.25rem, calc(2.1 * var(--u))); line-height: 1.65; word-break: keep-all; overflow-wrap: anywhere; }
+.simulation-dialogue-status { margin: 0; color: var(--muted); font-size: max(.8125rem, calc(1.2 * var(--u))); line-height: 1.6; }
+.simulation-answer { border-top: 1px solid var(--divider); padding-top: calc(1.2 * var(--u)); }
+.simulation-answer p { font-size: max(1rem, calc(1.3 * var(--u))); line-height: 1.65; margin: calc(.6 * var(--u)) 0; }
+.simulation-answer label { display: block; color: var(--muted); font-size: max(.8125rem, calc(1.1 * var(--u))); }
+.simulation-answer textarea { width: 100%; min-height: calc(6 * var(--u)); padding: calc(.8 * var(--u)); color: var(--ink); background: #0003; border: 1px solid var(--divider); border-radius: calc(.6 * var(--u)); font: inherit; font-size: max(1rem, calc(1.3 * var(--u))); }
+.simulation-answer button { border: 1px solid var(--divider); border-radius: calc(.6 * var(--u)); padding: calc(.65 * var(--u)) calc(1.4 * var(--u)); color: var(--ink); background: #ffffff18; font-size: max(.8125rem, calc(1.2 * var(--u))); }
+.simulation-answer button:disabled { opacity: .4; }
+.simulation-capture { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
+.mirror-deployment .screen-frame:has(.mirror-scene-simulation) { padding: 0; max-width: none; }
+
+.simulation-answer button { min-height: 44px; cursor: pointer; }
+@media (max-width: 700px), (max-height: 700px) {
+  .mirror-scene-simulation { width: 100%; overflow-y: auto; }
+  .simulation-card-slot { position: relative; inset: auto; margin: 55dvh 20px 24px; }
+  .simulation-answer textarea { min-height: 96px; }
+}

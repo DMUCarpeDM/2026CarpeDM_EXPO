@@ -9,22 +9,25 @@ import {
 } from "../../components/setup/SetupComponents";
 import { counterpartProfiles, difficulties, getEpisodeImage, setupSteps } from "../../data/setupCatalog";
 import { resolveServiceMode } from "../../lib/serviceModeContext";
+import { InterviewProgress } from "../../components/setup/InterviewProgress";
 
 export function DifficultyPage({ serviceMode, counterpartProfile, scenario, selectedEpisode, difficulty, onDifficulty, onPrev, onNext }) {
   const profile = counterpartProfiles.find((item) => item.id === counterpartProfile) || counterpartProfiles[0];
   const resolvedServiceMode = resolveServiceMode(serviceMode?.id);
-  const selectedDifficulty = difficulties.find((item) => item.id === difficulty) || difficulties[0];
+  const availableDifficulties = resolvedServiceMode.id === "interview" ? [{ ...difficulties[0], title: "일반면접", text: "경력 없는 신입 기준으로 답변해요.", detail: "고정 질문 · 부족한 내용만 추가 질문" }] : difficulties;
+  const selectedDifficulty = availableDifficulties.find((item) => item.id === difficulty) || availableDifficulties[0];
+  const focused = resolvedServiceMode.id === "interview";
 
   return (
-    <SetupMotionPage>
+    <SetupMotionPage className={focused ? "interview-focus" : ""}>
       <div className="selection-layout setup-flow-layout">
         <div className="selection-main setup-flow-main">
-          <MiniStepper items={setupSteps} active={2} />
-          <PageTitle eyebrow={`${resolvedServiceMode.label} · 난이도 선택`} title="어느 정도로 연습할까요?" subtitle={resolvedServiceMode.setupDescription} />
-          <ChoiceSection icon="normal" title="난이도 선택" description={`이 모드에서 만날 대화의 복잡도와 질문 강도를 선택해 주세요.`} columns="three" className="difficulty-choice-section">
-            {difficulties.map((item) => <ChoiceCard key={item.id} {...item} variant="difficulty" selected={difficulty === item.id} onClick={() => onDifficulty(item.id)} />)}
+          {focused ? <InterviewProgress active={2} /> : <MiniStepper items={setupSteps} active={2} />}
+          <PageTitle eyebrow={focused ? undefined : `${resolvedServiceMode.label} · 난이도 선택`} title={focused ? "일반면접으로 시작해볼까요?" : "어느 정도로 연습할까요?"} subtitle={focused ? "현재는 신입 일반면접을 제공해요. 답변에 따라 추가 질문이 이어집니다." : resolvedServiceMode.setupDescription} />
+          <ChoiceSection quiet={focused} icon="normal" title="난이도 선택" description={resolvedServiceMode.id === "interview" ? "신입 일반면접으로 진행해요. 답변에 따라 추가 질문이 이어져요." : "이 모드에서 만날 대화의 복잡도와 질문 강도를 선택해 주세요."} columns={availableDifficulties.length === 1 ? "one" : "three"} className="difficulty-choice-section">
+            {availableDifficulties.map((item) => <ChoiceCard key={item.id} {...item} variant="difficulty" selected={selectedDifficulty.id === item.id} onClick={() => onDifficulty(item.id)} />)}
           </ChoiceSection>
-          <SetupSelectionSummary counterpart={profile} scenario={selectedEpisode || scenario} scenarioImage={getEpisodeImage(scenario?.slug, selectedEpisode?.id)} difficulty={selectedDifficulty} modeLabel="약 5분" tip={`${resolvedServiceMode.label}: ${resolvedServiceMode.detail}`} />
+          {focused ? <p className="interview-selection">{profile.title} · {(selectedEpisode || scenario)?.title} · {selectedDifficulty.title}</p> : <SetupSelectionSummary counterpart={profile} scenario={selectedEpisode || scenario} scenarioImage={getEpisodeImage(scenario?.slug, selectedEpisode?.id)} difficulty={selectedDifficulty} modeLabel="약 5분" tip={`${resolvedServiceMode.label}: ${resolvedServiceMode.detail}`} />}
           <SetupFlowActions onPrev={onPrev} label="다음 단계로" onNext={onNext} />
         </div>
       </div>

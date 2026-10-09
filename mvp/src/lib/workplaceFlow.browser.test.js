@@ -32,7 +32,7 @@ test("workplace briefing traps focus and resumes without replaying entry", { tim
   const dialog = page.getByRole("dialog", { name: "상황 안내" });
   await dialog.waitFor();
   assert.match(await dialog.innerText(), /출근/);
-  assert.equal(await dialog.getAttribute("aria-modal"), "true");
+  assert.equal(await dialog.evaluate(element => element.matches("dialog:modal")), true);
   const button = dialog.getByRole("button", { name: "대화 시작" });
   await button.focus();
   await page.keyboard.press("Tab");

@@ -84,7 +84,7 @@ li,
 .chat-message p,
 .choice-card small,
 .recommend-card p,
-.page-title h2 {
+.page-title .page-subtitle {
   text-wrap: pretty;
 }
 
@@ -121,6 +121,10 @@ button:active:not(:disabled) {
   overflow: hidden;
   clip: rect(0 0 0 0);
 }
+
+.skip-link { position: fixed; inset-inline-start: 16px; top: -100px; z-index: 100; padding: 12px 18px; background: var(--color-snow); color: var(--color-ink); border: 2px solid currentColor; border-radius: 8px; }
+.skip-link:focus { top: 12px; }
+#main-content { scroll-margin-top: 88px; }
 
 .glass-panel,
 .card {
@@ -400,7 +404,7 @@ button:active:not(:disabled) {
   font-style: normal;
 }
 
-.page-title h2 {
+.page-title .page-subtitle {
   margin: 14px 0 0;
   color: #53627a;
   font-size: 17px;

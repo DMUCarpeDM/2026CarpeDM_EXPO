@@ -1,0 +1,13 @@
+# Tested with CPython 3.12 on Intel macOS. Use with requirements.txt in a new venv.
+# NumPy 1.x also preserves the existing Torch 2.2.2 binary ABI.
+numpy==1.26.4
+scipy==1.15.3
+numba==0.62.1
+llvmlite==0.45.1
+torch==2.2.2; sys_platform == "darwin" and platform_machine == "x86_64"
+torchaudio==2.2.2; sys_platform == "darwin" and platform_machine == "x86_64"
+# Current Transformers disables this Intel macOS Torch; retain compatible E5 imports.
+transformers==4.44.2; sys_platform == "darwin" and platform_machine == "x86_64"
+sentence-transformers==3.4.1; sys_platform == "darwin" and platform_machine == "x86_64"
+tokenizers==0.19.1; sys_platform == "darwin" and platform_machine == "x86_64"
+huggingface-hub==0.36.0; sys_platform == "darwin" and platform_machine == "x86_64"

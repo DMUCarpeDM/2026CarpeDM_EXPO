@@ -19,6 +19,8 @@ class Settings(BaseSettings):
         "http://localhost:5174", "http://127.0.0.1:5174",
     ]
     media_dir: Path = Path("./media")
+    # 단일 Docker 배포에서는 빌드된 mvp를 API와 같은 origin에서 제공한다.
+    frontend_dist_dir: Path | None = None
     # 운영 API(/api/admin: 전시 초기화·CSV 내보내기) 보호 토큰 — X-Admin-Token 헤더로 대조.
     # 비우면 무인증(개발 편의). 전시장 네트워크에 열 때는 반드시 설정할 것.
     admin_token: str = ""
@@ -26,6 +28,9 @@ class Settings(BaseSettings):
     require_secure: bool = False
     # 익명/계정 저장 동의 시 음성 파일 보관 일수 (S-CBYKOH). '미저장' 동의는 분석 직후 삭제.
     media_retention_days: int = 7
+    # Server-to-server kiosk bridge. Never include its secret in browser responses.
+    idprinter_base_url: str = ""
+    idprinter_bridge_token: SecretStr = SecretStr("")
     # 관리자 API(/admin/*) 인증 강제 여부 — 전시 키오스크는 False(로컬 단독 운영),
     # 기관 납품 시 True + role='admin' 계정 필수 (app.seed.make_admin으로 승격)
     admin_auth_required: bool = False
@@ -38,7 +43,7 @@ class Settings(BaseSettings):
     )
 
     # 기존 OpenAI 설정을 유지하며 Gemini는 명시적으로 선택한다.
-    dialogue_provider: Literal["gemini", "openai"] = "openai"
+    dialogue_provider: Literal["ollama", "gemini", "openai"] = "openai"
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "exaone3.5:2.4b"
     # 초과 시 템플릿 질문으로 즉시 폴백하므로 상한일 뿐 평균 지연이 아니다.
@@ -74,6 +79,11 @@ class Settings(BaseSettings):
     elevenlabs_voice_id: str = ""
     elevenlabs_model: str = "eleven_multilingual_v2"
     elevenlabs_timeout_sec: float = 20.0
+    # 추가 런타임이 준비된 경우에만 iris를 선택한다. 기존 기본값은 유지한다.
+    tts_provider: Literal["elevenlabs", "iris"] = "elevenlabs"
+    iris_voice_base_url: str = "http://127.0.0.1:18765"
+    iris_voice_timeout_sec: float = 20.0
+    iris_audio_dir: Path = Path.home() / ".iris-light" / "audio"
 
     # 의미 매칭 (마스터리 ②): Response-Fit 데이터로 fine-tuning한 로컬 E5로
     # 패러프레이즈 커버리지를 인식한다. 모델 파일이 없으면 키워드 매칭만 사용한다.

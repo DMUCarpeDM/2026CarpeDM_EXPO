@@ -1,13 +1,13 @@
 import { ArrowRight } from "reicon-react/icons/ArrowRight";
 import { CalendarDate } from "reicon-react/icons/CalendarDate";
-import { Refresh3 } from "reicon-react/icons/Refresh3";
 import { Button, Card, CardContent } from "../components/ui/shadcn";
 import { IconGlyph } from "../components/ui/IconGlyph";
 import { ResultPage } from "./ResultPage";
 
 function formatScore(value) {
+  if (value == null || String(value).trim() === "") return "점수 없음";
   const score = Number(value);
-  return Number.isFinite(score) ? `${Math.round(score)}점` : "분석 대기";
+  return Number.isFinite(score) ? `${Math.round(score)}점` : "점수 없음";
 }
 
 export function ResultsHistoryPage(props) {
@@ -21,33 +21,27 @@ export function ResultsHistoryPage(props) {
   return (
     <section className="page public-page records-page">
       <header className="public-hero public-hero--compact">
-        <p className="public-eyebrow">Results</p>
+        <p className="public-eyebrow">MIRROR-TING / 돌아보기</p>
         <h1>결과 및 기록</h1>
-        <p>연습을 완료하면 이 화면에서 분석 리포트와 이전 기록 흐름을 확인할 수 있습니다.</p>
-        <Button size="lg" type="button" onClick={onPractice}>AI 연습하러 가기 <ArrowRight size={18} /></Button>
+        <p>잘한 점은 기억하고, 바꿀 점은 다음 대화로. 연습을 마치면 이곳에서 현재 결과를 확인해요.</p>
       </header>
 
-      <section className="records-summary" aria-label="결과 및 기록 안내">
+      <section className="records-summary" aria-label="현재 결과 안내">
         <Card className="public-feature-card records-current-card">
           <CardContent>
             <span className="public-icon public-icon--blue"><IconGlyph icon="report" size={28} /></span>
-            <h2>현재 결과</h2>
-            <p>아직 표시할 완료 리포트가 없어요. 연습을 마치면 4-Fit 점수와 AI 코칭 카드가 이곳에 연결됩니다.</p>
-          </CardContent>
-        </Card>
-        <Card className="public-feature-card records-current-card">
-          <CardContent>
-            <span className="public-icon public-icon--accent"><Refresh3 size={24} /></span>
-            <h2>재연습</h2>
-            <p>같은 흐름으로 다시 연습하면 결과 화면에서 이전 점수와 비교할 수 있습니다.</p>
+            <div><h2>아직 완료된 리포트가 없어요.</h2>
+            <p>연습을 마치면 응답·목소리·표정·자세의 4-Fit 결과와 다음에 바꿀 행동을 확인할 수 있어요.</p></div>
+            <Button size="lg" type="button" onClick={onPractice}>연습 홈으로 가기 <ArrowRight size={18} aria-hidden="true" /></Button>
           </CardContent>
         </Card>
       </section>
 
       <section className="public-section" aria-labelledby="records-list-title">
         <div className="public-section__copy">
-          <p className="public-eyebrow">History</p>
+          <p className="public-eyebrow">연습 히스토리</p>
           <h2 id="records-list-title">최근 기록</h2>
+          <p>불러온 최근 기록을 최대 3개까지 표시해요. 이전 리포트 상세 조회는 준비 중이에요.</p>
         </div>
         <div className="records-list">
           {recentItems.length ? recentItems.map((item, index) => (
@@ -65,8 +59,8 @@ export function ResultsHistoryPage(props) {
             <Card className="records-empty">
               <CardContent>
                 <IconGlyph icon="shield" size={28} />
-                <h3>아직 표시할 연습 기록이 없어요</h3>
-                <p>연습을 마치면 현재 결과를 확인할 수 있어요. 이전 기록 조회는 준비 중이에요.</p>
+                <h3>현재 불러온 기록이 없어요</h3>
+                <p>아직 연습을 마치지 않았거나 기록을 불러오지 못했을 수 있어요. 저장된 기록이 없다는 뜻은 아니에요.</p>
               </CardContent>
             </Card>
           )}

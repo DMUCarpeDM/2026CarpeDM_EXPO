@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal
 from pydantic import BaseModel, EmailStr, Field, model_validator, field_validator
 
@@ -111,6 +112,7 @@ class OrgSessionListOut(BaseModel):
 # ---- NFC (S-B2B-NFC) ----
 
 class NfcIssueIn(BaseModel):
+    consent_agreed: bool = False
     uid: str = Field(min_length=4, max_length=32, pattern=r"^[0-9A-Fa-f:\-]+$")
     job_role: str = Field(min_length=1, max_length=30)
     scenario_slug: str = Field(default="", max_length=50)
@@ -123,6 +125,8 @@ class NfcCardOut(BaseModel):
     scenario_slug: str
     status: str
     issued_count: int
+    consent_agreed: bool = False
+    consent_agreed_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 
@@ -132,10 +136,16 @@ class NfcResolveIn(BaseModel):
 
 
 class NfcResolveOut(BaseModel):
+    issued_count: int = 0
+    consent_agreed: bool = False
+    consent_agreed_at: datetime | None = None
     uid: str
     job_role: str
     scenario_slug: str  # 발급 시 지정이 없으면 직무 기본 팩 슬러그
     job_role_label: str = ""
+    # A kiosk-issued card keeps its identity while the visitor selects a role.
+    kiosk_session_id: str = ""
+    requires_role_selection: bool = False
 
 
 class NfcTapOut(BaseModel):
@@ -207,6 +217,8 @@ class SessionCreateIn(BaseModel):
     job_role: str = Field(default="", max_length=30)
     # 미러 NFC 시작: 태그된 카드 uid — 카드의 직무·시나리오가 세션에 스탬프된다
     nfc_uid: str = Field(default="", max_length=32)
+    nfc_issued_count: int | None = Field(default=None, ge=1)
+    kiosk_session_id: str = Field(default="", max_length=16)
 
 
 class TurnOut(BaseModel):
@@ -226,6 +238,7 @@ class TurnOut(BaseModel):
 
 
 class SessionOut(BaseModel):
+    voice_analysis: dict = Field(default_factory=dict)
     interaction: dict = Field(default_factory=dict)
     id: int
     status: str
@@ -236,6 +249,7 @@ class SessionOut(BaseModel):
     current_turn: TurnOut | None = None
     # 세션 접근 능력 토큰 — 이후 세션 조회 시 X-Session-Token 헤더로 되돌려준다 (생성 응답에만 값)
     access_token: str = ""
+    kiosk_link_status: Literal["not_requested", "pending", "linked", "conflict"] = "not_requested"
 
 
 class HistoryTurnOut(TurnOut):

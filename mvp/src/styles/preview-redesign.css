@@ -155,7 +155,7 @@
 .preview-facts em,
 .preview-role-details dt {
   display: block;
-  color: var(--color-muted);
+  color: var(--color-ash);
   font-size: 13px;
   font-style: normal;
 }

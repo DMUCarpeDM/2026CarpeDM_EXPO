@@ -7,8 +7,15 @@ function loadSetupCatalog({ includeServiceModeCatalog = false } = {}) {
     .replace(/^import\s+(\w+)\s+from\s+"[^"]+";$/gm, 'const $1 = "$1";')
     .replace(/export\s+(?=(?:const|function)\s)/g, "");
   const catalogExports = includeServiceModeCatalog ? ", serviceModes, validateServiceModes" : "";
-  return new Function(`${source}\nreturn { getRoleScenarioOptions${catalogExports} };`)();
+  return new Function(`${source}\nreturn { getRoleScenarioOptions, profilesForMode${catalogExports} };`)();
 }
+
+test("normal interviews expose three jobs and training only cafe", () => {
+  const { profilesForMode } = loadSetupCatalog();
+  assert.deepEqual(profilesForMode("interview").map(p => p.id), ["fullstack", "marketing", "sales"]);
+  assert.deepEqual(profilesForMode("training").map(p => p.id), ["cafe_crew"]);
+  assert.deepEqual(profilesForMode("workplace").map(p => p.id), ["office_admin"]);
+});
 
 test("getRoleScenarioOptions keeps role and mode filtering behavior", () => {
   // Given: matching and non-matching roles with episodes for two modes.

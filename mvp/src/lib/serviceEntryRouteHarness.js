@@ -22,6 +22,11 @@ const scenarios = [{
   job_role: "cafe_crew",
   characters: [{ id: "guest", name: "온도 고객", role: "고객" }],
   episodes: [{ id: 201, title: "주문 응대", situation: "주문을 확인해요.", character_id: "guest", modes: [5] }],
+}, {
+  slug: "interview-fullstack", title: "풀스택 일반면접", job_role: "fullstack",
+  world_setting: { service_modes: ["interview"] },
+  characters: [{ id: "interviewer", name: "면접관", role: "면접관" }],
+  episodes: [{ id: 301, title: "일반면접 6개 질문", situation: "신입 풀스택 면접입니다.", character_id: "interviewer", modes: [5] }],
 }];
 
 const json = (route, value, status = 200) => route.fulfill({

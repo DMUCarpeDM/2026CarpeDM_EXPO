@@ -7,7 +7,7 @@ globalThis.localStorage = {
   getItem: (key) => storage.get(key) || null,
   setItem: (key, value) => storage.set(key, String(value)),
 };
-const { finishSession, createSession, getNfcTap, issueNfcCard, resolveApiBase, resolveNfcCard, submitResponse, synthesizeSpeech } = await import("./pocApi.js");
+const { finishSession, retryKioskLink, createSession, getNfcTap, issueNfcCard, resolveApiBase, resolveNfcCard, submitResponse, synthesizeSpeech } = await import("./pocApi.js");
 
 test("resolveApiBase keeps exhibition traffic on the local PC", () => {
   assert.equal(resolveApiBase("https://remote.example.com/api"), "/api");
@@ -340,4 +340,34 @@ test("finish waits for the last audio upload before starting Whisper analysis", 
     await finish;
     assert.ok(calls.at(-1).endsWith("/finish"));
   } finally { globalThis.fetch = originalFetch; }
+});
+
+test("mirror start binds the kiosk consent to a specific card issuance", async () => {
+  const bodies = [];
+  globalThis.fetch = async (_url, options) => {
+    bodies.push(JSON.parse(options.body));
+    return new Response(JSON.stringify({ id: 1 }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  await issueNfcCard({ uid: "AABB", jobRole: "office_admin", scenarioSlug: "workplace-conversation", consentAgreed: true });
+  await createSession({ mode: 5, consent: true, nfcUid: "AABB", nfcIssuedCount: 3 });
+  assert.equal(bodies[0].consent_agreed, true);
+  assert.equal(bodies[0].scenario_slug, "workplace-conversation");
+  assert.equal(bodies[1].nfc_issued_count, 3);
+});
+
+test("kiosk snapshot remains in create payload and retry uses the existing capability", async () => {
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    return new Response(JSON.stringify({ status: "linked" }), { status: 200 });
+  };
+  await createSession({ mode: 5, consent: true, jobRole: "office_admin", nfcUid: "04AABBCC", kioskSessionId: "MW2610030001" });
+  const body = JSON.parse(calls[0].options.body);
+  assert.equal(body.nfc_uid, "04AABBCC");
+  assert.equal(body.kiosk_session_id, "MW2610030001");
+  await retryKioskLink({ id: 21, access_token: "test-only-capability" });
+  assert.equal(calls[1].url, "http://127.0.0.1:8000/api/sessions/21/kiosk-link");
+  assert.equal(calls[1].options.headers["X-Session-Token"], "test-only-capability");
+  assert.equal(calls[1].options.method, "POST");
+  assert.equal(calls[1].options.body, undefined);
 });

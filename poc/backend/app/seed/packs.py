@@ -80,6 +80,9 @@ def load_pack_files() -> list[dict]:
             raise PackError(f"팩 {path.name}: JSON 파싱 실패 — {exc}") from exc
         _validate(data, path.name)
         packs.append(data)
+    from app.seed.interview_catalog import packs as interview_packs
+    from app.seed.cafe_orders import pack as cafe_pack
+    packs.extend([*interview_packs(), cafe_pack()])
     return packs
 
 
@@ -128,7 +131,8 @@ def upsert_pack(db, data: dict) -> Scenario:
     scenario.rubric_weights = data.get("rubric_weights", {})
     scenario.emotion_profile = data.get("emotion_profile", {})
     scenario.dialogue_policy = data.get("dialogue_policy", {})
-    scenario.is_active = True
+    # 과거 훈련의 체험·보고서 참조는 보존하고 신규 선택에서만 제외한다.
+    scenario.is_active = data["slug"] not in {"ondo-cafe-crew", "ondo-cs-agent"}
     db.flush()
     _upsert_pack_episodes(db, scenario, data["episodes"])
     return scenario

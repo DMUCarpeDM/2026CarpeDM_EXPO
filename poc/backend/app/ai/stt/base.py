@@ -70,7 +70,7 @@ class WhisperProvider:
         )
         return [
             {"word": w.word.strip(), "start": w.start, "end": w.end,
-             "conf": getattr(w, "probability", 1.0)}
+             "conf": getattr(w, "probability", None)}
             for seg in segments for w in (seg.words or [])
             if w.word.strip()
         ]

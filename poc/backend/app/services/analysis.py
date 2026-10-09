@@ -14,9 +14,12 @@ from app.ai.scoring import ENGINE_VERSION, weighted_mean
 from app.ai.stt import get_stt_provider
 from app.core.config import settings
 from app.core.database import SessionLocal
-from app.models import AnalysisResult, Consent, FitType, Report, RoleplaySession, SessionStatus, Turn
+from app.models import (
+    AnalysisResult, Consent, FitType, Report, RoleplaySession, SessionRawFile,
+    SessionStatus, SystemLog, Turn,
+)
 from app.services import report as report_service
-from app.services import interaction, interaction_report, interaction_scoring
+from app.services import interaction, interaction_report, interaction_scoring, voice_analysis
 from app.services.session_fsm import transition
 
 STAGES = ["stt", "response", "voice", "nonverbal", "scoring", "report"]
@@ -120,9 +123,20 @@ def run_analysis(session_id: int) -> None:
         _set_progress(db, session, "voice", 45)
         voice_scores: list[tuple[float, float]] = []
         for t in turns:
+            if voice_analysis.enabled(session):
+                _, stt_log = voice_analysis.finish_turn(session, t, include_stt_log=True)
+                if stt_log:
+                    db.add(SystemLog(
+                        device_id=session.device_id, organization_id=session.institution_id,
+                        stt_latency_ms=stt_log["latency_ms"],
+                        status_code=stt_log["status_code"],
+                        error_message=stt_log["error_message"],
+                    ))
+                continue
             # 턴 단위 격리: 병리적 오디오 한 건의 DSP 예외가 리포트 전체를 날리지 않게
             try:
                 if t.audio_path:
+                    stt_started = time.perf_counter()
                     metrics = voice_fit.analyze_audio(t.audio_path, t.response_text)
                     # Chrome 답변과 별개로 원본 음성을 간투어 보존 프롬프트로 전사한다.
                     provider = get_stt_provider()
@@ -141,6 +155,11 @@ def run_analysis(session_id: int) -> None:
                                 metrics["alignment"] = alignment
                         except Exception:
                             pass  # 정렬은 부가 분석 — 실패해도 턴 분석은 유지
+                    db.add(SystemLog(
+                        device_id=session.device_id, organization_id=session.institution_id,
+                        stt_latency_ms=round((time.perf_counter() - stt_started) * 1000),
+                        status_code=200,
+                    ))
                 elif t.stt_source == "webspeech":
                     metrics = voice_fit.estimate_from_text(t.response_text, t.response_duration_ms)
                 else:
@@ -242,7 +261,7 @@ def run_analysis(session_id: int) -> None:
                     session_id=session.id, turn_id=None, fit_type=fit,
                     # judge 투명성: 세션 레벨 Response 결과에 채점 근거 전체를 남긴다
                     raw_metrics={"judge": judge_info} if fit == FitType.response and judge_info else {},
-                    score=score, engine_version=interaction_scoring.VERSION if interaction_outcome else ENGINE_VERSION,
+                    score=score, engine_version=(voice_analysis.SCORE_VERSION if voice_analysis.enabled(session) else interaction_scoring.VERSION) if interaction_outcome else ENGINE_VERSION,
                 ))
         db.commit()
 
@@ -257,8 +276,13 @@ def run_analysis(session_id: int) -> None:
         # 7) 저장 정책 적용 (S-CBYKOH): '미저장' 동의면 분석이 끝난 음성 파일을 즉시 삭제
         consent = db.query(Consent).filter_by(session_id=session.id).first()
         if consent is None or consent.storage_policy == "none":
+            voice_analysis.strip_verbatim(session)
             # 공통 판단에도 답변 인용이 있으므로 미저장 동의에서는 함께 파기한다.
             session.rapport = {key: value for key, value in (session.rapport or {}).items() if key not in {"judgments", "confirmed_facts", "feedback_history"}}
+            # 새 면접·주문 진행 기록에도 인용이 있다. 공개 진행 상태만 남긴다.
+            if interaction.state(session).get("rubric_version") or interaction.state(session).get("cafe"):
+                items = [{"id": item["id"], "text": item["text"]} for item in interaction.state(session)["items"]]
+                interaction.save(session, {**interaction.public_state(session), "items": items})
             for t in session.turns:
                 if t.audio_path:
                     Path(t.audio_path).unlink(missing_ok=True)
@@ -266,6 +290,7 @@ def run_analysis(session_id: int) -> None:
                 # '미저장' 동의: 리포트 생성 후 대화 전문(발화 텍스트)도 파기.
                 # 인용 근거는 이미 report.evidence_segments에 복사됐고 집계 리포트만 남긴다.
                 t.response_text = ""
+            db.query(SessionRawFile).filter_by(session_id=session.id).delete(synchronize_session=False)
             # 턴 레벨 분석 중간 산출물의 verbatim도 함께 파기 — 리포트 사본만 남기고,
             # 그 사본은 보관 기간 후 기동 정리(_purge_expired_quotes)가 지운다.
             turn_results = db.query(AnalysisResult).filter(

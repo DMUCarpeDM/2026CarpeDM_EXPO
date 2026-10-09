@@ -1,5 +1,5 @@
+import { WorkplaceMirrorSceneSimulation } from "../features/smart-mirror/components/WorkplaceMirrorSceneSimulation";
 import React, { useEffect, useRef, useState } from "react";
-import { ChevronDown } from "reicon-react/icons/ChevronDown";
 import { ChevronRight } from "reicon-react/icons/ChevronRight";
 import { Expand } from "reicon-react/icons/Expand";
 import { Mic } from "reicon-react/icons/Mic";
@@ -8,10 +8,14 @@ import { Play } from "reicon-react/icons/Play";
 import { Power } from "reicon-react/icons/Power";
 import { Refresh3 } from "reicon-react/icons/Refresh3";
 import { motion } from "framer-motion";
-import { TrackingOverlay, ChatBubble, AiPromptOverlay } from "../components/practice/PracticePresentation";
+import { TrackingOverlay, ChatBubble } from "../components/practice/PracticePresentation";
 import { CounterpartVideo } from "../components/practice/CounterpartVideo";
 import { hasCharacterVideo } from "../data/characterMedia";
 import cafeCounterpartBackground from "../assets/cafe-counterpart-background.png";
+import { createVisibleClock, isMirrorDeployment } from "../features/smart-mirror/lib/workplaceMirrorTimeline";
+import { useVoiceCalibration } from "../lib/useVoiceCalibration";
+import { captureSettings, sameCapture } from "../lib/voiceCapture";
+import { MicrophoneCheck } from "../components/practice/MicrophoneCheck";
 import { blobToWav } from "../lib/audioWav";
 import { startTurnSpeech } from "../lib/turnSpeechPlayback";
 import { usePracticeTranscription } from "../lib/usePracticeTranscription";
@@ -21,6 +25,7 @@ import { PersonaFace } from "../components/ui/PersonaFace";
 import { composeTurnSpeech } from "../lib/turnSpeech";
 import { isWorkplaceSession, workplaceBriefing } from "../lib/workplaceTrack";
 import { pickWorkplaceEmotion } from "../lib/workplaceEmotion";
+import { practiceInputStatus } from "../lib/practiceInputStatus";
 
 function formatClock(totalSeconds) {
   const m = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
@@ -30,6 +35,15 @@ function formatClock(totalSeconds) {
 
 const wallClock = () => new Date().toLocaleTimeString("ko-KR", { hour12: false, hour: "2-digit", minute: "2-digit" });
 
+function containDialogTab(event) {
+  if (event.key !== "Tab") return;
+  const buttons = event.currentTarget.querySelectorAll("button:not(:disabled)");
+  const first = buttons[0];
+  const last = buttons[buttons.length - 1];
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+}
+
 const rise = (delay) => ({
   initial: { opacity: 0, y: 14 },
   animate: { opacity: 1, y: 0 },
@@ -37,6 +51,11 @@ const rise = (delay) => ({
 });
 
 export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, turn, history, turnSignals, onSubmit, busy, error, mediaStream, onRequestMedia, onSwitchMic }) {
+  const mirror = isMirrorDeployment();
+  const voice = useVoiceCalibration(session, mediaStream);
+  const exclusionsRef = useRef([]);
+  const excludeStartRef = useRef(null);
+  const turnCaptureRef = useRef(null);
   const [draft, setDraft] = useState("");
   const [captureError, setCaptureError] = useState("");
   const [elapsed, setElapsed] = useState(0);
@@ -44,7 +63,13 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   const [recSeconds, setRecSeconds] = useState(0);
   const analysisVideoRef = useRef(null);
   const overlayRef = useRef(null);
-  const cameraRef = useRef(null);
+  const screenRef = useRef(null);
+  const [fullscreen, setFullscreen] = useState(false);
+  useEffect(() => {
+    const syncFullscreen = () => setFullscreen(document.fullscreenElement === screenRef.current);
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    return () => document.removeEventListener("fullscreenchange", syncFullscreen);
+  }, []);
   const chatBodyRef = useRef(null);
   const recorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -57,8 +82,8 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   const isTeamLead = character?.id === "kim_teamlead";
   const isCafeCounterpart = scenario?.slug === "ondo-cafe-crew" && character?.id === "angry_customer";
   const hasCounterpartVideo = hasCharacterVideo(character?.id);
-  // 스테이지 기본은 내 모습(거울) 분석 — 전환 버튼으로 AI 상대 영상을 크게 본다.
-  const [stageView, setStageView] = useState("mirror");
+  // 상대 영상이 있는 경우 상대를 먼저 보여주고, 내 분석 화면으로 전환할 수 있다.
+  const [stageView, setStageView] = useState("counterpart");
   const mirrorMain = !hasCounterpartVideo || stageView === "mirror";
 
   // 종료 오클릭 보호 — 촬영·체험 중 실수로 눌러 세션이 끊기지 않게 한 번 확인한다
@@ -74,29 +99,38 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   const sceneBriefing = workplaceBriefing(session?.interaction);
   const [sceneBriefingOpen, setSceneBriefingOpen] = useState(workplace);
   const briefingButtonRef = useRef(null);
+  const briefingDialogRef = useRef(null);
+  const confirmDialogRef = useRef(null);
   useEffect(() => {
     if (workplace && turn?.episode_id) setSceneBriefingOpen(true);
   }, [workplace, turn?.episode_id]);
   // 직장대화만 카테고리 시작 때 상황 안내를 띄운다. 다른 모드는 바로 조작한다.
-  const entryOverlayOpen = workplace && sceneBriefingOpen && Boolean(sceneBriefing);
+  const sceneOverlayOpen = !voice.open && workplace && sceneBriefingOpen && Boolean(sceneBriefing);
+  const entryOverlayOpen = voice.open || sceneOverlayOpen;
   useEffect(() => {
-    if (!entryOverlayOpen) return undefined;
+    if (!mirror || !sceneOverlayOpen) return undefined;
+    const clock = createVisibleClock(performance.now(), !document.hidden);
+    const tick = () => { if (clock.tick(performance.now(), !document.hidden) >= 12000) setSceneBriefingOpen(false); };
+    const timer = setInterval(tick, 100);
+    document.addEventListener("visibilitychange", tick);
+    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", tick); };
+  }, [mirror, sceneOverlayOpen, turn?.episode_id]);
+  useEffect(() => {
+    if (!sceneOverlayOpen || (mirror && workplace)) return undefined;
+    const dialog = briefingDialogRef.current;
     const previousFocus = document.activeElement;
+    dialog.showModal();
     briefingButtonRef.current?.focus();
-    const onKeyDown = (event) => {
-      if (event.key === "Tab") {
-        event.preventDefault();
-        briefingButtonRef.current?.focus();
-      } else if (event.key === "Escape") {
-        setSceneBriefingOpen(false);
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      if (previousFocus?.isConnected) previousFocus.focus?.();
-    };
-  }, [entryOverlayOpen]);
+    return () => { dialog.close(); if (previousFocus?.isConnected) previousFocus.focus(); };
+  }, [sceneOverlayOpen, mirror, workplace]);
+  useEffect(() => {
+    if (!confirmEnd) return undefined;
+    const dialog = confirmDialogRef.current;
+    const previousFocus = document.activeElement;
+    dialog.showModal();
+    dialog.querySelector(".confirm-stay")?.focus();
+    return () => { dialog.close(); if (previousFocus?.isConnected) previousFocus.focus(); };
+  }, [confirmEnd]);
   const aiReady = Boolean(aiHealth?.dialogue_ready);
   // MediaPipe 실시간 얼굴·상체 트래킹 (영상 미전송 — 브라우저 안에서만 분석)
   const track = useFaceTracking(mediaStream, analysisVideoRef, overlayRef);
@@ -113,16 +147,12 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
 
   // ---- AI 음성(TTS): 새 질문이 오면 AI 상대가 실제로 읽어준다 ----
   const [aiSpeaking, setAiSpeaking] = useState(false);
-  const [showQuestionOverlay, setShowQuestionOverlay] = useState(true);
   const turnSpeech = composeTurnSpeech(turn);
   const [teamLeadReaction, setTeamLeadReaction] = useState("");
   // 감정 클립이 있으면 말하기보다 우선 — 1회 재생 후 onReactionComplete로 기본말하기 복귀
   const teamLeadVideoState = workplace
     ? teamLeadReaction || (aiSpeaking ? "speaking" : "listening")
     : aiSpeaking ? "speaking" : teamLeadReaction || "listening";
-  useEffect(() => {
-    setShowQuestionOverlay(Boolean(turn));
-  }, [turn?.id]);
   useEffect(() => {
     if (!workplace || !turn?.id) return undefined;
     // 새 대사: 문장 감정에 맞는 클립을 틀고, 없으면 기본말하기를 유지한다.
@@ -163,12 +193,11 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   useEffect(() => {
     const text = turnSpeech;
     if (!text || paused || entryOverlayOpen) return undefined;
-    const finishSpeaking = () => setShowQuestionOverlay(false);
     return startTurnSpeech({
       text,
       serverTtsReady: aiHealth?.tts_ready,
       onSpeakingChange: setAiSpeaking,
-      onFinish: finishSpeaking,
+      onFinish: () => {}, // 질문은 음성 재생 종료 후에도 입력 패널에 유지한다.
       onNote: ttsNoteOnce,
     });
   }, [turn?.id, turnSpeech, paused, entryOverlayOpen, aiHealth?.tts_ready]);
@@ -196,7 +225,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
     listening, interim, setInterim, micEnabled, setMicEnabled, sttMode,
     clearAutoSubmit, stopBrowserRecognition, getSttSource, resetSttUsage,
   } = usePracticeTranscription({
-    draft, setDraft, mediaStream, turn, busy, paused, aiSpeaking, entryOverlayOpen,
+    draft, setDraft, mediaStream, turn, busy, paused: paused || voice.textOnly, aiSpeaking, entryOverlayOpen,
     pushFeed, onAutoSubmit: () => submitDraftRef.current?.(),
   });
   const liveTip = useLiveCoaching({ session, turnId: turn?.id,
@@ -238,12 +267,13 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
     }
   };
   const analysisTools = [
-    { label: "대화 AI", detail: aiHealth?.dialogue_provider === "openai" ? "GPT-4o" : "Ollama", ready: aiReady },
-    { label: "음성 인식", detail: sttMode === "webspeech" ? "브라우저 STT" : "직접 입력", ready: sttMode !== "off" && micEnabled && hasMicrophone },
+    { label: "대화 AI", detail: aiHealth?.dialogue_provider === "openai" ? "GPT-4o" : aiHealth?.dialogue_provider === "browser" ? "브라우저 엔진" : "Ollama", ready: aiReady },
+    { label: "음성 인식", detail: sttMode === "webspeech" ? "브라우저 STT" : "직접 입력", ready: !voice.textOnly && sttMode !== "off" && micEnabled && hasMicrophone },
     { label: "카메라 분석", detail: "MediaPipe", ready: hasCamera && track.status === "ready" },
     { label: "마이크", detail: micSilent ? "신호 없음" : micDeviceLabel || "입력", title: micDeviceLabel, ready: hasMicrophone && !micSilent },
   ];
   const inputValue = interim ? `${draft} ${interim}`.trim() : draft;
+  const inputStatus = practiceInputStatus({ busy, entryOverlayOpen, paused, turn, aiSpeaking, textOnly: voice.textOnly, sttMode, micEnabled, hasMicrophone, listening });
 
   useEffect(() => {
     if (trackingLive) pushFeed("Face 478pt · Pose 33pt 실시간 추적 시작");
@@ -372,12 +402,15 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   }, [history.length, turn?.id, busy]);
 
   useEffect(() => {
-    if (!mediaStream || !turn || entryOverlayOpen) return undefined;
+    if (!mediaStream || !turn || entryOverlayOpen || voice.textOnly) return undefined;
     if (!window.MediaRecorder) { setCaptureError("이 브라우저에서는 마이크 녹음을 시작할 수 없어요."); return undefined; }
     const audioTracks = mediaStream.getAudioTracks();
     if (audioTracks.length === 0) { setCaptureError("마이크 권한이 필요해요."); return undefined; }
     audioChunksRef.current = [];
     recordingStartedAtRef.current = performance.now();
+    turnCaptureRef.current = captureSettings(mediaStream);
+    exclusionsRef.current = [];
+    excludeStartRef.current = (aiSpeaking || paused) ? 0 : null;
     const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
     const recorder = new MediaRecorder(new MediaStream(audioTracks), { mimeType });
     recorder.ondataavailable = (event) => { if (event.data.size > 0) audioChunksRef.current.push(event.data); };
@@ -385,7 +418,18 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
     recorder.start();
     setCaptureError("");
     return () => { if (recorder.state !== "inactive") recorder.stop(); };
-  }, [mediaStream, turn, entryOverlayOpen]);
+  }, [mediaStream, turn, entryOverlayOpen, voice.textOnly]);
+
+  useEffect(() => {
+    if (!voice.enabled || !recorderRef.current || recorderRef.current.state === "inactive") return;
+    const now = Math.max(0, (performance.now() - recordingStartedAtRef.current) / 1000);
+    if (aiSpeaking || paused) {
+      if (excludeStartRef.current === null) excludeStartRef.current = now;
+    } else if (excludeStartRef.current !== null) {
+      if (now > excludeStartRef.current) exclusionsRef.current.push([excludeStartRef.current, now]);
+      excludeStartRef.current = null;
+    }
+  }, [aiSpeaking, paused, voice.enabled, turn?.id, entryOverlayOpen]);
 
   const stopTurnRecorder = () => new Promise((resolve, reject) => {
     const recorder = recorderRef.current;
@@ -412,18 +456,26 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
 
   const submitDraft = async () => {
     const text = inputValue.trim();
-    if (!text || busy || !turn) return;
+    if (!text || busy || paused || !turn || entryOverlayOpen) return;
     try {
       clearAutoSubmit();
       stopBrowserRecognition();
       // 녹음(webm)을 서버 음성 분석이 읽을 수 있는 WAV로 변환 — 실패해도 텍스트로 진행
-      const webm = await stopTurnRecorder().catch(() => null);
+      const endSeconds = Math.max(0, (performance.now() - recordingStartedAtRef.current) / 1000);
+      if (excludeStartRef.current !== null && endSeconds > excludeStartRef.current) exclusionsRef.current.push([excludeStartRef.current, endSeconds]);
+      excludeStartRef.current = null;
+      const webm = voice.textOnly ? null : await stopTurnRecorder().catch(() => null);
       const audio = webm && webm.size > 0 ? await blobToWav(webm).catch(() => null) : null;
       stampsRef.current.set(`a-${turn.id}`, wallClock());
       pushFeed("답변 제출 — 응답·음성·비언어 지표 서버 분석");
       await onSubmit({
         text,
         audio,
+        voiceInput: voice.enabled ? {
+          calibration_id: voice.calibration?.id || null,
+          capture: sameCapture(turnCaptureRef.current, captureSettings(mediaStream)) ? turnCaptureRef.current : null,
+          excluded_intervals: exclusionsRef.current.filter(([a, b]) => a < b && b <= 120),
+        } : undefined,
         durationMs: Math.round(performance.now() - recordingStartedAtRef.current),
         sttSource: getSttSource(),
         nonverbal: buildNonverbal(),
@@ -438,17 +490,35 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
 
   const toggleCameraFullscreen = () => {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    else cameraRef.current?.requestFullscreen?.().catch(() => {});
+    else screenRef.current?.requestFullscreen?.().catch(() => {});
   };
 
+  if (mirror && workplace) return <>
+    <div className="simulation-capture" aria-hidden="true"><video ref={analysisVideoRef} autoPlay muted playsInline /><canvas ref={overlayRef} /></div>
+    <WorkplaceMirrorSceneSimulation category={sceneBriefing?.category_id} characterId={character?.id} name={characterName} videoState={teamLeadVideoState} paused={paused || entryOverlayOpen} onReactionComplete={() => setTeamLeadReaction("")}>
+      <p className="simulation-dialogue-name">{characterName}</p>
+      <h1 id="mirror-dialogue-title" className="simulation-dialogue-text">{sceneOverlayOpen ? sceneBriefing.situation : turnSpeech || "다음 대화를 준비하고 있어요."}</h1>
+      <p className="simulation-dialogue-status" role="status">{sceneOverlayOpen ? "잠시 후 대화가 시작돼요." : inputStatus.title}</p>
+      {!entryOverlayOpen && <div className="simulation-answer">
+        {voice.textOnly || !hasMicrophone || sttMode === "off" ? <>
+          <label htmlFor="mirror-answer">답변</label><textarea id="mirror-answer" value={inputValue} disabled={busy || !turn} onChange={event => { clearAutoSubmit(); setDraft(event.target.value); setInterim(""); }} />
+          <button type="button" onClick={submitDraft} disabled={busy || paused || !inputValue.trim() || !turn}>답변 보내기</button>
+        </> : inputValue && <p>{inputValue}</p>}
+      </div>}
+      {(error || captureError || mediaError) && <p className="simulation-dialogue-status" role="alert">{error || captureError || mediaError}</p>}
+    </WorkplaceMirrorSceneSimulation>
+    {voice.open && <MicrophoneCheck automatic session={session} stream={mediaStream} onRequestMedia={onRequestMedia} onReady={voice.onReady} onTextOnly={voice.onTextOnly} />}
+  </>;
+
   return (
-    <motion.section className={`practice-screen ${paused ? "is-paused" : ""}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
+    <motion.section ref={screenRef} className={`practice-screen ${paused ? "is-paused" : ""}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
+      <h1 className="screen-reader-note">AI와 연습하기</h1>
       {liveTip && <div className="practice-live-tip" role="status" aria-live="polite"><strong>대화 팁</strong><span>{liveTip.message}</span></div>}
       <motion.div className="practice-contextbar" {...rise(0)}>
         <div className="practice-contextbar-left">
           <div className="topbar-item">
             <span className="topbar-item-label">시나리오</span>
-            <button type="button" className="topbar-scenario">{sceneBriefing?.category_label || scenario?.title || "업무 보고 및 피드백 논의"} <ChevronDown size={15} /></button>
+            <strong className="topbar-scenario">{sceneBriefing?.category_label || scenario?.title || "업무 보고 및 피드백 논의"}</strong>
           </div>
           <div className="topbar-item counterpart">
             <span className="counterpart-avatar"><PersonaFace name={characterName} /></span>
@@ -460,24 +530,28 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
         </div>
         <div className="practice-contextbar-right">
           <span className="practice-timer"><i className="rec-dot" aria-hidden="true" />{formatClock(elapsed)}</span>
-          <button type="button" className="practice-utility" onClick={() => setPaused((value) => !value)}>{paused ? <><Play size={16} /> 다시 시작</> : <><Pause size={16} /> 일시정지</>}</button>
-          <button type="button" className="practice-utility" onClick={() => { clearAutoSubmit(); setDraft(""); setInterim(""); setCaptureError(""); }}><Refresh3 size={16} /> 재시도</button>
-          <button type="button" className="practice-end" onClick={() => setConfirmEnd(true)}><Power size={16} /> 연습 종료</button>
+          <button type="button" className="practice-utility" aria-pressed={paused} onClick={() => setPaused((value) => !value)}>{paused ? <><Play size={16} /> 연습 재개</> : <><Pause size={16} /> 일시정지</>}</button>
+          <button type="button" className="practice-end" onClick={() => setConfirmEnd(true)}><Power size={16} /> {scenario?.slug === "cafe-order-taking" ? "주문 접수 완료" : "연습 종료"}</button>
         </div>
       </motion.div>
 
+      <div className="practice-input-status" role="status" aria-live="polite" aria-atomic="true"><strong>{inputStatus.title}</strong><span>{inputStatus.hint}</span></div>
       <div className="practice-stage">
+        <section className="practice-question-panel" aria-labelledby="practice-question">
+          <span className="practice-question-label">{aiSpeaking ? "AI 질문 듣는 중" : "현재 질문"}</span>
+          <h2 id="practice-question">{turnSpeech || "다음 질문을 준비하고 있어요."}</h2>
+        </section>
         <motion.section
           className={`practice-camera ${isChromaCounterpart ? (isCafeCounterpart ? "is-cafe-counterpart" : "is-workplace-counterpart") : ""}`}
           style={isCafeCounterpart && !mirrorMain ? { "--counterpart-background": `url(${cafeCounterpartBackground})` } : undefined}
           aria-label={hasCounterpartVideo ? "AI 상대 반응 영상" : "연습 카메라"}
-          ref={cameraRef}
           {...rise(0.06)}
         >
           <div className={`camera-user-feed ${mirrorMain ? "is-main" : "is-pip"}`} aria-label={mirrorMain ? "내 카메라 미러" : "내 모습 미리보기"}>
             <video ref={analysisVideoRef} className={`camera-video ${mediaStream ? "is-live" : ""}`} autoPlay muted playsInline aria-label="내 카메라 미러" />
             <canvas ref={overlayRef} className="tracking-canvas" aria-hidden="true" />
             {!mirrorMain && <span className="camera-user-feed-label">내 모습</span>}
+            {!mirrorMain && !hasCamera && onRequestMedia && <button type="button" className="camera-pip-connect" onClick={retryMedia}>카메라 연결</button>}
           </div>
           {mirrorMain ? <>
             {!trackingLive && <TrackingOverlay silhouette={!mediaStream} />}
@@ -493,25 +567,33 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
           </div>
           <div className="camera-topline right">
             {hasCounterpartVideo && <button type="button" className="camera-expand camera-swap" onClick={() => setStageView(mirrorMain ? "counterpart" : "mirror")}>{mirrorMain ? "상대 크게" : "내 분석 크게"}</button>}
-            <button type="button" className="camera-expand" onClick={toggleCameraFullscreen} aria-label="카메라 전체 화면">
+            <button type="button" className="camera-expand" onClick={toggleCameraFullscreen} aria-label={fullscreen ? "전체 화면 닫기" : "연습 전체 화면"} aria-pressed={fullscreen}>
               <Expand size={15} />
             </button>
           </div>
           {turn && <div className="camera-dialogue">
-            {showQuestionOverlay && <AiPromptOverlay name={characterName} speaking={aiSpeaking} text={turnSpeech} />}
             <div className="control-speak">
-              <button type="button" className={`control-speak-label ${listening ? "listening" : ""}`} onClick={() => setMicEnabled((value) => !value)} disabled={sttMode === "off"} title={sttMode === "webspeech" ? "음성 입력 켜기/끄기" : "음성 인식을 사용할 수 없어 직접 입력해요"}>
-                <Mic size={18} /> {busy ? "분석 중..." : listening ? "듣는 중..." : sttMode === "off" || !micEnabled || !hasMicrophone ? "직접 입력" : "말하는 중..."}
+              <button type="button" className={`control-speak-label ${listening ? "listening" : ""}`} onClick={() => setMicEnabled((value) => !value)} disabled={sttMode === "off" || !hasMicrophone || voice.textOnly} aria-label="음성 입력" aria-pressed={sttMode !== "off" && hasMicrophone && !voice.textOnly && micEnabled} title="음성 인식 입력을 켜거나 꺼요. 마이크 녹음 설정은 바뀌지 않아요.">
+                <Mic size={18} /> 음성 입력 {sttMode !== "off" && hasMicrophone && !voice.textOnly && micEnabled ? "켜짐" : "꺼짐"}
               </button>
               <span className={`control-wave ${listening ? "is-listening" : ""} ${hasMicrophone ? "is-real" : ""}`} ref={waveRef} aria-hidden="true">{Array.from({ length: 30 }, (_, i) => <i key={i} />)}</span>
-              <input value={inputValue} onChange={(event) => { clearAutoSubmit(); setDraft(event.target.value); setInterim(""); }} onKeyDown={(event) => { if (event.key === "Enter" && inputValue.trim() && !busy && turn) submitDraft(); }} placeholder="말 끝나면 전송" aria-label="말을 마치면 3초 뒤 자동으로 전달해요" disabled={busy || !turn} />
               <span className="control-clock"><time>{formatClock(recSeconds)}</time><small>{formatClock(elapsed)}</small></span>
-              <button type="button" className="control-send" onClick={submitDraft} disabled={busy || !inputValue.trim() || !turn}><span>전송</span><ChevronRight size={16} aria-hidden="true" /></button>
             </div>
           </div>}
         </motion.section>
 
         <aside className="practice-side">
+          <section className="practice-answer-panel" aria-labelledby="practice-question">
+            <label htmlFor="practice-answer">답변 입력</label>
+            <textarea id="practice-answer" value={inputValue} onChange={(event) => { clearAutoSubmit(); setDraft(event.target.value); setInterim(""); }} placeholder="답변을 입력하세요" disabled={busy || !turn} />
+            <div className="practice-answer-actions">
+              <button type="button" className="control-send" onClick={submitDraft} disabled={busy || paused || entryOverlayOpen || !inputValue.trim() || !turn}><span>전송</span><ChevronRight size={16} aria-hidden="true" /></button>
+              <button type="button" className="practice-utility" disabled={busy || !inputValue} onClick={() => { clearAutoSubmit(); setDraft(""); setInterim(""); setCaptureError(""); }}><Refresh3 size={16} /> 입력 지우기</button>
+            </div>
+            {(error || captureError) && <p className="practice-error" role="alert">{error || captureError}</p>}
+          </section>
+          <details className="practice-disclosure">
+            <summary>분석 도구 연결 상태</summary>
           <motion.section className="card tool-status-card" {...rise(0.12)}>
             <div className="tool-status-head">
               <div><h2>분석 도구 연결 상태</h2><p>현재 연습에 사용할 도구예요.</p></div>
@@ -522,6 +604,9 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
                 <span className="tool-status-state" aria-label={`${tool.label} ${tool.ready ? "켜짐" : "꺼짐"}`}><i aria-hidden="true" /><b>{tool.ready ? "ON" : "OFF"}</b></span>
               </div>)}
             </div>
+            {voice.enabled && <p className="voice-check__note">{voice.textOnly ? "이번 연습은 목소리 분석 없이 진행해요." : "목소리 측정값은 종료 후 보고서에서 확인해요."}
+              {voice.textOnly && <button type="button" className="text-link" onClick={voice.onRetry}>마이크 다시 확인</button>}
+            </p>}
             {micDevices.length > 1 && onSwitchMic && <label className={`mic-picker ${micSilent ? "is-warn" : ""}`}>
               <span>{micSilent ? "마이크 무음 — 다른 장치 선택" : "마이크 장치"}</span>
               <select value={mediaStream?.getAudioTracks?.()[0]?.getSettings?.().deviceId || ""} onChange={(event) => pickMic(event.target.value)}>
@@ -530,11 +615,13 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
               </select>
             </label>}
           </motion.section>
+          </details>
 
+          <details className="practice-disclosure">
+            <summary>대화 기록 <span>{history.length}개 답변</span></summary>
           <motion.section className="card chat-log-card" {...rise(0.18)}>
             <div className="chat-log-head">
               <h2>대화 로그 <em className="live-label"><i aria-hidden="true" />실시간</em></h2>
-              <button type="button" className="text-link">전체 보기 <ChevronRight size={14} /></button>
             </div>
             <div className="chat-log-body" ref={chatBodyRef}>
               {history.map((item) => (
@@ -544,36 +631,37 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
                 </React.Fragment>
               ))}
               {turn && <ChatBubble ai name={characterName} time={turn.asked_at || stampFor(`q-${turn.id}`, `턴 ${turn.order}`)}>{turn.question_text}</ChatBubble>}
-              <div className={`typing-bubble ${busy ? "busy" : ""}`} aria-label={busy ? "AI가 답을 준비하고 있어요" : "답변을 기다리고 있어요"}><i /><i /><i /></div>
-              {(error || captureError) && <p className="practice-error">{error || captureError}</p>}
+              {busy && <div className="typing-bubble busy" aria-hidden="true"><i /><i /><i /></div>}
             </div>
           </motion.section>
+          </details>
         </aside>
       </div>
 
-      {entryOverlayOpen && <div className="practice-briefing" role="dialog" aria-modal="true" aria-label="상황 안내">
+      {voice.open && <MicrophoneCheck automatic={mirror} session={session} stream={mediaStream} onRequestMedia={onRequestMedia} onReady={voice.onReady} onTextOnly={voice.onTextOnly} />}
+      {sceneOverlayOpen && <dialog ref={briefingDialogRef} className="practice-briefing" aria-label="상황 안내" onKeyDown={containDialogTab} onCancel={() => setSceneBriefingOpen(false)}>
         <motion.div className="practice-briefing-card practice-briefing-card--scene" initial={{ opacity: 0, y: 14, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
           <span className="briefing-kicker">{sceneBriefing.step} / {sceneBriefing.total} · {sceneBriefing.category_label}</span>
           <h2>{sceneBriefing.title}</h2>
           <p className="briefing-situation">{sceneBriefing.situation}</p>
           {sceneBriefing.tip && <div className="briefing-tip" role="note"><strong>TIP</strong><span>{sceneBriefing.tip}</span></div>}
           <div className="briefing-foot">
-            <button ref={briefingButtonRef} type="button" onClick={() => setSceneBriefingOpen(false)}>대화 시작</button>
+            {mirror ? <p role="status">상황 안내 후 대화가 자동으로 시작돼요.</p> : <button ref={briefingButtonRef} type="button" onClick={() => setSceneBriefingOpen(false)}>대화 시작</button>}
           </div>
         </motion.div>
-      </div>}
+      </dialog>}
 
-      {confirmEnd && <div className="practice-briefing practice-confirm" role="dialog" aria-label="연습 종료 확인">
+      {confirmEnd && <dialog ref={confirmDialogRef} className="practice-briefing practice-confirm" aria-label="연습 종료 확인" onKeyDown={containDialogTab} onCancel={() => setConfirmEnd(false)}>
         <motion.div className="practice-briefing-card" initial={{ opacity: 0, y: 14, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
           <span className="briefing-kicker">확인</span>
-          <h2>연습을 종료할까요?</h2>
+          <h2>{scenario?.slug === "cafe-order-taking" ? "주문 접수를 완료할까요?" : "연습을 종료할까요?"}</h2>
           <p className="briefing-situation">지금까지 제출한 답변으로 결과를 확인합니다. 남은 질문과 목표는 완료 처리하지 않아요.</p>
           <div className="briefing-foot confirm-foot">
             <button type="button" className="confirm-stay" onClick={() => setConfirmEnd(false)}>계속 연습</button>
-            <button type="button" className="confirm-leave" disabled={busy} onClick={() => { setConfirmEnd(false); (onFinish || onPrev)(); }}>종료</button>
+            <button type="button" className="confirm-leave" disabled={busy} onClick={() => { setConfirmEnd(false); (onFinish || onPrev)(); }}>연습 종료</button>
           </div>
         </motion.div>
-      </div>}
+      </dialog>}
 
     </motion.section>
   );

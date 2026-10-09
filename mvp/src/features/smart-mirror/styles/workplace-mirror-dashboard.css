@@ -1,0 +1,57 @@
+.mirror-dashboard { --u: min(1dvh, 1.77778vw); --ink: #f5f7fc; --muted: #c6cdd8; --surface: #070b1214; --divider: #ffffff24; box-sizing: border-box; position: relative; isolation: isolate; width: min(100%, 56.25dvh); min-height: 100dvh; margin: auto; padding: calc(3.3 * var(--u)) calc(3.6 * var(--u)); display: flex; flex-direction: column; gap: calc(1.5 * var(--u)); color: var(--ink); background: radial-gradient(ellipse at 100% 35%, #28354355, transparent 60%), radial-gradient(ellipse at 0 85%, #28354333, transparent 55%), #000; font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', Arial, sans-serif; }
+.mirror-dashboard * { box-sizing: border-box; }
+.mirror-dashboard p, .mirror-dashboard h2, .mirror-dashboard h3 { margin: 0; }
+.mirror-report-header { display: flex; align-items: center; justify-content: space-between; gap: var(--u); }
+.mirror-report-header strong { font-size: max(1rem, calc(1.7 * var(--u))); font-weight: 500; letter-spacing: -.035em; }
+.mirror-report-header span { color: var(--muted); font-size: max(.8125rem, calc(1 * var(--u))); }
+.mirror-report-heading { padding: calc(1 * var(--u)) 0 calc(.6 * var(--u)); }
+.mirror-report-heading p { font-size: max(1rem, calc(1.25 * var(--u))); color: var(--muted); line-height: 1.65; }
+.mirror-report-heading h1 { margin: calc(.8 * var(--u)) 0; font-size: max(1.5rem, calc(2.8 * var(--u))); line-height: 1.4; letter-spacing: -.04em; }
+.mirror-dashboard .overview-card-content { gap: calc(1.5 * var(--u)); padding: calc(2 * var(--u)); }
+.mirror-score-summary { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: calc(2.4 * var(--u)); align-items: center; }
+.mirror-score-summary > div > p { color: var(--muted); font-size: max(.8125rem, calc(1.2 * var(--u))); text-align: center; }
+.mirror-dashboard .score-ring.md { position: relative; width: calc(10 * var(--u)); height: calc(10 * var(--u)); display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--ink); }
+.mirror-dashboard .score-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); fill: none; }
+.mirror-dashboard .score-ring circle { stroke-width: 5; }
+.mirror-dashboard .score-ring .track { stroke: #ffffff18; }
+.mirror-dashboard .score-ring .fill { stroke: #e0eafb; stroke-linecap: round; }
+.mirror-dashboard .score-ring.md strong { position: static; transform: none; color: var(--ink); font-size: max(1.5rem, calc(3.5 * var(--u))); line-height: 1.2; }
+.mirror-dashboard .score-ring.md > span { position: static; transform: none; color: var(--muted); font-size: max(.8125rem, calc(1 * var(--u))); }
+.mirror-score-description > span, .mirror-feedback-grid span, .mirror-rewrite span { color: var(--muted); font-size: max(.8125rem, calc(1.1 * var(--u))); }
+.mirror-score-description h2 { font-size: max(1.25rem, calc(1.85 * var(--u))); line-height: 1.5; margin: calc(.6 * var(--u)) 0; }
+.mirror-score-description p { color: var(--muted); font-size: max(.8125rem, calc(1.1 * var(--u))); line-height: 1.6; }
+.mirror-fit-grid { border-top: 1px solid var(--divider); padding-top: calc(1.8 * var(--u)); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(1.8 * var(--u)) calc(2 * var(--u)); }
+.mirror-fit-grid article > div:first-child { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: calc(.8 * var(--u)); }
+.mirror-fit-grid h3 { font-size: max(1rem, calc(1.3 * var(--u))); font-weight: 500; }
+.mirror-fit-grid strong { font-size: max(1.25rem, calc(1.9 * var(--u))); font-variant-numeric: tabular-nums; }
+.mirror-fit-grid small { font-size: max(.8125rem, calc(.9 * var(--u))); font-weight: 400; color: var(--muted); margin-left: calc(.3 * var(--u)); }
+.mirror-fit-grid p { font-size: max(.8125rem, calc(1 * var(--u))); color: var(--muted); margin-top: calc(.5 * var(--u)); }
+.mirror-dashboard [role='progressbar'] { position: relative; height: calc(.55 * var(--u)); overflow: hidden; border: 1px solid #ffffff35; border-radius: 999px; background: linear-gradient(#ffffff18, #ffffff06); box-shadow: inset 0 1px 2px #ffffff20; }
+.mirror-dashboard [role='progressbar'] > div { height: 100%; background: linear-gradient(#f5f8ffbb, #b3c3dc55); border-radius: inherit; }
+.mirror-panel-title { font-size: max(1rem, calc(1.55 * var(--u))); font-weight: 500; }
+.mirror-feedback-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(2 * var(--u)); }
+.mirror-feedback-grid > div + div { border-inline-start: 1px solid var(--divider); padding-inline-start: calc(2 * var(--u)); }
+.mirror-feedback-grid p { font-size: max(1rem, calc(1.45 * var(--u))); line-height: 1.65; margin-top: calc(.7 * var(--u)); }
+.mirror-rewrite { display: grid; gap: calc(1.3 * var(--u)); }
+.mirror-rewrite > div + div { border-top: 1px solid var(--divider); padding-top: calc(1.3 * var(--u)); }
+.mirror-rewrite blockquote { margin: calc(.5 * var(--u)) 0 0; font-size: max(1rem, calc(1.4 * var(--u))); line-height: 1.7; }
+.mirror-dashboard h2, .mirror-dashboard p, .mirror-dashboard blockquote { word-break: keep-all; overflow-wrap: anywhere; }
+.mirror-report-footer { color: var(--muted); font-size: max(.8125rem, calc(.95 * var(--u))); line-height: 1.6; text-align: center; }
+.mirror-report-loading { display: grid; gap: calc(2 * var(--u)); padding-block: calc(3 * var(--u)); }
+.mirror-report-loading h2 { font-size: max(1.25rem, calc(1.8 * var(--u))); line-height: 1.6; }
+.mirror-deployment .screen-frame:has(.mirror-dashboard) { padding: 0; max-width: none; }
+
+@media (max-width: 700px), (max-height: 700px) {
+  .mirror-dashboard { width: 100%; padding: 24px 20px 48px; gap: 20px; }
+  .mirror-report-header { flex-wrap: wrap; gap: 8px; }
+  .mirror-dashboard .overview-card-content { padding: 20px; gap: 20px; }
+  .mirror-dashboard .score-ring.md { width: 88px; height: 88px; }
+  .mirror-score-summary { grid-template-columns: 1fr; gap: 16px; }
+  .mirror-score-summary > div:first-child { justify-items: center; display: grid; gap: 8px; }
+  .mirror-fit-grid, .mirror-feedback-grid { grid-template-columns: 1fr; gap: 20px; padding-block-start: 20px; }
+  .mirror-feedback-grid > div + div { border-inline-start: 0; padding-inline-start: 0; border-block-start: 1px solid var(--divider); padding-block-start: 20px; }
+  .mirror-dashboard [role='progressbar'] { min-height: 6px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mirror-dashboard .score-ring .fill, .mirror-dashboard [role='progressbar'] > div { transition: none; animation: none; }
+}

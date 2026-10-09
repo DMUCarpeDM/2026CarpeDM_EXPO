@@ -143,6 +143,9 @@ def _parse_json_object(text: str) -> dict:
 class GeminiDialogueProvider:
     """직장대화는 3막 연속, 그 외는 기존 역할극·스크립트 규칙을 따른다."""
 
+    def _complete(self, system: str, user: str, *, max_tokens: int, temperature: float, json_mode: bool = False) -> str:
+        return _call_gemini(system, user, max_tokens=max_tokens, temperature=temperature, json_mode=json_mode)
+
     def plan_workplace_day(
         self,
         session: RoleplaySession,
@@ -185,7 +188,7 @@ class GeminiDialogueProvider:
             '"beat_goals":["목표", "..."],'
             '"checklist":[{"id":"...","label":"...","keywords":["...","..."],"tip":"관측-해석-처방"}]}]}'
         )
-        raw = _call_gemini(PLANNER_SYSTEM, user, max_tokens=2048, temperature=0.4, json_mode=True)
+        raw = self._complete(PLANNER_SYSTEM, user, max_tokens=2048, temperature=0.4, json_mode=True)
         try:
             plan = _parse_json_object(raw)
             return validate_day_plan(plan, character_ids, session.mode, episodes, categories)
@@ -305,7 +308,7 @@ class GeminiDialogueProvider:
             "시간대·목표·마크다운·영문 단어(Act, Morning 등)는 절대 출력하지 마세요. 한국어 대사만."
         )
         # thinking 모델이 예산을 먹어도 본문이 잘리지 않게 여유를 둔다(본문은 180자 검증).
-        line = _call_gemini(ACTOR_SYSTEM, prompt, max_tokens=512, temperature=0.45)
+        line = self._complete(ACTOR_SYSTEM, prompt, max_tokens=512, temperature=0.45)
         line = _without_speaker_prefix(re.sub(r"\s+", " ", line.strip().strip('"')), character.get("name", ""))
         if not _valid_line(line):
             raise DialogueGenerationError("Gemini가 사용할 수 없는 역할극 대사를 반환했습니다")
@@ -336,7 +339,7 @@ class GeminiDialogueProvider:
             f"[대화 이력]\n{_recent_history(turns)}\n\n"
             "위 정보를 바탕으로 상대 역할의 다음 발화만 작성하세요."
         )
-        line = _call_gemini(ACTOR_SYSTEM if not reaction_only else ROLEPLAY_SYSTEM_PROMPT, prompt, max_tokens=512, temperature=0.45)
+        line = self._complete(ACTOR_SYSTEM if not reaction_only else ROLEPLAY_SYSTEM_PROMPT, prompt, max_tokens=512, temperature=0.45)
         line = _without_speaker_prefix(re.sub(r"\s+", " ", line.strip().strip('"')), character.get("name", ""))
         if not _valid_line(line):
             raise DialogueGenerationError("Gemini가 사용할 수 없는 역할극 대사를 반환했습니다")

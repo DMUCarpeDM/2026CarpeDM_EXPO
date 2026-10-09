@@ -57,7 +57,7 @@ def test_final_interview_conflict_gets_one_confirmation_without_extra_main_count
     with SessionLocal() as db:
         scenario = db.query(Scenario).first()
         slug = scenario.slug
-        scenario.world_setting = {**scenario.world_setting, "interaction": {"interview_questions": [f"주요 질문 {i}" for i in range(6)]}}
+        scenario.world_setting = {**scenario.world_setting, "service_modes": ["interview"], "interaction": {"interview_questions": [f"주요 질문 {i}" for i in range(6)]}}
         db.commit()
     def analyze(current, history, goals, requested):
         if current.order == 6:
@@ -109,7 +109,7 @@ def test_renamed_conflict_does_not_repeat_confirmation(monkeypatch):
     with SessionLocal() as db:
         scenario = db.query(Scenario).first()
         slug = scenario.slug
-        scenario.world_setting = {**scenario.world_setting, "interaction": {"interview_questions": [f"질문 {i}" for i in range(6)]}}
+        scenario.world_setting = {**scenario.world_setting, "service_modes": ["interview"], "interaction": {"interview_questions": [f"질문 {i}" for i in range(6)]}}
         db.commit()
     def analyze(current, history, goals, requested):
         if current.order in (1, 3):

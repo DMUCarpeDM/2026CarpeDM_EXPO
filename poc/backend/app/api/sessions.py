@@ -1,9 +1,10 @@
 from app.services.interaction_scoring import public_total, NO_SCORE
-from app.services import interaction, judgments, response_judgment, feedback, contradictions
+from app.services import interaction, judgments, response_judgment, feedback, contradictions, interview, cafe
 import secrets
 import time
 import uuid
 from datetime import datetime, timezone
+from datetime import timedelta
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
@@ -21,6 +22,10 @@ from app.models import (
     Scenario,
     SessionStatus,
     SurveyResponse,
+    AiFeedback,
+    CoachingLog,
+    SessionRawFile,
+    SystemLog,
     Turn,
     User,
     utcnow,
@@ -40,10 +45,16 @@ from app.schemas import (
     TurnSignalsOut,
 )
 from app.services.analysis import run_analysis
+from app.services import voice_analysis
+from app.ai import voice_measurement
+from app.api.voice import parse_input
+from typing import Annotated
+from fastapi import Form
 from app.ai.live_coaching import analyze_live_coaching
 from app.services.dialogue import DialogueGenerationError, QuestionSpec, get_dialogue_provider
 from app.services.dialogue import emotion, reactions
 from app.services.session_fsm import InvalidTransition, transition
+from app.services.idprinter_bridge import BridgeError, CardSnapshot, IDPrinterBridge
 from app.services.workplace import WORKPLACE_SLUG, CONTINUOUS_MODE, act_bridge_line, continuous_fallback_line
 from app.services.dialogue import stats as dialogue_stats
 
@@ -112,6 +123,55 @@ def _turn_out(db: Session, turn: Turn) -> TurnOut:
     return out
 
 
+def _idprinter_bridge() -> IDPrinterBridge | None:
+    url = settings.idprinter_base_url.strip()
+    token = settings.idprinter_bridge_token.get_secret_value()
+    if not url and not token:
+        return None
+    if not url or not token:
+        raise HTTPException(status_code=503, detail={"code": "KIOSK_BRIDGE_UNCONFIGURED"})
+    try:
+        return IDPrinterBridge(url, token)
+    except BridgeError as error:
+        raise HTTPException(status_code=503, detail={"code": error.code}) from error
+
+
+def _bridge_error_status(error: BridgeError) -> int:
+    if error.code == "KIOSK_CARD_NOT_FOUND":
+        return 404
+    if error.code == "KIOSK_LINK_CONFLICT":
+        return 409
+    return 503
+
+
+def _link_kiosk_session(db: Session, session: RoleplaySession) -> str:
+    """Retry a committed session against its original card snapshot.
+
+    IDPrinter performs the final atomic active-card check. A card reused for
+    another visitor cannot change this stored snapshot to its new owner.
+    """
+    if not session.kiosk_session_id or not session.kiosk_card_uid:
+        return "not_requested"
+    try:
+        bridge = _idprinter_bridge()
+        if bridge is None:
+            status = "pending"
+        else:
+            with bridge:
+                bridge.link(
+                    CardSnapshot(session.kiosk_card_uid, session.kiosk_session_id),
+                    session.id, session.access_token,
+                )
+            status = "linked"
+    except BridgeError as error:
+        status = "conflict" if error.code in {"KIOSK_LINK_CONFLICT", "KIOSK_CARD_NOT_FOUND"} else "pending"
+    except HTTPException:
+        status = "pending"
+    session.kiosk_link_status = status
+    db.commit()
+    return status
+
+
 @router.post("", response_model=SessionOut)
 def create_session(
     body: SessionCreateIn,
@@ -126,8 +186,13 @@ def create_session(
 
     # NFC 시작 (S-B2B-NFC): 태그된 카드가 직무·시나리오를 결정한다.
     # 등록되지 않은 카드는 404 — 프론트가 수동 카드 선택 폴백을 띄운다.
+    if body.nfc_issued_count is not None and not body.nfc_uid:
+        raise HTTPException(status_code=400, detail="자동 시작에는 NFC 카드가 필요합니다")
+    if body.kiosk_session_id and not body.nfc_uid:
+        raise HTTPException(status_code=400, detail="사원증 확인에는 NFC 카드가 필요합니다")
     card = None
     card_org_id = None
+    kiosk_snapshot = None
     scenario_slug = body.scenario_slug
     job_role = body.job_role
     if body.nfc_uid:
@@ -135,20 +200,46 @@ def create_session(
         from app.models import NfcCard
         from app.services import nfc_bridge
 
-        card = db.query(NfcCard).filter_by(uid=_normalize_uid(body.nfc_uid)).first()
-        if card is None or card.status != "active":
-            raise HTTPException(status_code=404, detail="등록되지 않았거나 폐기된 카드입니다")
-        card.last_seen_at = utcnow()
-        job_role = card.job_role or job_role
-        if not scenario_slug:
-            scenario_slug = card.scenario_slug or DEFAULT_PACK_BY_ROLE.get(card.job_role, "")
-        # 기관 스탬프는 '최근 실물 태그 증거'가 있을 때만 인정한다. 카드 UID는
-        # 비밀이 아니라(휴대폰으로 읽힘) UID 지식만으로 기관 귀속을 허용하면
-        # 익명 공격자가 타 기관 대시보드·KPI에 세션을 무한 주입할 수 있다.
-        # 증거가 없어도 체험은 그대로 진행된다(직무·시나리오는 민감하지 않음) —
-        # 익명 세션으로 시작하고, 귀속은 영수증 QR 클레임이 담당한다.
-        if nfc_bridge.recent_tap_matches(body.nfc_uid):
-            card_org_id = card.institution_id
+        bridge = _idprinter_bridge()
+        if bridge is None:
+            card = db.query(NfcCard).filter_by(uid=_normalize_uid(body.nfc_uid)).first()
+            if card is None or card.status != "active":
+                raise HTTPException(status_code=404, detail="등록되지 않았거나 폐기된 카드입니다")
+            if body.nfc_issued_count is not None:
+                if card.issued_count != body.nfc_issued_count:
+                    raise HTTPException(status_code=409, detail="카드가 다시 발급됐어요. 카드를 다시 태그해 주세요.")
+                if not card.consent_agreed or card.consent_agreed_at is None:
+                    raise HTTPException(status_code=400, detail="키오스크에서 개인정보 처리에 동의해 주세요.")
+            card.last_seen_at = utcnow()
+            job_role = card.job_role or job_role
+            if not scenario_slug:
+                scenario_slug = card.scenario_slug or DEFAULT_PACK_BY_ROLE.get(card.job_role, "")
+            if card.job_role == "cafe_crew" and scenario_slug == "ondo-cafe-crew":
+                scenario_slug = "cafe-order-taking"
+            # 기관 스탬프는 '최근 실물 태그 증거'가 있을 때만 인정한다. 카드 UID는
+            # 비밀이 아니라(휴대폰으로 읽힘) UID 지식만으로 기관 귀속을 허용하면
+            # 익명 공격자가 타 기관 대시보드·KPI에 세션을 무한 주입할 수 있다.
+            # 증거가 없어도 체험은 그대로 진행된다(직무·시나리오는 민감하지 않음) —
+            # 익명 세션으로 시작하고, 귀속은 영수증 QR 클레임이 담당한다.
+            if nfc_bridge.recent_tap_matches(body.nfc_uid):
+                card_org_id = card.institution_id
+
+        else:
+            if body.nfc_issued_count is not None:
+                raise HTTPException(status_code=422, detail="외부 사원증은 방문 회차로 확인해주세요")
+            if not body.kiosk_session_id or not job_role:
+                raise HTTPException(status_code=422, detail="사원증 확인과 체험 역할 선택이 필요합니다")
+            if not nfc_bridge.recent_tap_matches(body.nfc_uid, max_age_sec=600):
+                raise HTTPException(status_code=409, detail="사원증을 다시 태그해주세요")
+            with bridge:
+                try:
+                    kiosk_snapshot = bridge.resolve(body.nfc_uid)
+                except BridgeError as error:
+                    raise HTTPException(status_code=_bridge_error_status(error), detail={"code": error.code}) from error
+            if kiosk_snapshot.kiosk_session_id != body.kiosk_session_id:
+                raise HTTPException(status_code=409, detail="사원증이 새 방문객에게 등록됐어요. 다시 태그해주세요")
+            if not scenario_slug:
+                scenario_slug = WORKPLACE_SLUG if body.service_mode == "workplace" else DEFAULT_PACK_BY_ROLE.get(job_role, "")
 
     # 직무 검증 — 다른 모든 job_role 입력 경로(signup·/orgs/join·PATCH /me·nfc/issue)와
     # 같은 화이트리스트를 쓴다. 무검증 스탬프는 기관 대시보드의 직무 필터·KPI 집계에서
@@ -164,15 +255,25 @@ def create_session(
     if body.service_mode == "workplace" and not body.nfc_uid and not scenario_slug:
         scenario_slug = WORKPLACE_SLUG
     query = db.query(Scenario).filter_by(is_active=True)
+    if not scenario_slug and body.service_mode in {"interview", "training"}:
+        scenario_slug = (f"interview-{job_role if job_role in {'fullstack', 'marketing', 'sales'} else 'fullstack'}"
+                         if body.service_mode == "interview" else "cafe-order-taking")
     scenario = (
         query.filter_by(slug=scenario_slug).first()
         if scenario_slug else query.first()
     )
     if scenario is None:
         raise HTTPException(status_code=404, detail="시나리오를 찾을 수 없습니다")
+    allowed_modes = (scenario.world_setting or {}).get("service_modes")
+    if allowed_modes and body.service_mode not in allowed_modes:
+        raise HTTPException(status_code=422, detail="선택한 시나리오는 해당 서비스에서 사용할 수 없습니다")
+    if body.service_mode == "interview" and body.difficulty != "basic":
+        raise HTTPException(status_code=422, detail="현재는 신입 일반면접만 지원합니다")
     # 직무 미지정이면 시나리오 팩의 직무를 따른다 (팩 기반 세션의 대시보드 집계 축)
     if not job_role:
         job_role = scenario.job_role or ""
+    elif allowed_modes and job_role != scenario.job_role:
+        raise HTTPException(status_code=422, detail="선택한 직무와 시나리오가 다릅니다")
 
     client_key = body.client_key or str(uuid.uuid4())
     mode = body.mode if body.mode in (5, 10) else 5
@@ -199,9 +300,13 @@ def create_session(
         user_id=user.id if user else None,
         client_key=client_key,
         access_token=secrets.token_urlsafe(24),
+        kiosk_session_id=kiosk_snapshot.kiosk_session_id if kiosk_snapshot else None,
+        kiosk_card_uid=kiosk_snapshot.uid if kiosk_snapshot else None,
+        kiosk_link_status="pending" if kiosk_snapshot else "not_requested",
         # 영수증 QR 클레임 토큰 (S-B2B-CLAIM) — 계정 귀속 전용 능력 토큰.
         # access_token(데이터 열람권)과 분리해 QR 노출 반경을 귀속 행위로 한정한다.
         claim_token=secrets.token_urlsafe(24),
+        rapport={"voice_engine_version": voice_measurement.VERSION},
         mode=mode,
         difficulty=stored_difficulty,
         attempt_no=prev_attempts + 1,
@@ -231,8 +336,10 @@ def create_session(
     # 첫 대사는 시나리오가 정한 역할·상황을 방문객에게 정확히 전달해야 한다.
     # 따라서 LLM은 첫 응답을 받은 다음 질문부터만 문장을 개인화한다.
     turn = _create_turn(db, session, spec, order=1)
+    kiosk_link_status = _link_kiosk_session(db, session) if kiosk_snapshot else "not_requested"
 
     return SessionOut(
+        voice_analysis=voice_analysis.public_state(session),
         interaction=interaction.public_state(session),
         id=session.id,
         status=session.status.value,
@@ -242,7 +349,17 @@ def create_session(
         scenario=to_scenario_out(scenario),
         current_turn=_turn_out(db, turn),
         access_token=session.access_token,
+        kiosk_link_status=kiosk_link_status,
     )
+
+
+@router.post("/{session_id}/kiosk-link")
+def retry_kiosk_link(
+    session: RoleplaySession = Depends(require_session), db: Session = Depends(get_db),
+):
+    if not session.kiosk_session_id or not session.kiosk_card_uid:
+        raise HTTPException(status_code=404, detail={"code": "KIOSK_LINK_NOT_REQUESTED"})
+    return {"status": _link_kiosk_session(db, session)}
 
 
 @router.get("/mine")
@@ -374,6 +491,7 @@ def get_session(
     elapsed = max(0, int((datetime.now(timezone.utc) - started).total_seconds()))
 
     return SessionResumeOut(
+        voice_analysis=voice_analysis.public_state(session),
         interaction=interaction.public_state(session),
         id=session.id,
         status=session.status.value,
@@ -384,6 +502,7 @@ def get_session(
         current_turn=_turn_out(db, current) if current else None,
         history=history,
         elapsed_sec=elapsed,
+        kiosk_link_status=session.kiosk_link_status or "not_requested",
     )
 
 
@@ -397,7 +516,7 @@ def observe_turn(
         raise HTTPException(status_code=409, detail="현재 답변 중인 턴이 아닙니다")
     result = judgments.evaluate(turn_id, text=body.text,
         nonverbal=body.nonverbal.model_dump(exclude_unset=True) if body.nonverbal else None,
-        duration_ms=body.duration_ms, voice_text=body.stt_source == "webspeech")
+        duration_ms=body.duration_ms, voice_text=body.stt_source == "webspeech" and not voice_analysis.enabled(session))
     # 읽기 전용. 팁 폴링이 답변 저장 트랜잭션의 JSON 상태를 덮어쓰지 않는다.
     return {"turn_id": turn_id, "judgment": result, "tip": feedback.select(result)}
 
@@ -436,9 +555,16 @@ def submit_response(
     # 리액션 비트 + 수행도 갱신 — 이 답변이 상대의 반응과 하루의 전개를 결정한다
     episode = db.get(Episode, turn.episode_id)
     signals = reactions.classify(turn.response_text, episode.checklist if episode else [])
+    vision_started = time.perf_counter()
     observation = analyze_live_coaching(
         turn.nonverbal_metrics, turn.response_text, turn.response_duration_ms,
     )
+    vision_latency_ms = round((time.perf_counter() - vision_started) * 1000)
+    if turn.nonverbal_metrics:
+        db.add(SystemLog(
+            device_id=session.device_id, organization_id=session.institution_id,
+            vision_latency_ms=vision_latency_ms, status_code=200,
+        ))
     reactions.update_rapport(session, signals["case"])
     # 감정 상태 전이 (S-B2B-EMOTION) — 대응 품질이 상대의 감정 온도를 실제로 움직인다
     emotion.update(session, signals["case"], turn.order)
@@ -450,10 +576,46 @@ def submit_response(
         turn.id, text=turn.response_text,
         goals=interaction.assessment_goals(interaction.state(session)),
         nonverbal=turn.nonverbal_metrics, duration_ms=turn.response_duration_ms,
-        voice_text=turn.stt_source == "webspeech",
+        voice_text=turn.stt_source == "webspeech" and not voice_analysis.enabled(session),
     )
+    if voice_analysis.enabled(session):
+        measured_voice = voice_analysis.live_turn(session, turn)
+        voice_analysis.store_measurement(session, turn.id, measured_voice)
+        judgment["voice_measurement"] = measured_voice
+        # Labels are unvalidated: raw/reference values never become roleplay criticism.
+        observation["issues"] = [item for item in observation.get("issues", []) if item.get("kind") != "voice"]
     flow_before = interaction.state(session)
-    if flow_before:
+    # 읽기 4/5: 답변이 들어오면 이곳에서 면접/카페/기존 흐름 중 분석기를 고릅니다.
+    # 예정 작업: 새 항목별 결과와 오류 상태를 받아 저장하되, 실패를 감점으로 바꾸지 않습니다.
+    # 이 아래의 분기와 기존 질문 진행을 함께 시험해야 한쪽만 바뀌는 일을 막을 수 있습니다.
+    if flow_before.get("rubric_version"):
+        assessment = interview.analyze(turn, turns, flow_before)
+        judgment["events"] = [e for e in judgment["events"] if e["area"] != "response"]
+        judgment["measured"] = [a for a in judgment["measured"] if a != "response"]
+        judgment["met_goals"] = []
+        judgment["interview_assessment"] = assessment
+        
+        # [추가] 분석 상태가 정상 완료(completed)일 때만 기존 판정 로직을 수행합니다.
+        analysis_status = assessment.get("analysis_status", "completed")
+        if analysis_status == "completed":
+            if assessment.get("status") == "insufficient" and assessment.get("missing"):
+                current_question = flow_before["items"][flow_before["index"]]
+                tip = judgments.event(turn.id, "response", "missing_goal", "negative",
+                    {"goal_id": current_question["id"]}, current_question["followup"], key=current_question["id"])
+                tip["scorable"] = False  # 기본 점수는 질문의 마지막 상태에서만 계산
+                judgment["events"].append(tip)
+            if assessment.get("status") not in {"uncertain", "no_experience"}:
+                judgment["measured"].append("response")
+        else:
+            # [추가] 미측정(unmeasured) 등 실패 시 에러 상태를 판정에 기록합니다.
+            judgment["analysis_status"] = analysis_status
+            
+    elif flow_before.get("cafe"):
+        judgment["events"] = [e for e in judgment["events"] if e["area"] != "response"]
+        judgment["measured"] = [a for a in judgment["measured"] if a != "response"]
+        judgment["met_goals"] = []
+        judgment["cafe_assessment"] = cafe.analyze(turn, turns, flow_before)
+    elif flow_before:
         # 주의: 현재는 keywords가 있는 항목만 목표 분석에 보냅니다.
         # 면접 질문에도 항목별 기준을 붙이려면 이 조건과 interaction.py의 질문 형식을 함께 수정하세요.
         goals = interaction.assessment_goals(flow_before)
@@ -471,8 +633,25 @@ def submit_response(
             judgment["measured"].append("response")
         judgment["semantic_status"] = status
     selected_feedback = feedback.assign(session, judgment, turn.order)
+    if selected_feedback:
+        db.add(AiFeedback(
+            session_id=session.id,
+            feedback_category=selected_feedback.get("rule", "general"),
+            commentary=selected_feedback.get("message", ""),
+            sentence_template=(selected_feedback.get("evidence") or {}).get("suggestion")
+            or selected_feedback.get("message", ""),
+        ))
+    elapsed_seconds = max(0.0, (utcnow() - session.started_at).total_seconds())
+    for issue in observation.get("issues", []):
+        db.add(CoachingLog(
+            session_id=session.id, turn_number=turn.order,
+            timestamp_seconds=elapsed_seconds, log_type=issue.get("kind", "observation"),
+            message=" / ".join(issue.get("reasons") or []),
+        ))
     judgments.persist(session, judgment)
     flow = interaction.advance(session, turn, turns, judgment)
+    if flow.get("rubric_version"):
+        judgments.persist(session, judgment)
     if flow and flow.get("mode") == CONTINUOUS_MODE:
         flow["last_case"] = signals["case"]
         interaction.save(session, flow)
@@ -550,12 +729,18 @@ async def upload_audio(
     session_id: int,
     turn_id: int,
     file: UploadFile,
+    voice_input: Annotated[str, Form(max_length=12000)] = "{}",
     session: RoleplaySession = Depends(require_session),
     db: Session = Depends(get_db),
 ):
     turn = db.get(Turn, turn_id)
     if turn is None or turn.session_id != session_id:
         raise HTTPException(status_code=404, detail="턴을 찾을 수 없습니다")
+    if session.status != SessionStatus.in_progress:
+        raise HTTPException(status_code=409, detail="진행 중인 연습이 아닙니다")
+    source = parse_input(voice_input)
+    if source["calibration_id"] != (session.rapport or {}).get("voice_calibration_id"):
+        source["calibration_id"] = None
     # 텍스트 필드처럼 오디오도 상한을 건다 — 무제한 read()는 메모리·디스크 DoS 벡터.
     # 10분 모드 한 턴의 16kHz 16bit mono wav도 수 MB 수준이라 25MB면 충분히 관대하다.
     data = await file.read(MAX_AUDIO_BYTES + 1)
@@ -564,6 +749,21 @@ async def upload_audio(
     dest = settings.media_dir / f"session{session_id}_turn{turn_id}.wav"
     await run_in_threadpool(dest.write_bytes, data)
     turn.audio_path = str(dest)
+    consent = db.query(Consent).filter_by(session_id=session_id).first()
+    retention_days = settings.media_retention_days if consent and consent.storage_policy != "none" else 1
+    raw_file = db.query(SessionRawFile).filter_by(
+        session_id=session_id, audio_file_path=str(dest),
+    ).first()
+    if raw_file:
+        raw_file.expires_at = utcnow() + timedelta(days=retention_days)
+    else:
+        db.add(SessionRawFile(
+            session_id=session_id, audio_file_path=str(dest),
+            expires_at=utcnow() + timedelta(days=retention_days),
+        ))
+    if voice_analysis.enabled(session):
+        session.rapport = {**(session.rapport or {}), "voice_inputs": {
+            **(session.rapport or {}).get("voice_inputs", {}), str(turn_id): source}}
 
     # Chrome의 답변 원문을 유지한다. Whisper 간투어 분석은 세션 종료 후 실행한다.
     db.commit()

@@ -1,3 +1,4 @@
+import { isMirrorDeployment } from "./features/smart-mirror/lib/workplaceMirrorTimeline";
 import { useEffect, useRef, useState } from "react";
 import { counterpartProfiles, difficulties, getRoleScenarioOptions } from "./data/setupCatalog";
 import { ServiceEntryShell } from "./pages/ServiceEntryShell";
@@ -16,6 +17,7 @@ import {
   getScenarios,
   issueCode,
   saveActiveSession,
+  retryKioskLink,
   submitResponse,
 } from "./lib/pocApi";
 import { findJobRole } from "./lib/nfc";
@@ -44,16 +46,33 @@ function mediaErrorMessage(error) {
 
 export default function App() {
   const [apiScenarios, setApiScenarios] = useState([]);
+  const [scenarioStatus, setScenarioStatus] = useState("loading");
+  const [scenarioRetry, setScenarioRetry] = useState(0);
   const [aiHealth, setAiHealth] = useState(null);
   const [mediaStream, setMediaStream] = useState(null);
   const [permissionState, setPermissionState] = useState({ camera: "prompt", microphone: "prompt" });
   const [starting, setStarting] = useState(false);
+  const [linkRetrying, setLinkRetrying] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(null);
   const turnAudioReferencesRef = useRef([]);
+  const startInFlight = useRef(false);
+  const preparedMirrorSession = useRef(null);
+  const mirrorPreparationKey = useRef("");
+  const mirrorPreparationContext = useRef({ key: "", revision: 0 });
   const retainedSessionIdRef = useRef("");
+  const visitorEpochRef = useRef(0);
+
+  const resetVisitorMedia = () => {
+    mediaStream?.getTracks().forEach((track) => track.stop());
+    setMediaStream(null); setPermissionState({ camera: "prompt", microphone: "prompt" });
+    startInFlight.current = false;
+    setStarting(false); setSubmitting(false); setLinkRetrying(false); setAnalysisProgress(null);
+    turnAudioReferencesRef.current = []; retainedSessionIdRef.current = "";
+  };
 
   const requestExerciseMedia = async () => {
+    const epoch = visitorEpochRef.current;
     if (!navigator.mediaDevices?.getUserMedia) {
       setPermissionState({ camera: "denied", microphone: "denied" });
       throw new Error("이 브라우저에서는 카메라와 마이크 권한을 사용할 수 없어요.");
@@ -64,12 +83,13 @@ export default function App() {
       return mediaStream;
     }
     const savedMic = localStorage.getItem("mirror-ting-mic-device");
-    const audioConstraint = savedMic ? { deviceId: { ideal: savedMic } } : true;
+    const audioConstraint = { autoGainControl: false, noiseSuppression: false, echoCancellation: true, ...(savedMic ? { deviceId: { ideal: savedMic } } : {}) };
     let stream = null;
     let lastError = null;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: audioConstraint });
     } catch (error) {
+      if (epoch !== visitorEpochRef.current) throw new DOMException("방문자가 변경되었습니다", "AbortError");
       lastError = error;
       const parts = [];
       try { parts.push(await navigator.mediaDevices.getUserMedia({ video: true })); } catch (videoError) { lastError = videoError; }
@@ -79,6 +99,10 @@ export default function App() {
     }
     const camera = alive(stream, "getVideoTracks");
     const microphone = alive(stream, "getAudioTracks");
+    if (epoch !== visitorEpochRef.current) {
+      stream?.getTracks().forEach((track) => track.stop());
+      throw new DOMException("방문자가 변경되었습니다", "AbortError");
+    }
     setPermissionState({ camera: camera ? "granted" : "denied", microphone: microphone ? "granted" : "denied" });
     if (!camera && !microphone) throw new Error(mediaErrorMessage(lastError));
     if (mediaStream && mediaStream !== stream) mediaStream.getTracks().forEach((track) => track.stop());
@@ -86,7 +110,7 @@ export default function App() {
     return stream;
   };
 
-  const entry = useServiceEntryRoute({ kioskIssueMode: KIOSK_ISSUE_MODE, requestExerciseMedia });
+  const entry = useServiceEntryRoute({ kioskIssueMode: KIOSK_ISSUE_MODE, requestExerciseMedia, visitorEpochRef, onVisitorReset: resetVisitorMedia });
   const {
     active, selectedServiceModeId, counterpartProfile, difficulty,
     session, turn, report, pocScenarioSlug, selectedEpisodeId, nfcCard, consented,
@@ -96,9 +120,17 @@ export default function App() {
     setPocScenarioSlug, setSelectedEpisodeId, setApiError,
   } = entry.setters;
   const { navigate } = entry.actions;
+  const contextKey = JSON.stringify([active, nfcCard?.uid, nfcCard?.issuedCount, nfcCard?.kioskSessionId, consented]);
+  if (mirrorPreparationContext.current.key !== contextKey) {
+    mirrorPreparationContext.current = { key: contextKey, revision: mirrorPreparationContext.current.revision + 1 };
+    preparedMirrorSession.current = null;
+  }
+  const preparationKey = `${contextKey}:${mirrorPreparationContext.current.revision}`;
+  mirrorPreparationKey.current = preparationKey;
   const mode = 5;
   const selectedServiceMode = resolveServiceMode(selectedServiceModeId);
-  const roleScenarioOptions = getRoleScenarioOptions(apiScenarios, counterpartProfile, mode);
+  const visibleScenarios = apiScenarios.filter((item) => !item.world_setting?.service_modes || item.world_setting.service_modes.includes(selectedServiceMode.id));
+  const roleScenarioOptions = getRoleScenarioOptions(visibleScenarios, counterpartProfile, mode);
   const selectedScenarioOption = roleScenarioOptions.find((item) => item.episodeId === selectedEpisodeId) || null;
   const previewScenario = apiScenarios.find((item) => item.slug === (nfcCard?.scenarioSlug || selectedScenarioOption?.scenarioSlug || pocScenarioSlug)) || {};
   const previewEpisode = nfcCard ? null : previewScenario.episodes?.find((item) => item.id === selectedEpisodeId) || null;
@@ -111,18 +143,20 @@ export default function App() {
         .then((items) => {
           if (cancelled) return;
           setApiScenarios(items);
+          setScenarioStatus("ready");
           setPocScenarioSlug((currentSlug) => currentSlug || (selectedServiceModeId === "workplace" ? WORKPLACE_SCENARIO_SLUG : items[0]?.slug) || "");
           setApiError("");
         })
         .catch(() => {
           if (cancelled) return;
+          setScenarioStatus("error");
           setApiError("서버를 실행하면 연습을 시작할 수 있어요.");
           timer = window.setTimeout(load, 5000);
         });
     };
     load();
     return () => { cancelled = true; window.clearTimeout(timer); };
-  }, []);
+  }, [scenarioRetry]);
   useEffect(() => {
     setSelectedEpisodeId((currentId) => roleScenarioOptions.some((item) => item.episodeId === currentId) ? currentId : roleScenarioOptions[0]?.episodeId || null);
   }, [counterpartProfile, roleScenarioOptions]);
@@ -138,23 +172,30 @@ export default function App() {
   useEffect(() => {
     if (active !== "result" || !session || report) return undefined;
     let cancelled = false;
+    const epoch = visitorEpochRef.current;
+    let inFlight = false;
     const poll = async () => {
+      if (inFlight) return;
+      inFlight = true;
       try {
         const progress = await getProgress(session);
-        if (cancelled) return;
+        if (cancelled || epoch !== visitorEpochRef.current) return;
         setAnalysisProgress(progress);
         if (progress.stage === "error") throw new Error("분석 중 문제가 생겼어요. 잠시 후 다시 확인해 주세요.");
         if (progress.status !== "completed" && progress.stage !== "done") return;
         const completedReport = await getReport(session);
+        if (cancelled || epoch !== visitorEpochRef.current) return;
         setReport(completedReport);
+        setSession((previous) => ({ ...previous, status: "completed" }));
         if (retainedSessionIdRef.current !== session.id) {
           saveRetainedRecord(localStorage, buildRetainedRecord({ session, report: completedReport, audioReferences: turnAudioReferencesRef.current }));
           retainedSessionIdRef.current = session.id;
         }
-        setHistory((await getHistory()).items || []);
+        const nextHistory = await getHistory();
+        if (epoch === visitorEpochRef.current) setHistory(nextHistory.items || []);
       } catch (error) {
-        if (!cancelled) setApiError(error.message);
-      }
+        if (!cancelled && epoch === visitorEpochRef.current) setApiError(error.message);
+      } finally { inFlight = false; }
     };
     poll();
     const timer = window.setInterval(poll, 800);
@@ -162,7 +203,12 @@ export default function App() {
   }, [active, report, session]);
 
   const switchMicDevice = async (deviceId) => {
-    const fresh = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: deviceId } } });
+    const epoch = visitorEpochRef.current;
+    const fresh = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: deviceId }, autoGainControl: false, noiseSuppression: false, echoCancellation: true } });
+    if (epoch !== visitorEpochRef.current) {
+      fresh.getTracks().forEach((track) => track.stop());
+      throw new DOMException("방문자가 변경되었습니다", "AbortError");
+    }
     localStorage.setItem("mirror-ting-mic-device", deviceId);
     const videoTracks = mediaStream?.getVideoTracks?.().filter((track) => track.readyState === "live") || [];
     mediaStream?.getAudioTracks?.().forEach((track) => track.stop());
@@ -172,57 +218,98 @@ export default function App() {
     return next;
   };
 
-  const startPractice = async () => {
+  const startPractice = async (prepareOnly = false) => {
+    if (startInFlight.current) return;
+    startInFlight.current = true;
+    const mirror = isMirrorDeployment();
+    const epoch = visitorEpochRef.current;
+    const requestKey = preparationKey;
     setStarting(true); setApiError(""); setReport(null); setTurnHistory([]); setTurnSignals(null);
     turnAudioReferencesRef.current = [];
     retainedSessionIdRef.current = "";
     try {
       if (!consented) throw new Error("개인정보 처리에 동의하면 역할극을 시작할 수 있어요.");
       try {
-        await requestExerciseMedia();
+        const stream = await requestExerciseMedia();
+        if (mirror && (!stream.getAudioTracks().some(t => t.readyState === "live") || !stream.getVideoTracks().some(t => t.readyState === "live"))) throw new Error("카메라와 마이크를 모두 준비해 주세요.");
       } catch (mediaError) {
+        if (mirror) throw mediaError;
         console.warn("[media] 카메라·마이크 없이 시작:", mediaError?.message || mediaError);
       }
+      if (mirror && (!nfcCard?.uid || (!nfcCard?.issuedCount && !nfcCard?.kioskSessionId))) throw new Error("키오스크에서 동의 후 카드를 발급해 주세요.");
+      if (epoch !== visitorEpochRef.current) return;
       const workplace = selectedServiceModeId === "workplace" && !nfcCard;
-      const nextSession = await createSession({
+      const prepared = mirror && preparedMirrorSession.current?.key === requestKey ? preparedMirrorSession.current.session : null;
+      const nextSession = prepared || await createSession({
         serviceMode: selectedServiceModeId || selectedServiceMode.id,
         difficulty: workplace ? "basic" : (difficulty || "basic"),
         mode,
-        scenarioSlug: workplace ? WORKPLACE_SCENARIO_SLUG : (previewScenario.slug || nfcCard?.scenarioSlug),
+        scenarioSlug: mirror || workplace ? WORKPLACE_SCENARIO_SLUG : (previewScenario.slug || nfcCard?.scenarioSlug),
         selectedEpisodeId: workplace || nfcCard ? null : selectedEpisodeId,
         jobRole: nfcCard?.jobRole,
         nfcUid: nfcCard?.uid || "",
+        kioskSessionId: nfcCard?.kioskSessionId,
         consent: consented,
+        ...(mirror && !nfcCard?.kioskSessionId ? { nfcIssuedCount: nfcCard.issuedCount } : {}),
       });
+      if (epoch !== visitorEpochRef.current) return;
+      if (mirror && mirrorPreparationKey.current !== requestKey) return;
+      if (mirror && prepareOnly === true) {
+        preparedMirrorSession.current = { key: requestKey, session: nextSession };
+        return nextSession;
+      }
+      preparedMirrorSession.current = null;
       saveActiveSession(nextSession);
       setSession(nextSession); setTurn(nextSession.current_turn); navigate("practice");
-    } catch (error) { setApiError(error.message); } finally { setStarting(false); }
+    } catch (error) { if (epoch === visitorEpochRef.current) setApiError(error.message); }
+    finally { if (epoch === visitorEpochRef.current) { startInFlight.current = false; setStarting(false); } }
+  };
+  const retryCardLink = async () => {
+    if (!session || linkRetrying) return;
+    const epoch = visitorEpochRef.current;
+    setLinkRetrying(true);
+    try {
+      const result = await retryKioskLink(session);
+      if (epoch === visitorEpochRef.current) setSession((previous) => ({ ...previous, kiosk_link_status: result.status }));
+    } catch (error) { if (epoch === visitorEpochRef.current) setApiError(error.message); }
+    finally { if (epoch === visitorEpochRef.current) setLinkRetrying(false); }
   };
   const sendAnswer = async (input) => {
     if (!session || !turn || !input.text.trim()) return;
+    const epoch = visitorEpochRef.current;
     setSubmitting(true); setApiError("");
     try {
       const result = await submitResponse(session, turn.id, { ...input, text: input.text.trim() });
+      if (epoch !== visitorEpochRef.current) return;
       void retainTurnAudio(session.id, turn.id, input.audio).then((audioReference) => {
-        if (audioReference) turnAudioReferencesRef.current = [...turnAudioReferencesRef.current, audioReference];
+        if (audioReference && epoch === visitorEpochRef.current) turnAudioReferencesRef.current = [...turnAudioReferencesRef.current, audioReference];
       }).catch((error) => {
         console.warn("[audio] turn recording was not retained:", error);
       });
       setTurnHistory((items) => [...items, { ...turn, response_text: input.text.trim() }]);
       setTurnSignals(result.turn_signals || null);
       setSession((previous) => ({ ...previous, interaction: result.interaction }));
-      if (result.finished) { await finishSession(session); setTurn(null); navigate("result"); } else setTurn(result.next_turn);
-    } catch (error) { setApiError(error.message); } finally { setSubmitting(false); }
+      if (result.finished) {
+        await finishSession(session);
+        if (epoch !== visitorEpochRef.current) return;
+        setSession((previous) => ({ ...previous, status: "analyzing" }));
+        setTurn(null); navigate("result");
+      } else setTurn(result.next_turn);
+    } catch (error) { if (epoch === visitorEpochRef.current) setApiError(error.message); }
+    finally { if (epoch === visitorEpochRef.current) setSubmitting(false); }
   };
 
   const endPractice = async () => {
     if (!session || submitting) return;
+    const epoch = visitorEpochRef.current;
     setSubmitting(true); setApiError("");
     try {
       await finishSession(session);
+      if (epoch !== visitorEpochRef.current) return;
+      setSession((previous) => ({ ...previous, status: "analyzing" }));
       setTurn(null); navigate("result");
-    } catch (error) { setApiError(error.message); }
-    finally { setSubmitting(false); }
+    } catch (error) { if (epoch === visitorEpochRef.current) setApiError(error.message); }
+    finally { if (epoch === visitorEpochRef.current) setSubmitting(false); }
   };
 
   const nfcRole = nfcCard ? findJobRole(nfcCard.jobRole) : null;
@@ -231,7 +318,8 @@ export default function App() {
     : counterpartProfiles.find((item) => item.id === counterpartProfile) || counterpartProfiles[0];
   const view = {
     serviceMode: selectedServiceMode,
-    apiScenarios,
+    apiScenarios: visibleScenarios,
+    scenarioStatus,
     previewScenario,
     previewEpisode,
     previewCounterpartProfile,
@@ -242,14 +330,18 @@ export default function App() {
     analysisProgress,
     starting,
     submitting,
+    linkRetrying,
     mode,
   };
   const actions = {
+    retryScenarios: () => { setScenarioStatus("loading"); setScenarioRetry((value) => value + 1); },
     startPractice,
+    prepareMirror: () => startPractice(true),
     sendAnswer,
     endPractice,
     requestExerciseMedia,
     switchMicDevice,
+    retryCardLink,
     issueCode,
   };
 

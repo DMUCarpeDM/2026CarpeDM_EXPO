@@ -2,6 +2,18 @@
 
 이 문서는 2026-09-12 코드 기준입니다. 관람객용 화면은 `mvp/`, 분석 서버는 `poc/backend/`에서 작업합니다. 아래 설치 명령은 macOS 터미널과 저장소 루트를 기준으로 작성했습니다.
 
+## 음성 엔진 개정 (2026-09-22)
+
+새 체험은 9월 17일 설계의 `voice-measure-v2`를 사용합니다. `requirements.txt`를 다시 설치하면 Silero VAD 6.2.1, librosa 0.11.0, praat-parselmouth 0.4.7이 준비됩니다. 현재 macOS Python 3.14 환경에서 실제 실행을 확인했습니다.
+
+시작 시 마이크 검사에서 주변 소음 2초와 기준 문장 10초를 녹음합니다. 검사 녹음은 서버의 임시 파일로만 처리하고 삭제하며, RMS 기준과 입력 설정은 해당 체험에 저장합니다. 마이크/입력 설정이 바뀌면 다시 검사합니다. 검사를 건너뛰면 음성 측정 없이 직접 입력으로 연습합니다.
+
+크기·속도·멈춤과 참고용 높낮이·발성 불규칙성을 보고서에 표시합니다. 감점 경계가 검증되지 않아 **새 체험의 음성 점수는 null**이며, 높낮이·떨림을 이유로 AI가 지적하지 않습니다. 간투어는 Whisper 추정치를 응답 습관으로 분리하고 중복 감점하지 않습니다. 기존 체험과 점수 비교가 섞이지 않도록 새 보고서는 `interaction-score-v2`를 사용합니다.
+
+측정값은 `RoleplaySession.rapport`의 `voice_calibrations`, `voice_inputs`, `voice_measurements`에 답변 ID별로 저장합니다. 보고서는 `speech_stats.voice_analysis`에 사본을 받습니다. 기존 `analysis_results.score`의 NOT NULL 제약을 피하려고 미측정에 0점을 넣지 않습니다. 원본 녹음은 기존 미디어 보관 정책을 따릅니다.
+
+구현 범위·검증·남은 현장 점검은 [음성 엔진 작업 기준](voice-engine-implementation-2026-09-22.md)을 확인하세요.
+
 ## 처음 설치하기
 
 Node.js 20 이상, Python 3.12, Git과 Chrome을 준비합니다. Python 3.14에서도 현재 환경의 Whisper 실행을 확인했지만 새 팀원은 Python 3.12로 환경을 맞추는 편이 좋습니다. 카메라·마이크와 인터넷 연결도 필요합니다.

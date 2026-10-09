@@ -37,6 +37,10 @@ export function savedSessionDestination(status) {
   return null;
 }
 
+export function guardSessionDestination(destination, status) {
+  return destination === "practice" && ["completed", "analyzing"].includes(status) ? "result" : destination;
+}
+
 export function normalizeDestination(target, selectedServiceModeId) {
   if (target === "homepage") return "service";
   if (LEGACY_REPORT_VIEWS.has(target)) return "records";

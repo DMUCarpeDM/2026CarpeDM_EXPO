@@ -1,8 +1,12 @@
+import { createStaticInterviewApi } from "./staticInterviewApi.js";
+
 const LOCAL_API_BASE = "/api";
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 const API_BASE = resolveApiBase(globalThis.__MIRROR_TING_API_BASE__ || import.meta.env?.VITE_API_URL);
 const CLIENT_KEY = "mirror-ting-client-key";
 const ACTIVE_SESSION = "mirror-ting-active-session";
+const STATIC_DEMO = String(import.meta.env?.VITE_STATIC_DEMO || "").toLowerCase() === "true";
+const staticRequest = STATIC_DEMO && typeof localStorage !== "undefined" ? createStaticInterviewApi(localStorage) : null;
 
 export class PocApiError extends Error {
   constructor(message, status) {
@@ -33,6 +37,7 @@ export function resolveApiBase(candidate) {
 }
 
 async function request(path, { token, ...options } = {}) {
+  if (staticRequest) return staticRequest(path, options);
   const isFormData = options.body instanceof FormData;
   const response = await fetch(`${API_BASE}${path}`, {
     headers: {
@@ -80,7 +85,7 @@ export async function synthesizeSpeech(text) {
 
 const SESSION_DIFFICULTIES = new Set(["basic", "pressure", "ultra_pressure"]);
 
-export function createSession({ serviceMode = "workplace", difficulty, mode, scenarioSlug, selectedEpisodeId, consent, jobRole, nfcUid }) {
+export function createSession({ serviceMode = "workplace", difficulty, mode, scenarioSlug, selectedEpisodeId, consent, jobRole, nfcUid, nfcIssuedCount, kioskSessionId }) {
   return request("/sessions", {
     method: "POST",
     body: JSON.stringify({
@@ -93,6 +98,8 @@ export function createSession({ serviceMode = "workplace", difficulty, mode, sce
       // nfc_uid를 주면 서버가 카드의 직무·시나리오를 세션에 스탬프한다 (미등록 카드 404).
       ...(jobRole ? { job_role: jobRole } : {}),
       ...(nfcUid ? { nfc_uid: nfcUid } : {}),
+      ...(nfcIssuedCount != null ? { nfc_issued_count: nfcIssuedCount } : {}),
+      ...(kioskSessionId ? { kiosk_session_id: kioskSessionId } : {}),
       client_key: getClientKey(),
       consent: { agreed: consent, storage_policy: "none" },
     }),
@@ -107,11 +114,12 @@ export function getNfcTap(reader, since = 0) {
 }
 
 // 카드 발급/재발급 — 같은 uid는 직무를 덮어쓴다 (카드는 회전 소모품). 알 수 없는 직무면 422.
-export function issueNfcCard({ uid, jobRole, scenarioSlug }) {
+export function issueNfcCard({ uid, jobRole, scenarioSlug, consentAgreed }) {
   return request("/nfc/issue", {
     method: "POST",
     body: JSON.stringify({
       uid,
+      ...(consentAgreed != null ? { consent_agreed: consentAgreed } : {}),
       job_role: jobRole,
       ...(scenarioSlug ? { scenario_slug: scenarioSlug } : {}),
     }),
@@ -134,12 +142,13 @@ export async function submitResponse(session, turnId, input) {
     if (!input.audio || input.audio.size === 0) return;
     try {
       const form = new FormData();
+      form.append("voice_input", JSON.stringify(input.voiceInput || {}));
       form.append("file", input.audio, `turn-${turnId}.wav`);
       await request(`/sessions/${session.id}/turns/${turnId}/audio`, {
         method: "POST",
         token: session.access_token,
         body: form,
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(session.voice_analysis?.engine_version ? 4_000 : 30_000),
       });
     } catch {
       // 오디오 분석은 부가 기능 — 업로드가 실패해도 텍스트 기반 분석으로 진행한다.
@@ -155,6 +164,11 @@ export async function submitResponse(session, turnId, input) {
       nonverbal: input.nonverbal || null,
     }),
   });
+  if (session.voice_analysis?.engine_version && input.audio) {
+    // 다음 대사 전 측정용 녹음을 먼저 전달하되 업로드 대기는 제한한다.
+    await uploadAudio();
+    return postResponse();
+  }
   if (input.text?.trim()) {
     const result = await postResponse();
     // 녹음 보관은 대화 진행의 조건이 아니다. 업로드가 지연돼도 다음 턴을 막지 않는다.
@@ -212,4 +226,21 @@ export function getHistory() {
 
 export function issueCode() {
   return request("/codes", { method: "POST", body: JSON.stringify({ client_key: getClientKey() }) });
+}
+
+export function calibrateVoice(session, noise, speech, capture) {
+  const form = new FormData();
+  form.append("noise", noise, "noise.wav");
+  form.append("speech", speech, "speech.wav");
+  form.append("capture", JSON.stringify(capture));
+  return request(`/sessions/${session.id}/voice/calibration`, { method: "POST", token: session.access_token, body: form, signal: AbortSignal.timeout(30_000) });
+}
+
+export function invalidateVoiceCalibration(session) {
+  return request(`/sessions/${session.id}/voice/calibration`, { method: "DELETE", token: session.access_token });
+}
+
+// Re-link the committed session using its stored card snapshot, never create a new session.
+export function retryKioskLink(session) {
+  return request(`/sessions/${session.id}/kiosk-link`, { method: "POST", token: session.access_token });
 }

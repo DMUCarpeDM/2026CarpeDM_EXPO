@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useReducedMotion } from "framer-motion";
 import { mediaById } from "../../data/characterMedia";
 
 function ChromaKeyVideo({ source, name, paused, loop, onEnded, onError }) {
@@ -70,7 +71,7 @@ function ChromaKeyVideo({ source, name, paused, loop, onEnded, onError }) {
       ref={videoRef}
       className="counterpart-video-source"
       src={source}
-      autoPlay
+      autoPlay={!paused}
       loop={loop}
       muted
       playsInline
@@ -86,6 +87,7 @@ function ChromaKeyVideo({ source, name, paused, loop, onEnded, onError }) {
  *  자산은 data/characterMedia.js 등록부에서 character_id로 찾는다(팀장 전용 아님).
  *  등록이 없으면 렌더하지 않는다 — 호출부가 hasCharacterVideo로 먼저 거른다. */
 export function CounterpartVideo({ characterId, state = "listening", name = "AI 상대", paused = false, onReactionComplete }) {
+  const reducedMotion = useReducedMotion();
   const videoRef = useRef(null);
   const previousSourceRef = useRef("");
   const [failed, setFailed] = useState(false);
@@ -99,18 +101,18 @@ export function CounterpartVideo({ characterId, state = "listening", name = "AI 
     setFailed(false);
     const video = videoRef.current;
     if (!video || !source) return undefined;
-    if (paused) { video.pause(); return undefined; }
+    if (paused || reducedMotion) { video.pause(); return undefined; }
     if (previousSourceRef.current !== source) {
       video.currentTime = 0;
       previousSourceRef.current = source;
     }
     video.play().catch(() => setFailed(true));
     return undefined;
-  }, [source, paused]);
+  }, [source, paused, reducedMotion]);
 
   if (!clips) return null;
   // 재생 실패(코덱·자동재생 차단)는 같은 인물의 정지 초상으로 대체 — 빈 화면을 만들지 않는다
-  if (failed && media?.portrait) {
+  if ((failed || reducedMotion) && media?.portrait) {
     return <img className="camera-video counterpart-video is-live" src={media.portrait} alt={`${name} 프로필`} />;
   }
 
@@ -118,7 +120,7 @@ export function CounterpartVideo({ characterId, state = "listening", name = "AI 
     return <ChromaKeyVideo
       source={source}
       name={name}
-      paused={paused}
+      paused={paused || reducedMotion}
       loop={!isReaction}
       onEnded={() => { if (isReaction) onReactionComplete?.(); }}
       onError={() => setFailed(true)}
@@ -129,7 +131,7 @@ export function CounterpartVideo({ characterId, state = "listening", name = "AI 
     ref={videoRef}
     className="camera-video counterpart-video is-live"
     src={source}
-    autoPlay
+    autoPlay={!paused && !reducedMotion}
     loop={!isReaction}
     muted
     playsInline

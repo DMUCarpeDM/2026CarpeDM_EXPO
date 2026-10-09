@@ -1,6 +1,4 @@
-/* 실시간 연습 화면 (피그마 Carpedm 2648-6 실시간 연습 프레임).
-   상단바 → 카메라 스테이지 + 4-Fit/대화 로그 사이드 → 하단 컨트롤이
-   1080p 뷰포트에 스크롤 없이 들어가는 고정 레이아웃입니다. */
+/* 상대 영상 + 질문 집중형 입력. 유리 소재는 영상 조작부와 상태 바에 사용한다. */
 
 .app-shell.practice-mode { width: 100%; max-width: none; padding: 0; }
 .app-shell.practice-mode .screen-frame { min-height: 0; }
@@ -12,16 +10,20 @@
   position: relative;
   box-sizing: border-box;
   width: 100%;
-  max-width: 100vw;
+  max-width: 1440px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  height: calc(100dvh - 88px);
-  padding: 14px 20px 18px;
-  overflow: hidden;
+  min-height: calc(100dvh - 88px);
+  padding: 28px 32px 40px;
 }
 .practice-screen button { transition: transform 0.16s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease; }
+.practice-screen:fullscreen { max-width: none; height: 100dvh; overflow-y: auto; background: var(--color-snow, #fff); }
 .practice-screen button:focus-visible, .practice-screen input:focus-visible { outline: 2px solid rgba(0, 100, 255, 0.55); outline-offset: 2px; }
+.practice-input-status { display: flex; flex: none; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; padding: 10px 16px; border-radius: 8px; background: var(--color-ice); line-height: 1.6; }
+.practice-input-status strong { color: var(--color-link-blue); font-size: 14px; font-weight: 650; }
+.practice-input-status span { color: var(--color-graphite); font-size: 13px; }
 
 /* ---------- 상단바 ---------- */
 .practice-contextbar {
@@ -40,11 +42,9 @@
 .topbar-item { display: flex; flex-direction: column; gap: 1px; padding-left: 18px; border-left: 1px solid var(--color-border); }
 .topbar-item-label { color: var(--color-muted); font-size: 11px; font-weight: 500; letter-spacing: 0.01em; }
 .topbar-scenario { display: inline-flex; align-items: center; gap: 5px; padding: 0; border: 0; background: transparent; color: var(--color-ink); font-size: 15px; font-weight: 680; letter-spacing: -0.01em; }
-.topbar-scenario:hover { color: var(--color-blue); }
-.topbar-scenario svg { color: var(--color-muted); }
 .topbar-item.counterpart { flex-direction: row; align-items: center; gap: 9px; }
-.counterpart-card { position: relative; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; overflow: hidden; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--color-border), 0 2px 6px rgba(16, 24, 40, 0.12); background: linear-gradient(135deg, #2f7cff, #0064ff); color: #fff; }
-.counterpart-card img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.counterpart-avatar { position: relative; display: grid; place-items: center; flex: 0 0 36px; width: 36px; height: 36px; border-radius: 50%; overflow: hidden; border: 2px solid #fff; background: var(--color-fog); }
+.counterpart-avatar img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
 .counterpart-meta { display: flex; flex-direction: column; gap: 1px; }
 .counterpart-meta strong { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 680; letter-spacing: -0.01em; }
 .presence-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.16); }
@@ -69,13 +69,17 @@
   min-height: 0;
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--practice-side-w);
-  gap: 16px;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  align-items: start;
+  gap: 32px;
 }
 
 .practice-camera {
+  grid-column: 1;
+  grid-row: 1 / 3;
   position: relative;
-  min-height: 0;
+  min-height: 620px;
   border-radius: 24px;
   overflow: hidden;
   background:
@@ -130,6 +134,7 @@
   line-height: 1;
   backdrop-filter: blur(8px);
 }
+.camera-pip-connect { position: absolute; inset: 0; margin: auto; width: fit-content; height: 44px; z-index: 3; padding: 8px 12px; border: 1px solid #ffffffaa; border-radius: 24px; background: #ffffffdf; color: #102236; font-size: 13px; }
 .practice-camera .counterpart-video { transform: none; object-position: center 30%; }
 .practice-camera.is-cafe-counterpart,
 .practice-camera.is-workplace-counterpart {
@@ -155,11 +160,12 @@
 .practice-camera .camera-swap { width: auto; height: 33px; display: inline-flex; align-items: center; padding: 0 13px; font-size: 12px; font-weight: 650; white-space: nowrap; }
 
 /* 카메라 끊김 복구 — 새로고침·권한 차단 후 연습 화면 안에서 바로 다시 연결 */
-.camera-reconnect { position: absolute; left: 50%; top: 54%; z-index: 3; display: grid; justify-items: center; gap: 9px; transform: translateX(-50%); text-align: center; }
+.camera-reconnect { position: absolute; left: 50%; top: 45%; width: min(320px, calc(100% - 40px)); z-index: 3; display: grid; justify-items: center; gap: 9px; transform: translate(-50%, -50%); text-align: center; }
 .camera-reconnect button { padding: 12px 22px; border: 1px solid rgba(126, 176, 255, 0.5); border-radius: var(--radius-pill); background: rgba(0, 100, 255, 0.88); color: #fff; font-size: 14px; font-weight: 700; box-shadow: 0 10px 26px rgba(0, 70, 190, 0.4); backdrop-filter: blur(8px); }
 .camera-reconnect button:hover { background: rgba(20, 115, 255, 0.95); }
 .camera-reconnect small { max-width: 320px; color: rgba(255, 255, 255, 0.72); font-size: 11.5px; line-height: 1.5; }
 .camera-reconnect small.is-error { padding: 7px 12px; border-radius: 10px; background: rgba(229, 72, 77, 0.18); color: #ffb3b6; font-weight: 600; }
+.demo-mode-notice { margin: 12px 20px; padding: 12px 16px; border: 1px solid #8fb8ef; border-radius: 10px; background: #eaf3ff; color: #183454; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
 
 /* 마이크 실파형 — AnalyserNode가 구동하는 막대 (기존 점 장식을 대체) */
 .control-wave.is-real i { width: 3px; height: 15px; border-radius: 2px; background: linear-gradient(180deg, #9cc3ff, #4a87ff); transform: scaleY(0.18); transform-origin: center; animation: none; will-change: transform; }
@@ -167,23 +173,25 @@
 
 /* ---------- 상황 브리핑 팝업 ---------- */
 .practice-briefing {
-  position: absolute; inset: 0; z-index: 30;
-  display: grid; place-items: center;
-  padding: 24px;
-  background: rgba(7, 13, 26, 0.56);
-  backdrop-filter: blur(7px);
+  position: fixed; inset: 0;
+  width: 100%; max-width: none; height: 100dvh; max-height: none;
+  margin: 0; border: 0; padding: 16px;
+  background: transparent; color: var(--color-ink);
+  overflow-y: auto; overscroll-behavior: contain;
 }
+.practice-briefing[open] { display: grid; place-items: center; }
+.practice-briefing::backdrop { background: rgba(7, 13, 26, 0.56); backdrop-filter: blur(7px); }
 .practice-briefing-card {
-  width: min(560px, 92vw);
-  padding: 26px 30px 22px;
+  width: min(560px, 100%);
+  padding: clamp(20px, 4vw, 30px);
   border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: 24px;
   background: rgba(255, 255, 255, 0.97);
   box-shadow: 0 30px 80px rgba(4, 12, 30, 0.42);
 }
 .practice-briefing-card--scene {
-  width: min(820px, 94vw);
-  padding: 40px 44px 32px;
+  width: min(820px, 100%);
+  padding: clamp(20px, 4vw, 40px);
   border-radius: 28px;
 }
 .practice-briefing-card--scene h2 { margin: 16px 0 12px; font-size: 30px; line-height: 1.28; }
@@ -233,7 +241,7 @@
 .briefing-foot button:hover { filter: brightness(1.06); }
 
 /* 종료 확인 — 브리핑 카드 스타일 재사용, 촬영 중 오클릭 보호 */
-.practice-confirm .practice-briefing-card { width: min(420px, 92vw); }
+.practice-confirm .practice-briefing-card { width: min(420px, 100%); }
 .confirm-foot { justify-content: flex-end; }
 .confirm-foot .confirm-stay { background: var(--color-blue); }
 .confirm-foot .confirm-leave { background: #fff; color: #e5484d; border: 1px solid rgba(229, 72, 77, 0.45); box-shadow: none; }
@@ -291,7 +299,7 @@
 .camera-expand:hover { background: rgba(30, 44, 70, 0.75); }
 
 /* AI 질문과 음성 입력을 한 흐름으로 묶는 미러형 대화 레이어 */
-.camera-dialogue { position: absolute; right: 42px; bottom: 26px; left: 42px; display: grid; gap: 12px; }
+.camera-dialogue { position: absolute; right: 20px; bottom: 22px; left: 20px; display: flex; z-index: 5; }
 .ai-prompt-overlay { padding: 16px 22px 14px; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 22px; background: linear-gradient(135deg, rgba(12, 20, 34, 0.68), rgba(26, 36, 54, 0.54)); box-shadow: 0 14px 32px rgba(3, 10, 22, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.09); color: #fff; backdrop-filter: blur(12px); }
 .ai-prompt-meta { display: flex; align-items: center; gap: 8px; color: rgba(255, 255, 255, 0.92); font-size: 13px; }
 .ai-prompt-avatar { width: 28px; height: 28px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.38); border-radius: 50%; }
@@ -309,8 +317,34 @@
 .ai-prompt-overlay.is-speaking .ai-prompt-wave i:nth-child(3n + 1) { animation-delay: 0.34s; }
 @keyframes prompt-wave { 0%, 100% { transform: scaleY(0.55); opacity: 0.65; } 50% { transform: scaleY(1); opacity: 1; } }
 
+
+/* Question-focused layout: the input retains the real submission/capture handlers. */
+.practice-question-panel { grid-column: 2; grid-row: 1; padding-top: 12px; }
+.practice-answer-panel { padding: 0 0 12px; }
+.practice-question-label { color: var(--color-blue); font-size: 14px; font-weight: 700; }
+.practice-question-panel h2 { margin: 14px 0 0; color: var(--color-ink); font-size: clamp(24px, 2.2vw, 32px); line-height: 1.45; letter-spacing: -.035em; overflow-wrap: anywhere; }
+.practice-answer-panel label { display: block; margin-bottom: 12px; font-size: 15px; font-weight: 650; }
+.practice-answer-panel textarea { width: 100%; min-height: 180px; resize: vertical; padding: 18px; border: 1px solid var(--color-border-strong); border-radius: 16px; background: #ffffffed; color: var(--color-ink); font: inherit; line-height: 1.7; }
+.practice-answer-panel textarea:focus-visible, .practice-disclosure summary:focus-visible { outline: 2px solid var(--color-blue); outline-offset: 3px; }
+.practice-answer-actions { display: flex; gap: 12px; margin-top: 16px; }
+.practice-answer-actions .control-send { flex: 1; height: 48px; border-radius: 16px; box-shadow: inset 0 2px 2px #ffffffa0, inset 0 -2px 3px #00377360, 0 6px 16px #0071e32e; }
+.practice-disclosure { border-top: 1px solid var(--color-border); padding-top: 14px; }
+.practice-disclosure summary { cursor: pointer; padding: 14px 16px; color: var(--color-ink); border: 1px solid var(--color-border); border-radius: 14px; background: #ffffffbf; font-size: 14px; font-weight: 650; }
+.practice-disclosure summary span { float: right; color: var(--color-muted); font-size: 12px; }
+.practice-disclosure .chat-log-body { max-height: 320px; }
+.practice-contextbar, .control-speak, .camera-user-feed.is-pip {
+  border-color: #ffffffd9;
+  box-shadow: inset 0 2px 2px #fff, inset 2px 0 3px #ffffffb0, inset -2px -3px 5px #33577955, inset 0 -7px 14px #ffffff40, 0 12px 28px #18385120;
+  backdrop-filter: blur(22px) saturate(1.85);
+  -webkit-backdrop-filter: blur(22px) saturate(1.85);
+}
+.practice-contextbar { background: linear-gradient(135deg, #ffffffdf, #edf6ff90 65%, #ffffffdf); }
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .practice-contextbar, .control-speak { background: #f1f5f9; backdrop-filter: none; -webkit-backdrop-filter: none; border-color: #657487; }
+}
+
 /* ---------- 사이드: 분석 도구 + 대화 로그 ---------- */
-.practice-side { display: flex; flex-direction: column; gap: 14px; min-width: 0; min-height: 0; }
+.practice-side { grid-column: 2; grid-row: 2; display: flex; flex-direction: column; gap: 14px; min-width: 0; min-height: 0; }
 .practice-side .card { border-radius: 20px; background: rgba(255, 255, 255, 0.96); box-shadow: var(--pl-card-shadow); }
 
 .tool-status-card { flex: none; padding: 14px 16px; }
@@ -321,7 +355,7 @@
 .tool-status-row { display: grid; justify-items: center; align-content: center; gap: 4px; min-height: 72px; padding: 8px 6px; border: 1px solid var(--color-border); border-radius: 11px; background: #fff; text-align: center; }
 .tool-status-copy { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
 .tool-status-copy strong { color: var(--color-ink); font-size: 12px; font-weight: 680; }
-.tool-status-copy small { overflow: hidden; color: var(--color-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.tool-status-copy small { color: var(--color-graphite); font-size: 12px; line-height: 1.5; }
 .tool-status-state { display: inline-flex; align-items: center; justify-content: space-between; width: 44px; height: 20px; padding: 2px; border-radius: var(--radius-pill); background: #667085; color: #fff; font-size: 8px; font-weight: 800; line-height: 1; }
 .tool-status-state i { width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(25, 31, 40, 0.18); }
 .tool-status-state b { min-width: 18px; font: inherit; white-space: nowrap; }
@@ -356,7 +390,7 @@
 .practice-screen .chat-message.ai .chat-avatar { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 50%; overflow: hidden; border: 1.5px solid #fff; box-shadow: 0 0 0 1px var(--color-border), 0 2px 5px rgba(16, 24, 40, 0.1); background: linear-gradient(135deg, #34d399, #0ea5e9); color: #fff; }
 .practice-screen .chat-message.ai .chat-avatar img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
 .practice-screen .chat-content { min-width: 0; }
-.practice-screen .chat-meta { display: block; margin-bottom: 4px; color: var(--color-muted); font-size: 11.5px; font-weight: 550; }
+.practice-screen .chat-meta { display: block; margin-bottom: 4px; color: var(--color-graphite); font-size: 12px; font-weight: 550; }
 .practice-screen .chat-bubble { padding: 11px 14px; border-radius: 4px 14px 14px 14px; background: var(--color-fog); }
 .practice-screen .chat-bubble p { margin: 0; color: var(--color-ink); font-size: 13px; line-height: 1.58; word-break: keep-all; }
 .practice-screen .chat-message.mine { flex-direction: column; gap: 0; align-items: flex-end; }
@@ -380,16 +414,17 @@
 .control-speak {
   min-width: 0;
   display: flex; align-items: center; gap: 13px;
-  min-height: 64px; padding: 8px 10px 8px 18px;
+  min-height: 56px; padding: 8px 18px;
+  max-width: 100%;
   border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 18px;
-  background: linear-gradient(135deg, rgba(15, 25, 42, 0.72), rgba(25, 38, 57, 0.56));
-  box-shadow: 0 12px 28px rgba(3, 10, 22, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(12px);
+  border-radius: 32px;
+  background: linear-gradient(135deg, #ffffffc0, #ffffff70 40%, #c5e3ffa0 75%, #ffffffc0);
+  box-shadow: inset 0 2px 2px #fff, inset 2px 0 3px #ffffffb0, inset -2px -3px 5px #33577955, inset 0 -7px 14px #ffffff40, 0 12px 28px #18385130;
+  backdrop-filter: blur(22px) saturate(1.85);
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 .control-speak:focus-within { border-color: rgba(108, 164, 255, 0.88); box-shadow: 0 0 0 3px rgba(74, 135, 255, 0.2), 0 14px 32px rgba(3, 10, 22, 0.28); }
-.control-speak-label { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; margin-left: -10px; border: 0; border-radius: 10px; background: transparent; color: rgba(255, 255, 255, 0.88); font-size: 14px; font-weight: 640; white-space: nowrap; }
+.control-speak-label { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; margin-left: -10px; border: 0; border-radius: 10px; background: transparent; color: #102236; font-size: 14px; font-weight: 640; white-space: nowrap; }
 .control-speak-label svg { color: #7eb0ff; }
 .control-speak-label:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); }
 .control-speak-label:disabled { opacity: 0.55; }
@@ -404,33 +439,42 @@
 @keyframes dot-blink { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
 .control-speak input { flex: 1; min-width: 80px; border: 0; background: transparent; color: #fff; font-size: 14px; caret-color: #7eb0ff; }
 .control-speak input::placeholder { color: rgba(231, 239, 255, 0.65); }
-.control-speak input:focus { outline: none; }
+.control-speak input:focus-visible { outline: 2px solid #fff; outline-offset: 4px; border-radius: 4px; }
 .control-clock { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; }
-.control-clock time { font-variant-numeric: tabular-nums; color: #fff; font-size: 14px; font-weight: 720; }
-.control-clock small { font-variant-numeric: tabular-nums; color: rgba(231, 239, 255, 0.64); font-size: 11px; }
+.control-clock time { font-variant-numeric: tabular-nums; color: #102236; font-size: 14px; font-weight: 720; }
+.control-clock small { font-variant-numeric: tabular-nums; color: #34465a; font-size: 11px; }
 .control-send { display: inline-flex; align-items: center; justify-content: center; gap: 3px; flex: none; min-width: 68px; height: 42px; padding: 0 11px 0 14px; border: 1px solid rgba(164, 204, 255, 0.66); border-radius: 12px; background: linear-gradient(135deg, #1974ff, #005ee8); box-shadow: 0 6px 16px rgba(0, 87, 224, 0.32); color: #fff; font-size: 13px; font-weight: 720; }
 .control-send:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(0, 87, 224, 0.42); }
 .control-send:disabled { opacity: 0.45; box-shadow: none; }
 
 /* 모션 최소화 선호 시 장식 애니메이션 정지 */
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .practice-screen .control-speak { background: #f1f5f9; backdrop-filter: none; -webkit-backdrop-filter: none; border-color: #657487; }
+}
 @media (prefers-reduced-motion: reduce) {
   .bubble-wave i, .control-wave i, .ai-prompt-wave i,
   .track-scan, .track-face, .rec-dot, .live-label i { animation: none; }
 }
 
 /* ---------- 반응형 ---------- */
-@media (max-height: 780px), (max-width: 1080px) {
+@media (max-width: 900px) {
   .practice-screen { height: auto; min-height: 100dvh; overflow: visible; }
-  .practice-camera { min-height: 460px; }
+  .practice-camera { min-height: 260px; height: clamp(260px, 42vw, 340px); }
 }
-@media (max-width: 1080px) {
+@media (max-width: 900px) {
   .practice-stage { grid-template-columns: 1fr; }
+  .practice-question-panel { grid-column: 1; grid-row: 1; padding-top: 0; }
+  .practice-camera { grid-column: 1; grid-row: 2; }
+  .practice-side { grid-column: 1; grid-row: 3; }
   .chat-log-body { max-height: 340px; }
   .topbar-item { display: none; }
   .topbar-item.counterpart { display: flex; }
 }
 @media (max-width: 720px) {
   .practice-screen { padding: 10px 12px 14px; }
+  .camera-user-feed.is-pip { inset: auto 12px 82px auto; width: 100px; }
+  .camera-user-feed.is-pip .camera-user-feed-label { top: 5px; left: 5px; font-size: 10px; padding: 3px 5px; }
+  .camera-pip-connect { font-size: 11px; padding: 4px 8px; height: 36px; top: 14px; }
   .practice-contextbar { flex-wrap: wrap; }
   .practice-contextbar-right { width: 100%; justify-content: flex-end; flex-wrap: wrap; gap: 6px; }
   .practice-utility { padding: 8px 10px; font-size: 12px; }
@@ -442,7 +486,10 @@
   .control-wave { display: none; }
   .control-speak { gap: 8px; padding-left: 12px; min-height: 56px; }
   .control-speak-label { padding-right: 4px; }
-  .control-speak input { min-width: 0; }
+  .control-speak { flex-wrap: wrap; }
+  .control-speak input { min-width: 0; flex-basis: 100%; order: -1; font-size: 16px; min-height: 44px; }
+  .control-send { margin-left: auto; }
+  .mic-picker select { font-size: 16px; }
   .control-clock small { display: none; }
   .control-send { min-width: 58px; height: 38px; padding: 0 9px 0 11px; }
 }

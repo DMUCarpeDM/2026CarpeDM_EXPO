@@ -129,7 +129,7 @@
 .console-stage small,
 .task-board__work > small,
 .training-coach-panel small,
-.workspace-column > small { color: var(--mode-accent); font-size: 12px; font-weight: 800; letter-spacing: .06em; }
+.workspace-column > small { color: var(--color-link-blue); font-size: 12px; font-weight: 800; letter-spacing: .06em; }
 .console-stage h2 { max-width: 380px; margin: 12px 0; font-size: 30px; line-height: 1.27; letter-spacing: -.04em; word-break: keep-all; }
 .console-stage p { margin: 0; color: var(--mode-muted); font-size: 14px; line-height: 1.65; }
 .console-wave { display: flex; min-height: 74px; align-items: center; gap: 12px; margin-top: 30px; padding: 0 18px; border: 1px solid var(--mode-border); border-radius: var(--mode-radius); background: #fff; color: var(--mode-muted); font-size: 13px; }
@@ -247,7 +247,7 @@
 .workplace-scenario-card .ui-card__content { display: flex; min-height: 240px; flex-direction: column; align-items: flex-start; }
 .scenario-number { color: var(--mode-accent); font-size: 12px; font-weight: 800; }
 .workplace-scenario-card h3 { margin-top: 38px; }
-.workplace-scenario-card .ui-button { margin-top: auto; margin-left: -14px; color: var(--mode-accent); }
+.workplace-scenario-action { display: flex; justify-content: center; margin-top: 24px; }
 
 .workplace-workspace-section { width: 100%; max-width: none; padding-right: max(24px, calc((100vw - 1180px) / 2)); padding-left: max(24px, calc((100vw - 1180px) / 2)); background: var(--mode-surface); }
 .workplace-workspace { display: grid; grid-template-columns: .78fr 1.3fr .92fr; overflow: hidden; }

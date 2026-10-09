@@ -129,6 +129,7 @@ def seed(db=None) -> None:
         # rubric_weights는 비워 균등 가중 유지 — 기존 점수·골든 회귀와의 호환.
         scenario.domain = "office"
         scenario.job_role = "office_admin"
+        scenario.world_setting = {**scenario.world_setting, "service_modes": ["workplace"]}
         loaded = seed_packs(db)
         db.commit()
         print(f"seeded scenario '{scenario.slug}' with {len(EPISODES)} episodes + packs {loaded}")

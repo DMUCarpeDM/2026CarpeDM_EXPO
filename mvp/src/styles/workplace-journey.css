@@ -1,0 +1,47 @@
+.workplace-journey{--journey-blue:#0064ff;max-width:1480px;width:100%;margin:auto;padding:42px 4vw 28px;background:#fff;color:#263850}
+.workplace-journey-heading{position:relative;z-index:1}
+.workplace-journey-heading>p{font-size:14px;color:#516783;margin:0 0 18px}
+.workplace-journey-heading h1{font-size:clamp(36px,4.2vw,62px);line-height:1.13;letter-spacing:-.045em;margin:0 0 18px;font-weight:750}
+.workplace-journey-heading em{font-style:normal;color:var(--journey-blue)}
+.workplace-journey-heading>span{font-size:18px;color:var(--mode-muted,#707070);line-height:1.6}
+.workplace-journey-body{display:grid;grid-template-columns:minmax(0,2.5fr) minmax(300px,1fr);gap:38px;margin-top:-26px;align-items:center}
+.workplace-journey-map{position:relative;min-width:0}
+.workplace-journey-map>img{width:100%;height:clamp(360px,42vw,610px);object-fit:cover;display:block}
+.workplace-journey-pin{position:absolute;min-width:74px;border:1px solid #e6ebf4;background:#fff;border-radius:18px;box-shadow:0 5px 16px #253a5d12;padding:12px 16px;color:#566981;text-align:center;transform:translate(-50%,-50%);transition:background 180ms,color 180ms,transform 180ms;font-size:14px;line-height:1.35;cursor:pointer}
+.workplace-journey-pin b,.workplace-journey-pin span{display:block}
+.workplace-journey-pin span{font-weight:700;font-size:18px;margin-top:3px}
+.workplace-journey-pin[aria-pressed=true]{background:var(--journey-blue);border-color:var(--journey-blue);color:white;transform:translate(-50%,-50%) scale(1.06)}
+.workplace-journey[data-animate=false] .workplace-journey-pin{transition:none}
+.workplace-journey .pin-0{left:23%;top:53%}.workplace-journey .pin-1{left:53%;top:39%}.workplace-journey .pin-2{left:86%;top:42%}
+.workplace-journey-context{padding:65px 0 0;min-width:0}
+.workplace-journey-stamp{color:var(--journey-blue);font-size:14px;font-weight:700}
+.workplace-journey-context h2{font-size:clamp(26px,2.4vw,36px);line-height:1.35;margin:20px 0 24px;letter-spacing:-.035em}
+.workplace-journey-quote{display:flex;gap:10px;align-items:flex-start}
+.workplace-journey-quote>span{font-size:12px;color:#516783;padding-top:13px;white-space:nowrap}
+.workplace-journey-quote>p{font-size:15px;line-height:1.6;margin:0;padding:13px 16px;border-radius:0 14px 14px;background:#f4f6fa}
+.workplace-journey-tip{font-size:14px;line-height:1.8;color:var(--mode-muted,#707070);margin:28px 0 32px}
+.app-shell .page.workplace-journey .workplace-journey-start{width:100%;min-height:58px;border-radius:12px;gap:12px;background:var(--journey-blue);color:#fff;font-size:16px}
+.app-shell .page.workplace-journey .workplace-journey-start:disabled{background:#e7ecf4;color:#718096;opacity:1}
+.workplace-journey-consent{display:flex;align-items:center;gap:10px;font-size:13px;margin:18px 0;line-height:1.6;cursor:pointer}
+.workplace-journey-consent input{width:18px;height:18px;accent-color:var(--journey-blue)}
+.workplace-journey-details{font-size:12px;line-height:1.7;color:#516783;margin-top:12px}
+.workplace-journey-details summary{cursor:pointer;padding:6px 0}
+.workplace-journey-details ul{padding-left:20px}
+.workplace-journey-policy{font-size:12px;color:var(--mode-muted,#707070);line-height:1.7;text-align:center;margin:16px 0 0}
+.workplace-journey-policy small{font-size:11px}
+.workplace-journey-nav{display:flex;align-items:flex-start;gap:40px;padding-top:24px}
+.workplace-journey-arrow{border:1px solid #d4deed;background:#fff;color:#263850;width:52px;height:52px;display:grid;place-items:center;border-radius:50%;flex:none;cursor:pointer}
+.workplace-journey-arrow:hover:not(:disabled){background:#f0f5ff}
+.workplace-journey-arrow:disabled{color:#bac4d1;cursor:not-allowed;border-color:#edf0f4}
+.workplace-journey-stops{--journey-stop-gap:16px;position:relative;display:flex;flex:1;gap:var(--journey-stop-gap);min-width:0;border-top:2px solid #e2e8f0}
+.workplace-journey-indicator{position:absolute;top:-3px;left:0;width:calc((100% - 2 * var(--journey-stop-gap)) / 3);height:3px;background:var(--journey-blue);pointer-events:none;transition:transform 200ms cubic-bezier(0.77,0,0.175,1)}
+.workplace-journey-indicator[data-animate=false]{transition:none}
+.workplace-journey-stops button{background:none;border:0;border-top:3px solid transparent;margin-top:-3px;flex:1;display:flex;align-items:center;flex-direction:column;padding:15px 8px 8px;color:#66768d;font-size:14px;min-height:85px;line-height:1.5;cursor:pointer}
+.workplace-journey-stops button[aria-pressed=true]{color:var(--journey-blue)}
+.workplace-journey-stops b{font-size:16px}
+.workplace-journey button:focus-visible,.workplace-journey input:focus-visible,.workplace-journey summary:focus-visible{outline:3px solid var(--journey-blue);outline-offset:4px}
+@media(max-width:1000px){.workplace-journey-body{grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr);gap:16px;margin-top:0}.workplace-journey-map>img{height:auto}.workplace-journey-context{padding-top:25px}.workplace-journey-context h2{font-size:26px}.workplace-journey-tip{margin:20px 0 26px}.workplace-journey-pin{padding:8px 12px;min-width:65px;font-size:12px}.workplace-journey-pin span{font-size:15px}}
+@media(max-width:640px){.workplace-journey{padding:30px 20px 24px}.workplace-journey-heading h1{font-size:35px}.workplace-journey-heading>span{font-size:14px}.workplace-journey-body{display:flex;flex-direction:column;margin-top:5px;gap:0}.workplace-journey-map{width:100%}.workplace-journey-pin{padding:7px 10px;min-width:60px}.workplace-journey-context{padding:4px 0 0;width:100%}.workplace-journey-context h2{font-size:26px;margin:12px 0 15px}.workplace-journey-tip{margin:18px 0 24px}.workplace-journey-nav{gap:6px;margin-top:24px}.workplace-journey-arrow{width:44px;height:44px}.workplace-journey-stops{gap:0}.workplace-journey-stops b{font-size:14px}.workplace-journey-stops button{font-size:12px;padding:10px 4px 8px}}
+@media(max-width:640px){.workplace-journey-stops{--journey-stop-gap:0px}}
+@media(prefers-reduced-motion:reduce){.workplace-journey-pin,.workplace-journey-indicator{transition:none}}
+@media(prefers-reduced-motion:reduce){.workplace-journey-pin[aria-pressed=true]{transform:translate(-50%,-50%)}}

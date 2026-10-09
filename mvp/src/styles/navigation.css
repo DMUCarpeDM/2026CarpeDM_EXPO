@@ -45,7 +45,7 @@
 }
 
 .nav-dropdown ul li {
-  padding: 10px 12px;
+  padding: 0;
   border-radius: 8px;
   font-size: 13px;
   color: var(--color-graphite);
@@ -53,6 +53,24 @@
   transition: background 0.15s ease, color 0.15s ease;
   line-height: 1.4;
   word-break: keep-all;
+}
+
+.nav-dropdown ul li > button {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nav-dropdown button:focus-visible {
+  outline: 2px solid var(--color-blue);
+  outline-offset: 2px;
 }
 
 .nav-dropdown ul li:hover {
