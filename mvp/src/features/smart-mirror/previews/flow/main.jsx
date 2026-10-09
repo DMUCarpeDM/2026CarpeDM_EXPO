@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { lazy, Suspense, useState } from "react";
 import "../backgrounds/ambient.css";
 import "./review.css";
 import { createRoot } from "react-dom/client";
 import { WorkplaceMirrorPreflight } from "../../components/WorkplaceMirrorPreflight";
 import pack from "../../../../../../poc/backend/app/seed/packs/workplace-conversation.json";
 import { sessionOverview } from "../../lib/workplaceOverview";
+const PaperBackground = lazy(() => import("../backgrounds/PaperBackground").then((module) => ({ default: module.PaperBackground })));
 const reviewScenes = sessionOverview({
   scenario: pack,
   interaction: { overview: pack.world_setting.workplace_categories.map((category) => {
@@ -16,7 +17,7 @@ function Review() {
   const [started, setStarted] = useState(false);
   const params = new URLSearchParams(location.search);
   const state = params.get("state");
-  const backdrop = ["city"].includes(params.get("backdrop")) ? params.get("backdrop") : undefined;
+  const backdrop = ["city", "mesh", "dithering"].includes(params.get("backdrop")) ? params.get("backdrop") : undefined;
   const reviewElapsed = { morning: 3000, work: 21000, leaving: 39000 }[params.get("scene")] ?? null;
   // Review only: no NFC session or camera request is made in this harness.
   return started ? <main className="mirror-overview review-complete" aria-labelledby="review-complete-title">
@@ -32,6 +33,6 @@ function Review() {
       </div>
     </div>
     <footer>실제 시나리오 팩 미리보기 · 세션 생성 및 카메라 사용 없음</footer>
-  </main> : <main className="ambient-preview" data-backdrop={backdrop}>{backdrop && <div className="ambient-backdrop" aria-hidden="true"><i /><i /><i /></div>}<WorkplaceMirrorPreflight reviewScenes={reviewScenes} reviewElapsed={reviewElapsed} consented={state !== "consent"} error={state === "error" ? "서버에 연결하지 못했어요." : undefined} onNext={() => setStarted(true)} /></main>;
+  </main> : <main className="ambient-preview" data-backdrop={backdrop}>{backdrop === "city" && <div className="ambient-backdrop" aria-hidden="true"><i /><i /><i /></div>}{["mesh", "dithering"].includes(backdrop) && <Suspense fallback={null}><PaperBackground variant={backdrop} /></Suspense>}<WorkplaceMirrorPreflight reviewScenes={reviewScenes} reviewElapsed={reviewElapsed} consented={state !== "consent"} error={state === "error" ? "서버에 연결하지 못했어요." : undefined} onNext={() => setStarted(true)} /></main>;
 }
 createRoot(document.getElementById("root")).render(<Review />);
