@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import "../backgrounds/ambient.css";
+import "./review.css";
 import { createRoot } from "react-dom/client";
 import { WorkplaceMirrorPreflight } from "../../components/WorkplaceMirrorPreflight";
 import pack from "../../../../../../poc/backend/app/seed/packs/workplace-conversation.json";
@@ -18,6 +19,19 @@ function Review() {
   const backdrop = ["city"].includes(params.get("backdrop")) ? params.get("backdrop") : undefined;
   const reviewElapsed = { morning: 3000, work: 21000, leaving: 39000 }[params.get("scene")] ?? null;
   // Review only: no NFC session or camera request is made in this harness.
-  return started ? <main className="mirror-summary scene-slider" style={{justifyContent:"center",textAlign:"center"}}><p>안내 완료 · 자동 전환 확인</p><h1>출근 대화를 시작할 시간이에요.</h1><p>실제 미러에서는 동의한 NFC 카드로 연습 화면에 연결됩니다.</p><small>실제 시나리오 팩 미리보기 · 세션 생성 및 카메라 사용 없음</small></main> : <main className="ambient-preview" data-backdrop={backdrop}>{backdrop && <div className="ambient-backdrop" aria-hidden="true"><i /><i /><i /></div>}<WorkplaceMirrorPreflight reviewScenes={reviewScenes} reviewElapsed={reviewElapsed} consented={state !== "consent"} error={state === "error" ? "서버에 연결하지 못했어요." : undefined} onNext={() => setStarted(true)} /></main>;
+  return started ? <main className="mirror-overview review-complete" aria-labelledby="review-complete-title">
+    <header className="overview-masthead"><strong>Mirror-Ting</strong></header>
+    <div className="review-complete-content">
+      <p className="overview-eyebrow">스마트 미러 안내 미리보기</p>
+      <h1 id="review-complete-title">세 장면의 안내가 끝났어요.</h1>
+      <p>이 미리보기에서는 대화와 분석이 시작되지 않아요.</p>
+      <p>이어서 카드 없이 미러 대화 화면과 예시 대사를 살펴볼 수 있어요.</p>
+      <div className="review-complete-actions">
+        <button type="button" onClick={() => setStarted(false)}>안내 다시 보기</button>
+        <a href="../simulation/4k.html?scene=morning" target="_top">대화 화면 미리보기</a>
+      </div>
+    </div>
+    <footer>실제 시나리오 팩 미리보기 · 세션 생성 및 카메라 사용 없음</footer>
+  </main> : <main className="ambient-preview" data-backdrop={backdrop}>{backdrop && <div className="ambient-backdrop" aria-hidden="true"><i /><i /><i /></div>}<WorkplaceMirrorPreflight reviewScenes={reviewScenes} reviewElapsed={reviewElapsed} consented={state !== "consent"} error={state === "error" ? "서버에 연결하지 못했어요." : undefined} onNext={() => setStarted(true)} /></main>;
 }
 createRoot(document.getElementById("root")).render(<Review />);

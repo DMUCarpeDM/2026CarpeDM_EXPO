@@ -1,0 +1,9 @@
+.mirror-overview.review-complete { grid-template-rows: auto minmax(0, 1fr) auto; }
+.review-complete-content { align-self: center; text-align: center; }
+.review-complete h1 { margin: calc(1.5 * var(--u)) 0; font-size: max(1.5rem, calc(2.8 * var(--u))); line-height: 1.4; word-break: keep-all; }
+.review-complete-content > p { color: var(--muted); font-size: max(1rem, calc(1.4 * var(--u))); line-height: 1.7; word-break: keep-all; }
+.review-complete-actions { display: grid; gap: calc(1.2 * var(--u)); margin-top: calc(3 * var(--u)); }
+.review-complete-actions button, .review-complete-actions a { display: block; min-height: 44px; padding: calc(1.3 * var(--u)); border: 1px solid var(--divider); border-radius: calc(.8 * var(--u)); background: #111923; color: var(--ink); font: inherit; font-size: max(1rem, calc(1.4 * var(--u))); line-height: 1.5; text-decoration: none; cursor: pointer; }
+.review-complete-actions button:hover, .review-complete-actions a:hover { background: #203044; }
+.review-complete-actions button:focus-visible, .review-complete-actions a:focus-visible { outline: 3px solid #c6ddff; outline-offset: 4px; }
+.review-complete footer { color: var(--muted); font-size: max(.8125rem, var(--u)); line-height: 1.6; text-align: center; }
