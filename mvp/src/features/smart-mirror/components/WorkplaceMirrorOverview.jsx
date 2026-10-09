@@ -18,7 +18,7 @@ function DayProgress({ scenes, phase }) {
 }
 
 // Session preparation, consent and automatic navigation stay in the preflight controller.
-export function WorkplaceMirrorOverview({ scenes, phase, starting, reduced }) {
+export function WorkplaceMirrorOverview({ scenes, phase, starting, reduced, paused, onPause, onScene, onStart }) {
   const scene = scenes[phase.scene];
   const countdown = phase.kind === "countdown";
   const finishing = starting || phase.kind === "complete";
@@ -37,13 +37,13 @@ export function WorkplaceMirrorOverview({ scenes, phase, starting, reduced }) {
             initial={{ opacity: 0, transform: reduced ? "none" : "translateX(24px)" }}
             animate={{ opacity: 1, transform: "translateX(0px)" }}
             exit={{ opacity: 0, transform: reduced ? "none" : "translateX(-24px)" }}
-            transition={{ duration: reduced ? .15 : .4, ease: [.23, 1, .32, 1] }} />
+            transition={{ duration: reduced ? .15 : .28, ease: [.23, 1, .32, 1] }} />
         </AnimatePresence>
       </div>
-      <WorkplaceOverviewCard scene={scene} />
+      <WorkplaceOverviewCard scene={scene} live="polite" />
     </div>
-    {(countdown || finishing) && <footer className="overview-footer">
-      <p role="status">{finishing ? "출근 대화를 준비하고 있어요." : `${phase.remaining}초 후 출근 대화가 시작돼요.`}</p>
-    </footer>}
+    <footer className="overview-footer">
+      {(countdown || finishing) && <p role="status">{finishing ? "출근 대화를 준비하고 있어요." : `${phase.remaining}초 후 출근 대화가 시작돼요.`}</p>}
+    {onPause && !finishing && <div className="overview-playback"><button type="button" onClick={onPause}>{paused ? "자동 안내 재개" : "자동 안내 일시정지"}</button>{paused && <><button type="button" disabled={phase.scene === 0} onClick={() => onScene(phase.scene - 1)}>이전 장면</button><button type="button" onClick={() => phase.scene < 2 ? onScene(phase.scene + 1) : onStart()}>{phase.scene < 2 ? "다음 장면" : "대화 시작"}</button></>}</div>}</footer>
   </section>;
 }

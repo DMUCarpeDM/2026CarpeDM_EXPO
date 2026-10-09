@@ -13,7 +13,7 @@ export function WorkplaceMirrorSceneSimulation({ category = "morning", character
   const reduced = useReducedMotion();
   return <section className="mirror-scene-simulation" aria-label="직장 대화 시뮬레이션">
     <div className="simulation-environment" aria-hidden="true"><AnimatePresence initial={false}>
-      <motion.img key={category} src={backgrounds[category] || morning} alt="" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduced ? .15 : .7, ease: "easeInOut" }} />
+      <motion.img key={category} src={backgrounds[category] || morning} alt="" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduced ? .15 : .28, ease: [.23, 1, .32, 1] }} />
     </AnimatePresence></div>
     <div className="simulation-actor"><CounterpartVideo characterId={characterId} name={name} state={videoState} paused={paused} onReactionComplete={onReactionComplete} /></div>
     <div className="simulation-card-slot"><WorkplaceOverviewCard labelledBy="mirror-dialogue-title">{children}</WorkplaceOverviewCard></div>

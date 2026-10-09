@@ -33,3 +33,13 @@ test("old and unconsented cards cannot automatically start", () => {
   assert.equal(isMirrorDeployment("?mirror=1&service=workplace"), true);
   assert.equal(isMirrorDeployment("?mirror=1&service=interview"), false);
 });
+
+test("pause and resume preserve reading time across repeated interruptions", () => {
+  const clock = createVisibleClock(0);
+  assert.equal(clock.tick(5000, false), 5000);
+  assert.equal(clock.tick(65000, true), 5000);
+  assert.equal(clock.tick(68000, false), 8000);
+  assert.equal(clock.tick(98000, true), 8000);
+  assert.equal(clock.tick(108000), 18000);
+  assert.equal(mirrorPhase(clock.tick(108000)).scene, 1);
+});

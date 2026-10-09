@@ -3,7 +3,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 // Load the GPU material only when the overview is displayed; HTML remains readable while it loads.
 const GlassMaterial = lazy(() => import("./OverviewGlassMaterial"));
 
-export function WorkplaceOverviewCard({ scene, children, labelledBy = "overview-situation-title" }) {
+export function WorkplaceOverviewCard({ scene, children, labelledBy = "overview-situation-title", live = "off" }) {
   const surface = useRef(null);
   const [render, setRender] = useState("fallback");
   const [shape, setShape] = useState({ type: "roundedRectSDF", width: .45, height: .49, rounding: .045 });
@@ -21,7 +21,7 @@ export function WorkplaceOverviewCard({ scene, children, labelledBy = "overview-
   }, []);
   return <section ref={surface} className="overview-summary-card" data-render={render} aria-labelledby={labelledBy}>
     {render !== "unavailable" && <Suspense fallback={null}><GlassMaterial shape={shape} onReady={ready} onUnavailable={unavailable} /></Suspense>}
-    <div className="overview-card-content" aria-live="polite" aria-atomic="true">
+    <div className="overview-card-content" aria-live={live} aria-atomic={live === "off" ? undefined : true}>
       {children || <><div className="overview-card-context">
         <p className="overview-scene-meta"><span className="overview-scene-badge">{scene.name}</span><time>{scene.time}</time></p>
         <h2 id="overview-situation-title">{scene.situation}</h2>

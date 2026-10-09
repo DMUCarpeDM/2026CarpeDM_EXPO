@@ -16,5 +16,5 @@ const state = new URLSearchParams(location.search).get("state");
 const report = state === "loading" || state === "error" ? null : state === "empty" ? {} : example;
 createRoot(document.getElementById("root")).render(<>
   <ResultPage mirror report={report} progress={{ pct: 42 }} error={state === "error" ? "분석을 불러오지 못했어요. 운영자에게 도움을 요청해 주세요." : null} />
-  <div className="dashboard-preview-notice" style={{position:"fixed",bottom:0,left:0,right:0,textAlign:"center",color:"#c6cdd8",fontSize:"1vh",background:"#000c",padding:".4vh"}}>레이아웃 미리보기 · 예시 데이터 · 실제 분석 결과가 아닙니다</div>
+  <div className="dashboard-preview-notice" style={{position:"fixed",bottom:0,left:0,right:0,textAlign:"center",color:"#c6cdd8",fontSize:"max(13px, 1vh)",background:"#000c",padding:".4vh"}}>레이아웃 미리보기 · 예시 데이터 · 실제 분석 결과가 아닙니다</div>
 </>);
