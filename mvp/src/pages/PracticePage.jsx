@@ -1,3 +1,4 @@
+import { WorkplaceMirrorSceneSimulation } from "../features/smart-mirror/components/WorkplaceMirrorSceneSimulation";
 import React, { useEffect, useRef, useState } from "react";
 import { ChevronRight } from "reicon-react/icons/ChevronRight";
 import { Expand } from "reicon-react/icons/Expand";
@@ -115,13 +116,13 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
     return () => { clearInterval(timer); document.removeEventListener("visibilitychange", tick); };
   }, [mirror, sceneOverlayOpen, turn?.episode_id]);
   useEffect(() => {
-    if (!sceneOverlayOpen) return undefined;
+    if (!sceneOverlayOpen || (mirror && workplace)) return undefined;
     const dialog = briefingDialogRef.current;
     const previousFocus = document.activeElement;
     dialog.showModal();
     briefingButtonRef.current?.focus();
     return () => { dialog.close(); if (previousFocus?.isConnected) previousFocus.focus(); };
-  }, [sceneOverlayOpen]);
+  }, [sceneOverlayOpen, mirror, workplace]);
   useEffect(() => {
     if (!confirmEnd) return undefined;
     const dialog = confirmDialogRef.current;
@@ -491,6 +492,23 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     else screenRef.current?.requestFullscreen?.().catch(() => {});
   };
+
+  if (mirror && workplace) return <>
+    <div className="simulation-capture" aria-hidden="true"><video ref={analysisVideoRef} autoPlay muted playsInline /><canvas ref={overlayRef} /></div>
+    <WorkplaceMirrorSceneSimulation category={sceneBriefing?.category_id} characterId={character?.id} name={characterName} videoState={teamLeadVideoState} paused={paused || entryOverlayOpen} onReactionComplete={() => setTeamLeadReaction("")}>
+      <p className="simulation-dialogue-name">{characterName}</p>
+      <h1 id="mirror-dialogue-title" className="simulation-dialogue-text">{sceneOverlayOpen ? sceneBriefing.situation : turnSpeech || "다음 대화를 준비하고 있어요."}</h1>
+      <p className="simulation-dialogue-status" role="status">{sceneOverlayOpen ? "잠시 후 대화가 시작돼요." : inputStatus.title}</p>
+      {!entryOverlayOpen && <div className="simulation-answer">
+        {voice.textOnly || !hasMicrophone || sttMode === "off" ? <>
+          <label htmlFor="mirror-answer">답변</label><textarea id="mirror-answer" value={inputValue} disabled={busy || !turn} onChange={event => { clearAutoSubmit(); setDraft(event.target.value); setInterim(""); }} />
+          <button type="button" onClick={submitDraft} disabled={busy || paused || !inputValue.trim() || !turn}>답변 보내기</button>
+        </> : inputValue && <p>{inputValue}</p>}
+      </div>}
+      {(error || captureError || mediaError) && <p className="simulation-dialogue-status" role="alert">{error || captureError || mediaError}</p>}
+    </WorkplaceMirrorSceneSimulation>
+    {voice.open && <MicrophoneCheck automatic session={session} stream={mediaStream} onRequestMedia={onRequestMedia} onReady={voice.onReady} onTextOnly={voice.onTextOnly} />}
+  </>;
 
   return (
     <motion.section ref={screenRef} className={`practice-screen ${paused ? "is-paused" : ""}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>

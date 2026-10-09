@@ -1,3 +1,4 @@
+import { WorkplaceMirrorDashboard } from "../features/smart-mirror/components/WorkplaceMirrorDashboard";
 import { ArrowRight } from "reicon-react/icons/ArrowRight";
 import { CalendarDate } from "reicon-react/icons/CalendarDate";
 import { Check } from "reicon-react/icons/Check";
@@ -50,6 +51,7 @@ function buildHistory(history, report) {
 }
 
 export function ResultPage({
+  mirror = false,
   onPrev,
   onPractice,
   onReset,
@@ -63,6 +65,8 @@ export function ResultPage({
   const [shareNotice, setShareNotice] = useState("");
   const [sharing, setSharing] = useState(false);
   const historyData = useMemo(() => buildHistory(history, report), [history, report]);
+
+  if (mirror) return <WorkplaceMirrorDashboard report={report} progress={progress} error={error} />;
 
   if (!report) {
     const progressValue = Math.max(0, Math.min(100, Number(progress?.pct) || 0));

@@ -24,3 +24,9 @@
 `WorkplaceOverviewCard`는 선택한 Clear Glass 표면 위에 실제 상황·상대·목표를 표시합니다. `OverviewGlassMaterial`은 지연 로딩하며 GPU 미지원/초기화 실패 시 HTML과 CSS 표면을 유지합니다. 단계별 현재/예정/완료, 장면 배지, 진행 막대와 낮은 밝기의 이미지 후광을 적용했습니다. [적용 검증](./qa/clear-glass-overview.md).
 
 4K 검토: `/src/features/smart-mirror/previews/flow/4k.html`. 실제 2160×3840 iframe을 창 크기에 맞춰 축소해 보여 줍니다. `?scene=morning|work|leaving`은 해당 장면을 정지해 검토합니다. 일반 제품 화면에는 검토용 프레임이 추가되지 않습니다.
+
+## 분석 결과 대시보드
+
+직장 대화의 미러 결과 화면은 `WorkplaceMirrorDashboard`를 사용합니다. `ServiceEntryShell → ResultPage`의 실제 세션 `report`, 분석 진행률과 오류를 전달하며, 기존 웹 결과 화면은 유지합니다. Clear Glass 카드(`WorkplaceOverviewCard`), `ScoreRing`, 공통 `Progress`를 재사용합니다. 종합 점수·4-Fit·잘한 점/개선점·답변 코칭을 표시하고, 누락된 점수는 미측정, 음성 측정 기록이 있는 Voice-Fit은 점수 보류로 구분합니다. 대화창은 화면 위에서 55%에 배치합니다.
+
+미리보기: `/src/features/smart-mirror/previews/dashboard/4k.html`. 이 경로의 예시 데이터는 실제 결과가 아니며 제품 데이터 흐름에 포함되지 않습니다. `?state=empty|loading|error`로 상태를 확인할 수 있습니다. [QA 기록](./qa/analysis-dashboard.md).
