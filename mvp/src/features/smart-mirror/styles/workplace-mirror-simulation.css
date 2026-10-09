@@ -1,4 +1,4 @@
-.mirror-scene-simulation { --u: min(1dvh, 1.77778vw); --ink: #f5f7fc; --muted: #e0e5ef; --surface: #070b12d9; --divider: #ffffff24; position: relative; isolation: isolate; width: min(100%, 56.25dvh); height: 100dvh; margin: auto; overflow: hidden; background: #000; color: var(--ink); font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', Arial, sans-serif; }
+.mirror-scene-simulation { --u: min(1dvh, 1.77778vw); --ink: #f5f7fc; --muted: #e0e5ef; --surface: #070b1205; --divider: #ffffff24; position: relative; isolation: isolate; width: min(100%, 56.25dvh); height: 100dvh; margin: auto; overflow: hidden; background: #000; color: var(--ink); font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', Arial, sans-serif; }
 .mirror-scene-simulation * { box-sizing: border-box; }
 .simulation-environment { position: absolute; inset: 0; z-index: -2; overflow: hidden; }
 .simulation-environment img { position: absolute; width: 100%; height: 100%; object-fit: cover; filter: blur(calc(.45 * var(--u))); transform: scale(1.025); }
