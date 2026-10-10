@@ -1,4 +1,4 @@
-from app.services.interaction_scoring import public_total, NO_SCORE
+from app.services.interaction_scoring import public_total
 """체험 코드·연습 히스토리 API (F-SFIWUO 익명 ID, S-XUUODK 개인별 추이).
 
 개인 식별 정보 없이 4자리 코드 하나로 연습 기록을 이어간다:

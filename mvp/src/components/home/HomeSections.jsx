@@ -3,9 +3,9 @@ import { ArrowRight } from "reicon-react/icons/ArrowRight";
 import { ChatDots } from "reicon-react/icons/ChatDots";
 import { Mic } from "reicon-react/icons/Mic";
 import { Presentation } from "reicon-react/icons/Presentation";
-import { ShieldCheck } from "reicon-react/icons/ShieldCheck";
+
 import { UserScan } from "reicon-react/icons/UserScan";
-import { Button, Card, CardContent, Progress } from "../ui/shadcn";
+import { Button } from "../ui/shadcn";
 
 export const fitMetrics = [
   { icon: ChatDots, label: "응답", value: 82, detail: "핵심부터 말했어요" },
@@ -13,16 +13,6 @@ export const fitMetrics = [
   { icon: UserScan, label: "표정", value: 84, detail: "상황에 맞게 반응했어요" },
   { icon: Presentation, label: "자세", value: 71, detail: "어깨를 조금 펴보세요" },
 ];
-
-export function EvidenceStrip({ items }) {
-  return (
-    <section className="mode-evidence-strip" aria-label="서비스 강점 요약">
-      {items.map(([value, label]) => (
-        <div key={label}><strong>{value}</strong><span>{label}</span></div>
-      ))}
-    </section>
-  );
-}
 
 export function ContextVisual({ image, alt, title, text, align = "left" }) {
   return (
@@ -42,14 +32,6 @@ export function SectionIntro({ eyebrow, title, text, align = "left", highlight =
 
 export function ProcessCard({ icon: Icon, number, title, text, compact = false }) {
   return <article className={`process-card ${compact ? "process-card--compact" : ""}`}><span>{number}</span><i className="mode-icon"><Icon size={21} /></i><h3>{title}</h3><p>{text}</p></article>;
-}
-
-export function FitMetric({ icon: Icon, label, value, detail }) {
-  return <Card className="fit-metric"><CardContent><div className="fit-metric__head"><span className="mode-icon"><Icon size={19} /></span><b>{label}</b><strong>{value}</strong></div><Progress value={value} /><p>{detail}</p></CardContent></Card>;
-}
-
-export function TrustLine() {
-  return <div className="mode-trust-line"><ShieldCheck size={16} /><span>영상과 음성은 기기 안에서 분석해요</span></div>;
 }
 
 export function FooterCta({ title, text, button, onNext }) {

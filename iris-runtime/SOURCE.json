@@ -4,6 +4,7 @@
   "contents": "Unmodified voice runtime, committed profile, setup script, voice docs and licenses; desktop app excluded",
   "local_modifications": {
     "services/voice_runtime/tts_service.py": "CUDA bf16 support check; float32 for Pascal; SDPA attention. All other upstream files unchanged.",
-    "services/voice_runtime/app.py": "Serialize WAV synthesis for a single 6GB GPU."
+    "services/voice_runtime/app.py": "Serialize WAV synthesis for a single 6GB GPU.",
+    "LICENSE.md": "Replace two unbundled-document relative links with verified upstream commit permalinks; license text unchanged."
   }
 }

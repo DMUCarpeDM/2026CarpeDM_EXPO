@@ -115,7 +115,7 @@ IRIS는 "구독료 없이 누구나 쓰는 로컬 우선 AI 에이전트"를 지
 | pywin32 | PSF-2.0 | ✅ |
 | pyobjc-framework-* | MIT | ✅ |
 
-\* 상세: [`docs/검증/license-scan-report.md`](docs/검증/license-scan-report.md) · 고지: [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)
+\* 상세: [`docs/검증/license-scan-report.md`](https://github.com/kwakminoo/Project-IRIS-Light/blob/062ae3931d83bf3dd56a43bcc7b82897dc01126c/docs/%EA%B2%80%EC%A6%9D/license-scan-report.md) · 고지: [`THIRD_PARTY_NOTICES.md`](https://github.com/kwakminoo/Project-IRIS-Light/blob/062ae3931d83bf3dd56a43bcc7b82897dc01126c/THIRD_PARTY_NOTICES.md)
 
 ### 3.2 선택 음성 런타임 (`services/voice_runtime/requirements-voice*.txt`)
 

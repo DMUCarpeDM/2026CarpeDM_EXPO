@@ -88,15 +88,3 @@ export function ChatBubble({ children, ai = false, mine = false, name, time }) {
     </div>
   );
 }
-
-export function AiPromptOverlay({ name, speaking, text }) {
-  return <section className={`ai-prompt-overlay ${speaking ? "is-speaking" : ""}`} aria-label={`${name}의 질문`}>
-    <div className="ai-prompt-meta">
-      <span className="ai-prompt-avatar" aria-hidden="true"><PersonaFace name={name} /></span>
-      <strong>{name}</strong>
-      <em>{speaking ? "AI가 말하는 중" : "AI 질문"}</em>
-    </div>
-    <p><b aria-hidden="true">“</b>{text}<b aria-hidden="true">”</b></p>
-    <span className="ai-prompt-wave" aria-hidden="true">{Array.from({ length: 48 }, (_, index) => <i key={index} />)}</span>
-  </section>;
-}

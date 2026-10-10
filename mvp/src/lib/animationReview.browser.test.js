@@ -79,26 +79,6 @@ test("overview transitions never overlap character scenes and settle after rapid
   assert.equal(await page.locator(".overview-art img").evaluate(el => getComputedStyle(el).opacity), "1");
 });
 
-test("legacy slider has no bottom progress and its scene motion stays below 300ms", { timeout: 30000 }, async t => {
-  const page = await open(t, "src/features/smart-mirror/previews/slider/index.html", { reducedMotion: "no-preference" });
-  await page.locator('.scene-slider[data-scene="0"]').waitFor();
-  await page.waitForFunction(() => [...document.images].every(image => image.complete));
-  await page.clock.runFor(300);
-  await page.clock.fastForward(11800);
-  await page.clock.runFor(180);
-  await page.locator('.scene-slider[data-scene="1"]').waitFor();
-  assert.equal(await page.locator(".slider-footer ol, .mirror-total-progress").count(), 0);
-  const animations = await page.locator(".slider-scene").last().evaluate(el => el.getAnimations().map(animation => ({
-    duration: animation.effect.getTiming().duration,
-    properties: Object.keys(animation.effect.getKeyframes()[0]),
-  })));
-  assert.ok(animations.length > 0);
-  for (const animation of animations) {
-    assert.ok(animation.duration <= 280);
-    assert.equal(animation.properties.some(property => ["width", "height", "left", "top"].includes(property)), false);
-  }
-});
-
 test("keyboard kiosk changes are immediate and repeated changes leave one stage", { timeout: 30000 }, async t => {
   const page = await open(t, "?service=workplace&kiosk=issue", { reducedMotion: "no-preference" });
   await page.locator('.kiosk-issue-screen[data-stage="select"]').waitFor();

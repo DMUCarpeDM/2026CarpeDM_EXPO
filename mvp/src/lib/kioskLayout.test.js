@@ -49,7 +49,6 @@ const componentSources = [
   readFileSync(new URL("../pages/PreviewPage.jsx", import.meta.url), "utf8"),
   readFileSync(new URL("../pages/ResultPage.jsx", import.meta.url), "utf8"),
   readFileSync(new URL("../components/report/ResultPrimitives.jsx", import.meta.url), "utf8"),
-  readFileSync(new URL("../components/report/DashboardShell.jsx", import.meta.url), "utf8"),
   readFileSync(new URL("../components/report/Charts.jsx", import.meta.url), "utf8"),
   setupCatalogSource,
   readFileSync(new URL("../components/ui/IconGlyph.jsx", import.meta.url), "utf8"),
@@ -88,14 +87,8 @@ test("kiosk 1920 layout reserves desktop canvas for supplied PC mockup views", (
 test("the unified report reuses app navigation and shared components", () => {
   for (const componentName of [
     "PageToolbar",
-    "PrimaryButton",
     "PrimaryBar",
-    "Panel",
-    "DisclosurePanel",
-    "Chip",
     "ScoreRing",
-    "ProgressMini",
-    "RadarChart",
     "TrendChart",
   ]) {
     assert.match(sourceBundle, new RegExp(`function ${componentName}\\(`));
@@ -124,9 +117,6 @@ test("the unified report reuses app navigation and shared components", () => {
     assert.match(functionBody(routeName), /<SetupSelectionSummary\b/, `${routeName} uses the shared selection summary`);
   }
 
-  // 대시보드 셸 코드는 남아 있어도 현재 전시 흐름에서는 렌더하지 않아요.
-  assert.match(styles, /\.dashboard-sidebar/);
-  assert.match(sourceBundle, /<aside className="dashboard-sidebar"/);
 });
 
 test("home uses three mode layouts on one shared Shadcn-style component system", () => {
@@ -161,18 +151,15 @@ test("home keeps each mode action-led and reuses shared section primitives", () 
   assert.match(homePage, /<WorkplaceHome onNext=\{onNext\}/);
   assert.match(sourceBundle, /function SectionIntro\(/);
   assert.match(sourceBundle, /function ProcessCard\(/);
-  assert.match(sourceBundle, /function FitMetric\(/);
   assert.match(sourceBundle, /function FooterCta\(/);
   assert.match(sourceBundle, /export function HomeMotion\(/);
   assert.match(sourceBundle, /export function HomeFooter\(/);
   assert.match(sourceBundle, /function ContextVisual\(/);
-  assert.match(sourceBundle, /function EvidenceStrip\(/);
   assert.match(sourceBundle, /function DialogueComparison\(/);
   assert.match(styles, /\.mode-footer-cta\s*\{/);
   assert.match(styles, /\.mode-actions\s*\{/);
   assert.match(styles, /\.product-stage\s*\{/);
   assert.match(styles, /\.mode-context-visual\s*\{/);
-  assert.match(styles, /\.mode-evidence-strip\s*\{/);
 
   for (const assetName of homeSceneAssetFiles) {
     assert.match(sourceBundle, new RegExp(assetName.replace(".", "\\.")), `${assetName} is imported by a home component`);

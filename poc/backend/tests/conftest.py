@@ -8,6 +8,11 @@ os.environ["MIRROR_TING_DATABASE_URL"] = "sqlite:///./test_mirror-ting.db"
 # 떠 있어도 의미 매칭이 골든 셋 판정을 흔들지 않게 (라이브 검증은 별도 skipif)
 os.environ["MIRROR_TING_SEMANTIC_MATCH_ENABLED"] = "false"
 os.environ["MIRROR_TING_IRIS_AUTOSTART"] = "false"
+# 로컬 .env의 제공자·Vertex 인증이 모의 API 테스트에 섞이지 않게 한다.
+os.environ["MIRROR_TING_DIALOGUE_PROVIDER"] = "openai"
+os.environ["MIRROR_TING_GEMINI_API_BACKEND"] = "developer"
+os.environ["MIRROR_TING_OPENAI_API_KEY"] = ""
+os.environ["MIRROR_TING_GEMINI_API_KEY"] = ""
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 

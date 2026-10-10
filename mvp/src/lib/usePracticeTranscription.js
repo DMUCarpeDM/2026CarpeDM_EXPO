@@ -3,7 +3,7 @@ import { shouldScheduleAutoSubmit } from "./sttAutoSubmit.js";
 
 // 받아쓰기와 자동 제출 예약을 관리한다. 답변 초안과 실제 제출은 페이지가 소유한다.
 export function usePracticeTranscription({
-  setDraft, mediaStream, turn, busy, paused, aiSpeaking, entryOverlayOpen,
+  setDraft, mediaStream, turn, busy, paused, aiSpeaking, aiSpeechActiveRef, entryOverlayOpen,
   pushFeed, onAutoSubmit,
 }) {
   const autoSubmitTimerRef = useRef(null);
@@ -12,6 +12,7 @@ export function usePracticeTranscription({
   // ---- 음성 답변(STT): 브라우저 음성 인식으로 말한 내용을 입력창에 받아 적는다 ----
   // AI가 말하는 동안은 마이크를 쉬어 스피커 소리가 답변으로 새는 걸 막는다.
   const [listening, setListening] = useState(false);
+  const [recognitionEpoch, setRecognitionEpoch] = useState(0);
   const [interim, setInterim] = useState("");
   const [micEnabled, setMicEnabled] = useState(true);
   const [webSpeechFailed, setWebSpeechFailed] = useState(false);
@@ -21,6 +22,9 @@ export function usePracticeTranscription({
   const sttSupported = Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
   // 실시간 받아쓰기는 Chrome만 사용한다. Whisper는 녹음 종료 후 간투어 분석용이다.
   const sttMode = sttSupported && !webSpeechFailed ? "webspeech" : "off";
+  const shouldListen = Boolean(sttMode === "webspeech" && micEnabled && mediaStream && turn && !busy && !paused && !aiSpeaking && !entryOverlayOpen);
+  const allowedRef = useRef(false);
+  allowedRef.current = shouldListen;
   const clearAutoSubmit = () => {
     if (autoSubmitTimerRef.current) window.clearTimeout(autoSubmitTimerRef.current);
     autoSubmitTimerRef.current = null;
@@ -40,13 +44,14 @@ export function usePracticeTranscription({
 
   useEffect(() => {
     const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const shouldListen = Boolean(sttMode === "webspeech" && SpeechRecognitionImpl && micEnabled && mediaStream && turn && !busy && !paused && !aiSpeaking && !entryOverlayOpen);
-    if (!shouldListen) return undefined;
+    if (!shouldListen || aiSpeechActiveRef?.current) return undefined;
     const recognition = new SpeechRecognitionImpl();
     recognition.lang = "ko-KR";
     recognition.continuous = true;
     recognition.interimResults = true;
+    const isCurrent = () => allowedRef.current && !aiSpeechActiveRef?.current && sttActiveRef.current && recognitionRef.current === recognition;
     recognition.onresult = (event) => {
+      if (!isCurrent()) return;
       let interimText = "";
       let receivedFinal = false;
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
@@ -64,14 +69,16 @@ export function usePracticeTranscription({
       if (shouldScheduleAutoSubmit({ receivedFinal, interimText })) scheduleAutoSubmit();
       else if (interimText) clearAutoSubmit();
     };
-    recognition.onstart = () => setListening(true);
+    recognition.onstart = () => { if (isCurrent()) setListening(true); };
     recognition.onend = () => {
+      if (!isCurrent()) return;
       setListening(false);
       setInterim("");
       // 침묵으로 인식이 끊기면 다시 듣는다 (턴이 살아있는 동안)
-      if (sttActiveRef.current) { try { recognition.start(); } catch { /* 이미 시작됨 */ } }
+      if (isCurrent()) { try { recognition.start(); } catch { /* 이미 시작됨 */ } }
     };
     recognition.onerror = (event) => {
+      if (!isCurrent()) return;
       // 인식 실패 시 직접 입력으로 전환한다. 녹음은 최종 간투어 분석에 사용한다.
       if (["not-allowed", "service-not-allowed", "network", "audio-capture"].includes(event.error)) {
         sttActiveRef.current = false;
@@ -85,22 +92,32 @@ export function usePracticeTranscription({
     try { recognition.start(); } catch { /* 중복 시작 무시 */ }
     return () => {
       sttActiveRef.current = false;
-      recognition.onend = null;
-      try { recognition.stop(); } catch { /* 이미 종료됨 */ }
+      recognition.onresult = recognition.onstart = recognition.onend = recognition.onerror = null;
+      if (recognitionRef.current === recognition) recognitionRef.current = null;
+      try { recognition.abort(); } catch { /* 이미 종료됨 */ }
       setListening(false);
       setInterim("");
     };
-  }, [sttMode, micEnabled, mediaStream, turn?.id, busy, paused, aiSpeaking, turn, entryOverlayOpen]);
+  }, [sttMode, micEnabled, mediaStream, turn?.id, busy, paused, aiSpeaking, turn, entryOverlayOpen, recognitionEpoch]);
 
   const stopBrowserRecognition = () => {
     sttActiveRef.current = false;
-    try { recognitionRef.current?.stop(); } catch { /* 이미 종료됨 */ }
+    clearAutoSubmit();
+    const recognition = recognitionRef.current;
+    recognitionRef.current = null;
+    if (recognition) {
+      recognition.onresult = recognition.onstart = recognition.onend = recognition.onerror = null;
+      try { recognition.abort(); } catch { /* 이미 종료됨 */ }
+    }
+    setListening(false);
+    setInterim("");
   };
+  const resumeBrowserRecognition = () => setRecognitionEpoch(epoch => epoch + 1);
   const getSttSource = () => sttUsedRef.current ? "webspeech" : "text";
   const resetSttUsage = () => { sttUsedRef.current = false; };
 
   return {
     listening, interim, setInterim, micEnabled, setMicEnabled, sttMode,
-    clearAutoSubmit, stopBrowserRecognition, getSttSource, resetSttUsage,
+    clearAutoSubmit, stopBrowserRecognition, resumeBrowserRecognition, getSttSource, resetSttUsage,
   };
 }

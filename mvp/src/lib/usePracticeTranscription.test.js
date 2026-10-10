@@ -73,6 +73,49 @@ describe("practice transcription lifecycle", { concurrency: false }, () => {
     assert.ok(await page.evaluate(() => stt.recognitions.every((recognition) => recognition.stops > 0)));
   });
 
+  test("TTS aborts immediately, ignores queued and stale results, then resumes without losing the draft", { timeout: 30_000 }, async (t) => {
+    const page = await open(t);
+    await page.waitForFunction(() => stt.current.listening);
+    await page.evaluate(() => {
+      const old = stt.recognitions.at(-1);
+      const result = old.onresult;
+      const end = old.onend;
+      stt.lateResult = () => {
+        const item = [{ transcript: "스피커에서 들린 AI 질문" }]; item.isFinal = true;
+        result({ resultIndex: 0, results: [item] });
+      };
+      stt.lateEnd = () => end();
+      old.result("기존 답변");
+      stt.playback(true);
+      stt.lateResult();
+      stt.lateEnd();
+    });
+    await page.waitForFunction(() => !stt.current.listening);
+    assert.equal(await page.evaluate(() => stt.recognitions[0].aborts > 0), true);
+    assert.equal(await page.evaluate(() => stt.current.draft), "기존 답변");
+    await page.clock.runFor(5000);
+    assert.deepEqual(await page.evaluate(() => stt.submissions), []);
+    assert.equal(await page.evaluate(() => stt.recognitions.length), 1);
+    await page.evaluate(() => stt.playback(false));
+    await page.waitForFunction(() => stt.current.listening);
+    await page.evaluate(() => { stt.lateResult(); stt.lateEnd(); stt.recognitions.at(-1).result("새 답변"); });
+    await page.waitForFunction(() => stt.current.draft === "기존 답변 새 답변");
+    assert.equal(await page.evaluate(() => stt.current.listening), true);
+    await page.clock.runFor(3000);
+    assert.deepEqual(await page.evaluate(() => stt.submissions), ["기존 답변 새 답변"]);
+    const prior = await page.evaluate(() => stt.recognitions.length);
+    // Unsupported or immediately failed TTS can start and finish in one React batch.
+    await page.evaluate(() => { stt.playback(true); stt.playback(false); });
+    await page.waitForFunction(prior => stt.current.listening && stt.recognitions.length > prior, prior);
+    await page.evaluate(() => stt.current.setMicEnabled(false));
+    await page.waitForFunction(() => !stt.current.listening);
+    const count = await page.evaluate(() => stt.recognitions.length);
+    await page.evaluate(() => stt.playback(true));
+    await page.evaluate(() => stt.playback(false));
+    await page.clock.runFor(1000);
+    assert.equal(await page.evaluate(() => stt.recognitions.length), count);
+  });
+
   test("Chrome failure switches to typing without calling server STT", { timeout: 30_000 }, async (t) => {
     const page = await open(t);
     await page.evaluate(() => {

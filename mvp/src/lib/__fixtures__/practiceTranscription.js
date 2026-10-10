@@ -1,4 +1,4 @@
-import { createElement, useEffect, useState } from "react";
+import { createElement, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { usePracticeTranscription } from "../usePracticeTranscription.js";
 
@@ -7,10 +7,11 @@ class Recognition {
   constructor() { this.starts = 0; this.stops = 0; control.recognitions.push(this); }
   start() { this.starts++; this.onstart?.(); }
   stop() { this.stops++; this.onend?.(); }
+  abort() { this.aborts = (this.aborts || 0) + 1; this.stop(); }
   result(text, isFinal = true) {
     const result = [{ transcript: text }];
     result.isFinal = isFinal;
-    this.onresult({ resultIndex: 0, results: [result] });
+    this.onresult?.({ resultIndex: 0, results: [result] });
   }
 }
 window.SpeechRecognition = new URLSearchParams(location.search).has("unsupported") ? undefined : Recognition;
@@ -37,15 +38,22 @@ const stream = new MediaStream([{ readyState: "live" }]);
 const transcribe = () => new Promise((resolve) => control.requests.push(resolve));
 function Harness() {
   const [draft, setDraft] = useState("");
+  const aiSpeechActiveRef = useRef(false);
   const [options, setOptions] = useState({ turn: { id: 1 }, paused: false, busy: false, aiSpeaking: false });
   const speech = usePracticeTranscription({
-    ...options, draft, setDraft, mediaStream: stream, entryOverlayOpen: false,
+    ...options, draft, setDraft, mediaStream: stream, entryOverlayOpen: false, aiSpeechActiveRef,
     aiHealth: { server_stt: !new URLSearchParams(location.search).has("unsupported") },
     onTranscribe: transcribe, pushFeed: (note) => control.notes.push(note),
     onAutoSubmit: () => control.submissions.push(draft),
   });
   useEffect(() => {
     control.current = { ...speech, draft };
+    control.playback = (active) => {
+      aiSpeechActiveRef.current = active;
+      if (active) speech.stopBrowserRecognition();
+      else speech.resumeBrowserRecognition();
+      setOptions(previous => ({ ...previous, aiSpeaking: active }));
+    };
     control.update = (patch) => setOptions((previous) => ({ ...previous, ...patch }));
     control.type = (text) => { speech.clearAutoSubmit(); setDraft(text); speech.setInterim(""); };
   });

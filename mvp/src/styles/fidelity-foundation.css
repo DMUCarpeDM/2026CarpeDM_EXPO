@@ -126,19 +126,10 @@ body {
 .page-title > span,
 .selection-main .page-title > span { color: var(--blue-strong); font-size: 14px; font-weight: 750; }
 
-.primary-button,
 .primary-bar {
   border-radius: 11px;
   background: linear-gradient(135deg, #0d78ff, #005ae8);
   box-shadow: 0 12px 24px rgba(0, 96, 255, 0.18);
-}
-
-.secondary-button {
-  border-color: #dce6f3;
-  border-radius: 11px;
-  color: #243148;
-  background: #fff;
-  box-shadow: 0 4px 12px rgba(30, 73, 124, 0.03);
 }
 
 .selection-page,

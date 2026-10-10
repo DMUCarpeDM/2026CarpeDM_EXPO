@@ -29,10 +29,6 @@ export function SetupMotionPage({ children, as = "section", className = "" }) {
   );
 }
 
-export function Panel({ children, className = "" }) {
-  return <Card className={`card ${className}`}>{children}</Card>;
-}
-
 function PrimaryBar({ label, onClick, className = "", disabled = false }) {
   return (
     <Button className={`primary-bar ${className}`} size="lg" type="button" onClick={onClick} disabled={disabled}>

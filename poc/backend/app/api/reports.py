@@ -1,4 +1,4 @@
-from app.services.interaction_scoring import public_total, NO_SCORE
+from app.services.interaction_scoring import public_total
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session

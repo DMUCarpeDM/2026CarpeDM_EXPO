@@ -16,7 +16,7 @@ from app.core.config import settings
 from app.core.database import SessionLocal
 from app.models import (
     AnalysisResult, Consent, FitType, Report, RoleplaySession, SessionRawFile,
-    SessionStatus, SystemLog, Turn,
+    SessionStatus, SystemLog,
 )
 from app.services import report as report_service
 from app.services import interaction, interaction_report, interaction_scoring, voice_analysis

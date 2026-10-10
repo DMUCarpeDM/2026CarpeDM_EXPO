@@ -23,7 +23,7 @@ NFC 아이콘 클릭 → 분석 동의 → 카메라·마이크 권한 허용 �
 
 백엔드는 `.env`의 Gemini 설정을 사용합니다. Vertex 인증을 사용하려면 `MIRROR_TING_GEMINI_API_BACKEND=vertex`, `MIRROR_TING_GEMINI_VERTEX_PROJECT`와 Google ADC 인증이 필요합니다. `/api/health`의 `dialogue_ready`로 연결 상태를 확인합니다. 키와 인증 파일은 저장소에 넣지 않습니다.
 
-로컬 검토: `/src/features/smart-mirror/previews/flow/index.html`. NFC와 미디어를 사용하지 않으며 안내 후 검토 완료 문구를 표시합니다. 이전 prototype URL은 이곳으로 연결됩니다.
+로컬 검토: `/src/features/smart-mirror/previews/flow/index.html`. NFC와 미디어를 사용하지 않으며 안내 후 검토 완료 문구를 표시합니다. 제품에 반영된 이전 prototype·카드 재질 비교 시안은 제거했습니다.
 
 미러에는 터치가 없으므로 장면과 페이지는 자동 진행합니다. Chrome 탭/주소창 제거는 현장 운영 PC의 kiosk 모드로 설정합니다.
 
@@ -33,12 +33,12 @@ NFC 아이콘 클릭 → 분석 동의 → 카메라·마이크 권한 허용 �
 
 장면당 10초와 마지막 3초의 시작 안내 뒤 대화로 넘어갑니다(총 33초). 숨긴 탭은 읽는 시간을 소비하지 않습니다. 진행 막대는 transform으로 갱신하며 마지막 카운트다운에서 초기화하지 않습니다. 이미지 이동은 24px/400ms로 제한하고 reduced-motion에서는 이미지 이동을 제거합니다. 카드 문구는 장면과 함께 즉시 교체합니다.
 
-`WorkplaceOverviewCard`는 선택한 Clear Glass 표면 위에 실제 상황·상대·목표를 표시합니다. `OverviewGlassMaterial`은 지연 로딩하며 GPU 미지원/초기화 실패 시 HTML과 CSS 표면을 유지합니다. 단계별 현재/예정/완료, 장면 배지, 진행 막대와 낮은 밝기의 이미지 후광을 적용했습니다. [적용 검증](./qa/clear-glass-overview.md).
+`WorkplaceOverviewCard`는 선택한 Clear Glass 표면 위에 실제 상황·상대·목표를 표시합니다. `OverviewGlassMaterial`은 지연 로딩하며 GPU 미지원/초기화 실패 시 HTML과 CSS 표면을 유지합니다. 단계별 현재/예정/완료, 장면 배지, 진행 막대와 낮은 밝기의 이미지 후광을 적용했습니다..
 
-4K 검토: `/src/features/smart-mirror/previews/flow/4k.html`. 실제 2160×3840 iframe을 창 크기에 맞춰 축소해 보여 줍니다. `?scene=morning|work|leaving`은 해당 장면을 정지해 검토합니다. 일반 제품 화면에는 검토용 프레임이 추가되지 않습니다.
+4K 검토: `/src/features/smart-mirror/previews/flow/4k.html`. 실제 2160×3840 iframe을 창 크기에 맞춰 축소해 보여 줍니다. `?scene=morning|work|leaving`은 해당 장면부터 자동 진행하고, `&still=1`을 붙이면 정지해 검토합니다. 일반 제품 화면에는 검토용 프레임이 추가되지 않습니다.
 
 ## 분석 결과 대시보드
 
 직장 대화의 미러 결과 화면은 `WorkplaceMirrorDashboard`를 사용합니다. `ServiceEntryShell → ResultPage`의 실제 세션 `report`, 분석 진행률과 오류를 전달하며, 기존 웹 결과 화면은 유지합니다. Clear Glass 카드(`WorkplaceOverviewCard`), `ScoreRing`, 공통 `Progress`를 재사용합니다. 종합 점수·4-Fit·잘한 점/개선점·답변 코칭을 표시하고, 누락된 점수는 미측정, 음성 측정 기록이 있는 Voice-Fit은 점수 보류로 구분합니다. 대화창은 화면 위에서 55%에 배치합니다.
 
-미리보기: `/src/features/smart-mirror/previews/dashboard/4k.html`. 이 경로의 예시 데이터는 실제 결과가 아니며 제품 데이터 흐름에 포함되지 않습니다. `?state=empty|loading|error`로 상태를 확인할 수 있습니다. [QA 기록](./qa/analysis-dashboard.md).
+미리보기: `/src/features/smart-mirror/previews/dashboard/4k.html`. 이 경로의 예시 데이터는 실제 결과가 아니며 제품 데이터 흐름에 포함되지 않습니다. `?state=empty|loading|error`로 상태를 확인할 수 있습니다..

@@ -44,7 +44,6 @@
 
 | 기존 문서 | 이 묶음이 채우는 것 |
 |---|---|
-| `poc/docs/reviews/2026-08-01-launch-readiness.md` | 미완 항목 "타당성·편향 Q&A 카드 ☐" → ③ |
 | `poc/docs/pitch/qa-anticipation.md` | Q2·17·18 개정, 윤리·편향 계열 신설 → ③ |
 | `docs/hardware-order-55.md` | 키넥트 거치·배선·전원·검증 누락 → ② §6 |
 | `docs/plan/07-master-plan.md` 격차표 | "하프미러 리그(하드웨어)" 행에 키넥트 항목 추가 필요 |

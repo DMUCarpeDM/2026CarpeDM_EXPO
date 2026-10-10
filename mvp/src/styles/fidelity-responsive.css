@@ -49,7 +49,6 @@
   .summary-panel { position: static; padding: 24px; }
   .home-hero { min-height: 655px; grid-template-columns: 1fr; align-items: start; margin-bottom: 56px; padding: 0 0 315px; background-position: 72% bottom; background-size: auto 340px; }
   .hero-copy h1 { font-size: 46px; letter-spacing: -0.075em; word-spacing: -0.13em; }
-  .hero-actions .primary-button { min-width: 0; }
   .hero-social-proof .avatar { width: 42px; height: 42px; }
   .coach-device { min-height: 350px; width: 275px; padding: 28px 22px; border-radius: 37px; }
   .coach-device p { margin-top: 22px; font-size: 19px; }
@@ -77,7 +76,6 @@
   .report-heading,.coaching-columns,.report-insight-card,.result-page .dual-cta { grid-template-columns: 1fr; }
   .report-heading { display: grid; }
   .report-meta { grid-template-columns: 1fr; }
-  .coaching-columns .feedback-box + .feedback-box { border-top: 1px solid var(--line-cool); border-left: 0; }
   .report-insight-card { display: grid; }
   .report-radar-placeholder { justify-self: start; }
   .attempt-grid,.compare-grid,.history-grid { grid-template-columns: 1fr; }

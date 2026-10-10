@@ -10,7 +10,14 @@ poc/backend/models/response_e5_v1/
 poc/backend/whisper-models/
 
 # Browser evidence run outputs are generated artifacts (screenshots/results), not source.
-.omo/evidence/task-*-browser/run-*/
+.omo/evidence/
+
+# Retained local session data and test-only SQLite artifacts.
+poc/backend/data/retained-main/
+**/:memory:.ses
+
+# Generated Kinect runtime logs.
+poc/backend/kinect-service*.log
 
 # Temporary local runtime bundles and logs used while running the backend/MVP.
 poc/backend/work/

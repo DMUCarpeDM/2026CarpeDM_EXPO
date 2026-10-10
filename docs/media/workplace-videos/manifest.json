@@ -1,0 +1,138 @@
+{
+  "platform": "Google Vertex AI Veo 3.1",
+  "reference": "female-reference.jpeg",
+  "resolution": [
+    2160,
+    3840
+  ],
+  "aspect_ratio": "9:16",
+  "duration_seconds": 8,
+  "audio": false,
+  "credit_policy": "Free/trial credit only",
+  "direction": "Very subtle expression and nearly stationary head; continuous natural speech articulation for most of the shot",
+  "clips": [
+    {
+      "name": "speaking-base",
+      "prompt_file": "speaking-base.txt",
+      "status": "generated_and_sampled_frames_checked",
+      "output_file": "mvp/src/assets/workplace-videos/speaking-base.mp4",
+      "sha256": "fc1b6665952aab4ffd1ea1d271972a17d62cd9b2b8de0472e62eab27c8465f1e",
+      "metadata": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_type": "video",
+            "width": 2160,
+            "height": 3840,
+            "r_frame_rate": "24/1"
+          }
+        ],
+        "format": {
+          "duration": "8.000000"
+        }
+      },
+      "visual_check": "Head and both shoes visible; conversational mouth movements in most sampled frames. Some mild head tilt and smile remain; no precise TTS lip sync."
+    },
+    {
+      "name": "joy",
+      "prompt_file": "joy.txt",
+      "status": "generated_and_sampled_frames_checked",
+      "output_file": "mvp/src/assets/workplace-videos/joy.mp4",
+      "sha256": "3c4ba0d3fa194bae93861f7a1cb5c859d8798a63e4b8787464e2de8edc0511e5",
+      "metadata": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_type": "video",
+            "width": 2160,
+            "height": 3840,
+            "r_frame_rate": "24/1"
+          }
+        ],
+        "format": {
+          "duration": "8.000000"
+        }
+      },
+      "visual_check": "Head and both shoes visible; conversational mouth movements in most sampled frames. Some mild head tilt and smile remain; no precise TTS lip sync."
+    },
+    {
+      "name": "disappointment",
+      "prompt_file": "disappointment.txt",
+      "status": "generated_and_sampled_frames_checked",
+      "output_file": "mvp/src/assets/workplace-videos/disappointment.mp4",
+      "sha256": "9dd3a5a715ab291332f9f9cc74816e3c6abb9ad0de318cb738253b17c15d89b5",
+      "metadata": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_type": "video",
+            "width": 2160,
+            "height": 3840,
+            "r_frame_rate": "24/1"
+          }
+        ],
+        "format": {
+          "duration": "8.000000"
+        }
+      },
+      "visual_check": "Head and both shoes visible; conversational mouth movements in most sampled frames. Some mild head tilt and smile remain; no precise TTS lip sync."
+    },
+    {
+      "name": "irritation",
+      "prompt_file": "irritation.txt",
+      "status": "generated_and_sampled_frames_checked",
+      "output_file": "mvp/src/assets/workplace-videos/irritation.mp4",
+      "sha256": "51d722ca96ff3482ada2f412ec1354e1f30af578eaaee58af8be7d3a3df8b325",
+      "metadata": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_type": "video",
+            "width": 2160,
+            "height": 3840,
+            "r_frame_rate": "24/1"
+          }
+        ],
+        "format": {
+          "duration": "8.000000"
+        }
+      },
+      "visual_check": "Head and both shoes visible; conversational mouth movements in most sampled frames. Some mild head tilt and smile remain; no precise TTS lip sync."
+    },
+    {
+      "name": "anger",
+      "prompt_file": "anger.txt",
+      "status": "generated_and_sampled_frames_checked",
+      "output_file": "mvp/src/assets/workplace-videos/anger.mp4",
+      "sha256": "feb5c2c85c7daf569132eca0232a20c0b6eb2e89961e70b0460b11c191db4971",
+      "metadata": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_type": "video",
+            "width": 2160,
+            "height": 3840,
+            "r_frame_rate": "24/1"
+          }
+        ],
+        "format": {
+          "duration": "8.000000"
+        }
+      },
+      "visual_check": "Head and both shoes visible; conversational mouth movements in most sampled frames. Some mild head tilt and smile remain; no precise TTS lip sync."
+    }
+  ],
+  "status": "integrated_into_service",
+  "integrated_into_service": true,
+  "notes": [
+    "Irritation first attempt and speaking-base second refinement were filtered with safety code 15236754; adult-only safety settings preserved",
+    "Disappointment first attempt replaced by a second generated candidate",
+    "Movement restriction is not perfectly followed; review before service replacement"
+  ],
+  "service_commit": "2898a98"
+}

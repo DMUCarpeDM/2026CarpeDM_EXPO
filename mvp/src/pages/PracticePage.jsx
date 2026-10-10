@@ -134,6 +134,7 @@ export function PracticePage({ manualTest = false, onPrev, onFinish, session, sc
 
   // ---- AI 음성(TTS): 새 질문이 오면 AI 상대가 실제로 읽어준다 ----
   const [aiSpeaking, setAiSpeaking] = useState(false);
+  const aiSpeechActiveRef = useRef(false);
   const turnSpeech = composeTurnSpeech(turn);
   const [teamLeadReaction, setTeamLeadReaction] = useState("");
   // 감정 클립이 있으면 말하기보다 우선 — 1회 재생 후 onReactionComplete로 기본말하기 복귀
@@ -185,7 +186,12 @@ export function PracticePage({ manualTest = false, onPrev, onFinish, session, sc
       text,
       voice: character?.voice_gender === "female" ? "female" : "male",
       serverTtsReady: femaleVoice,
-      onSpeakingChange: setAiSpeaking,
+      onSpeakingChange: (speaking) => {
+        aiSpeechActiveRef.current = speaking;
+        if (speaking) stopBrowserRecognition();
+        else resumeBrowserRecognition();
+        setAiSpeaking(speaking);
+      },
       onFinish: () => {}, // 질문은 음성 재생 종료 후에도 입력 패널에 유지한다.
       onNote: ttsNoteOnce,
     });
@@ -204,9 +210,9 @@ export function PracticePage({ manualTest = false, onPrev, onFinish, session, sc
   const pushFeed = (text) => setFeed((prev) => [...prev.slice(-4), { id: (feedIdRef.current += 1), time: wallClock(), text }]);
   const {
     listening, interim, setInterim, micEnabled, setMicEnabled, sttMode,
-    clearAutoSubmit, stopBrowserRecognition, getSttSource, resetSttUsage,
+    clearAutoSubmit, stopBrowserRecognition, resumeBrowserRecognition, getSttSource, resetSttUsage,
   } = usePracticeTranscription({
-    draft, setDraft, mediaStream, turn, busy, paused: paused || voice.textOnly, aiSpeaking, entryOverlayOpen,
+    draft, setDraft, mediaStream, turn, busy, paused: paused || voice.textOnly, aiSpeaking, aiSpeechActiveRef, entryOverlayOpen,
     pushFeed, onAutoSubmit: () => submitDraftRef.current?.(),
   });
   const liveTip = useLiveCoaching({ session, turnId: turn?.id,

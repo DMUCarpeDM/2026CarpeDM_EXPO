@@ -15,6 +15,7 @@ await page.addInitScript(()=>{
  window.SpeechRecognition = class {
   start(){this.onstart?.(); this.timer=setInterval(()=>{const r=[{transcript:'답변을 이어 말하고 있습니다'}];r.isFinal=false;this.onresult?.({resultIndex:0,results:[r]});},1000);}
   stop(){clearInterval(this.timer);this.onend?.();}
+  abort(){this.stop();}
  };
  Object.defineProperty(window.speechSynthesis,'speak',{value:u=>setTimeout(()=>u.onend?.(),10)});
 });

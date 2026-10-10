@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "test": "node --test src/lib/*.test.js src/features/smart-mirror/lib/*.test.js",
+    "test": "node --test --test-force-exit --test-concurrency=2 src/lib/*.test.js src/features/smart-mirror/lib/*.test.js",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
     "setup-offline": "node scripts/setup-offline.mjs",
@@ -14,7 +14,6 @@
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.35",
-    "@paper-design/shaders-react": "0.0.81",
     "@radix-ui/react-accordion": "^1.2.20",
     "@radix-ui/react-progress": "^1.1.16",
     "@radix-ui/react-slot": "^1.3.3",
@@ -23,7 +22,6 @@
     "clsx": "^2.1.1",
     "framer-motion": "^12.42.2",
     "onnxruntime-web": "1.23.2",
-    "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "reicon-react": "^1.1.2",

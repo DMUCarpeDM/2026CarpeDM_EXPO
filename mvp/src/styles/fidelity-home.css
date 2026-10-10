@@ -7,9 +7,6 @@
 .hero-copy > p { max-width: 550px; color: #5a6980; font-size: 18px; line-height: 1.75; }
 .hero-pill { min-height: 31px; padding: 0 14px; border-radius: 999px; color: var(--blue-strong); background: #edf6ff; font-size: 13px; font-weight: 700; }
 .hero-actions { display: flex; gap: 14px; margin-top: 31px; }
-.hero-actions .primary-button { position: relative; justify-content: center; min-width: 288px; min-height: 58px; padding: 0; font-size: 16px; }
-.hero-actions .primary-button.wide { margin: 0; }
-.hero-actions .primary-button svg { position: absolute; right: 28px; margin: 0; }
 .hero-social-proof { display: flex; align-items: center; gap: 0; margin-top: 32px; color: #5c6c84; font-size: 14px; line-height: 1.55; }
 .hero-social-proof .avatar { width: 48px; height: 48px; margin-right: -11px; border: 2px solid #fff; font-size: 11px; }
 .hero-social-proof > span { margin-left: 21px; }
@@ -31,7 +28,6 @@
 .home-section-head p { max-width: 590px; margin: 16px 0 0; color: #627189; font-size: 16px; line-height: 1.75; }
 .home-section-copy { display: grid; align-content: start; grid-template-columns: 1fr auto; gap: 18px; padding-top: 20px; }
 .home-section-copy p { margin: 0; color: #627189; font-size: 16px; line-height: 1.75; }
-.home-section-copy .secondary-button { min-height: 42px; padding: 0 14px; font-size: 14px; }
 .home-fit-board { grid-column: 1 / -1; display: grid; min-height: 344px; grid-template-columns: minmax(0, 1fr) 310px; overflow: hidden; border: 1px solid var(--line-cool); border-radius: 21px; background: #fff; box-shadow: var(--shadow-exhibition); }
 .home-fit-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .home-fit-card { display: grid; align-content: start; gap: 13px; min-height: 344px; padding: 29px 22px; border-right: 1px solid var(--line-cool); }
@@ -48,12 +44,6 @@
 .home-radar-card { display: grid; justify-items: center; align-content: center; gap: 10px; padding: 20px; background: linear-gradient(135deg, #fbfdff, #f3f8ff); }
 .home-radar-card > span { color: #2b3c54; font-size: 14px; font-weight: 700; }
 .home-radar-chart { width: 190px; height: 190px; overflow: visible; }
-.radar-grid { fill: none; stroke: #d8e5f7; stroke-width: 1; }
-.radar-axis { stroke: #dfe9f8; stroke-width: 1; }
-.radar-average { fill: rgba(255, 145, 0, .13); stroke: #ff9100; stroke-width: 1.8; }
-.radar-score { fill: rgba(9, 105, 247, .13); stroke: var(--blue-strong); stroke-width: 2.3; }
-.radar-point { fill: var(--blue-strong); stroke: #fff; stroke-width: 1.5; }
-.radar-label { fill: #53637b; font-size: 11px; font-weight: 700; }
 .home-radar-card p { margin: 0; color: #71809a; font-size: 12px; }
 .home-radar-card p i,.home-radar-card p b { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--blue-strong); }
 .home-radar-card p b { background: #a4b3c7; }

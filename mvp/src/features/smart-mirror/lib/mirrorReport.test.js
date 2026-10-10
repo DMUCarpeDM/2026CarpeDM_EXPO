@@ -31,3 +31,19 @@ test("expression output collection is visible without inventing a score", () => 
   assert.equal(report.fits[2].status,"표정 출력 수집 · 검증 중");
   assert.equal(report.fits[2].text,"검증 전 참고값");
 });
+
+
+test("measured response and posture scores pass through to the mirror report", () => {
+  const report = mirrorReport({ total_score: 81.5, fit_scores: {
+    response: { score: 88, summary: "목표를 확인했어요." },
+    posture: { score: 75, summary: "유효 자세 표본으로 계산했어요." },
+    voice: { score: null }, expression: { score: null },
+  }, speech_stats: { turns: 3 } });
+  assert.equal(report.total, 82);
+  assert.equal(report.fits[0].score, 88);
+  assert.equal(report.fits[0].status, "측정 완료");
+  assert.equal(report.fits[3].score, 75);
+  assert.equal(report.fits[3].status, "측정 완료");
+  assert.equal(report.fits[1].score, null);
+  assert.equal(report.fits[2].score, null);
+});

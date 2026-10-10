@@ -1,6 +1,6 @@
 # Mirror-Ting — AI 직장 대화 연습
 
-Mirror-Ting은 업무 대화를 역할극으로 연습하고 응답·목소리·표정·자세의 4-Fit 결과를 확인하는 전시용 프로젝트입니다. 시선과 간투어는 보조 관찰 항목입니다.
+Mirror-Ting은 업무 대화를 역할극으로 연습하고 응답·목소리·표정·자세의 4-Fit 결과를 확인하는 전시용 프로젝트입니다. 간투어는 보조 관찰 항목이며 시선 측정은 사용하지 않습니다.
 
 처음 참여했다면 [새 팀원 시작 안내](docs/developer-onboarding.md)를 먼저 읽으세요. 설치부터 첫 체험 확인까지 순서대로 정리했습니다.
 
@@ -30,7 +30,7 @@ npm run dev -- --host 127.0.0.1 --port 5175 --strictPort
 | 퇴근 대화 화면 바로 보기 | [퇴근 미러](http://127.0.0.1:5175/src/features/smart-mirror/previews/simulation/4k.html?scene=leaving) |
 | 출근 → 업무 → 퇴근 자동 안내 | [자동 안내](http://127.0.0.1:5175/src/features/smart-mirror/previews/flow/4k.html) |
 
-대화 화면은 시나리오의 예시 대사와 상대 영상을 표시합니다. 자동 안내는 약 57초 뒤 종료 화면으로 넘어가며 **안내 다시 보기** 또는 **대화 화면 미리보기**를 선택할 수 있습니다. 숨긴 탭에서는 진행 시간이 멈춥니다. 운영체제의 동작 줄이기 설정이 켜져 있으면 **자동 안내 재개**로 시작할 수 있습니다.
+대화 화면은 시나리오의 예시 대사와 상대 영상을 표시합니다. 자동 안내는 33초 뒤 대화 미리보기로 넘어가며 숨긴 탭에서는 진행 시간이 멈춥니다. 운영체제의 동작 줄이기 설정에서도 안내 시간은 유지하고 이미지 이동만 줄입니다.
 
 4K 주소는 2160×3840 세로 화면을 현재 창에 맞춰 축소합니다. 가로 모니터에서는 양옆 검은 여백이 정상입니다. 더 크게 확인하려면 `/previews/flow/index.html` 또는 `/previews/simulation/scene.html?scene=morning`을 사용하세요. 이 미리보기는 Vite 개발 서버에서 여는 경로이며 `npm run build`의 기본 결과물에는 포함되지 않습니다.
 
@@ -90,7 +90,7 @@ npm run dev -- --host 127.0.0.1 --port 5175 --strictPort
 | [mvp/](mvp/README.md) | 관람객용 React/Vite 화면, 카메라·마이크, 실시간 받아쓰기 |
 | [poc/backend/](poc/README.md) | FastAPI, 세션·녹음 저장, 대화 생성, 분석·리포트 |
 | [poc/frontend/](poc/frontend/README.md) | 별도 웹앱. 전시 화면 작업은 우선 `mvp/`에서 시작합니다. |
-| [docs/](docs/) | 기획·설계 자료. 과거 계획과 현재 구현이 다를 수 있습니다. |
+| [docs/](docs/README.md) | 현재 운영·모델 계약과 제품 기획 자료. 구현 상태는 코드와 테스트로 확인합니다. |
 
 ## 음성 처리 방식
 
@@ -101,7 +101,7 @@ npm run dev -- --host 127.0.0.1 --port 5175 --strictPort
 - 간투어는 누락·오인식 가능성이 있는 추정치입니다. 점수에 반영하지 않으며, 분석할 수 없으면 0회로 표시하지 않습니다.
 - 디지털 무음은 Whisper 전사 전에 제외합니다. 이 처리가 모든 잡음이나 환각을 막는 것은 아닙니다.
 
-역할극 대화는 기본적으로 서버의 GPT-4o가 생성하며, `MIRROR_TING_DIALOGUE_PROVIDER=gemini`로 Gemini를 선택할 수 있습니다. 답변 근거·모순 분석은 여전히 OpenAI 키가 필요합니다. Gemini 키만 설정하면 대화는 생성할 수 있지만 해당 분석은 미측정입니다. ElevenLabs 설정이 없거나 재생에 실패하면 브라우저 TTS를 사용합니다. Chrome STT와 외부 API를 사용하는 체험에는 인터넷이 필요합니다.
+역할극 대화는 `MIRROR_TING_DIALOGUE_PROVIDER`로 OpenAI·Gemini·Ollama 중 선택합니다. 답변의 목표 달성·모순 근거는 Gemini로 판단합니다. 여성 캐릭터는 준비된 Iris TTS를 사용하고, 남성 캐릭터·Iris 미준비·합성 실패 시 브라우저 TTS로 전환합니다. AI 발화 중 Chrome 음성 인식은 일시 중지합니다. Chrome STT와 외부 API를 사용하는 체험에는 인터넷이 필요합니다.
 
 ## 직장 대화 연속 체험
 
@@ -153,3 +153,9 @@ cd ../poc/backend
 ```
 
 API 키·녹음·DB·모델 가중치는 Git에 올리지 않습니다. 현재 DB 기본값은 SQLite입니다. 시리얼 로그인·Supabase 전환 계획은 구현 완료 여부를 별도로 확인해야 합니다.
+
+## 유지보수
+
+- [현재 영상 구성](docs/service-media.md)
+- [Iris TTS 설정](docs/smart-mirror-tts-integration-2026-10-10.md)
+- [프로젝트 정리 기록](docs/maintenance/cleanup-2026-10-11.md)

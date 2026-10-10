@@ -1,4 +1,4 @@
-from app.services.interaction_scoring import public_total, NO_SCORE
+from app.services.interaction_scoring import public_total
 from app.services import interaction, judgments, response_judgment, feedback, contradictions, interview, cafe
 import secrets
 import time

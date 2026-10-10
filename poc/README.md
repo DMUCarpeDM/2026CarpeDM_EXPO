@@ -21,13 +21,13 @@ cd backend
 
 | 기능 | 구현 |
 | --- | --- |
-| 역할극 대화 | 서버 GPT-4o. 키가 없으면 실제 대화를 시작할 수 없습니다. |
-| 상대 음성 | ElevenLabs, 실패 시 프론트의 브라우저 TTS |
+| 역할극 대화 | 설정으로 OpenAI·Gemini·Ollama 선택; 실패 시 준비된 시나리오 대사 사용 |
+| 상대 음성 | MVP 여성 캐릭터는 Iris, 미준비·실패 또는 남성 캐릭터는 브라우저 TTS |
 | 실시간 받아쓰기 | 프론트 Chrome STT, 실패 시 직접 입력 |
 | 간투어 추정 | 로컬 faster-whisper `small` + 간투어 프롬프트 |
 | 응답 의미 매칭 | 로컬 E5. 모델이 없으면 키워드 판정만 사용 |
-| 목소리 분석 | `app/ai/voice_fit.py`의 음성 처리 |
-| 표정·자세·시선 | 브라우저 MediaPipe 측정값을 서버가 집계 |
+| 목소리 분석 | `app/services/voice_analysis.py`의 측정 v2; 검증 전 점수 보류 |
+| 표정·자세 | MediaPipe 표본·표정 모델·자세 ONNX 앙상블; 시선 측정 제거 |
 
 Vosk와 `/api/sessions/{session_id}/stt` 실시간 전사 API는 제거했습니다. 과거 문서의 Ollama 대화·완전 오프라인 체험·서버 STT 대체 경로 설명은 현재 구성에 적용하지 않습니다.
 

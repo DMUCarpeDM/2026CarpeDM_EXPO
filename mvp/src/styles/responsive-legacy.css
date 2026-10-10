@@ -61,20 +61,6 @@
   .home-visual {
     min-height: 460px;
   }
-
-  .compare-row {
-    grid-template-columns: 48px 1fr;
-  }
-
-  .compare-row > * {
-    min-width: 0;
-  }
-
-  .attempt-card {
-    grid-template-columns: 1fr;
-    gap: 18px;
-    min-height: auto;
-  }
 }
 
 @media (max-width: 760px) {
@@ -369,10 +355,9 @@
   }
 
   .overall-body,
-  .report-preview-body,
-  .role-profile,
-  .mini-report > div,
-  .attempt-card {
+.report-preview-body,
+.role-profile,
+.mini-report > div {
     grid-template-columns: 1fr;
   }
 
@@ -398,15 +383,14 @@
 
 @media (max-width: 430px) {
   .share-preview,
-  .report-preview-card,
-  .mini-report,
-  .insight-card,
-  .comparison-table,
-  .improved-card,
-  .history-card,
-  .growth-card,
-  .compare-actions,
-  .attempt-card {
+.report-preview-card,
+.mini-report,
+.insight-card,
+.comparison-table,
+.improved-card,
+.history-card,
+.growth-card,
+.compare-actions {
     padding-right: 18px;
     padding-left: 18px;
   }
@@ -418,31 +402,6 @@
     width: 100%;
     max-width: 100%;
     overflow: hidden;
-  }
-
-  .attempt-meta,
-  .attempt-card > div:first-child {
-    min-width: 0;
-  }
-
-  .attempt-meta > * {
-    max-width: 100%;
-  }
-
-  .attempt-card h2,
-  .attempt-card h3,
-  .attempt-card p {
-    overflow-wrap: anywhere;
-  }
-
-  .mini-score-row {
-    grid-template-columns: 28px 1fr 52px;
-    row-gap: 8px;
-  }
-
-  .mini-score-row i {
-    grid-column: 2 / -1;
-    grid-row: 2;
   }
 }
 

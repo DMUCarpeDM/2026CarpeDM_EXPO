@@ -54,29 +54,31 @@ async function capture(page, name, details = {}) {
   observations.push({ name, url: page.url(), viewport: page.viewportSize(), ...details });
 }
 
-test("mirror readability, permission recovery and completed-session navigation", { timeout: 90_000 }, async t => {
+test("mirror readability, text fallback and completed-session return to NFC", { timeout: 90_000 }, async t => {
   await mkdir(artifacts, { recursive: true });
   const server = await start(false, process.env.VISUAL_QA_MIRROR_DIST);
-  t.after(() => server.close());
   const browser = await chromium.launch({ channel: "chrome", headless: true });
-  t.after(() => browser.close());
+  t.after(async () => { await browser.close(); await server.close(); });
   for (const viewport of [{ width: 800, height: 1280 }, { width: 1080, height: 1920 }, { width: 390, height: 844 }, { width: 1440, height: 900 }]) {
     const { context, page, errors } = await pageFor(browser, viewport, false);
     try {
       await page.goto(server.url + "?service=workplace&mirror=1");
-      await page.locator(".practice-question-panel h2").waitFor();
-      await page.getByRole("button", { name: "카메라·마이크 연결", exact: true }).click();
-      await page.getByRole("button", { name: "카메라·마이크 연결", exact: true }).click();
-      await page.locator(".camera-reconnect small.is-error").waitFor();
+      await page.locator(".simulation-dialogue-text").waitFor();
+      const answer = page.getByRole("textbox", { name: "답변", exact: true });
+      await answer.waitFor();
+      const submit = page.getByRole("button", { name: "답변 보내기", exact: true });
+      assert.equal(await submit.isDisabled(), true);
+      await answer.fill("장치 권한이 없어도 텍스트로 답변합니다.");
+      assert.equal(await submit.isEnabled(), true);
+      await answer.fill("");
       const metrics = await page.evaluate(() => {
-        const error = document.querySelector(".camera-reconnect small").getBoundingClientRect();
-        const hud = document.querySelector(".camera-dialogue").getBoundingClientRect();
-        const rgb = getComputedStyle(document.querySelector(".practice-question-panel h2")).color.match(/\d+/g).slice(0, 3).map(Number);
+        const card = document.querySelector(".simulation-card-slot").getBoundingClientRect();
+        const rgb = getComputedStyle(document.querySelector(".simulation-dialogue-text")).color.match(/\d+/g).slice(0, 3).map(Number);
         const linear = rgb.map(v => v / 255 <= 0.04045 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4);
-        return { contrastOnBlack: (0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2] + 0.05) / 0.05, overlap: Math.max(0, Math.min(error.bottom, hud.bottom) - Math.max(error.top, hud.top)), scrollWidth: document.documentElement.scrollWidth, width: innerWidth };
+        return { contrastOnBlack: (0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2] + 0.05) / 0.05, left: card.left, right: card.right, scrollWidth: document.documentElement.scrollWidth, width: innerWidth };
       });
       assert.ok(metrics.contrastOnBlack >= 7, JSON.stringify(metrics));
-      assert.equal(metrics.overlap, 0, "permission recovery text remains above the HUD");
+      assert.ok(metrics.left >= 0 && metrics.right <= metrics.width, JSON.stringify(metrics));
       assert.equal(metrics.scrollWidth, metrics.width);
       await capture(page, `mirror-recovery-${viewport.width}`, metrics);
       assert.deepEqual(errors, []);
@@ -84,17 +86,18 @@ test("mirror readability, permission recovery and completed-session navigation",
   }
   const { context, page, errors, calls } = await pageFor(browser, { width: 800, height: 1280 }, true);
   try {
-    await page.goto(server.url + "?service=workplace&mirror=1");
-    await page.locator(".unified-report__fit").first().waitFor();
-    await page.getByRole("button", { name: "홈으로 돌아가기", exact: true }).click();
-    await page.locator(".home-page").waitFor();
-    await capture(page, "completed-back-home");
-    await page.goBack();
-    await page.locator(".report-page").waitFor();
-    // Simulate a stale history entry from the now-ended practice.
+    await page.goto(server.url + "?service=workplace&mirror=1&idle=1");
+    await page.getByRole("heading", { name: "대화를 돌아보는 시간.", exact: true }).waitFor();
+    assert.equal(await page.locator(".mirror-fit-grid article").count(), 4);
+    await page.clock.install();
+    await page.clock.fastForward(1500);
+    await page.getByRole("heading", { name: "사원증을 태그해 주세요.", exact: true }).waitFor();
+    assert.equal(await page.evaluate(() => localStorage.getItem("mirror-ting-active-session")), null);
+    await capture(page, "completed-back-nfc");
+    // A stale browser entry must not restore the ended visitor's conversation.
     await page.evaluate(() => { history.pushState({ mirrorTingView: "practice" }, ""); window.dispatchEvent(new PopStateEvent("popstate", { state: { mirrorTingView: "practice" } })); });
-    assert.equal(await page.locator(".practice-screen").count(), 0);
-    await capture(page, "completed-stale-history-result", { calls });
+    assert.equal(await page.locator(".mirror-scene-simulation").count(), 0);
+    await capture(page, "completed-stale-history-nfc", { calls });
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
   await writeFile(join(artifacts, "mirror.json"), JSON.stringify(observations, null, 2));
@@ -103,9 +106,8 @@ test("mirror readability, permission recovery and completed-session navigation",
 test("static demo empty completion is honest; cancel, retry, repeated click and sample exploration", { timeout: 90_000 }, async t => {
   await mkdir(artifacts, { recursive: true });
   const server = await start(true, process.env.VISUAL_QA_STATIC_DIST);
-  t.after(() => server.close());
   const browser = await chromium.launch({ channel: "chrome", headless: true });
-  t.after(() => browser.close());
+  t.after(async () => { await browser.close(); await server.close(); });
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     const { context, page, errors, calls } = await pageFor(browser, viewport, false, false);
     try {

@@ -1,4 +1,4 @@
-from app.services.interaction_scoring import public_total, NO_SCORE
+from app.services.interaction_scoring import public_total
 """기관(B2B 온보딩) 모듈 (S-B2B-ORG) — 기관 생성·초대 코드 가입·멤버·세션 조회.
 
 권한 모델:

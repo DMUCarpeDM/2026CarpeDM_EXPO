@@ -76,8 +76,6 @@
 
 .mode-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 34px; }
 .mode-actions--center { justify-content: center; }
-.mode-trust-line { display: flex; align-items: center; gap: 8px; margin-top: 24px; color: var(--mode-subtle); font-size: 13px; }
-.mode-trust-line svg { color: var(--mode-accent); }
 
 .section-intro { max-width: 720px; margin-bottom: 46px; }
 .section-intro > span { color: var(--mode-accent); font-size: 13px; font-weight: 800; letter-spacing: .08em; }
@@ -170,14 +168,6 @@
 .process-card .mode-icon { margin: 25px 0 30px; }
 .process-card--compact { min-height: 174px; padding: 21px 28px; }
 .process-card--compact .mode-icon { margin: 11px 0 17px; }
-
-.fit-metric .ui-card__content { padding: 20px; }
-.fit-metric__head { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; }
-.fit-metric__head .mode-icon { width: 36px; height: 36px; }
-.fit-metric__head b { font-size: 14px; }
-.fit-metric__head strong { font-size: 25px; letter-spacing: -.04em; }
-.fit-metric .ui-progress { margin: 20px 0 13px; }
-.fit-metric p { margin: 0; color: var(--mode-muted); font-size: 13px; }
 
 .training-hero { display: grid; justify-items: center; padding-top: 98px; text-align: center; }
 .training-hero__copy { max-width: 770px; }
