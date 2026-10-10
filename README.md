@@ -4,6 +4,85 @@ Mirror-Ting은 업무 대화를 역할극으로 연습하고 응답·목소리·
 
 처음 참여했다면 [새 팀원 시작 안내](docs/developer-onboarding.md)를 먼저 읽으세요. 설치부터 첫 체험 확인까지 순서대로 정리했습니다.
 
+## 다른 컴퓨터에서 스마트 미러 보여주기
+
+### 공통 준비
+
+Git과 Node.js/npm이 설치된 컴퓨터에서 저장소를 받습니다. 이미 받은 저장소라면 로컬 변경을 보관하고 `git pull`로 업데이트하세요.
+
+```bash
+git clone https://github.com/DMUCarpeDM/2026CarpeDM_EXPO.git
+cd 2026CarpeDM_EXPO/mvp
+npm ci
+npm run dev -- --host 127.0.0.1 --port 5175 --strictPort
+```
+
+서버 터미널을 열어 둔 채 Chrome에서 아래 주소를 여세요. `npm ci`는 처음 실행하거나 업데이트 후 다시 실행합니다. 생략하면 `shaders/react` 같은 새 패키지의 import 오류가 생길 수 있습니다. 설치에는 인터넷이 필요합니다. 포트가 사용 중이면 기존 서버를 확인하거나 다른 포트로 실행하고 아래 주소의 `5175`도 같은 값으로 바꾸세요.
+
+### 모드 1 — 카드 없이 미러 화면 바로 보기
+
+백엔드·NFC·카메라·마이크 없이 화면을 보여주는 모드입니다. **실제 AI 대화, 답변 입력, 분석·결과 저장은 실행하지 않습니다.**
+
+| 화면 | 주소 |
+| --- | --- |
+| 출근 대화 화면 바로 보기 | [출근 미러](http://127.0.0.1:5175/src/features/smart-mirror/previews/simulation/4k.html?scene=morning) |
+| 업무 대화 화면 바로 보기 | [업무 미러](http://127.0.0.1:5175/src/features/smart-mirror/previews/simulation/4k.html?scene=work) |
+| 퇴근 대화 화면 바로 보기 | [퇴근 미러](http://127.0.0.1:5175/src/features/smart-mirror/previews/simulation/4k.html?scene=leaving) |
+| 출근 → 업무 → 퇴근 자동 안내 | [자동 안내](http://127.0.0.1:5175/src/features/smart-mirror/previews/flow/4k.html) |
+
+대화 화면은 시나리오의 예시 대사와 상대 영상을 표시합니다. 자동 안내는 약 57초 뒤 종료 화면으로 넘어가며 **안내 다시 보기** 또는 **대화 화면 미리보기**를 선택할 수 있습니다. 숨긴 탭에서는 진행 시간이 멈춥니다. 운영체제의 동작 줄이기 설정이 켜져 있으면 **자동 안내 재개**로 시작할 수 있습니다.
+
+4K 주소는 2160×3840 세로 화면을 현재 창에 맞춰 축소합니다. 가로 모니터에서는 양옆 검은 여백이 정상입니다. 더 크게 확인하려면 `/previews/flow/index.html` 또는 `/previews/simulation/scene.html?scene=morning`을 사용하세요. 이 미리보기는 Vite 개발 서버에서 여는 경로이며 `npm run build`의 기본 결과물에는 포함되지 않습니다.
+
+### 모드 2 — 키오스크 안내·동의 화면에서 시작하기
+
+프론트 서버를 켠 뒤 다음 주소를 엽니다.
+
+**[직장 대화 키오스크 안내·카드 발급](http://127.0.0.1:5175/?service=workplace&kiosk=issue)**
+
+이 주소는 직장 대화 선택 → 분석·개인정보 처리 동의 → 카드 태그·발급 → 완료 안내 순서로 진행합니다. 첫 안내·동의 화면은 프론트만으로 볼 수 있지만 **실제 카드 발급과 대화에는 백엔드, NFC 리더·카드, API·모델 설정이 필요합니다.** 카드가 없는 화면 미리보기와 실제 연동 체험을 구분해서 시연하세요.
+
+실제 체험까지 진행하려면 Python 3.12 환경을 준비하고 [백엔드 설치 안내](docs/developer-onboarding.md#처음-설치하기)에 따라 의존성·API 키·모델을 설정합니다. 기존 `.env`는 덮어쓰지 않습니다. 키·DB·모델은 Git에서 내려받지 않으므로 다른 컴퓨터에서도 별도로 준비해야 합니다.
+
+macOS/Linux — 저장소 루트에서 별도 터미널:
+
+```bash
+cd poc/backend
+python3.12 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+# 최초 설정 시에만 실행하고 .env에 필요한 설정을 입력합니다.
+cp -n .env.example .env
+.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8001
+```
+
+Windows PowerShell — 저장소 루트에서 별도 터미널:
+
+```powershell
+cd poc/backend
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+# .env에 필요한 설정을 입력한 다음 서버를 실행합니다.
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8001
+```
+
+프론트의 기본 API 대상은 `127.0.0.1:8001`입니다. 백엔드를 다른 포트로 실행했다면 프론트를 재시작할 때 연결 주소를 맞춥니다.
+
+```bash
+# macOS/Linux 예시
+MIRROR_TING_API_TARGET=http://127.0.0.1:8003 npm run dev -- --host 127.0.0.1 --port 5175 --strictPort
+```
+
+```powershell
+# Windows PowerShell 예시
+$env:MIRROR_TING_API_TARGET="http://127.0.0.1:8003"
+npm run dev -- --host 127.0.0.1 --port 5175 --strictPort
+```
+
+발급한 카드는 **[실제 스마트 미러 진입](http://127.0.0.1:5175/?service=workplace&mirror=1)** 화면에서 태그합니다. 이 주소는 카드 없는 미리보기 주소가 아닙니다. 동의된 카드와 준비된 장치를 사용해 안내 → 대화 → 분석 결과로 진행합니다. `/api/health`의 `degraded`·`degraded_reasons`도 확인하고, 미가동 분석을 측정된 결과처럼 설명하지 마세요.
+
+여기서 `127.0.0.1`은 브라우저를 여는 컴퓨터 자신입니다. 다른 컴퓨터에서는 그 컴퓨터에 저장소와 서버를 준비한 뒤 같은 주소로 접속하세요. 현재 컴퓨터의 로컬 주소만 복사해서 원격 컴퓨터에서 접속할 수는 없습니다.
+
 ## 현재 구성
 
 | 경로 | 담당 기능 |
