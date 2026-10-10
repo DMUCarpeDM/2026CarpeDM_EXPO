@@ -98,7 +98,10 @@ test("server speech failure falls back to browser speech", async (t) => {
 
 test("server audio stops and releases its URL when the turn is cancelled", async (t) => {
   const env = playbackEnvironment(t);
-  t.mock.method(globalThis, "fetch", async () => new Response("mp3"));
+  t.mock.method(globalThis, "fetch", async (_url, options) => {
+    assert.deepEqual(JSON.parse(options.body), { text: "안녕하세요.", voice: "female" });
+    return new Response("wav", { headers: { "Content-Type": "audio/wav" } });
+  });
   const stop = env.start(true);
   await flushAsync();
   assert.equal(env.audioPlayers.length, 1);
@@ -130,4 +133,20 @@ test("cancelling browser speech clears its pending start timer", (t) => {
   assert.equal(env.timers.size, 0);
   env.flushTimers();
   assert.equal(env.utterances.length, 0);
+});
+
+test("cancelling aborts a pending Iris request without browser fallback", async (t) => {
+  const env = playbackEnvironment(t);
+  let signal;
+  t.mock.method(globalThis, "fetch", (_url, options) => {
+    signal = options.signal;
+    return new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(new DOMException("cancelled", "AbortError"))));
+  });
+  const stop = env.start(true);
+  stop();
+  await flushAsync();
+  env.flushTimers();
+  assert.equal(signal.aborted, true);
+  assert.equal(env.utterances.length, 0);
+  assert.equal(env.finished, 0);
 });

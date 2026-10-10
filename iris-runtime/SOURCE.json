@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/kwakminoo/Project-IRIS-Light",
+  "commit": "062ae3931d83bf3dd56a43bcc7b82897dc01126c",
+  "contents": "Unmodified voice runtime, committed profile, setup script, voice docs and licenses; desktop app excluded",
+  "local_modifications": {
+    "services/voice_runtime/tts_service.py": "CUDA bf16 support check; float32 for Pascal; SDPA attention. All other upstream files unchanged.",
+    "services/voice_runtime/app.py": "Serialize WAV synthesis for a single 6GB GPU."
+  }
+}

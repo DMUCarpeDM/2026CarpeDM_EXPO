@@ -71,11 +71,12 @@ export function getHealth() {
   return request("/health");
 }
 
-export async function synthesizeSpeech(text) {
+export async function synthesizeSpeech(text, voice = "female", signal) {
   const response = await fetch(`${API_BASE}/tts`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ text, voice }),
+    signal,
   });
   if (!response.ok) {
     throw new PocApiError("AI 음성을 만들 수 없어요.", response.status);

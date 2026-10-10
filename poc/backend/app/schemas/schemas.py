@@ -198,6 +198,8 @@ class ScenarioOut(BaseModel):
 
 class TtsIn(BaseModel):
     text: str = Field(min_length=1, max_length=700)
+    # 여성은 Iris, 남성은 브라우저 음성. 빈 값은 기존 클라이언트 호환용이다.
+    voice: Literal["female", "male", ""] = ""
 
 class ConsentIn(BaseModel):
     agreed: bool = False

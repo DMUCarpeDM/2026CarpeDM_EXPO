@@ -1,0 +1,2 @@
+# CUDA torch/qwen-tts 설치 뒤에만 적용: FasterQwen3TTS streaming + CUDA graph.
+faster-qwen3-tts==0.3.2

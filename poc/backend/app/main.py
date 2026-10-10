@@ -200,7 +200,14 @@ async def lifespan(app: FastAPI):
     from app.services.nfc_bridge import start_bridge
 
     start_bridge()  # NFC 리더 폴링 (S-B2B-NFC) — pyscard/리더 없으면 자동 휴면
-    yield
+    from app.services.iris_runtime import IrisRuntime
+
+    iris = IrisRuntime()
+    iris.start()
+    try:
+        yield
+    finally:
+        iris.stop()
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
@@ -258,7 +265,6 @@ def health():
     from app.ai.text_match import kiwi_available
     from app.core.database import engine
     from app.services.dialogue.availability import dialogue_ready
-    from app.services.tts import elevenlabs_ready
     from app.services.iris_tts import iris_female_ready
 
     from app.services.dialogue import stats as dialogue_stats
@@ -278,7 +284,8 @@ def health():
         db_ok = False
 
     dialogue_fallback = dialogue_stats.snapshot()
-    tts_ready = iris_female_ready() if settings.tts_provider == "iris" else elevenlabs_ready()
+    female_tts_ready = iris_female_ready()
+    tts_ready = female_tts_ready
 
     # 조용한 폴백 강등의 종합 — 당일 아침 점검에서 이 목록이 비어 있어야 완전체다
     degraded_reasons = []
@@ -306,8 +313,10 @@ def health():
         "dialogue_provider": settings.dialogue_provider,
         "dialogue_ready": dialogue,
         "dialogue_fallback": dialogue_fallback,
-        "tts_provider": settings.tts_provider if tts_ready else "browser",
+        "tts_provider": "iris" if tts_ready else "browser",
         "tts_ready": tts_ready,
+        "tts_female": "iris" if female_tts_ready else "browser",
+        "tts_male": "browser",
         # 관측성: 지금 이 부스가 폴백으로 강등된 상태인지 즉시 확인 (60초 캐시)
         "ollama": ollama,
         "semantic_match": semantic,

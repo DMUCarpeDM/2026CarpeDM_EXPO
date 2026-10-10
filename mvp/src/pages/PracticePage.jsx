@@ -180,14 +180,16 @@ export function PracticePage({ manualTest = false, onPrev, onFinish, session, sc
   useEffect(() => {
     const text = turnSpeech;
     if (!text || paused || entryOverlayOpen) return undefined;
+    const femaleVoice = character?.voice_gender === "female" && aiHealth?.tts_female === "iris";
     return startTurnSpeech({
       text,
-      serverTtsReady: aiHealth?.tts_ready,
+      voice: character?.voice_gender === "female" ? "female" : "male",
+      serverTtsReady: femaleVoice,
       onSpeakingChange: setAiSpeaking,
       onFinish: () => {}, // 질문은 음성 재생 종료 후에도 입력 패널에 유지한다.
       onNote: ttsNoteOnce,
     });
-  }, [turn?.id, turnSpeech, paused, entryOverlayOpen, aiHealth?.tts_ready]);
+  }, [turn?.id, turnSpeech, paused, entryOverlayOpen, character?.voice_gender, aiHealth?.tts_female]);
 
   useEffect(() => {
     // 브리핑이 닫히는 순간 그동안 쌓인 비언어 표본을 버려 집계 창을 정렬한다

@@ -43,15 +43,15 @@ def test_ollama_json_and_timeout(monkeypatch):
     assert OllamaDialogueProvider()._complete("s", "u", max_tokens=3000, temperature=.4, json_mode=True) == "{}"
 
 
-@pytest.mark.parametrize("provider,mime", [("iris", "audio/wav"), ("elevenlabs", "audio/mpeg")])
-def test_tts_opt_in_keeps_legacy(monkeypatch, provider, mime):
+@pytest.mark.parametrize("provider", ["iris", "elevenlabs"])
+def test_tts_ignores_legacy_elevenlabs_setting(monkeypatch, provider):
     monkeypatch.setattr(settings, "tts_provider", provider)
     monkeypatch.setattr("app.api.tts.synthesize_iris", lambda text: b"iris")
-    monkeypatch.setattr("app.api.tts.synthesize_elevenlabs", lambda text: b"legacy")
+    monkeypatch.setattr("app.services.tts.synthesize_elevenlabs", lambda text: b"legacy")
     r = TestClient(app).post("/api/tts", json={"text": "안녕하세요."})
     assert r.status_code == 200
-    assert r.headers["content-type"] == mime
-    assert r.content == (b"iris" if provider == "iris" else b"legacy")
+    assert r.headers["content-type"] == "audio/wav"
+    assert r.content == b"iris"
 
 
 def test_iris_path_and_invalid_response(monkeypatch, tmp_path):
@@ -90,5 +90,5 @@ def test_iris_health_rejects_mock_and_bad_payload(monkeypatch):
     for payload, expected in [({"status": "ok", "mock_mode": False}, True),
                               ({"status": "ok", "mock_mode": True}, False), ([], False)]:
         monkeypatch.setattr(iris_tts, "_CACHE", {"at": 0.0, "ready": False})
-        monkeypatch.setattr(httpx, "get", lambda *a, **k: response(payload))
+        monkeypatch.setattr(httpx, "get", lambda url, **k: response({"available": True} if url.endswith("/v1/voice/profile") else payload))
         assert iris_tts.iris_female_ready() is expected

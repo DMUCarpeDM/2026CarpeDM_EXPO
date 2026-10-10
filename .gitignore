@@ -21,3 +21,8 @@ poc/backend/app/ai/assets/expression_resnet18_v1/model.pth
 # Local browser expression model and generated ONNX Runtime assets.
 mvp/public/models/expression_resnet18_v1/*.onnx
 mvp/public/onnxruntime/
+
+# Iris dedicated runtime environment and generated logs
+iris-runtime/.venv-voice/
+iris-runtime/.logs/
+iris-runtime/**/__pycache__/

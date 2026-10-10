@@ -37,7 +37,14 @@ def iris_female_ready() -> bool:
         )
         response.raise_for_status()
         body = response.json()
-        ready = body.get("status") == "ok" and not body.get("mock_mode")
+        ready = body.get("status") == "ok" and body.get("mock_mode") is False
+        if ready:
+            profile_response = httpx.get(
+                f"{settings.iris_voice_base_url.rstrip('/')}/v1/voice/profile",
+                timeout=1.0,
+            )
+            profile_response.raise_for_status()
+            ready = profile_response.json().get("available") is True
     except (httpx.HTTPError, AttributeError, TypeError, ValueError):
         ready = False
     _CACHE["at"] = now

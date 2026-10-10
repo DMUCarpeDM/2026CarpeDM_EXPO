@@ -75,17 +75,18 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-3.6-flash"
     gemini_base_url: str = "https://generativelanguage.googleapis.com"
     gemini_timeout_sec: float = 20.0
-    # AI 상대의 발화 음성은 ElevenLabs를 서버에서만 호출한다. 키는 어떤 API 응답에도
-    # 포함하지 않고, 설정이 없으면 프론트가 브라우저 TTS로 폴백한다.
+    # 이전 .env 로딩 호환용 필드. 현재 TTS API는 ElevenLabs를 호출하지 않는다.
     elevenlabs_api_key: SecretStr = SecretStr("")
     elevenlabs_voice_id: str = ""
     elevenlabs_model: str = "eleven_multilingual_v2"
     elevenlabs_timeout_sec: float = 20.0
-    # 추가 런타임이 준비된 경우에만 iris를 선택한다. 기존 기본값은 유지한다.
-    tts_provider: Literal["elevenlabs", "iris"] = "elevenlabs"
+    # 여성 음성은 Iris를 사용한다. 미준비·실패 시 브라우저 음성으로 전환한다.
+    tts_provider: Literal["elevenlabs", "iris"] = "iris"
     iris_voice_base_url: str = "http://127.0.0.1:18765"
-    iris_voice_timeout_sec: float = 20.0
+    iris_voice_timeout_sec: float = 180.0
     iris_audio_dir: Path = Path.home() / ".iris-light" / "audio"
+    iris_autostart: bool = True
+    iris_runtime_dir: Path = Path(__file__).resolve().parents[4] / "iris-runtime"
 
     # 의미 매칭 (마스터리 ②): Response-Fit 데이터로 fine-tuning한 로컬 E5로
     # 패러프레이즈 커버리지를 인식한다. 모델 파일이 없으면 키워드 매칭만 사용한다.

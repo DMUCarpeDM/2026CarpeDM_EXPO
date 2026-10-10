@@ -22,6 +22,7 @@
     {
       "id": "park_senior",
       "name": "박선임",
+      "voice_gender": "female",
       "role": "선임",
       "personality": "일은 빨리 넘기고 친한 척을 잘한다. 거절을 개인적 거리두기로 느낀다.",
       "speech_style": "편한 존댓말. 가끔 반말에 가까운 빠른 말투. 질문·부탁을 연달아 던진다.",
@@ -63,6 +64,7 @@
     {
       "id": "lee_teamlead",
       "name": "이팀장",
+      "voice_gender": "male",
       "role": "팀장",
       "personality": "결과는 분명히 보고 싶어 하고, 변명·장황한 배경 설명에 인내심이 짧다.",
       "speech_style": "짧고 직설적인 존댓말. 결론·담당·기한을 먼저 묻는다.",
@@ -104,6 +106,7 @@
     {
       "id": "choi_coworker",
       "name": "최동료",
+      "voice_gender": "male",
       "role": "동료",
       "personality": "겉으로는 협조적이나 자기 일은 넘기고 공은 가져가려 한다. 거절을 이기적으로 해석하기 쉽다.",
       "speech_style": "부드러운 존댓말 속에 부탁·생색·가벼운 압박이 섞인다.",

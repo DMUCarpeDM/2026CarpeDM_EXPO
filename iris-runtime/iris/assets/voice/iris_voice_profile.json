@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "name": "iris-2nd",
+  "model_name": "Qwen/Qwen3-TTS-12Hz-0.6B-Base",
+  "dim": 1024,
+  "tones": {
+    "briefing": {
+      "ref_text": "보안 점검 결과입니다. 약한 비밀번호 없음, 외부 공유 링크 1건, 만료 임박 2단계 인증은 정상입니다.",
+      "source_file": "2차 아이리스 녹음 C-H/D. 나열·브리핑형/보안 점검 결과입니다.m4a",
+      "sample_count": 23,
+      "ref_duration": 8.12,
+      "supports_icl": true
+    },
+    "caution": {
+      "ref_text": "연결이 끊겼습니다. 마지막 저장 시점 이후 변경은 아직 반현되지 않을 수 있습니다.",
+      "source_file": "2차 아이리스 녹음 C-H/G. 정중 거절· Clarification·대기·오류/연결이 끊겼습니다.m4a",
+      "sample_count": 22,
+      "ref_duration": 6.04,
+      "supports_icl": true
+    },
+    "narration": {
+      "ref_text": "고객 요청을 재구성하면 목표는 단순합니다. 기존 기능을 유지한 채 첫 화면 진입 시간을 줄이는 것입니다. 관련 로그를 보면 초기 로딩에서 불필요한 호출이 3번 있습니다. 그중 2번은 지연 로딩으로 옮겨도 무방해 보입니다. 제가 변경 허브를 표로 정리해두었습니다. 오늘 안에 결정이 필요하면 영향 범위가 작은 항목부터 적용하는 순서를 제안 드립니다.",
+      "source_file": "2차 아이리스 녹음 C-H/H. 중길이 혼합 낭독/고객 요청을 재구성하면 목표는 단순합니다.m4a",
+      "sample_count": 15,
+      "ref_duration": 25.22,
+      "supports_icl": true
+    },
+    "neutral": {
+      "ref_text": "여행 일정 초안을 만들었습니다. 이동, 미팅, 여유 시간을 9분에 두었고, 체크인 정보도 메모에 넣었습니다. 확전 전이라 예약 확정 문자는 아직 보내지 않았습니다.",
+      "source_file": "2차 아이리스 녹음 C-H/E. 담담한 일상 비서 문장/여행 일정 초안을 만들었습니다.m4a",
+      "sample_count": 35,
+      "ref_duration": 12.04,
+      "supports_icl": true
+    },
+    "numeric": {
+      "ref_text": "저장용량은 전체 512GB 중 347GB를 사용 중입니다.",
+      "source_file": "2차 아이리스 녹음 A-B/B. 숫자·시간·날짜·금액·연락처·경로/저장 용량은.m4a",
+      "sample_count": 30,
+      "ref_duration": 7.829,
+      "supports_icl": true
+    },
+    "question": {
+      "ref_text": "실패한 전송을 같은 내용으로 재시도할까요? 첨부를 빼고 보낼까요?",
+      "source_file": "2차 아이리스 녹음 C-H/C. 의문·확인·선택 질문/실패한 전송을 같은 내용으로 재시도할까요,.m4a",
+      "sample_count": 25,
+      "ref_duration": 4.885,
+      "supports_icl": true
+    }
+  },
+  "meta": {
+    "source_roots": [
+      "2차 아이리스 녹음 A-B",
+      "2차 아이리스 녹음 C-H"
+    ],
+    "sample_total": 160,
+    "sample_used": 150,
+    "failed": 0,
+    "expressive_excluded": 10,
+    "outliers_dropped": 6,
+    "whisper_model": "medium",
+    "built_at": "2026-08-13T04:28:06"
+  }
+}

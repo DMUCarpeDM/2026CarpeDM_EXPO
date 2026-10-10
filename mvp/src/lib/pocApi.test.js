@@ -17,7 +17,7 @@ test("resolveApiBase keeps exhibition traffic on the local PC", () => {
   assert.equal(resolveApiBase("/api"), "/api");
 });
 
-test("synthesizeSpeech sends only the AI line to the local speech route", async () => {
+test("synthesizeSpeech sends the AI line and Iris voice route", async () => {
   const calls = [];
   globalThis.fetch = async (url, options) => {
     calls.push({ url, options });
@@ -28,7 +28,7 @@ test("synthesizeSpeech sends only the AI line to the local speech route", async 
 
   assert.equal(calls[0].url, "http://127.0.0.1:8000/api/tts");
   assert.equal(calls[0].options.method, "POST");
-  assert.deepEqual(JSON.parse(calls[0].options.body), { text: "안녕하세요." });
+  assert.deepEqual(JSON.parse(calls[0].options.body), { text: "안녕하세요.", voice: "female" });
   assert.equal(audio.type, "audio/mpeg");
 });
 

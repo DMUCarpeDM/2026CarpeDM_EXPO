@@ -1,0 +1,6 @@
+# mock 런타임 전용 (CI/로컬 스모크). 대형 모델 패키지 없음.
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.6.0
+numpy>=1.24.0
+mutagen>=1.47.0

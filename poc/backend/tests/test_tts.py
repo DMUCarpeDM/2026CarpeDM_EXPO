@@ -34,11 +34,50 @@ def test_elevenlabs_tts_returns_mp3_bytes_when_configured(monkeypatch):
     assert captured["json"]["model_id"] == settings.elevenlabs_model
 
 
-def test_tts_endpoint_returns_audio_mpeg_when_synthesis_succeeds(monkeypatch):
-    monkeypatch.setattr("app.api.tts.synthesize_elevenlabs", lambda _text: b"fake-mp3")
+def test_tts_endpoint_without_voice_uses_iris(monkeypatch):
+    monkeypatch.setattr("app.api.tts.synthesize_iris", lambda _text: b"RIFFiris")
 
     response = TestClient(app).post("/api/tts", json={"text": "안녕하세요."})
 
     assert response.status_code == 200
-    assert response.headers["content-type"] == "audio/mpeg"
-    assert response.content == b"fake-mp3"
+    assert response.headers["content-type"] == "audio/wav"
+    assert response.content == b"RIFFiris"
+
+
+def test_female_tts_uses_iris_without_elevenlabs(monkeypatch):
+    monkeypatch.setattr("app.api.tts.synthesize_iris", lambda _text: b"RIFFiris")
+
+    def unexpected_elevenlabs(_text):
+        raise AssertionError("Iris voice must not call ElevenLabs")
+
+    monkeypatch.setattr("app.services.tts.synthesize_elevenlabs", unexpected_elevenlabs)
+    response = TestClient(app).post("/api/tts", json={"text": "안녕하세요.", "voice": "female"})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "audio/wav"
+    assert response.content == b"RIFFiris"
+
+
+def test_female_tts_unavailable_does_not_use_elevenlabs(monkeypatch):
+    from app.services.tts import SpeechSynthesisError
+
+    def unavailable(_text):
+        raise SpeechSynthesisError("Iris offline")
+
+    def unexpected_elevenlabs(_text):
+        raise AssertionError("Iris fallback must use browser speech")
+
+    monkeypatch.setattr("app.api.tts.synthesize_iris", unavailable)
+    monkeypatch.setattr("app.services.tts.synthesize_elevenlabs", unexpected_elevenlabs)
+    response = TestClient(app).post("/api/tts", json={"text": "안녕하세요.", "voice": "female"})
+    assert response.status_code == 503
+
+
+def test_male_tts_uses_browser_without_server_synthesis(monkeypatch):
+    def unexpected_synthesis(_text):
+        raise AssertionError("Male voice must use browser speech")
+
+    monkeypatch.setattr("app.api.tts.synthesize_iris", unexpected_synthesis)
+    monkeypatch.setattr("app.services.tts.synthesize_elevenlabs", unexpected_synthesis)
+    response = TestClient(app).post("/api/tts", json={"text": "안녕하세요.", "voice": "male"})
+    assert response.status_code == 503
