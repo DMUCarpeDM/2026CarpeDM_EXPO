@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import { Check } from "reicon-react/icons/Check";
 import { ChevronRight } from "reicon-react/icons/ChevronRight";
 import cafeOndoLogo from "../assets/brand/cafe-ondo-logo.svg";
@@ -19,13 +18,6 @@ import { useNfcTap } from "../lib/useNfcTap";
  *  자체 복귀(8초)만 사용한다.
  */
 const DONE_RETURN_MS = 8000;
-
-const stepRise = {
-  initial: { opacity: 0, y: 18 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -14 },
-  transition: { duration: 0.34, ease: [0.16, 1, 0.3, 1] },
-};
 
 export function KioskIssuePage() {
   const workplace = currentDeploymentServiceMode() === "workplace";
@@ -109,9 +101,8 @@ export function KioskIssuePage() {
         <span className="kiosk-issue-badge">직무 카드 발급</span>
       </header>
 
-      <AnimatePresence mode="wait">
         {stage === "select" && (
-          <motion.section key="select" className="kiosk-issue-step" {...stepRise} aria-label="직무 선택">
+          <section key="select" className="kiosk-issue-step" aria-label="직무 선택">
             <h1>어떤 직무로 일해볼까요?</h1>
             <p className="kiosk-issue-sub">직무를 고르면 카드를 발급해 드려요. 미러에 카드를 태그하면 바로 근무가 시작돼요.</p>
             <div className="kiosk-role-grid">
@@ -129,19 +120,19 @@ export function KioskIssuePage() {
                 </button>
               ))}
             </div>
-          </motion.section>
+          </section>
         )}
 
-        {stage === "consent" && <motion.section key="consent" className="kiosk-issue-step" {...stepRise} aria-label="체험 동의">
+        {stage === "consent" && <section key="consent" className="kiosk-issue-step" aria-label="체험 동의">
           <h1>시작 전에 확인해 주세요.</h1>
           <p className="kiosk-issue-sub">미러에서 안내가 끝나면 카메라와 마이크를 사용해 대화를 시작해요. 연습 음성과 분석 결과는 이 브라우저에 보관되며, 서버의 세션·기록 처리도 이루어져요. AI 상대 음성은 외부 음성 서비스로 만들 수 있어요.</p>
           <label className="consent-check"><input type="checkbox" checked={consentAgreed} onChange={event => setConsentAgreed(event.target.checked)} /><span>안내한 카메라·음성 분석 및 개인정보 처리에 동의해요.</span></label>
           <button type="button" className="kiosk-role-card" disabled={!consentAgreed} onClick={() => setStage("wait")}>동의하고 카드 발급하기</button>
           <button type="button" className="kiosk-back-link" onClick={reset}>돌아가기</button>
-        </motion.section>}
+        </section>}
 
         {stage === "wait" && (
-          <motion.section key="wait" className="kiosk-issue-step" {...stepRise} aria-label="카드 태그 대기">
+          <section key="wait" className="kiosk-issue-step" aria-label="카드 태그 대기">
             <div className="kiosk-tap-zone" aria-hidden="true">
               <span className="kiosk-tap-ripple" />
               <span className="kiosk-tap-ripple delay" />
@@ -183,19 +174,16 @@ export function KioskIssuePage() {
               )}
             </div>
             <button type="button" className="kiosk-back-link" onClick={reset} disabled={busy}>직무 다시 선택</button>
-          </motion.section>
+          </section>
         )}
 
         {stage === "done" && (
-          <motion.section key="done" className="kiosk-issue-step" {...stepRise} aria-label="발급 완료">
-            <motion.span
+          <section key="done" className="kiosk-issue-step" aria-label="발급 완료">
+            <span
               className="kiosk-done-check"
-              initial={{ scale: 0.6, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: 0.08 }}
             >
               <Check size={44} aria-hidden="true" />
-            </motion.span>
+            </span>
             <h1>카드 발급 완료</h1>
             <p className="kiosk-done-role"><strong>{jobRole?.label}</strong> 카드가 준비됐어요.</p>
             <p className="kiosk-issue-sub">미러 앞에서 카드를 태그하면 바로 시작됩니다.</p>
@@ -206,25 +194,18 @@ export function KioskIssuePage() {
               <i style={{ animationDuration: `${DONE_RETURN_MS}ms` }} />
             </div>
             <button type="button" className="kiosk-back-link" onClick={reset}>바로 처음으로</button>
-          </motion.section>
+          </section>
         )}
-      </AnimatePresence>
 
-      <AnimatePresence>
         {toast && (
-          <motion.div
+          <div
             className="kiosk-toast"
             role="alert"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            transition={{ duration: 0.25 }}
           >
             <span id="kiosk-issue-error">{toast}</span>
             <button type="button" onClick={() => setToast("")}>안내 닫기</button>
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
 
       <footer className="kiosk-issue-foot">
         <span>{workplace ? "직장에서의 하루를 따라 대화를 연습해요." : "카페 온도에서 손님 응대 대화를 연습해요."}</span>

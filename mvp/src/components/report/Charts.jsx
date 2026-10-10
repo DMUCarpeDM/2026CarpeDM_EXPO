@@ -76,18 +76,9 @@ export function TrendChart({ series, xLabels, height = 210, min = 40, max = 100 
 
 // 연습 화면 우측의 실시간 4-Fit 게이지 (피그마: 라벨 → 링 → 상태 → 캡션 세로 구성).
 // kind: percent(링 중앙에 %), wave(파형 아이콘), icon(글리프 아이콘). muted면 회색 처리.
-const LIVE_FIT_COLORS = { response: "#0064ff", voice: "#2f7cff", eye: "#0ea5e9", posture: "#10b981" };
+const LIVE_FIT_COLORS = { response: "#0064ff", voice: "#2f7cff", posture: "#10b981" };
 
 // 링 중앙 전용 커스텀 글리프 — 기성 아이콘이 링 안에서 투박해 보여 얇은 스트로크로 직접 그림.
-function EyeGlyph({ size = 26 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M2.8 12C5.1 7.4 8.4 5.1 12 5.1s6.9 2.3 9.2 6.9c-2.3 4.6-5.6 6.9-9.2 6.9S5.1 16.6 2.8 12Z" />
-      <circle cx="12" cy="12" r="2.9" />
-      <circle cx="13" cy="11" r="0.5" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
 
 function PostureGlyph({ size = 26 }) {
   return (
@@ -102,7 +93,7 @@ function PostureGlyph({ size = 26 }) {
   );
 }
 
-const RING_GLYPHS = { eye: EyeGlyph, posture: PostureGlyph };
+const RING_GLYPHS = { posture: PostureGlyph };
 
 export function LiveFitMeter({ icon, label, english, tone, percent, status, caption, kind = "percent", muted = false, warn = false }) {
   const color = muted ? "#c3cad4" : warn ? "#f59e0b" : LIVE_FIT_COLORS[tone] || "#0064ff";

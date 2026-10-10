@@ -286,8 +286,8 @@ def health():
         degraded_reasons.append("서버 STT 없음 — 오프라인 음성 인식 폴백 불가")
     if not dialogue:
         degraded_reasons.append("대화 AI 미가동 — 준비된 대사로 진행하며 생성 대화는 사용할 수 없음")
-    if not settings.openai_api_key.get_secret_value():
-        degraded_reasons.append("답변 근거 분석 미가동 — OpenAI 키가 없어 응답 분석은 미측정")
+    if settings.gemini_api_backend != "vertex" and not settings.gemini_api_key.get_secret_value():
+        degraded_reasons.append("목표 판정 미가동 — Gemini 키가 없어 목표 달성·모순 분석은 미측정")
     if settings.semantic_match_enabled and not semantic:
         degraded_reasons.append("의미 매칭 미가동 — 키워드 판정만 사용 (패러프레이즈 누락 오판 주의)")
     if not kiwi:

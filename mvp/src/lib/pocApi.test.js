@@ -179,7 +179,7 @@ test("submitResponse posts /response first then uploads audio (skips wasteful se
       audio,
       sttSource: "webspeech",
       durationMs: 1234,
-      nonverbal: { front_gaze_ratio: 0.9, gaze_off_count: 1, avg_shoulder_tilt_deg: 2.5, frames: 20 },
+      nonverbal: { avg_shoulder_tilt_deg: 2.5, frames: 20 },
     },
   );
 
@@ -191,7 +191,7 @@ test("submitResponse posts /response first then uploads audio (skips wasteful se
     text: "I will send the report today.",
     stt_source: "webspeech",
     duration_ms: 1234,
-    nonverbal: { front_gaze_ratio: 0.9, gaze_off_count: 1, avg_shoulder_tilt_deg: 2.5, frames: 20 },
+    nonverbal: { avg_shoulder_tilt_deg: 2.5, frames: 20 },
   });
 
   assert.equal(calls[1].url, "http://127.0.0.1:8000/api/sessions/session-1/turns/turn-1/audio");

@@ -41,8 +41,8 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(180deg, #ffffff14, transparent 55%, #3030340c), linear-gradient(90deg, #f4f4f520, #dedee044 48%, #bbbcc080);
-  box-shadow: inset 0 1px 1px #ffffff44, inset 0 -1px 2px #30303430, 0 0 calc(.5 * var(--u)) #eeeeef22;
+  background: linear-gradient(180deg, #ffffff55, transparent 55%, #d4d4dc18), linear-gradient(90deg, #f5f5f754, #ececf0a0 48%, #e3e4ebdc);
+  box-shadow: inset 0 1px 1px #ffffffaa, inset 0 -1px 2px #9fa1ad40, 0 0 calc(.5 * var(--u)) #eeeeef55;
   transform-origin: left;
   transition: transform 80ms linear;
 }
@@ -94,7 +94,7 @@
 .overview-card-context { display: grid; gap: calc(1 * var(--u)); }
 .overview-scene-meta { justify-content: space-between; display: flex; flex-wrap: wrap; align-items: center; gap: calc(1 * var(--u)); margin: 0; color: var(--muted); font-size: max(.8125rem, calc(1.1 * var(--u))); line-height: 1.5; font-variant-numeric: tabular-nums; }
 .overview-scene-badge { padding: calc(.25 * var(--u)) calc(.8 * var(--u)); border-radius: 999px; border: 1px solid var(--divider); font-weight: 500; }
-.overview-card-context h2 { font-size: max(1.25rem, calc(1.95 * var(--u))); line-height: 1.55; letter-spacing: -.025em; font-weight: 600; margin: 0; word-break: keep-all; overflow-wrap: anywhere; text-wrap: pretty; }
+.overview-card-context h2 { min-block-size: 3.1em; font-size: max(1.25rem, calc(1.95 * var(--u))); line-height: 1.55; letter-spacing: -.025em; font-weight: 600; margin: 0; word-break: keep-all; overflow-wrap: anywhere; text-wrap: pretty; }
 .overview-partner { margin: 0; }
 .overview-partner > div { display: grid; gap: calc(.6 * var(--u)); line-height: 1.65; }
 .overview-partner dt { font-size: max(.8125rem, calc(1.05 * var(--u))); color: var(--muted); }

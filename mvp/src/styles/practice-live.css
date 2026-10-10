@@ -264,20 +264,11 @@
 .tracking-zone svg { width: 100%; height: 100%; overflow: visible; }
 .track-silhouette { opacity: 0.9; }
 .track-corners path { fill: none; stroke: rgba(94, 234, 148, 0.8); stroke-width: 1; stroke-linecap: round; filter: drop-shadow(0 0 4px rgba(94, 234, 148, 0.45)); }
-.track-face { animation: track-breathe 3.2s ease-in-out infinite; }
 .track-face line { stroke: rgba(94, 234, 148, 0.34); stroke-width: 0.3; }
 .track-face circle { fill: rgba(150, 247, 192, 0.95); filter: drop-shadow(0 0 1.5px rgba(94, 234, 148, 0.8)); }
 .track-skeleton line { stroke: rgba(255, 255, 255, 0.55); stroke-width: 0.5; }
 .track-skeleton circle { fill: #fff; filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.6)); }
 .track-chest { fill: none; stroke: rgba(96, 165, 250, 0.85); stroke-width: 0.8; stroke-linecap: round; filter: drop-shadow(0 0 3px rgba(96, 165, 250, 0.5)); }
-.track-scan { animation: scan-sweep 3.6s ease-in-out infinite; }
-@keyframes scan-sweep {
-  0%, 100% { transform: translateY(10px); opacity: 0; }
-  12%, 88% { opacity: 1; }
-  50% { transform: translateY(58px); }
-}
-@keyframes track-breathe { 0%, 100% { opacity: 0.95; } 50% { opacity: 0.6; } }
-
 /* 카메라 위 오버레이 칩들 */
 .camera-topline { position: absolute; top: 18px; display: flex; align-items: center; gap: 8px; }
 /* 좌측 칩 무리가 우측 버튼 밑으로 파고들지 않게 폭을 제한하고 줄바꿈한다 */
@@ -383,8 +374,7 @@
 .chat-log-body::-webkit-scrollbar { width: 5px; }
 .chat-log-body::-webkit-scrollbar-thumb { border-radius: 3px; background: rgba(25, 31, 40, 0.16); }
 
-.practice-screen .chat-message { display: flex; gap: 9px; max-width: 100%; animation: msg-in 0.34s cubic-bezier(0.16, 1, 0.3, 1) both; }
-@keyframes msg-in { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+.practice-screen .chat-message { display: flex; gap: 9px; max-width: 100%; }
 /* practice-base.css의 레거시 .chat-message div 버블 스타일이 래퍼에 묻지 않게 초기화 */
 .practice-screen .chat-message .chat-content { padding: 0; border: 0; border-radius: 0; background: transparent; }
 .practice-screen .chat-message.ai .chat-avatar { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 50%; overflow: hidden; border: 1.5px solid #fff; box-shadow: 0 0 0 1px var(--color-border), 0 2px 5px rgba(16, 24, 40, 0.1); background: linear-gradient(135deg, #34d399, #0ea5e9); color: #fff; }
@@ -405,10 +395,10 @@
 
 .practice-screen .typing-bubble { display: inline-flex; align-items: center; gap: 4px; align-self: flex-start; width: auto; padding: 12px 16px; border-radius: 4px 14px 14px 14px; background: var(--color-fog); }
 .practice-screen .typing-bubble i { width: 7px; height: 7px; border-radius: 50%; background: #c3cad4; }
-.practice-screen .typing-bubble.busy i { animation: typing-hop 1s ease-in-out infinite; background: var(--color-blue); }
+.practice-screen .typing-bubble.busy i { animation: typing-pulse 1s ease-in-out infinite; background: var(--color-blue); }
 .practice-screen .typing-bubble i:nth-child(2) { animation-delay: 0.15s; }
 .practice-screen .typing-bubble i:nth-child(3) { animation-delay: 0.3s; }
-@keyframes typing-hop { 0%, 100% { transform: translateY(0); opacity: 0.5; } 50% { transform: translateY(-4px); opacity: 1; } }
+@keyframes typing-pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
 .practice-error { margin: 0; color: #e5484d; font-size: 13px; }
 
 .control-speak {
@@ -429,8 +419,6 @@
 .control-speak-label:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); }
 .control-speak-label:disabled { opacity: 0.55; }
 .control-speak-label.listening { color: var(--color-blue); }
-.control-speak-label.listening svg { animation: mic-listen 1.6s ease-in-out infinite; }
-@keyframes mic-listen { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.55; transform: scale(0.9); } }
 .control-wave { display: inline-flex; align-items: center; gap: 3.5px; height: 20px; flex: 0 1 auto; overflow: hidden; }
 .control-wave i { flex: none; width: 3px; height: 3px; border-radius: 50%; background: rgba(143, 182, 255, 0.42); }
 .control-wave.is-listening i { background: rgba(143, 182, 255, 0.9); animation: dot-blink 1.5s ease-in-out infinite; }
@@ -444,7 +432,9 @@
 .control-clock time { font-variant-numeric: tabular-nums; color: #102236; font-size: 14px; font-weight: 720; }
 .control-clock small { font-variant-numeric: tabular-nums; color: #34465a; font-size: 11px; }
 .control-send { display: inline-flex; align-items: center; justify-content: center; gap: 3px; flex: none; min-width: 68px; height: 42px; padding: 0 11px 0 14px; border: 1px solid rgba(164, 204, 255, 0.66); border-radius: 12px; background: linear-gradient(135deg, #1974ff, #005ee8); box-shadow: 0 6px 16px rgba(0, 87, 224, 0.32); color: #fff; font-size: 13px; font-weight: 720; }
-.control-send:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(0, 87, 224, 0.42); }
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .control-send:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(0, 87, 224, 0.42); }
+}
 .control-send:disabled { opacity: 0.45; box-shadow: none; }
 
 /* 모션 최소화 선호 시 장식 애니메이션 정지 */
@@ -452,8 +442,9 @@
   .practice-screen .control-speak { background: #f1f5f9; backdrop-filter: none; -webkit-backdrop-filter: none; border-color: #657487; }
 }
 @media (prefers-reduced-motion: reduce) {
+  .control-wave.is-real i { transform: scaleY(.18) !important; will-change: auto; }
   .bubble-wave i, .control-wave i, .ai-prompt-wave i,
-  .track-scan, .track-face, .rec-dot, .live-label i { animation: none; }
+  .track-scan, .track-face, .rec-dot, .live-label i, .camera-live-chip b i, .practice-screen .typing-bubble.busy i { animation: none; }
 }
 
 /* ---------- 반응형 ---------- */

@@ -13,3 +13,36 @@ html[data-input="keyboard"] button:focus-visible svg { transform: none !importan
   .mobile-menu-sheet { transform: none; }
   button:active:not(:disabled) { transform: none; }
 }
+
+/* One short entrance for occasional UI; state changes and dismissal stay immediate. */
+.practice-briefing-card, .kiosk-issue-step, .nfc-fallback-card, .kiosk-toast {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 220ms cubic-bezier(0.23, 1, 0.32, 1), transform 220ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.kiosk-toast { transition-duration: 180ms; }
+@starting-style {
+  .practice-briefing-card, .kiosk-issue-step, .nfc-fallback-card, .kiosk-toast {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+html[data-input="keyboard"] .practice-briefing-card,
+html[data-input="keyboard"] .kiosk-issue-step,
+html[data-input="keyboard"] .nfc-fallback-card,
+html[data-input="keyboard"] .kiosk-toast,
+html[data-input="keyboard"] .ui-accordion__chevron { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .practice-briefing-card, .kiosk-issue-step, .nfc-fallback-card, .kiosk-toast {
+    transform: none;
+    transition-property: opacity;
+    transition-duration: 150ms !important;
+  }
+  @starting-style {
+    .practice-briefing-card, .kiosk-issue-step, .nfc-fallback-card, .kiosk-toast { transform: none; }
+  }
+  html[data-input="keyboard"] .practice-briefing-card,
+  html[data-input="keyboard"] .kiosk-issue-step,
+  html[data-input="keyboard"] .nfc-fallback-card,
+  html[data-input="keyboard"] .kiosk-toast { transition: none !important; }
+}

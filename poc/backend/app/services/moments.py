@@ -1,19 +1,18 @@
 """결정적 순간 감지 — 턴 평균이 아니라 '순간'을 잡는다 (마스터리 ⑥ 핵심).
 
 세 시간축을 하나로 정렬한다:
-  · 비언어 타임라인 (2초 빈: 정면율·긴장율(입술 압축∥찡그림)·기울기 — 프론트 집계 전송)
+  · 비언어 타임라인 (2초 빈: 긴장율(입술 압축∥찡그림)·기울기 — 프론트 집계 전송)
   · 음성 스팬 (Whisper 정렬: 구간별 성량·속도 + 그때 한 말)
   · 턴 이벤트 (질문 유형 — 압박 맥락)
 
 단일 모달 이벤트가 4초 창 안에서 겹치면 '복합 순간'으로 승격하고, 그 시각의
-음성 스팬에서 **그때 하던 말을 인용**한다 — "3번째 답변 12초: 시선 이탈과 긴장
+음성 스팬에서 **그때 하던 말을 인용**한다 — "3번째 답변 12초: 자세 변화와 긴장
 표정이 겹쳤어요. 그때 하던 말: '재발 방지는…'"
 
 전부 보수적 임계값 + 상위 3개만 노출 (과잉 지적 금지 원칙).
 """
 
 # 단일 모달 이벤트 임계값 (2초 빈 기준, 2빈 연속 = 4초 지속일 때만)
-GAZE_BREAK_FRONT = 0.4    # 정면율이 이 밑으로
 TENSION_PRESS = 0.4       # 입술 압축율이 이 위로
 POSTURE_TILT_DEG = 8.0    # 어깨 기울기
 MIN_CONSECUTIVE_BINS = 2  # 순간 지속 최소 빈 수
@@ -21,7 +20,6 @@ COMPOSITE_WINDOW_SEC = 4.0
 MAX_MOMENTS = 3
 
 KIND_LABEL = {
-    "gaze": "시선 이탈",
     "tension": "긴장 표정",
     "posture": "자세 흔들림",
     "quiet": "성량 저하",
@@ -82,13 +80,10 @@ def detect_turn_events(
     두 시간축의 정합: 비언어 타임라인은 턴 시작(질문 TTS)이 0초, 음성 스팬은
     답변 녹음 시작이 0초다. answer_offset(턴 시작→답변 시작 초)이 오면 비언어
     이벤트를 답변 시계로 옮기고, 답변 이전(듣기 구간)의 이벤트는 버린다 —
-    듣기 시선은 별도 지표(listening_front_ratio)가 담당한다. offset이 없는
     구 페이로드는 기존 동작(무변환)을 유지한다.
     """
     shift = answer_offset if answer_offset is not None else 0.0
     events: list[dict] = []
-    for run in _runs(timeline, "front", lambda v: v < GAZE_BREAK_FRONT):
-        events.append({"kind": "gaze", "at": run["start"] - shift})
     for run in _runs(timeline, "press", lambda v: v >= TENSION_PRESS):
         events.append({"kind": "tension", "at": run["start"] - shift})
     for run in _runs(timeline, "tilt", lambda v: v >= POSTURE_TILT_DEG):

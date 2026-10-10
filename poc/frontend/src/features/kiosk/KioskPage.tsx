@@ -70,7 +70,7 @@ export default function KioskPage() {
           살아보실래요?
         </h1>
         <p className="mirror-idle-sub">
-          AI 상사·동료와의 하루 — 응답 · 말하기 · 시선 · 자세를 코칭해드려요
+          AI 상사·동료와의 하루 — 응답 · 말하기 · 자세를 코칭해드려요
         </p>
         <button className="primary-btn mirror-start-btn" onClick={start}>
           출근하기

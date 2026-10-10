@@ -1,0 +1,14 @@
+.mirror-scenario-briefing { --u: min(1dvh, 1.77778vw); --ink: #f5f7fc; --muted: #c6cdd8; --surface: #070b1205; --divider: #ffffff24; width: min(48 * var(--u), calc(100% - 40px)); max-height: 82dvh; margin: auto; padding: calc(1.5 * var(--u)); border: 0; background: transparent; color: var(--ink); font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', Arial, sans-serif; }
+.mirror-scenario-briefing::backdrop { background: #03060b99; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.mirror-scenario-briefing:focus { outline: none; }
+.mirror-scenario-briefing .overview-scene-badge { color: #c5dfff; border-color: #b8ddff66; }
+.mirror-briefing-situation, .mirror-briefing-tip, .mirror-briefing-next { margin: 0; font-size: max(1rem, calc(1.4 * var(--u))); line-height: 1.7; word-break: keep-all; }
+.mirror-briefing-tip { display: grid; gap: calc(.5 * var(--u)); padding-block: calc(1.5 * var(--u)); border-block: 1px solid var(--divider); }
+.mirror-briefing-tip strong { color: #c5dfff; font-size: .85em; font-weight: 500; }
+.mirror-briefing-next { color: var(--muted); font-size: max(.875rem, calc(1.1 * var(--u))); }
+
+.mirror-glass-modal[open] > .overview-summary-card { animation: mirror-modal-enter 220ms cubic-bezier(.23, 1, .32, 1) both; }
+.mirror-glass-modal .overview-card-context h2 { min-block-size: 0; }
+@keyframes mirror-modal-enter { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes mirror-modal-fade { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .mirror-glass-modal[open] > .overview-summary-card { animation: mirror-modal-fade 150ms ease-out both; animation-duration: 150ms !important; } }

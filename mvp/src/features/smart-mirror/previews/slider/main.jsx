@@ -36,14 +36,14 @@ function SceneSlider() {
     <header className="slider-brand"><strong>Mirror-Ting</strong><span>직장 대화 · 약 5분</span></header>
     <div className="slider-heading"><p>오늘의 대화 연습</p><h1>회사에서 보내는 하루.</h1><span>출근부터 퇴근까지, 세 장면을 따라가요.</span></div>
     <div className="slider-stage" aria-live="polite" aria-atomic="true">
-      <AnimatePresence initial={false}>
-        <motion.article key={index} className="slider-scene" initial={{ opacity: 0, x: reduced ? 0 : "100%" }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: reduced ? 0 : "-100%" }} transition={{ duration: reduced ? .15 : .85, ease: [.22,1,.36,1] }}>
+      <AnimatePresence initial={false} mode="wait">
+        <motion.article key={index} className="slider-scene" initial={{ opacity: 0, transform: reduced ? "none" : "translateX(24px)" }} animate={{ opacity: 1, transform: "translateX(0px)" }} exit={{ opacity: 0, transform: reduced ? "none" : "translateX(-24px)", transition: { duration: reduced ? .06 : .08, ease: [.23, 1, .32, 1] } }} transition={{ duration: reduced ? .12 : .2, ease: [.23,1,.32,1] }}>
           <figure><img src={new URL(`../../assets/${images[index]}`, import.meta.url).href} alt={imageAlt[index]} /><figcaption><span>0{index + 1}</span><strong>{scene.name}</strong><time>{scene.time}</time></figcaption></figure>
           <div className="slider-explanation"><p>{scene.person}과의 대화</p><h2>{scene.title}</h2><blockquote>“{scene.line}”</blockquote><span>{scene.tip}</span></div>
         </motion.article>
       </AnimatePresence>
     </div>
-    <footer className="slider-footer"><ol aria-label="장면 안내 진행">{workplacePreviewScenes.map((item, i) => <li key={item.name} aria-current={i === index ? "step" : undefined} className={i === index ? "active" : ""}><div><i style={{ width: i < index ? "100%" : i === index ? `${progress * 100}%` : "0%" }} /></div><span>{item.name}</span></li>)}</ol><p>편하게 읽어 주세요. 다음 장면으로 자동으로 넘어가요.</p><small>장면별 이미지 슬라이더 · 검토용 반복 시안</small></footer>
+    <footer className="slider-footer"><ol aria-label="장면 안내 진행">{workplacePreviewScenes.map((item, i) => <li key={item.name} aria-current={i === index ? "step" : undefined} className={i === index ? "active" : ""}><div><i style={{ transform: `scaleX(${i < index ? 1 : i === index ? progress : 0})` }} /></div><span>{item.name}</span></li>)}</ol><p>편하게 읽어 주세요. 다음 장면으로 자동으로 넘어가요.</p><small>장면별 이미지 슬라이더 · 검토용 반복 시안</small></footer>
   </main>;
 }
 createRoot(document.getElementById("root")).render(<SceneSlider />);

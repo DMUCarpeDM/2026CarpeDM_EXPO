@@ -70,6 +70,8 @@ class Settings(BaseSettings):
     openai_timeout_sec: float = 15.0
     # Gemini — 키는 서버 .env만. base_url은 공식 엔드포인트 고정(임의 URL 주입 방지).
     gemini_api_key: SecretStr = SecretStr("")
+    gemini_api_backend: Literal["developer", "vertex"] = "developer"
+    gemini_vertex_project: str = ""
     gemini_model: str = "gemini-3.6-flash"
     gemini_base_url: str = "https://generativelanguage.googleapis.com"
     gemini_timeout_sec: float = 20.0

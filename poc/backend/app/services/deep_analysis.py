@@ -225,7 +225,6 @@ def build_congruence(discourse_list: list[dict], voice_list: list[dict]) -> dict
 
 # (라벨, 압박 시 악화로 판정하는 방향과 최소 변화폭, 값 추출 함수)
 _COMPOSURE_PROBES = [
-    ("정면 응시", -0.10, lambda nv, vm: nv.get("front_gaze_ratio")),
     ("깜빡임", +8.0, lambda nv, vm: nv.get("blink_per_min")),
     ("긴장 표정(입술 압축)", +0.15, lambda nv, vm: nv.get("mouth_press_ratio")),
     # 표정 복구(마스터리 ⑤): 긴장 표정이 풀리기까지의 평균 초 — 압박에서 0.8초 이상
@@ -286,13 +285,13 @@ def build_composure(
 
     if not shaken:
         level, comment = "침착형", (
-            "압박 질문에서도 시선·표정·목소리가 평상시와 다르지 않았어요. 지적 앞에서 "
+            "압박 질문에서도 표정·목소리가 평상시와 다르지 않았어요. 지적 앞에서 "
             "흔들리지 않는 건 훈련으로도 얻기 어려운 강점입니다 — 면접에서 그대로 쓰세요."
         )
     elif len(shaken) <= 2:
         level, comment = "회복형", (
             f"압박이 들어오면 {', '.join(shaken)}에 먼저 반응이 나타나요. 다만 다른 지표는 "
-            "유지됐어요 — 압박 질문을 받으면 한 박자 쉬고 시선을 고정한 뒤 답을 시작해보세요."
+            "유지됐어요 — 압박 질문을 받으면 한 박자 쉬고 자세를 편하게 잡고 답을 시작해보세요."
         )
     else:
         level, comment = "동요형", (

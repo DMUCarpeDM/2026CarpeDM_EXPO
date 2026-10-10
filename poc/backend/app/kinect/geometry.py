@@ -117,8 +117,8 @@ def head_pitch_deg(neck: np.ndarray, head: np.ndarray) -> float | None:
     세계 +Z가 카메라에서 멀어지는 방향이므로, 카메라를 마주 본 사람이 고개를
     숙이면 머리는 -Z로 간다 → 부호를 뒤집어 '숙임 = 양수'로 맞춘다.
 
-    기존 MediaPipe 경로의 head_down_ratio는 eyeLookDown blendshape(=안구 방향)
-    이었다. 이것은 실제 고개 각도로, 물리량 자체가 다르다.
+    MediaPipe 경로의 head_down_ratio는 코-어깨 거리 변화 기반 비율이다.
+    이 함수는 실제 고개 각도를 계산하므로 물리량 자체가 다르다.
     """
     v = np.asarray(head, dtype=float) - np.asarray(neck, dtype=float)
     if float(np.linalg.norm(v)) < 1e-6:

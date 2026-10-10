@@ -1,4 +1,3 @@
-import { motion } from "framer-motion";
 import { ChevronRight } from "reicon-react/icons/ChevronRight";
 import cafeOndoMark from "../../assets/brand/cafe-ondo-mark.svg";
 import { JOB_ROLES } from "../../lib/nfc";
@@ -10,11 +9,8 @@ export function NfcStartFallback({ onPick, onClose, serviceMode = "workplace", c
   const roles = JOB_ROLES.filter(role => serviceMode === "training" ? role.id === "cafe_crew" : serviceMode === "workplace" && role.id === "office_admin");
   return (
     <div className="nfc-fallback-overlay" role="dialog" aria-label={cardConfirmed ? "사원증 확인 — 체험 역할 선택" : "카드 미인식 — 직무 선택으로 시작"}>
-      <motion.div
+      <div
         className="nfc-fallback-card"
-        initial={{ opacity: 0, y: 22, scale: 0.97 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
       >
         <img className="nfc-fallback-mark" src={cafeOndoMark} alt="" aria-hidden="true" />
         <h2>{cardConfirmed ? "사원증을 확인했어요" : "카드가 인식되지 않아요"}</h2>
@@ -29,7 +25,7 @@ export function NfcStartFallback({ onPick, onClose, serviceMode = "workplace", c
           ))}
         </div>
         <button type="button" className="nfc-fallback-close" onClick={onClose}>닫기 — 카드를 다시 태그해 볼게요</button>
-      </motion.div>
+      </div>
     </div>
   );
 }

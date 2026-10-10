@@ -7,7 +7,7 @@
  *   - 중앙 = 실시간 코칭 큐 (이 화면의 주인공 — 대화 중 시야 가장자리에 뜨는 조언)
  *   - 하단 = 4-Fit 주변시야 게이지 + 터치 컨트롤
  *
- * 실제 글래스 카메라는 바깥(상대)을 향해 착용자 자신의 시선·자세를 못 잡으므로,
+ * 실제 글래스 카메라는 바깥(상대)을 향해 착용자 자신의 자세를 못 잡으므로,
  * 라이브 신호는 착용자를 향한 외부 카메라(기존 웹캠)가 공급한다 — 이 화면은
  * "글래스로 보면 코칭이 이렇게 뜬다"를 재현한다. 카메라·오버레이는 숨겨 두고
  * (자기 반사가 아니라 상대가 화면의 주인공이다) 훅에만 프레임을 공급한다.
@@ -56,8 +56,6 @@ interface Cue {
   tone: CueTone;
 }
 
-// 이탈 방향 → 자연스러운 조사 (좌/우는 시선 코칭상 구분이 무의미해 '옆'으로 합친다)
-const OFF_DIR_LABEL: Record<string, string> = { down: '아래로', up: '위로', left: '옆으로', right: '옆으로' };
 
 // 실시간 큐 디바운스: 조건이 이만큼 지속돼야 뜨고, 한 번 뜨면 이만큼은 유지한다.
 // 5Hz로 갱신되는 live에 그대로 반응시키면 경계값에서 깜빡이므로 히스테리시스를 준다.
@@ -69,14 +67,10 @@ const MIC_QUIET = 0.04; // 말하는 중인데 이 아래면 성량 부족으로
 function deriveCue(live: LiveState, recording: boolean): Cue | null {
   if (!live.tracking) return { text: '시야 안에 들어와 주세요', tone: 'info' };
   if (!live.calibrated) return null; // 보정 전에는 교정 넛지를 억제한다 (오판 방지)
-  if (live.headDown) return { text: '고개를 들어 눈을 맞추세요', tone: 'warn' };
-  if (!live.front) {
-    const d = live.offDir ? OFF_DIR_LABEL[live.offDir] : '';
-    return { text: d ? `시선이 ${d} 흘렀어요 — 상대를 보세요` : '상대의 눈을 바라보세요', tone: 'warn' };
-  }
+  if (live.headDown) return { text: '고개를 편하게 들어 주세요', tone: 'warn' };
   if (live.tiltDeg > 8) return { text: '어깨를 펴고 바르게 앉으세요', tone: 'warn' };
   if (recording && live.micLevel < MIC_QUIET) return { text: '조금 더 또렷하게 말해보세요', tone: 'warn' };
-  if (recording) return { text: '좋아요 — 지금처럼 눈을 맞추고 말하세요', tone: 'ok' };
+  if (recording) return { text: '좋아요 — 지금처럼 편하게 말씀해 주세요', tone: 'ok' };
   return null;
 }
 
@@ -85,7 +79,6 @@ type GaugeState = 'ok' | 'warn' | 'idle';
 /** 4-Fit 주변시야 게이지 (미러의 오라와 같은 신호원, HUD 문법으로 표현). */
 function gauges(props: GlassesRoleplayProps): { key: string; label: string; value: string; state: GaugeState }[] {
   const { live, cameraReady, recording, lastSignals } = props;
-  const eye: GaugeState = cameraReady ? (live.front ? 'ok' : 'warn') : 'idle';
   const posture: GaugeState = cameraReady ? (live.tiltDeg <= 6 && !live.headDown ? 'ok' : 'warn') : 'idle';
   const voice: GaugeState = recording ? (live.micLevel > 0.05 ? 'ok' : 'warn') : 'idle';
   const response: GaugeState = lastSignals
@@ -95,14 +88,8 @@ function gauges(props: GlassesRoleplayProps): { key: string; label: string; valu
         ? 'warn'
         : 'warn'
     : 'idle';
-  const eyeVal = !cameraReady
-    ? '—'
-    : live.front
-      ? '눈맞춤'
-      : `이탈${live.offDir ? `·${OFF_DIR_LABEL[live.offDir].replace('로', '')}` : ''}`;
   const postureVal = !cameraReady ? '—' : live.headDown ? '고개↓' : `${live.tiltDeg.toFixed(0)}°`;
   return [
-    { key: 'eye', label: '시선', value: eyeVal, state: eye },
     { key: 'posture', label: '자세', value: postureVal, state: posture },
     { key: 'voice', label: '음성', value: recording ? '측정 중' : '대기', state: voice },
     { key: 'response', label: '응답', value: lastSignals ? `${Math.round(lastSignals.coverage * 100)}%` : '—', state: response },
@@ -165,7 +152,7 @@ export default function RoleplayGlassesView(props: GlassesRoleplayProps) {
         </span>
         <span className="glasses-brand">4-FIT · LIVE COACH</span>
         <span className="glasses-priv">
-          <Icon name="eye" size={13} /> 영상 미전송
+          <Icon name="cameraOff" size={13} /> 영상 미전송
         </span>
       </div>
       <div className="glasses-progress" aria-hidden>
@@ -179,9 +166,9 @@ export default function RoleplayGlassesView(props: GlassesRoleplayProps) {
       </div>
 
       {briefingOpen && briefing ? (
-        /* 브리핑 = 시선 보정 의식 (HUD 부팅 시퀀스) */
+        /* 브리핑 = 자세 보정 의식 (HUD 부팅 시퀀스) */
         <div className="glasses-briefing">
-          <span className="glasses-boot">HUD 초기화 · 시선 보정</span>
+          <span className="glasses-boot">HUD 초기화 · 자세 보정</span>
           {currentTurn.virtual_time && <span className="glasses-clock big">{currentTurn.virtual_time}</span>}
           <h2 className="glasses-briefing-title">{briefing.title}</h2>
           <p className="glasses-briefing-scene">{briefing.situation}</p>
@@ -221,7 +208,7 @@ export default function RoleplayGlassesView(props: GlassesRoleplayProps) {
             {cue && (
               <div className={`glasses-cue ${cue.tone}`}>
                 <span className="glasses-cue-icon" aria-hidden>
-                  <Icon name={cue.tone === 'ok' ? 'check' : cue.tone === 'warn' ? 'eye' : 'search'} size={16} />
+                  <Icon name={cue.tone === 'ok' ? 'check' : cue.tone === 'warn' ? 'activity' : 'search'} size={16} />
                 </span>
                 {cue.text}
               </div>

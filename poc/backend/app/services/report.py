@@ -19,17 +19,15 @@ FIT_LABELS = {
     FitType.voice: "Voice-Fit (발화 안정성)",
     FitType.expression: "Expression-Fit (표정 표현력)",
     FitType.posture: "Posture-Fit (자세 안정)",
-    FitType.eye: "시선 (관찰 지표)",  # 점수 축 아님 — 관찰로만 노출
 }
 
-# 4-Fit 점수 축 (총점·강점·헤드라인·코호트에 들어가는 축). 시선(eye)은 관찰 신호라 제외.
+# 4-Fit 점수 축 (총점·강점·헤드라인·코호트에 들어가는 축).
 SCORED_FITS = (FitType.response, FitType.voice, FitType.expression, FitType.posture)
 
 NOT_MEASURED = {
     FitType.voice: "음성이 측정되지 않아 Voice-Fit은 이번 평가에서 제외했어요.",
     FitType.expression: "카메라를 사용하지 않아 Expression-Fit은 이번 평가에서 제외했어요.",
     FitType.posture: "카메라를 사용하지 않아 Posture-Fit은 이번 평가에서 제외했어요.",
-    FitType.eye: "카메라를 사용하지 않아 시선 관찰은 이번 평가에서 제외했어요.",
 }
 
 # 체크리스트 라벨 → 따라 말할 수 있는 처방 문장 (missing 항목 기반 개인화)
@@ -254,79 +252,11 @@ def _voice_evidence(turn_results: list[AnalysisResult]) -> dict | None:
 
 
 # ---------------------------------------------------------------------------
-# 시선(관찰 — 점수 축 아님) — 케이스: 심한 이탈 / 부족 / 순간 이탈 잦음 / 양호 / 우수
 # ---------------------------------------------------------------------------
 
 DIR_LABEL = {"down": "아래", "up": "위", "left": "옆", "right": "옆"}
 
 
-def _eye_evidence(turn_results: list[AnalysisResult]) -> dict | None:
-    worst = min(turn_results, key=lambda r: r.score, default=None)
-    if worst is None:
-        return None
-    m = worst.raw_metrics
-    ratio = m.get("front_gaze_ratio", 0)
-    off_count = m.get("gaze_off_count", 0)
-    longest = m.get("longest_off_sec", 0)
-    blink = m.get("blink_per_min", 0)
-    dir_label = DIR_LABEL.get(m.get("gaze_off_dir") or "")
-    dir_note = f" (주로 {dir_label} 방향)" if dir_label else ""
-
-    # 깜빡임 동역학(마스터리 ④): 안정 깜빡임 빈도는 사람마다 달라(분당 10~30회)
-    # 절대 임계는 오판을 만든다. 기저선(브리핑)이 있으면 '본인 대비 급증'으로만
-    # 판정하고(기저선 높은 사람 구제), 없으면 기존 절대 임계 32로 폴백한다.
-    blink_base = m.get("blink_base_per_min")
-    if blink_base is not None and blink_base >= 5:
-        blink_flag = blink >= 20 and blink >= blink_base * 1.6
-    else:
-        blink_base = None  # 기저선 5 미만은 표본 잡음 — 절대 폴백으로
-        blink_flag = blink > 32
-
-    if ratio < 0.4:
-        observed = f"정면 응시 {int(ratio * 100)}%{dir_note} — 발화의 절반 이상 시선이 밖에 있었어요 (권장 65% 이상)"
-        interp = (
-            "아래로 떨어지는 시선은 대본을 읽거나 자신 없는 인상을, 옆으로 새는 시선은 회피하는 인상을 줘요."
-            if dir_label else "시선이 떠나 있으면 아무리 좋은 답도 '자신 없음'으로 포장돼요."
-        )
-        sugg = ("눈을 계속 맞추기 어렵다면 상대의 눈썹 사이를 보세요. "
-                "듣는 사람에겐 아이컨택으로 보이고, 부담은 훨씬 적어요.")
-    elif ratio < 0.65:
-        observed = f"정면 응시 {int(ratio * 100)}%{dir_note} — 권장(65%)에 조금 못 미쳤어요"
-        interp = "핵심 문장에서 시선이 빠지면 그 문장의 힘도 같이 빠져요."
-        sugg = ("전부 볼 필요는 없어요. '결론 문장을 말할 때만 정면' — "
-                "이 규칙 하나로 65%는 자연스럽게 넘어요.")
-    elif longest > 3.5:
-        observed = f"한 번에 최장 {longest}초 연속으로 시선이 이탈했어요{dir_note}"
-        interp = "긴 이탈 한 번이 짧은 이탈 여러 번보다 강하게 기억돼요 — '딴 데 보고 있다'는 인상이에요."
-        sugg = "생각이 필요할 땐 시선을 내리지 말고, 잠시 눈을 감았다 뜨는 편이 훨씬 안정적으로 보여요."
-    elif off_count >= 5:
-        observed = f"응시율은 {int(ratio * 100)}%로 좋은데, 시선 이탈이 {off_count}회로 잦았어요"
-        interp = "짧게 자주 흔들리는 시선은 '불안한 눈빛'으로 기억돼요."
-        sugg = ("시선을 옮길 땐 문장이 끝난 뒤에 천천히. "
-                "'한 문장, 한 시선'을 의식해보세요.")
-    elif blink_flag:
-        observed = (
-            f"브리핑 때 분당 {int(blink_base)}회였던 깜빡임이 답변 중 {int(blink)}회로 늘었어요"
-            if blink_base is not None else
-            f"정면 응시는 {int(ratio * 100)}%로 좋지만, 깜빡임이 분당 {int(blink)}회였어요 (평상시 15~20회)"
-        )
-        interp = "잦은 깜빡임은 본인도 모르는 긴장 신호로 전달될 수 있어요."
-        sugg = "답변 시작 전에 한 번 길게 숨을 내쉬어 보세요. 호흡이 내려가면 깜빡임도 함께 줄어요."
-    else:
-        streak = m.get("contact_streak_max_sec", 0)
-        observed = (
-            f"정면 응시 {int(ratio * 100)}%, 한 번에 최장 {streak}초 연속으로 눈을 맞췄어요"
-            if streak >= 8 else
-            f"정면 응시 {int(ratio * 100)}%, 이탈 {off_count}회, 최장 이탈 {longest}초 — 안정적이었어요"
-        )
-        interp = "말의 신뢰도를 시선이 받쳐주고 있었어요."
-        smile = m.get("smile_ratio", 0)
-        sugg = (
-            "다음 단계 도전: 인사와 감사 표현에서 가벼운 미소를 더해보세요. 시선이 안정된 사람의 미소는 여유로 읽혀요."
-            if smile < 0.05 else
-            "다음 단계 도전: 질문을 받는 동안에도 시선을 유지해보세요. 듣는 자세까지 좋아 보이는 사람은 드물어요."
-        )
-    return _segment(worst, "eye", observed, interp, sugg)
 
 
 # ---------------------------------------------------------------------------
@@ -390,7 +320,7 @@ def _posture_evidence(turn_results: list[AnalysisResult]) -> dict | None:
         sugg = ("답변 중간에 한 번, 문장이 끝나는 타이밍에 어깨를 다시 세팅해보세요. "
                 "'재발 방지' 같은 핵심 단어를 말할 때가 좋은 리셋 포인트예요.")
     elif head_down > 0.2:
-        observed = f"고개 숙임 {int(head_down * 100)}% — 답변 중 자주 시선이 아래로 갔어요 (권장 20% 이내)"
+        observed = f"고개 숙임 {int(head_down * 100)}% — 답변 중 자주 고개를 숙였어요 (권장 20% 이내)"
         interp = "고개가 내려가면 목소리도 같이 작아지고, 위축된 인상이 굳어져요."
         sugg = ("답변 시작 전에 1초 루틴을 만들어보세요: 턱 살짝 들고, 어깨 펴고, 그다음 첫 문장. "
                 "\"네, 말씀드리겠습니다.\"와 함께 자세를 세우면 목소리도 올라와요.")
@@ -417,7 +347,6 @@ EVIDENCE_BUILDERS = {
     FitType.voice: _voice_evidence,
     FitType.expression: _expression_evidence,
     FitType.posture: _posture_evidence,
-    FitType.eye: _eye_evidence,  # 관찰용 — SCORED_FITS 루프 밖에서 호출
 }
 
 # 점수 구간별 강점 문구 — 90+는 도전 과제형, 75+는 인정형
@@ -527,32 +456,6 @@ def _fit_detail_metrics(fit: FitType, results: list[AnalysisResult]) -> list[dic
         else:
             f0cv = _mean_metric(results, "f0_cv")
             add("억양 변동(F0)", f"{round(f0cv * 100)}%" if f0cv is not None else None)
-    elif fit == FitType.eye:
-        speak_ratio = _mean_metric(results, "answering_front_ratio")
-        listen_ratio = _mean_metric(results, "listening_front_ratio")
-        if speak_ratio is not None or listen_ratio is not None:
-            # v2 — 듣기/말하기 분리 응시 (전문 코칭의 실제 관찰 단위)
-            if speak_ratio is not None:
-                add("말할 때 응시", f"{round(speak_ratio * 100)}%")
-            if listen_ratio is not None:
-                add("들을 때 응시", f"{round(listen_ratio * 100)}%")
-        else:
-            ratio = _mean_metric(results, "front_gaze_ratio")
-            add("정면 응시", f"{round(ratio * 100)}%" if ratio is not None else None)
-        bout = _mean_metric(results, "contact_bout_mean_sec")
-        if bout:
-            add("응시 리듬", f"평균 {bout:.1f}초 유지")
-        # 최장 연속 응시 — 긍정 지표. 눈맞춤이 실제로 '성립'했음을 보여주는 스트릭
-        streak = max(
-            (r.raw_metrics.get("contact_streak_max_sec", 0) for r in results), default=0)
-        if streak >= 5:
-            add("최장 연속 응시", f"{streak}초")
-        longest = max((r.raw_metrics.get("longest_off_sec", 0) for r in results), default=0)
-        if longest:
-            add("최장 이탈", f"{longest}초")
-        blink = _mean_metric(results, "blink_per_min")
-        if blink:
-            add("깜빡임", f"분당 {round(blink)}회")
     elif fit == FitType.expression:
         brow = _mean_metric(results, "brow_raise_ratio")
         add("표정 생동감(눈썹)", f"{round(brow * 100)}%" if brow is not None else None)
@@ -622,7 +525,9 @@ def _build_speech_stats(turn_results: list[AnalysisResult], session: RoleplaySes
     else:
         level = "제한적"
 
+    from app.services.expression_measurement import summarize as expression_summary
     return {
+        "expression_analysis": expression_summary(session),
         **voice_v2,
         "turns": len(response),
         "total_syllables": total_syllables,
@@ -661,44 +566,6 @@ STRENGTH_BY_BAND = {
 GAZE_MAP_MIN_SEC = 10.0  # 표본 10초 미만이면 지도 생략 (샘플링 주기와 무관하게 시간 기준)
 
 
-def _gaze_map(session: RoleplaySession) -> dict | None:
-    """시선 존 히트맵 — 턴별 3×3 분포(위/중/아래 × 좌/중/우)를 세션 합산한 비율 지도.
-
-    관찰 지표(감점 없음). 표본 10초 미만이면 지도 자체를 생략한다(판정 보류 원칙).
-    프레임 수는 샘플링 주기(sample_ms, 운영 튜닝 가능)로 시간 환산해 게이트한다.
-    코멘트는 부호가 안정적인 축(상하)과 중앙 집중도만 단정하고, 좌우는 실기기
-    부호 검증 전이므로 '옆'으로 중화한다 — DIR_LABEL과 같은 관례.
-    """
-    zones = [0] * 9
-    seconds = 0.0
-    for t in session.turns:
-        nv = t.nonverbal_metrics or {}
-        zs = nv.get("gaze_zones") or []
-        if len(zs) == 9:
-            zones = [a + b for a, b in zip(zones, zs)]
-            seconds += sum(zs) * (nv.get("sample_ms", 200) / 1000)
-    total = sum(zones)
-    if not total or seconds < GAZE_MAP_MIN_SEC:
-        return None
-    ratios = [round(z / total, 3) for z in zones]
-    center = ratios[4]
-    down = sum(ratios[6:9])
-    up = sum(ratios[0:3])
-    side = ratios[0] + ratios[3] + ratios[6] + ratios[2] + ratios[5] + ratios[8]
-    if center >= 0.7:
-        comment = "시선이 대부분 상대(중앙)에 머물렀어요 — 시선 분포로는 더 바랄 게 없어요."
-    elif down >= 0.25:
-        comment = ("시선이 아래쪽에 자주 머물렀어요. 생각을 정리할 때 눈이 내려가는 습관이에요 — "
-                   "듣는 사람에게는 자신 없음이나 대본 읽기로 보일 수 있어요.")
-    elif up >= 0.2:
-        comment = ("답을 떠올릴 때 시선이 위로 향하는 습관이 보여요. 기억을 더듬는 자연스러운 "
-                   "행동이지만, 길어지면 말문이 막힌 것처럼 보여요.")
-    elif side >= 0.3:
-        comment = ("시선이 옆으로 자주 흘렀어요. 화면 밖에 참고물이 있는 듯한 인상을 "
-                   "줄 수 있어요 — 시선을 옮기더라도 문장이 끝난 뒤에 옮겨보세요.")
-    else:
-        comment = "시선이 중앙을 기준으로 자연스럽게 분포했어요."
-    return {"zones": ratios, "frames": total, "comment": comment}
 
 
 # 키넥트 뎁스 관찰 임계 (S6) — 밴드 없는 관찰 축이라 확실할 때만 말한다(보수적).
@@ -746,7 +613,7 @@ def _kinect_segments(session: RoleplaySession) -> list[dict]:
         side = _DIR_KO.get(dominant, "한쪽")
         segs.append(seg(
             f"뎁스 측정에서 답변 중 몸통이 평균 {mean_yaw:.0f}° {side}으로 돌아가 있었어요.",
-            "정면을 벗어난 몸통은 웹캠 시선 지표로는 잘 안 잡히지만, 상대에겐 발을 빼는 "
+            "정면을 벗어난 몸통은 웹캠 정면 좌표로는 잘 안 잡히지만, 상대에겐 발을 빼는 "
             "듯한 인상으로 읽힐 수 있어요.",
             f"어깨를 상대 정면으로 다시 맞추면(특히 {side}으로 트는 습관) 같은 말도 더 "
             "적극적으로 들려요.",
@@ -1076,7 +943,7 @@ def build_report(
                 "quote": "",
                 "observed": f"역할극 중 실시간 코칭이 표시됐어요: \"{tip}\"",
                 "interpretation": "안내가 나간 순간이 비언어 습관이 드러난 지점이에요.",
-                "suggestion": "다음 도전에서는 이 구간에서 자세와 시선을 의식적으로 잡아보세요.",
+                "suggestion": "다음 도전에서는 이 구간에서 자세를 의식적으로 잡아보세요.",
             })
 
     fit_scores: dict[str, dict] = {}
@@ -1122,27 +989,6 @@ def build_report(
             sugg = segment["suggestion"] if segment else ""
             improvements.append(f"{FIT_LABELS[fit]} — {sugg}")
 
-    # 시선(관찰) — 점수 축 아님. 시선 근거 카드 + 3×3 히트맵을 '관찰' 항목으로 노출한다
-    # (총점·강점·헤드라인·코호트에서 제외). 눈이 실제로 잡힌 턴(eye 결과 행)이 있을 때만.
-    eye_rows = by_fit.get(FitType.eye, [])
-    if eye_rows:
-        eye_score = sum(r.score for r in eye_rows) / len(eye_rows)
-        eye_segment = _eye_evidence(eye_rows)
-        fit_scores[FitType.eye.value] = {
-            "score": round(eye_score, 1),
-            "label": FIT_LABELS[FitType.eye],
-            "summary": eye_segment["interpretation"] if eye_segment else "",
-            "metrics": _fit_detail_metrics(FitType.eye, eye_rows),
-            "observation": True,  # 관찰 신호 — 4-Fit 총점·레이더·코호트에서 제외
-        }
-        if eye_segment:
-            eye_segment["turn_order"] = turn_order.get(eye_segment["turn_id"], 0)
-            quote = turn_quote.get(eye_segment["turn_id"], "")
-            eye_segment["quote"] = quote[:80] + ("…" if len(quote) > 80 else "")
-            evidence_segments.append(eye_segment)
-        if (gaze_map := _gaze_map(session)) is not None:
-            fit_scores[FitType.eye.value]["gaze_map"] = gaze_map
-
     # 오늘의 한 문장: 가장 낮은 측정 항목의 처방을 헤드라인으로
     headline: dict = {}
     measured = [(fit, s) for fit, s in session_scores.items() if s is not None]
@@ -1165,7 +1011,6 @@ def build_report(
     # 종합 점수 — 축별 가중 평균. 직무 팩이 루브릭 가중치를 정의하면(S-B2B-PACK, C-11)
     # 그 배점을, 없으면 기본 배점(SCORED_FIT_WEIGHTS — 설계서: 표정·자세 최저)을 쓴다.
     # 측정 안 된 축은 빠지고 남은 축의 가중치로 자동 재정규화된다(weighted_mean).
-    # 시선(eye)은 session_scores에 없으므로 총점에 들어가지 않는다.
     measured_pairs = [(fit, s) for fit, s in session_scores.items() if s is not None]
     rubric = (getattr(session.scenario, "rubric_weights", None) or {}) if session.scenario else {}
     weights = {**SCORED_FIT_WEIGHTS, **rubric}

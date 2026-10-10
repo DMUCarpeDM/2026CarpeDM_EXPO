@@ -124,7 +124,7 @@ export default function OnboardingPage() {
         </h1>
         <p className="hero-sub">
           {selected?.world_setting.situation ??
-            'AI 상사·선배·동료와 직장 상황 역할극을 하고, 응답·말하기·시선·자세 4가지 피드백을 받아보세요.'}
+            'AI 상사·선배·동료와 직장 상황 역할극을 하고, 응답·말하기·자세 4가지 피드백을 받아보세요.'}
         </p>
       </header>
 
@@ -247,7 +247,7 @@ export default function OnboardingPage() {
         <h2>개인정보 안내</h2>
         <ul className="consent-list">
           <li>마이크·카메라 입력은 <strong>분석 목적으로만 실시간 처리</strong>됩니다.</li>
-          <li>영상은 <strong>서버로 전송·저장되지 않으며</strong>, 브라우저 안에서 시선·자세 지표만 계산됩니다.</li>
+          <li>영상은 <strong>서버로 전송·저장되지 않으며</strong>, 브라우저 안에서 자세 지표만 계산됩니다.</li>
           <li>음성·텍스트는 리포트 생성 후 정책에 따라 처리됩니다 (기본: 저장 안 함).</li>
         </ul>
         <label className="consent-check">

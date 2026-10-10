@@ -15,7 +15,7 @@ export function mirrorReport(report) {
     fits: reportFits(report).map(fit => ({
       ...fit,
       score: fit.measured && !(fit.key === "Voice-Fit" && stats.voice_analysis) ? mirrorScore(fit.score) : null,
-      status: fit.key === "Voice-Fit" && stats.voice_analysis ? "점수 보류" : fit.measured ? fit.provisional ? "참고 지표" : "측정 완료" : "미측정",
+      status: fit.key === "Expression-Fit" && stats.expression_analysis?.samples > 0 ? "표정 출력 수집 · 검증 중" : fit.key === "Voice-Fit" && stats.voice_analysis ? "점수 보류" : fit.measured ? fit.provisional ? "참고 지표" : "측정 완료" : "미측정",
     })),
     strength: report.strengths?.[0] || null,
     improvement: report.headline?.sentence || report.improvements?.[0] || null,

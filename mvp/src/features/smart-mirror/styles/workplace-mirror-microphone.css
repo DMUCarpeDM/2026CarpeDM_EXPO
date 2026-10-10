@@ -1,0 +1,19 @@
+.mirror-microphone-check { width: min(calc(50 * var(--u)), calc(100% - 32px)); box-sizing: border-box; }
+.mirror-microphone-check * { box-sizing: border-box; }
+.mirror-microphone-check .overview-card-content { gap: calc(2.1 * var(--u)); padding: calc(3 * var(--u)); }
+.mirror-microphone-heading { display: flex; align-items: center; gap: calc(1.2 * var(--u)); }
+.mirror-microphone-heading > svg { width: calc(3.6 * var(--u)); height: calc(3.6 * var(--u)); flex: none; color: #c5dfff; padding: calc(.7 * var(--u)); border: 1px solid #c5dfff55; border-radius: 50%; background: #c5dfff0d; box-shadow: inset 0 1px 3px #ffffff40, 0 0 calc(1 * var(--u)) #c5dfff12; }
+.mirror-microphone-check .overview-card-context h2 { font-size: max(1.375rem, calc(2.35 * var(--u))); line-height: 1.4; }
+.mirror-microphone-instruction { margin: 0; font-size: max(1rem, calc(1.4 * var(--u))); line-height: 1.65; color: var(--muted); word-break: keep-all; }
+.mirror-microphone-steps { display: grid; grid-template-columns: 1fr 1fr; gap: calc(1.5 * var(--u)); margin: 0; padding: calc(1.5 * var(--u)) 0; list-style: none; border-block: 1px solid var(--divider); }
+.mirror-microphone-steps li { display: flex; align-items: baseline; gap: calc(.9 * var(--u)); color: var(--muted); }
+.mirror-microphone-steps li[aria-current] { color: #e0edff; }
+.mirror-microphone-steps li > span { font-size: max(.875rem, calc(1.1 * var(--u))); font-variant-numeric: tabular-nums; }
+.mirror-microphone-steps strong { display: block; font-size: max(1rem, calc(1.5 * var(--u))); font-weight: 500; line-height: 1.5; }
+.mirror-microphone-steps small { display: block; margin-top: calc(.4 * var(--u)); font-size: max(.875rem, calc(1.1 * var(--u))); line-height: 1.6; }
+.mirror-microphone-sentence { margin: 0; padding: calc(1.4 * var(--u)) 0 calc(1.4 * var(--u)) calc(1.5 * var(--u)); border-left: max(2px, calc(.1 * var(--u))) solid #c5dfff40; font-size: max(1.375rem, calc(2.2 * var(--u))); font-weight: 500; line-height: 1.65; letter-spacing: -.025em; word-break: keep-all; }
+.mirror-microphone-sentence[data-active='true'] { border-color: #c5dfff; }
+.mirror-microphone-footer { display: grid; gap: calc(1 * var(--u)); }
+.mirror-microphone-note, .mirror-microphone-error { margin: 0; font-size: max(.875rem, calc(1.1 * var(--u))); line-height: 1.65; color: var(--muted); word-break: keep-all; }
+.mirror-microphone-error { color: #ffcfb8; }
+@media (max-width: 480px) { .mirror-microphone-steps { grid-template-columns: 1fr; } }

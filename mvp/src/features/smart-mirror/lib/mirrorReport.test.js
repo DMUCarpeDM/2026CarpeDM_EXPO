@@ -24,3 +24,10 @@ test("voice measurement does not become an unsupported score; coaching uses repo
   assert.equal(report.after, "제안");
   assert.equal(report.turns, 3);
 });
+
+test("expression output collection is visible without inventing a score", () => {
+  const report = mirrorReport({fit_scores:{expression:{score:null,summary:"검증 전 참고값"}},speech_stats:{expression_analysis:{samples:3,status:"unvalidated"}}});
+  assert.equal(report.fits[2].score,null);
+  assert.equal(report.fits[2].status,"표정 출력 수집 · 검증 중");
+  assert.equal(report.fits[2].text,"검증 전 참고값");
+});

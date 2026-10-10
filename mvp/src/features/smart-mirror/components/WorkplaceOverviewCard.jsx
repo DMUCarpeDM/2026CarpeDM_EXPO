@@ -11,8 +11,10 @@ export function WorkplaceOverviewCard({ scene, children, labelledBy = "overview-
   const unavailable = useCallback(() => setRender("unavailable"), []);
   useEffect(() => {
     const observer = new ResizeObserver(([entry]) => {
+      const element = surface.current;
+      if (!element) return;
       const { width, height } = entry.contentRect;
-      const radius = parseFloat(getComputedStyle(surface.current).borderRadius);
+      const radius = parseFloat(getComputedStyle(element).borderRadius);
       const inset = radius * .15;
       setShape({ type: "roundedRectSDF", width: (width / 2 - inset) / height, height: .5 - inset / height, rounding: (radius - inset) / height });
     });

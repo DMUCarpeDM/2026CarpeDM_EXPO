@@ -8,7 +8,7 @@ whisper 전사)→마무리→분석→리포트까지 실제 파이프라인을
   전체 세션 파이프라인(응답·음성·비언어·분석·리포트)          ─▶  결과 리포트 출력
 
 물리 마이크/카메라 없이 돌리는 스모크이므로 비언어 지표는 합성값이다 —
-voice/eye/posture 점수의 절대값이 아니라 "오프라인에서 완주하고 리포트가 나온다"를
+voice/posture 점수의 절대값이 아니라 "오프라인에서 완주하고 리포트가 나온다"를
 확인하는 용도. 실제 오프라인 STT(whisper 전사)만은 진짜 로컬 경로 그대로다.
 
 전제:  macOS(`say`) · 백엔드 기동(:8000) · server_stt=whisper(faster-whisper 설치)
@@ -57,17 +57,11 @@ def make_wav(text: str, idx: int, out_dir: Path) -> Path:
 
 
 def nonverbal(idx: int, duration_ms: int) -> dict:
-    """합성 비언어 페이로드 — 카메라 없이 eye/posture 채점이 돌아가게 하는 그럴듯한 값.
+    """합성 비언어 페이로드 — 카메라 없이 posture 채점이 돌아가게 하는 그럴듯한 값.
     턴마다 살짝 흔들어 압박 턴에서 소폭 악화(composure 교차 분석 재료)를 만든다."""
     frames = max(10, duration_ms // 200)
     wobble = 0.08 if idx % 3 == 2 else 0.0
     return {
-        "front_gaze_ratio": round(0.78 - wobble, 2),
-        "answering_front_ratio": round(0.80 - wobble, 2),
-        "listening_front_ratio": 0.85,
-        "gaze_off_count": 2 + (idx % 2),
-        "longest_off_sec": round(1.2 + wobble * 5, 1),
-        "contact_bout_mean_sec": 4.5,
         "avg_shoulder_tilt_deg": round(2.5 + wobble * 10, 1),
         "head_down_ratio": round(0.10 + wobble, 2),
         "posture_sway": round(0.03 + wobble / 4, 3),
@@ -79,10 +73,9 @@ def nonverbal(idx: int, duration_ms: int) -> dict:
         "frames": frames,
         "sample_ms": 200,
         "calibrated": True,
-        "gaze_zones": [0, 1, 0, 1, frames - 4, 1, 0, 1, 0],
         "timeline": [
-            {"t": 0.0, "front": 0.8, "press": 0.1, "tilt": 2.5},
-            {"t": 2.0, "front": round(0.75 - wobble, 2), "press": round(0.1 + wobble, 2), "tilt": 3.0},
+            {"t": 0.0, "press": 0.1, "tilt": 2.5},
+            {"t": 2.0, "press": round(0.1 + wobble, 2), "tilt": 3.0},
         ],
         "nod_count": 2,
         "listen_sec": 6.0,

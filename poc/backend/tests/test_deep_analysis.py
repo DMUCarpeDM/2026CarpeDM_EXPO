@@ -159,7 +159,7 @@ def test_composure_shaken_profile():
     pressure = [_pair(front=0.55, blink=30.0, press=0.35, jitter=12.0)]  # 다중 악화
     c = build_composure(pressure, normal)
     assert c["level"] == "동요형"
-    assert any("정면 응시" in r["label"] for r in c["rows"])
+    assert any("깜빡임" in r["label"] for r in c["rows"])
 
 
 def test_composure_needs_both_groups():
@@ -180,7 +180,7 @@ def test_composure_detects_slow_expression_recovery():
 
 def test_composure_skips_expression_probe_on_old_payload():
     # 구 페이로드(expr_recover_sec 없음)에서는 프로브가 조용히 제외된다 (하위 호환)
-    old = ({"front_gaze_ratio": 0.9}, {})
+    old = ({"blink_per_min": 15}, {})
     c = build_composure([old], [old])
     assert all("표정 복구" not in r["label"] for r in c["rows"])
 
@@ -211,7 +211,7 @@ def test_composure_flags_gesture_shrink_and_head_motion():
 
 def test_composure_skips_expression_motion_probes_on_old_payload():
     # 구 페이로드(⑤ 필드 없음)에서는 새 프로브가 조용히 제외된다 (하위 호환)
-    old = ({"front_gaze_ratio": 0.9}, {})
+    old = ({"blink_per_min": 15}, {})
     labels = [r["label"] for r in (build_composure([old], [old]) or {"rows": []})["rows"]]
     assert "손동작 크기" not in labels and "머리 흔들림" not in labels
 

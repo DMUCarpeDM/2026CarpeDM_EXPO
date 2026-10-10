@@ -160,7 +160,7 @@ def _make_session_with_nonverbal(db, nv: dict) -> int:
     return session.id
 
 
-def test_expression_scored_gaze_observation_and_weighted_total():
+def test_expression_scored_and_weighted_total():
     """표정은 4-Fit 점수 축(참고용)으로, 시선은 관찰 신호로 리포트에 흐르고
     총점은 점수 축의 가중 평균(시선 제외)이다."""
     seed()
@@ -187,8 +187,7 @@ def test_expression_scored_gaze_observation_and_weighted_total():
         assert fits["expression"]["score"] is not None
         assert fits["expression"].get("provisional") is True
         # 시선 = 관찰 신호 (점수 있으나 관찰 플래그, 4-Fit 아님)
-        assert fits["eye"].get("observation") is True
-        assert fits["eye"]["score"] is not None
+        assert "eye" not in fits
         # 총점 = 점수 축(response·voice·expression·posture)의 가중 평균 — 시선 제외
         scored = [
             (fits[k]["score"], SCORED_FIT_WEIGHTS[k])

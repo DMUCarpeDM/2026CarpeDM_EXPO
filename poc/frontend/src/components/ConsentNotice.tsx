@@ -90,7 +90,7 @@ export default function ConsentNotice({ value, onChange }: Props) {
           <ul>
             <li>음성 녹음 파일(롤플레이 중 수강생 발화)</li>
             <li>발화 전사 텍스트(음성을 문자로 변환한 기록)</li>
-            <li>비언어 집계 지표(시선·자세·표정에 대한 수치 요약값)</li>
+            <li>비언어 집계 지표(자세·표정에 대한 수치 요약값)</li>
           </ul>
           <p>
             ※ <strong>카메라 영상 원본은 수집하지 않습니다.</strong> 영상 분석은 훈련 기기

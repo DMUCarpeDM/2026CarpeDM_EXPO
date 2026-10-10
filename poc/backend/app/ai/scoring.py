@@ -9,9 +9,8 @@ band_score: 이상 구간 안이면 100점, 한계 구간 밖이면 0점, 사이
 #
 # v2: MVP 프론트가 누락하던 지표를 복원해 측정 방법이 바뀌었다.
 #   - posture_sway / tilt_drift_deg 실측 (v1에서는 기본값 0.0 → 상수 만점이었다)
-#   - head_down_ratio를 코-어깨 거리로 측정 (v1은 eyeLookDown blendshape = 눈동자 하향)
+#   - head_down_ratio를 코-어깨 거리로 측정
 #   - 어깨 기울기를 3D 월드 랜드마크로 계산 (몸 회전에 불변)
-#   - 듣기/말하기 응시 분리·응시 리듬 전달 → score_eye가 v2 경로로 동작
 #   - 표정 판정을 개인 무표정 기저 대비로 전환 (v1은 절대 임계 → 사람마다 오판)
 #     smile_ratio·mouth_press_ratio·brow_down_ratio의 분포가 달라진다 (관찰 지표)
 #
@@ -22,13 +21,12 @@ band_score: 이상 구간 안이면 100점, 한계 구간 밖이면 0점, 사이
 #   judge를 기본 비활성으로 되돌리면서(config.judge_samples=0) 이후 표본을 그
 #   오염 구간과 분리한다. v3의 산식 자체는 v2의 결정적 경로와 동일하다.
 #
-# v4 (2026-08-01): 3번째 점수 축을 시선(eye)→표정(expression)으로 교체 +
+# v4 (2026-08-01): 표정(expression) 점수 축을 추가하고
 #   균등 평균이던 총점을 축별 가중 평균으로 전환(SCORED_FIT_WEIGHTS).
 #   축 세트와 총점 산식이 둘 다 바뀌므로 v3 이하 표본과 백분위·추이를 섞지 않는다.
 ENGINE_VERSION = "4"
 
 # 4-Fit 총점의 축별 가중치 (설계서: 표정·자세가 최저 가중치, 응답·음성이 상위).
-# 시선(gaze)은 점수 축이 아니라 보조 관찰 신호이므로 여기에 없다.
 # ⚠️ 정확한 가중치는 4fit-scoring-design.md에서 미확정(α 검증 후 확정) — 잠정값이다.
 # 측정 안 된 축이 있으면 weighted_mean이 남은 축의 가중치로 자동 재정규화한다.
 SCORED_FIT_WEIGHTS = {

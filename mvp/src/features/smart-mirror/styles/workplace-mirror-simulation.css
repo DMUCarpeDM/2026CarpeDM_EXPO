@@ -3,7 +3,7 @@
 .simulation-environment { position: absolute; inset: 0; z-index: -2; overflow: hidden; }
 .simulation-environment img { position: absolute; width: 100%; height: 100%; object-fit: cover; filter: blur(calc(.45 * var(--u))); transform: scale(1.025); }
 .mirror-scene-simulation::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, #000b, #0003 24%, transparent 42%, #0001 67%, #0008); pointer-events: none; }
-.simulation-card-slot { position: absolute; inset-inline: calc(3.6 * var(--u)); top: 55%; }
+.simulation-card-slot { position: absolute; inset-inline: calc(3.6 * var(--u)); top: 45%; }
 
 .simulation-actor { position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
 .simulation-actor .counterpart-video-stage { position: absolute; top: 2%; left: -100%; width: 300%; aspect-ratio: 16 / 9; }
@@ -25,6 +25,22 @@
 .simulation-answer button { min-height: 44px; cursor: pointer; }
 @media (max-width: 700px), (max-height: 700px) {
   .mirror-scene-simulation { width: 100%; overflow-y: auto; }
-  .simulation-card-slot { position: relative; inset: auto; margin: 55dvh 20px 24px; }
+  .simulation-card-slot { position: relative; inset: auto; margin: 45dvh 20px 24px; }
   .simulation-answer textarea { min-height: 96px; }
 }
+
+.mirror-capture-status { position: absolute; top: calc(3.3 * var(--u)); right: calc(3.6 * var(--u)); z-index: 1; display: flex; flex-wrap: wrap; align-items: center; gap: calc(.9 * var(--u)); max-width: calc(100% - 7.2 * var(--u)); padding: calc(.65 * var(--u)) calc(1.2 * var(--u)); border-radius: calc(2 * var(--u)); color: var(--ink); font-size: max(.875rem, calc(1.1 * var(--u))); line-height: 1.5; }
+.mirror-capture-audio > span:first-of-type { color: #c5dfff; }
+.mirror-capture-camera[data-active="true"] { color: #9edcff; }
+.mirror-capture-wave[data-active="true"] i { background: #b8ddff; }
+
+.mirror-capture-audio, .mirror-capture-camera { display: inline-flex; align-items: center; gap: calc(.6 * var(--u)); }
+.mirror-capture-camera { padding-left: calc(.9 * var(--u)); border-left: 1px solid #ffffff30; }
+.mirror-capture-camera svg { width: 1.15em; height: 1.15em; flex-shrink: 0; }
+.mirror-capture-dot { width: .55em; height: .55em; border-radius: 50%; background: #a1a7b2; }
+.mirror-capture-audio[data-active="true"] .mirror-capture-dot { background: #ff7878; box-shadow: 0 0 .55em #ff787860; }
+.mirror-capture-wave { display: inline-flex; align-items: center; gap: 3px; height: 1.2em; }
+.mirror-capture-wave i { width: 3px; height: 100%; border-radius: 2px; background: #f0f2f8; transform: scaleY(.18); transform-origin: center; }
+.mirror-capture-wave[data-active="false"] i { transform: scaleY(.18) !important; opacity: .4; }
+
+@media (prefers-reduced-motion: reduce) { .mirror-capture-wave i { transform: scaleY(.18) !important; } }

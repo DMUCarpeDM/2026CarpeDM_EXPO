@@ -90,7 +90,7 @@ def test_composure_detects_gesture_shrink():
 
 
 def test_composure_skips_gesture_on_old_payload():
-    old = ({"front_gaze_ratio": 0.9}, {})
+    old = ({"blink_per_min": 15}, {})
     c = build_composure([old], [old])
     assert all("제스처" not in r["label"] for r in c["rows"])
 

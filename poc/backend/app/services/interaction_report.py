@@ -10,7 +10,8 @@ def _fit_summary(session, area, score):
     if area == "voice" and voice_analysis.enabled(session):
         return "측정값과 측정 불가 사유는 목소리 기록에서 확인할 수 있습니다. 평가 기준 검증 전에는 점수를 계산하지 않습니다."
     if area == "expression" and score is None:
-        return "표정 분석 연결과 현장 검증이 완료되지 않아 이번 결과에서 표정 점수를 제공하지 않습니다."
+        from app.services.expression_measurement import summary_text
+        return summary_text(session)
     return "판단할 측정 자료가 부족합니다." if score is None else "75점에서 확인된 근거에 따라 가감했습니다."
 
 
@@ -33,8 +34,6 @@ def prepare(db, session):
                 result["measured"] = list(dict.fromkeys([*result["measured"], "voice"]))
     present = set()
     for row in rows:
-        if row.fit_type == FitType.eye:
-            continue
         result = by_turn.get(row.turn_id)
         score = scoring.calculate([result])["scores"].get(row.fit_type.value) if result else None
         if score is None:

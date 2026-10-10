@@ -98,7 +98,9 @@
   transition: transform 120ms ease-out, border-color 120ms ease-out, box-shadow 120ms ease-out, background 120ms ease-out;
 }
 
-.setup-flow-main .choice-card:hover { border-color: #9fc3ff; transform: translateY(-2px); box-shadow: 0 10px 24px rgba(25, 79, 156, 0.08); }
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .setup-flow-main .choice-card:hover { border-color: #9fc3ff; transform: translateY(-2px); box-shadow: 0 10px 24px rgba(25, 79, 156, 0.08); }
+}
 .setup-flow-main .choice-card:focus-visible,
 .setup-flow-actions button:focus-visible { outline: 3px solid rgba(0, 100, 255, 0.28); outline-offset: 3px; }
 .setup-flow-main .choice-card.selected { border: 2px solid var(--color-blue); background: linear-gradient(135deg, var(--color-selection-wash), var(--color-snow)); box-shadow: 0 12px 24px rgba(0, 100, 255, 0.08); }

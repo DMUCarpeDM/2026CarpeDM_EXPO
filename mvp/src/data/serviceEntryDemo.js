@@ -87,7 +87,6 @@ export const DEMO_REPORT = {
     ],
   },
   evidence_segments: [
-    { turn_id: 1, fit_type: "eye", observed: "정면 응시 87%, 이탈 2회, 최장 이탈 1.2초 — 안정적이었어요", interpretation: "말의 신뢰도를 시선이 받쳐주고 있었어요.", suggestion: "다음 단계 도전: 핵심 문장에서 시선을 고정해 보세요." },
     { turn_id: 2, fit_type: "response", observed: "결론 선행 4/5회, 질문 정합성 82%", interpretation: "질문의 핵심 단어를 받아 말하는 습관이 자리 잡혔어요.", suggestion: "모호한 일정 표현('아마도')만 확인 약속으로 바꿔보세요." },
   ],
 };

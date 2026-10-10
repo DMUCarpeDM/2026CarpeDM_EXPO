@@ -1,11 +1,13 @@
 """선택한 대화 모델의 시작 가능 여부를 확인한다."""
 from typing import Final
+from time import monotonic
 
 import httpx
 
 from app.core.config import settings
 
 _PROBE_TIMEOUT_SEC: Final = 1.5
+_VERTEX_PROBE_CACHE: dict = {}
 
 
 def ollama_dialogue_ready() -> bool:
@@ -42,20 +44,33 @@ def openai_dialogue_ready() -> bool:
 
 
 def gemini_dialogue_ready() -> bool:
-    """선택한 모델에 키로 접근 가능한지 확인한다(생성 요청은 하지 않는다)."""
+    """Developer API는 모델 조회, GCP는 캐시된 짧은 생성으로 확인한다."""
     if settings.dialogue_provider != "gemini":
         return False
-    api_key = settings.gemini_api_key.get_secret_value()
-    if not api_key:
-        return False
+    from app.services.dialogue.gemini_provider import _call_gemini, _gemini_headers, _gemini_url
+    from app.services.dialogue.openai_provider import DialogueGenerationError
+    if settings.gemini_api_backend == "vertex":
+        key = (settings.gemini_vertex_project, settings.gemini_model)
+        cached = _VERTEX_PROBE_CACHE.get(key)
+        if cached and monotonic() - cached[0] < (60 if cached[1] else 5):
+            return cached[1]
+        try:
+            ready = bool(_call_gemini("Reply only OK.", "Connection check.", max_tokens=64, temperature=0))
+        except DialogueGenerationError:
+            ready = False
+        _VERTEX_PROBE_CACHE.clear()
+        _VERTEX_PROBE_CACHE[key] = (monotonic(), ready)
+        return ready
     try:
+        headers = _gemini_headers()
+        url = _gemini_url(settings.gemini_model).removesuffix(":generateContent")
         response = httpx.get(
-            f"{settings.gemini_base_url.rstrip('/')}/v1beta/models/{settings.gemini_model}",
-            headers={"x-goog-api-key": api_key},
+            url,
+            headers=headers,
             timeout=_PROBE_TIMEOUT_SEC,
         )
         response.raise_for_status()
-    except httpx.HTTPError:
+    except (httpx.HTTPError, DialogueGenerationError):
         return False
     return True
 

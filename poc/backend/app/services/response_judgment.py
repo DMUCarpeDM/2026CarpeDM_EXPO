@@ -79,8 +79,8 @@ def validate(data, current, history, goals, requested):
 def analyze(current, history, goals, requested):
     # goals는 전체 확인 목록, requested는 '이번 질문에서 요구한 항목'입니다.
     # 아직 묻지 않은 내용을 누락으로 지적하지 않도록 둘을 나눠 보냅니다.
-    key = settings.openai_api_key.get_secret_value()
-    if not key:
+    key = settings.gemini_api_key.get_secret_value()
+    if settings.gemini_api_backend != "vertex" and not key:
         return [], [], "unavailable"
     selected, budget = [], 12000
     for turn in reversed(history):
@@ -93,16 +93,18 @@ def analyze(current, history, goals, requested):
     payload = {"question": current.question_text, "answer": current.response_text,
         "goals": goals, "requested_goal": requested,
         "history": [{"turn_id": t.id, "answer": t.response_text} for t in selected]}
+    from app.services.dialogue.openai_provider import DialogueGenerationError
     try:
-        response = httpx.post(f"{settings.openai_base_url}/chat/completions",
-            headers={"Authorization": f"Bearer {key}"},
-            json={"model": settings.openai_model, "temperature": 0, "max_tokens": 1000,
-                "response_format": {"type": "json_object"},
-                "messages": [{"role": "system", "content": SYSTEM},
-                    {"role": "user", "content": json.dumps(payload, ensure_ascii=False)}]},
-            timeout=min(settings.openai_timeout_sec, 8))
+        from app.services.dialogue.gemini_provider import _extract_text, _gemini_url, _gemini_headers
+        response = httpx.post(_gemini_url(settings.gemini_model),
+            headers=_gemini_headers(),
+            json={"system_instruction": {"parts": [{"text": SYSTEM}]},
+                "contents": [{"role": "user", "parts": [{"text": json.dumps(payload, ensure_ascii=False)}]}],
+                "generationConfig": {"temperature": 0, "maxOutputTokens": 4096,
+                    "responseMimeType": "application/json"}},
+            timeout=min(settings.gemini_timeout_sec, 8))
         response.raise_for_status()
-        events, met = validate(json.loads(response.json()["choices"][0]["message"]["content"]), current, selected, goals, requested)
+        events, met = validate(json.loads(_extract_text(response.json())), current, selected, goals, requested)
         return events, met, "completed"
-    except (httpx.HTTPError, ValueError, TypeError, KeyError, IndexError):
+    except (DialogueGenerationError, httpx.HTTPError, ValueError, TypeError, KeyError, IndexError):
         return [], [], "unavailable"

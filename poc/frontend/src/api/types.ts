@@ -92,23 +92,27 @@ export interface RoleplaySession {
   access_token: string; // 세션 능력 토큰 (생성 응답에만 값, 복구 응답은 빈 문자열)
 }
 
+export interface ExpressionModelMetrics {
+  version: 'expression-resnet18-v1';
+  status: 'unvalidated';
+  preprocessing: 'imagenet-face-square-provisional-v1';
+  samples: number;
+  mean_outputs: Record<'smile' | 'brow_furrow' | 'brow_raise' | 'eyes_wide' | 'eyes_closed' | 'mouth_wide_open' | 'neutral', number>;
+}
+
 export interface NonverbalMetrics {
+  expression_model?: ExpressionModelMetrics | null;
   pose_ensemble?: {version: string; features: number[][]; sample_ms: number};
   posture_samples?: Record<string, number>;
-  front_gaze_ratio: number;
-  gaze_off_count: number;
   avg_shoulder_tilt_deg: number;
   head_down_ratio: number;
   hunched_ratio: number; // 고개 숙임 또는 기준 대비 상체 전진 프레임 비율
   lean_back_ratio: number; // 기준 대비 어깨폭이 줄어 뒤로 기대는 프레임 비율
   posture_sway: number;
   frames: number;
-  longest_off_sec: number; // 최장 연속 시선 이탈
   blink_per_min: number; // 깜빡임 빈도 (긴장 지표)
   blink_base_per_min: number | null; // 브리핑 중 깜빡임 기저선 — 급증 판정의 개인 기준 (표본 10초 미만 null)
-  gaze_off_dir: 'down' | 'up' | 'left' | 'right' | null; // 지배적 이탈 방향
   tilt_drift_deg: number; // 후반-전반 어깨 기울기 변화 (자세 붕괴 추세)
-  front_drift_pct: number; // 후반-전반 정면 응시 변화 (%p)
   smile_ratio: number; // 미소 표현 프레임 비율
   smile_duchenne_ratio: number | null; // 미소 중 눈 참여 비율(진정성 미소 근사) — 미소 2초 미만이면 null
   expr_recover_sec: number; // 긴장 표정(압축·찡그림) 에피소드 평균 지속 초 — 표정 복구, 교차 분석 재료
@@ -117,19 +121,8 @@ export interface NonverbalMetrics {
   brow_down_ratio: number; // 찡그림 프레임 비율 — 관찰 지표
   hand_face_sec: number; // 손-얼굴 터치 누적 초 (무의식 습관)
   arm_cross_ratio: number; // 팔짱 자세 프레임 비율 (무의식 습관)
-  gaze_dirs: Record<'down' | 'up' | 'left' | 'right', number>; // 시선 이탈 방향 분포
-  iris_ratio: number; // 홍채(눈-머리 보상) 추적 가동 프레임 비율
-  iris_v_ratio: number; // 수직 홍채가 상하 판정에 쓰인 프레임 비율 (능력 플래그)
-  listening_front_ratio: number | null; // 듣기(상대 TTS) 중 정면 응시율
-  answering_front_ratio: number | null; // 말하기(답변) 중 정면 응시율
-  contact_bout_mean_sec: number; // 연속 응시 구간 평균 길이 (응시 리듬)
-  contact_streak_max_sec: number; // 최장 연속 응시 초 (아이컨택 스트릭 — 긍정 지표)
-  onset_aversion_sec: number; // 답변 개시 2.5초 유예 구간의 시선 회피 (감점 제외 근거)
-  gaze_zones: number[]; // 3×3 시선 존 분포 (위/중/아래 × 좌/중/우)
   // 교차 분석용 2초 빈 타임라인 — 빈당 집계 숫자만 (영상·좌표 미전송)
-  timeline: { t: number; front: number | null; press: number | null; tilt: number | null }[]; // press=긴장(입술 압축∥찡그림)
-  gaze_stability: number; // 정면 내 시선 흔들림 표준편차 (스캐닝 습관)
-  gaze_recover_sec: number; // 이탈 후 정면 복귀 평균 시간 (회복 탄력)
+  timeline: { t: number; press: number | null; tilt: number | null }[]; // press=긴장(입술 압축∥찡그림)
   lean_drift_pct: number; // 후반 어깨폭 변화 % (+는 다가옴, -는 물러남)
   // ---- Posture 마스터 ③: 3D 월드·제스처·전신 (관찰 지표) ----
   world_ratio: number; // 3D 월드 랜드마크(거리 불변) 기울기 가동 프레임 비율
@@ -206,8 +199,6 @@ export interface FitScore {
   label: string;
   summary: string;
   metrics?: { label: string; value: string }[]; // 세부 실측값 행
-  // 시선 존 히트맵 (Eye 카드 전용): 3×3 비율 지도 (위/중/아래 × 좌/중/우), 표본 10초+
-  gaze_map?: { zones: number[]; frames: number; comment: string };
 }
 
 export interface EvidenceSegment {

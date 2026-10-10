@@ -56,7 +56,6 @@ function auraStates(props: MirrorRoleplayProps): { key: string; label: string; s
         : 'warn'
     : 'idle';
   const voice: AuraState = recording ? (live.micLevel > 0.05 ? 'ok' : 'mid') : 'idle';
-  const eye: AuraState = cameraReady ? (live.front ? 'ok' : 'warn') : 'idle';
   const posture: AuraState = cameraReady
     ? live.tiltDeg <= 6 && !live.headDown
       ? 'ok'
@@ -65,7 +64,6 @@ function auraStates(props: MirrorRoleplayProps): { key: string; label: string; s
   return [
     { key: 'response', label: '응답', state: response },
     { key: 'voice', label: '음성', state: voice },
-    { key: 'eye', label: '시선', state: eye },
     { key: 'posture', label: '자세', state: posture },
   ];
 }
@@ -211,7 +209,7 @@ export default function RoleplayMirrorView(props: MirrorRoleplayProps) {
         </div>
       )}
 
-      {/* 브리핑 — 장면 자막 + 눈맞춤 캘리브레이션 의식 (기획서 §4.2) */}
+      {/* 브리핑 — 장면 자막 + 자세 기준 보정 (기획서 §4.2) */}
       {briefingOpen && briefing && (
         <div className="mirror-briefing">
           {currentTurn.virtual_time && (
@@ -224,7 +222,6 @@ export default function RoleplayMirrorView(props: MirrorRoleplayProps) {
               <span key={p} className="briefing-chip">{p}</span>
             ))}
           </div>
-          <div className={`mirror-gaze-ring ${cameraReady ? 'active' : ''}`} aria-hidden />
           <p className="mirror-briefing-calib">
             {cameraReady
               ? '거울 속 자신과 눈을 맞춰주세요 — 그대로 몇 초면 준비가 끝나요'

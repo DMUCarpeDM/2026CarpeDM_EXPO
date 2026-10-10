@@ -265,26 +265,23 @@ class SessionResumeOut(SessionOut):
 
 # NonverbalIn 살균 기준 (클래스 밖 상수 — pydantic 필드/프라이빗 속성 처리와 분리)
 _NV_RATIO_FIELDS = (
-    "front_gaze_ratio", "head_down_ratio", "smile_ratio", "smile_duchenne_ratio",
-    "mouth_press_ratio", "brow_down_ratio", "arm_cross_ratio", "iris_ratio",
-    "iris_v_ratio", "listening_front_ratio", "answering_front_ratio", "world_ratio",
+    "head_down_ratio", "smile_ratio", "smile_duchenne_ratio",
+    "mouth_press_ratio", "brow_down_ratio", "arm_cross_ratio", "world_ratio",
     "gesture_active_ratio", "hands_visible_ratio", "lower_visible_ratio",
     "hunched_ratio", "lean_back_ratio",
     "gesture_two_handed_ratio", "brow_raise_ratio",
 )
 _NV_RANGE_FIELDS = {
-    "gaze_off_count": (0, 100_000), "frames": (0, 1_000_000),
+    "frames": (0, 1_000_000),
     "guard_dropped_frames": (0, 1_000_000), "nod_count": (0, 10_000),
     "avg_shoulder_tilt_deg": (0.0, 90.0), "head_roll_deg": (0.0, 90.0),
     "tilt_drift_deg": (-90.0, 90.0), "posture_sway": (0.0, 10.0),
-    "gaze_stability": (0.0, 10.0), "hip_sway": (0.0, 10.0),
-    "longest_off_sec": (0.0, 3600.0), "expr_recover_sec": (0.0, 3600.0),
-    "hand_face_sec": (0.0, 3600.0), "contact_bout_mean_sec": (0.0, 3600.0),
-    "contact_streak_max_sec": (0.0, 3600.0), "onset_aversion_sec": (0.0, 3600.0),
-    "gaze_recover_sec": (0.0, 3600.0), "listen_sec": (0.0, 3600.0),
+    "hip_sway": (0.0, 10.0),
+    "expr_recover_sec": (0.0, 3600.0),
+    "hand_face_sec": (0.0, 3600.0), "listen_sec": (0.0, 3600.0),
     "answer_offset_sec": (0.0, 3600.0),
     "blink_per_min": (0.0, 300.0), "blink_base_per_min": (0.0, 300.0),
-    "front_drift_pct": (-100.0, 100.0), "lean_drift_pct": (-100.0, 100.0),
+    "lean_drift_pct": (-100.0, 100.0),
     "listen_lean_pct": (-100.0, 100.0),
     "gesture_energy": (0.0, 10.0), "gesture_amplitude": (0.0, 300.0),
     "head_motion": (0.0, 10.0), "sample_ms": (40, 1000),
@@ -343,23 +340,35 @@ class PoseEnsembleIn(BaseModel):
         return rows
 
 
+class ExpressionModelIn(BaseModel):
+    version: Literal["expression-resnet18-v1"]
+    status: Literal["unvalidated"]
+    preprocessing: Literal["imagenet-face-square-provisional-v1"]
+    samples: int = Field(gt=0, le=3600, strict=True)
+    mean_outputs: dict[str, float] = Field(min_length=7, max_length=7)
+
+    @model_validator(mode="after")
+    def validate_outputs(self):
+        import math
+        labels = {"smile", "brow_furrow", "brow_raise", "eyes_wide", "eyes_closed", "mouth_wide_open", "neutral"}
+        if set(self.mean_outputs) != labels or any(not math.isfinite(v) or not 0 <= v <= 1 for v in self.mean_outputs.values()):
+            raise ValueError("Expected seven finite expression outputs between 0 and 1")
+        return self
+
+
 class NonverbalIn(BaseModel):
+    expression_model: ExpressionModelIn | None = None
     pose_ensemble: PoseEnsembleIn | None = None
     posture_samples: dict[str, int] = Field(default_factory=dict)
-    front_gaze_ratio: float = 0.0
-    gaze_off_count: int = 0
     avg_shoulder_tilt_deg: float = 0.0
     head_down_ratio: float = 0.0
     hunched_ratio: float = 0.0  # 고개·상체를 앞으로 숙인 프레임 비율
     lean_back_ratio: float = 0.0  # 골반 기준으로 등을 뒤로 기댄 프레임 비율
     posture_sway: float = 0.0
     frames: int = 0
-    longest_off_sec: float = 0.0  # 최장 연속 시선 이탈
     blink_per_min: float = 0.0  # 깜빡임 빈도 (긴장 관찰 지표 — 감점 없음)
     blink_base_per_min: float | None = None  # 브리핑 중 기저선 — 깜빡임 동역학의 개인 기준
-    gaze_off_dir: str | None = None  # down | up | left | right
     tilt_drift_deg: float = 0.0  # 후반-전반 어깨 기울기 변화
-    front_drift_pct: float = 0.0  # 후반-전반 정면 응시 변화 (%p)
     smile_ratio: float = 0.0  # 미소 표현 비율 (관찰 지표)
     smile_duchenne_ratio: float | None = None  # 미소 중 눈 참여(진정성 미소 근사) — 표본 부족 시 null
     expr_recover_sec: float = 0.0  # 긴장 표정 에피소드 평균 지속 초 (표정 복구 — 교차 분석 재료)
@@ -368,20 +377,9 @@ class NonverbalIn(BaseModel):
     brow_down_ratio: float = 0.0  # 찡그림 비율 — 관찰 지표
     hand_face_sec: float = 0.0  # 손-얼굴 터치 누적 초 (무의식 습관)
     arm_cross_ratio: float = 0.0  # 팔짱 자세 비율 (무의식 습관)
-    gaze_dirs: dict = {}  # 시선 이탈 방향 분포 {down,up,left,right: frames}
-    iris_ratio: float = 0.0  # 홍채(눈-머리 보상) 추적 가동 비율
-    iris_v_ratio: float = 0.0  # 수직 홍채 상하 판정 가동 비율 (능력 플래그)
-    listening_front_ratio: float | None = None  # 듣기 중 정면 응시율
-    answering_front_ratio: float | None = None  # 말하기 중 정면 응시율
-    contact_bout_mean_sec: float = 0.0  # 연속 응시 평균 길이 (응시 리듬)
-    contact_streak_max_sec: float = 0.0  # 최장 연속 응시 (아이컨택 스트릭 — 긍정 지표)
-    onset_aversion_sec: float = 0.0  # 답변 개시 유예 구간 회피 (감점 제외 근거)
-    gaze_zones: list[int] = []  # 3×3 시선 존 (위/중/아래 × 좌/중/우)
-    # 교차 분석 타임라인: [{t, front, press, tilt}] — 2초 빈당 집계 숫자만
+    # 교차 분석 타임라인: [{t, press, tilt}] — 2초 빈당 집계 숫자만
     # (press = 긴장 표정 비율: 입술 압축 ∥ 찡그림)
     timeline: list[dict] = []
-    gaze_stability: float = 0.0  # 정면 내 시선 흔들림 표준편차 (스캐닝 습관)
-    gaze_recover_sec: float = 0.0  # 이탈 후 정면 복귀 평균 시간 (회복 탄력)
     lean_drift_pct: float = 0.0  # 후반 어깨폭 변화 % (+ 다가옴 / - 물러남)
     # ---- Posture 마스터 ③: 3D 월드·제스처·전신 (관찰 지표 — 감점 없음) ----
     world_ratio: float = 0.0  # 3D 월드(거리 불변) 기울기 가동 비율
@@ -424,26 +422,16 @@ class NonverbalIn(BaseModel):
             value = getattr(self, name)
             if value is not None:
                 setattr(self, name, min(hi, max(lo, value)))
-        if self.gaze_off_dir not in (None, "down", "up", "left", "right"):
-            self.gaze_off_dir = None
         # 자세 출처 표기는 화이트리스트만 — 알 수 없는 값은 버린다(키넥트 게이트 오작동 방지)
         if self.posture_source not in ("mediapipe", "kinect"):
             self.posture_source = None
-        # 시선 방향 분포·존은 형태가 어긋나면 통째로 버린다 (부분 신뢰 없음)
-        known_dirs = {"down", "up", "left", "right"}
-        if not (isinstance(self.gaze_dirs, dict) and set(self.gaze_dirs) <= known_dirs
-                and all(isinstance(v, int) and 0 <= v <= 1_000_000 for v in self.gaze_dirs.values())):
-            self.gaze_dirs = {}
-        if not (len(self.gaze_zones) == 9
-                and all(isinstance(z, int) and 0 <= z <= 1_000_000 for z in self.gaze_zones)):
-            self.gaze_zones = []
         # 타임라인: 빈 수 상한 + 알려진 키만 + 숫자 아니면 null (moments의 타입 가드와 동일 계약)
         clean_bins = []
         for bin_ in self.timeline[:_NV_TIMELINE_MAX]:
             if not isinstance(bin_, dict):
                 continue
             clean = {}
-            for key in ("t", "front", "press", "tilt"):
+            for key in ("t", "press", "tilt"):
                 v = bin_.get(key)
                 clean[key] = v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
             if clean["t"] is not None:

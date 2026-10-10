@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   createSession,
@@ -9,7 +9,7 @@ import {
   retryAnalysis,
   type HistoryItem,
 } from '../../api/client';
-import type { FitScore, Report } from '../../api/types';
+import type { Report } from '../../api/types';
 import Icon, { type IconName } from '../../components/Icon';
 import { useMirrorMode } from '../../lib/mirrorMode';
 import { useSessionStore } from '../../stores/sessionStore';
@@ -64,34 +64,7 @@ function useCountUp(target: number, ready: boolean): number {
 
 const KIOSK_IDLE_MS = 90_000;
 
-/** 시선 존 히트맵 — 3×3 분포 지도 (위/중/아래 × 좌/중/우). 중앙 = 상대의 눈높이 */
-function GazeMap({ map }: { map: NonNullable<FitScore['gaze_map']> }) {
-  const ROW_LABEL = ['위', '중앙', '아래'];
-  return (
-    <div className="gaze-map">
-      <span className="gaze-map-title">
-        시선 분포 지도 <em>가운데 칸 = 상대</em>
-      </span>
-      <div className="gaze-map-body">
-        <div className="gaze-map-rows" aria-hidden>
-          {ROW_LABEL.map((l) => <span key={l}>{l}</span>)}
-        </div>
-        <div className="gaze-map-grid" role="img" aria-label="3×3 시선 분포 히트맵">
-          {map.zones.map((z, i) => (
-            <div
-              key={i}
-              className={`gaze-cell ${i === 4 ? 'center' : ''}`}
-              style={{ '--heat': Math.min(1, z * 1.5) } as CSSProperties}
-            >
-              {z >= 0.05 ? `${Math.round(z * 100)}%` : ''}
-            </div>
-          ))}
-        </div>
-      </div>
-      <p className="gaze-map-comment">{map.comment}</p>
-    </div>
-  );
-}
+
 
 function gradeLabel(score: number | null): string {
   if (score === null) return "미측정";
@@ -106,7 +79,7 @@ const STAGE_LABEL: Record<string, string> = {
   stt: '음성 텍스트 변환',
   response: '응답 내용 분석',
   voice: '발화 안정성 분석',
-  nonverbal: '시선·자세 분석',
+  nonverbal: '자세 분석',
   scoring: '4-Fit 점수 계산',
   report: '리포트 작성',
   done: '완료',
@@ -115,7 +88,6 @@ const STAGE_LABEL: Record<string, string> = {
 const FIT_ICON: Record<string, IconName> = {
   response: 'message',
   voice: 'activity',
-  eye: 'eye',
   posture: 'user',
   live: 'spark', // 실시간 코칭 발생 구간
   habit: 'spark', // 무의식 습관 관찰 (지각 확장)
@@ -262,7 +234,7 @@ export default function ReportPage() {
           <div className="progress-track">
             <div className="progress-fill" style={{ width: `${pct}%` }} />
           </div>
-          <p className="loading-sub">발화 내용 · 말하기 · 시선 · 자세를 종합 분석하고 있어요</p>
+          <p className="loading-sub">발화 내용 · 말하기 · 자세를 종합 분석하고 있어요</p>
         </div>
       </div>
     );
@@ -559,7 +531,6 @@ export default function ReportPage() {
                   ))}
                 </dl>
               )}
-              {data.gaze_map && <GazeMap map={data.gaze_map} />}
               <p className="fit-summary">{data.summary}</p>
               {fitDelta !== null && (
                 <span className={`fit-delta ${fitDelta >= 0 ? 'up' : 'down'}`}>

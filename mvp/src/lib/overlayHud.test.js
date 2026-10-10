@@ -56,14 +56,14 @@ const TESS = [
 
 const HUD_FULL = {
   tess: TESS, rollDeg: 3.2, tiltAdj: 2.4, postureLevel: true, worldUsed: true,
-  headDown: true, eyeFront: true, calibrating: false, calibCount: 24, calibTotal: 24, inferMs: 34.2,
+  headDown: true, calibrating: false, calibCount: 24, calibTotal: 24, inferMs: 34.2,
 };
 
 test("큰 캔버스: 전 요소가 예외 없이 그려지고 실측 라벨이 전부 뜬다", () => {
   const { canvas, calls, texts, count } = makeCanvas(720, 900);
   drawOverlay(canvas, VIDEO, syntheticFace(), syntheticPose(), HUD_FULL);
   const labels = texts();
-  for (const expected of ["FACE 478pt", "시선 정면", "머리 3°", "어깨 2.4° · 3D", "고개 숙임"]) {
+  for (const expected of ["FACE 478pt", "머리 3°", "어깨 2.4° · 3D", "고개 숙임"]) {
     assert.ok(labels.some((t) => t.includes(expected)), `라벨 누락: ${expected} (실제: ${labels})`);
   }
   // 캔버스가 CSS로 미러링되므로 모든 텍스트는 translate(cw,0)+scale(-1,1) 안에서 그려야 한다
@@ -73,7 +73,7 @@ test("큰 캔버스: 전 요소가 예외 없이 그려지고 실측 라벨이 �
   for (const c of calls.filter((x) => x.m === "translate")) assert.deepEqual(c.args, [720, 0]);
   // 테셀레이션 60간선 + 윤곽 + 스켈레톤이 실제로 그려졌다
   assert.ok(count("moveTo") > 80, `선 분량 부족: moveTo ${count("moveTo")}`);
-  assert.ok(count("strokeRect") === 2, "눈 계측 박스 2개");
+  assert.equal(count("strokeRect"), 0, "눈 계측 박스는 그리지 않는다");
 });
 
 test("PIP(compact) 캔버스: 글자·게이지 없이 구조만 그린다", () => {
@@ -86,7 +86,7 @@ test("PIP(compact) 캔버스: 글자·게이지 없이 구조만 그린다", () 
 test("기준 수집 중: 진행 라벨이 뜨고, 어깨 미측정(null)이면 각도 라벨은 생략", () => {
   const { canvas, texts } = makeCanvas(720, 900);
   drawOverlay(canvas, VIDEO, syntheticFace(), syntheticPose(), {
-    ...HUD_FULL, calibrating: true, calibCount: 13, tiltAdj: null, headDown: false,
+    ...HUD_FULL, calibrating: true, calibCount: 13, calibTotal: 24, tiltAdj: null, headDown: false,
   });
   const labels = texts();
   assert.ok(labels.some((t) => t.includes("기준 수집 13/24")), `수집 라벨 누락: ${labels}`);

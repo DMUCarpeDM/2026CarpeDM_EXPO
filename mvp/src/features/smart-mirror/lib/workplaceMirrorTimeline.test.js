@@ -1,24 +1,24 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mirrorPhase, createVisibleClock, hasCurrentCardConsent, isMirrorDeployment } from "./workplaceMirrorTimeline.js";
-test("each scene has eighteen seconds before the final start countdown", () => {
-  for (const [time, scene, kind] of [[0,0,"scene"],[17999,0,"scene"],[18000,1,"scene"],[35999,1,"scene"],[36000,2,"scene"],[53999,2,"scene"],[54000,2,"countdown"],[57000,2,"complete"]]) {
+test("each scene has ten seconds before the final start countdown", () => {
+  for (const [time, scene, kind] of [[0,0,"scene"],[9999,0,"scene"],[10000,1,"scene"],[19999,1,"scene"],[20000,2,"scene"],[29999,2,"scene"],[30000,2,"countdown"],[33000,2,"complete"]]) {
     assert.equal(mirrorPhase(time).scene, scene); assert.equal(mirrorPhase(time).kind, kind);
   }
-  assert.equal(mirrorPhase(54000).remaining, 3);
-  assert.equal(mirrorPhase(56000).remaining, 1);
+  assert.equal(mirrorPhase(30000).remaining, 3);
+  assert.equal(mirrorPhase(32000).remaining, 1);
 });
 test("progress stays complete during countdown and never runs backwards within a scene", () => {
   for (let scene = 0; scene < 3; scene++) {
     let previous = 0;
-    for (let time = scene * 18000; time < (scene + 1) * 18000; time += 80) {
+    for (let time = scene * 10000; time < (scene + 1) * 10000; time += 80) {
       const current = mirrorPhase(time).progress;
       assert.ok(current >= previous && current <= 1);
       previous = current;
     }
   }
-  assert.equal(mirrorPhase(54000).progress, 1);
-  assert.equal(mirrorPhase(56999).progress, 1);
+  assert.equal(mirrorPhase(30000).progress, 1);
+  assert.equal(mirrorPhase(32999).progress, 1);
 });
 test("hidden time does not shorten the reading period", () => {
   const clock = createVisibleClock(100);

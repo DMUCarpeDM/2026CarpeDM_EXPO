@@ -27,7 +27,7 @@ def _turn_breakdown(db: Session, session: RoleplaySession) -> list[dict]:
     ).all()
     scores_by_turn: dict[int, dict[str, float]] = {}
     for r in results:
-        # 시선(eye)은 점수 축이 아니라 관찰 신호 — 턴별 4-Fit 타임라인에서 제외
+        # 과거 관찰 전용 DB 행은 점수 타임라인에서 제외
         if r.fit_type.value == "eye":
             continue
         scores_by_turn.setdefault(r.turn_id, {})[r.fit_type.value] = round(r.score, 1)
@@ -106,7 +106,7 @@ def get_report(
     for fit, data in (report.fit_scores or {}).items():
         if data.get("score") is None:
             continue
-        # 관찰 신호(시선)는 점수 축이 아니므로 코호트 순위에서 제외
+        # 과거 관찰 전용 DB 행은 코호트 순위에서 제외
         if data.get("observation"):
             continue
         others = [

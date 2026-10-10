@@ -27,7 +27,9 @@ html,body,#root { margin: 0; min-height: 100%; background: #000; color: #f5f7fc;
 .slider-footer li { flex: 1; color: #9fa9b7; }
 .slider-footer li.active { color: #f5f7fc; }
 .slider-footer li > div { height: .14vh; background: #e2ecfa25; margin-bottom: .95vh; overflow: hidden; border-radius: 1vh; }
-.slider-footer li i { height: 100%; display: block; background: #e8eef8; box-shadow: 0 0 .6vh #fff; }
+.slider-footer li i { width: 100%; transform-origin: left center; transition: transform 80ms linear; height: 100%; display: block; background: #e8eef8; box-shadow: 0 0 .6vh #fff; }
 .slider-footer li span { font-size: 1.15vh; }
 .slider-footer > p { font-size: 1.12vh; color: #c6cdd8; margin: 0; }
 .slider-footer > small { font-size: .85vh; color: #8b97a7; display: block; margin-top: .8vh; }
+
+@media (prefers-reduced-motion: reduce) { .slider-footer li i { transition: none; } }

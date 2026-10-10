@@ -1,0 +1,14 @@
+.mirror-city-surface {
+  position: relative;
+  isolation: isolate;
+}
+.mirror-city-surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: url("../previews/backgrounds/assets/glass-city.png") center bottom / 100% 100% no-repeat;
+  opacity: .6;
+  filter: blur(.22dvh);
+}

@@ -45,13 +45,6 @@ const HUD = {
 };
 const HUD_FONT = '600 10.5px ui-monospace, "Cascadia Mono", Consolas, monospace';
 
-// 눈 계측 박스: [눈꼬리 바깥·안쪽, 윗눈꺼풀, 아랫눈꺼풀] + 홍채 중심 —
-// useFaceTracking의 시선 판정(IRIS_R/L·EYE_R/L)과 같은 랜드마크를 본다
-const EYE_BOXES = [
-  { corners: [33, 133, 159, 145], iris: 468 },
-  { corners: [362, 263, 386, 374], iris: 473 },
-];
-
 export function drawOverlay(canvas, video, faceLm, poseLm, hud = {}) {
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
@@ -158,7 +151,7 @@ export function drawOverlay(canvas, video, faceLm, poseLm, hud = {}) {
     }
   }
 
-  // ---- 얼굴: 468점 메시 + 홍채 계측 + 상태 프레임 ----
+  // ---- 얼굴: 468점 메시 + 상태 프레임 ----
   if (faceLm) {
     let minX = Infinity;
     let minY = Infinity;
@@ -198,68 +191,12 @@ export function drawOverlay(canvas, video, faceLm, poseLm, hud = {}) {
     }
     ctx.stroke();
 
-    // 눈 계측 박스 + 홍채 십자선 + 홍채 수평 위치 게이지 — 시선 판정의 실제 입력값
-    if (faceLm.length > 477) {
-      for (const spec of EYE_BOXES) {
-        const pts = spec.corners.map((idx) => faceLm[idx]);
-        if (pts.some((p) => !p)) continue;
-        let ex1 = Infinity;
-        let ey1 = Infinity;
-        let ex2 = -Infinity;
-        let ey2 = -Infinity;
-        for (const p of pts) {
-          const [x, y] = px(p);
-          if (x < ex1) ex1 = x;
-          if (y < ey1) ey1 = y;
-          if (x > ex2) ex2 = x;
-          if (y > ey2) ey2 = y;
-        }
-        const w = ex2 - ex1;
-        if (w < 5) continue; // 너무 멀어 눈이 몇 픽셀이면 계측 표시가 무의미하다
-        const padX = w * 0.24;
-        const padY = Math.max((ey2 - ey1) * 0.8, w * 0.22);
-        ctx.strokeStyle = HUD.hair;
-        ctx.lineWidth = 1;
-        ctx.strokeRect(ex1 - padX, ey1 - padY, w + padX * 2, (ey2 - ey1) + padY * 2);
-        const [ix, iy] = px(faceLm[spec.iris]);
-        ctx.strokeStyle = HUD.accent;
-        ctx.lineWidth = 1.2;
-        ctx.beginPath();
-        ctx.moveTo(ix - 4.5, iy);
-        ctx.lineTo(ix + 4.5, iy);
-        ctx.moveTo(ix, iy - 4.5);
-        ctx.lineTo(ix, iy + 4.5);
-        ctx.stroke();
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
-        ctx.beginPath();
-        ctx.arc(ix, iy, 2.6, 0, Math.PI * 2);
-        ctx.stroke();
-        if (!compact) {
-          const gy = ey2 + padY + 5;
-          const ratio = Math.min(1, Math.max(0, (ix - ex1) / w));
-          ctx.strokeStyle = HUD.hair;
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.moveTo(ex1 - padX, gy);
-          ctx.lineTo(ex2 + padX, gy);
-          ctx.stroke();
-          ctx.strokeStyle = HUD.accent;
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(ex1 + ratio * w, gy - 3);
-          ctx.lineTo(ex1 + ratio * w, gy + 3);
-          ctx.stroke();
-        }
-      }
-    }
-
-    // 상태 프레임(코너 브래킷) — 기준 수집 중=파랑 · 시선 이탈=주황 · 정상=중립
+    // 상태 프레임(코너 브래킷) — 기준 수집 중=파랑 · 정상=중립
     const pad = 0.06;
     const [bx1, by1] = px({ x: minX - pad, y: minY - pad * 1.4 });
     const [bx2, by2] = px({ x: maxX + pad, y: maxY + pad * 0.8 });
     const arm = Math.min(22, (bx2 - bx1) * 0.16);
-    const frameColor = hud.calibrating ? HUD.framePending
-      : hud.eyeFront === false ? HUD.frameWarn : HUD.frame;
+    const frameColor = hud.calibrating ? HUD.framePending : HUD.frame;
     ctx.strokeStyle = frameColor;
     ctx.lineWidth = 2;
     const corners = [
@@ -290,10 +227,9 @@ export function drawOverlay(canvas, video, faceLm, poseLm, hud = {}) {
       const bottomY = by2 + 16 < ch - 6 ? by2 + 16 : by2 - 10;
       text(`FACE ${faceLm.length}pt · ${Math.max(1, Math.round(hud.inferMs || 0))}ms`,
         sx(bx2), topY, { color: HUD.textDim });
-      const [gazeLabel, gazeColor] = hud.calibrating
-        ? [`기준 수집 ${Math.min(hud.calibCount || 0, hud.calibTotal || 0)}/${hud.calibTotal || 0}`, HUD.pending]
-        : hud.eyeFront === false ? ["시선 이탈", HUD.warn] : ["시선 정면", HUD.good];
-      text(gazeLabel, sx(bx1), topY, { align: "right", color: gazeColor });
+      if (hud.calibrating && hud.calibTotal) {
+        text(`기준 수집 ${hud.calibCount || 0}/${hud.calibTotal}`, sx(bx1), topY + 18, { align: "right", color: HUD.pending });
+      }
       text(`머리 ${Math.round(hud.rollDeg || 0)}°`, sx(bx1), bottomY, { align: "right", color: HUD.textDim });
       if (hud.headDown) text("고개 숙임", sx(bx2), bottomY, { color: HUD.warn });
     }

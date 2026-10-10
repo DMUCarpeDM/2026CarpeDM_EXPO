@@ -103,9 +103,9 @@ test("어깨 미검출 프레임에서도 표면·거리 지표는 따로 쌓인
   assert.equal(out.dist_cm, 110);
 });
 
-test("병합: 채점 3필드는 키넥트로 교체, head_down·시선은 MediaPipe 유지", () => {
+test("병합: 채점 3필드는 키넥트로 교체, head_down은 MediaPipe 유지", () => {
   const mp = {
-    frames: 100, front_gaze_ratio: 0.8, head_down_ratio: 0.1,
+    frames: 100, head_down_ratio: 0.1,
     avg_shoulder_tilt_deg: 9.9, posture_sway: 0.15, tilt_drift_deg: 4.4,
   };
   const kin = { frames: 60, tilt_deg: 2.1, sway_norm: 0.03, tilt_drift_deg: 0.5, torso_yaw_deg: 7 };
@@ -115,7 +115,6 @@ test("병합: 채점 3필드는 키넥트로 교체, head_down·시선은 MediaP
   assert.equal(out.posture_sway, 0.03);
   assert.equal(out.tilt_drift_deg, 0.5);
   assert.equal(out.head_down_ratio, 0.1); // 단위가 다른 밴드 — 교체 금지 (04 설계 §2.4)
-  assert.equal(out.front_gaze_ratio, 0.8);
   assert.equal(out.kinect.torso_yaw_deg, 7);
   // 원본 MediaPipe 페이로드는 변형하지 않는다 (제출 재시도 안전)
   assert.equal(mp.avg_shoulder_tilt_deg, 9.9);

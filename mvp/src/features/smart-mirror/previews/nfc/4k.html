@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mirror-Ting · NFC 대기 화면 · 4K</title>
+  <style>
+    html,body{margin:0;background:#000;overflow:hidden;height:100%}
+    iframe{position:absolute;left:50%;top:0;width:2160px;height:3840px;border:0;transform-origin:top left}
+  </style>
+</head>
+<body>
+  <iframe title="2160×3840 NFC 대기 화면"></iframe>
+  <script>
+    const frame = document.querySelector('iframe');
+    const params = new URLSearchParams(location.search);
+    params.set('mirror', '1');
+    params.set('service', 'workplace');
+    frame.src = '/?' + params;
+    // Scale the frame around its horizontal centre while keeping its real 4K viewport.
+    function resize() { const scale = Math.min(innerWidth / 2160, innerHeight / 3840); frame.style.transform = `scale(${scale})`; frame.style.marginLeft = `${-1080 * scale}px`; }
+    resize();
+    addEventListener('resize', resize);
+  </script>
+</body>
+</html>

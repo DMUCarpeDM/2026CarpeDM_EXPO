@@ -56,7 +56,7 @@ def test_judge_failure_abstains(monkeypatch):
     from app.core.config import settings
     from pydantic import SecretStr
     import httpx
-    monkeypatch.setattr(settings, "openai_api_key", SecretStr("test"))
+    monkeypatch.setattr(settings, "gemini_api_key", SecretStr("test"))
     def fail(*a, **kw):
         raise httpx.ReadTimeout("timeout")
     monkeypatch.setattr("app.services.response_judgment.httpx.post", fail)
@@ -87,7 +87,7 @@ def test_training_report_uses_shared_score_and_purges_internal_quotes(monkeypatc
     assert report["total_score"] == 81  # 카페 가점은 +6 상한
     assert report["fit_scores"]["voice"]["score"] is None
     assert report["fit_scores"]["expression"]["score"] is None
-    assert "표정 분석 연결과 현장 검증이 완료되지 않아" in report["fit_scores"]["expression"]["summary"]
+    assert "유효한 얼굴 표본이 수집되지 않아" in report["fit_scores"]["expression"]["summary"]
     assert report["deep_analysis"]["interaction"]["version"] == "interaction-score-v1"
     with SessionLocal() as db:
         session = db.get(RoleplaySession, sid)
@@ -115,3 +115,76 @@ def test_confirmation_uses_same_aliases_as_scoring_and_reads_legacy_names():
     confirmed = confirmed_keys(list(keys(first)))
     assert keys(renamed) & confirmed
     assert keys(first) & confirmed_keys([" 업무담당자 "])
+
+
+def test_goal_judgment_calls_gemini_with_grounded_evidence(monkeypatch):
+    import json
+    import httpx
+    from pydantic import SecretStr
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "gemini_api_key", SecretStr("gemini-test"))
+    monkeypatch.setattr(settings, "openai_api_key", SecretStr(""))
+    current = NS(id=2, order=2, question_text="일정은?", response_text="내일까지 하겠습니다")
+    prior = NS(id=1, order=1, response_text="자료를 확인했습니다")
+    def respond(url, **kwargs):
+        assert url.endswith(f"/v1beta/models/{settings.gemini_model}:generateContent")
+        assert kwargs["headers"] == {"x-goog-api-key": "gemini-test"}
+        body = kwargs["json"]
+        assert body["generationConfig"]["responseMimeType"] == "application/json"
+        payload = json.loads(body["contents"][0]["parts"][0]["text"])
+        assert payload["requested_goal"] == ["schedule"]
+        assert payload["history"] == [{"turn_id": 1, "answer": prior.response_text}]
+        data = {"met_goals": [{"goal_id": "schedule", "quote": "내일까지"}]}
+        return httpx.Response(200, request=httpx.Request("POST", url), json={
+            "candidates": [{"finishReason": "STOP", "content": {"parts": [{"text": json.dumps(data)}]}}]})
+    monkeypatch.setattr("app.services.response_judgment.httpx.post", respond)
+    events, met, status = analyze(current, [prior, current], [{"id": "schedule", "label": "일정 확인"}], ["schedule"])
+    assert status == "completed" and met == ["schedule"]
+    assert events[0]["evidence"]["quote"] == "내일까지"
+
+
+def test_goal_judgment_rejects_blocked_truncated_and_invalid_gemini(monkeypatch):
+    import httpx
+    from pydantic import SecretStr
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "gemini_api_key", SecretStr("test"))
+    for payload in [
+        {"promptFeedback": {"blockReason": "SAFETY"}},
+        {"candidates": [{"finishReason": "MAX_TOKENS", "content": {"parts": [{"text": "{}"}]}}]},
+        {"candidates": []},
+        {"candidates": [{"content": {"parts": [{"text": "invalid json"}]}}]},
+    ]:
+        monkeypatch.setattr("app.services.response_judgment.httpx.post", lambda url, **kw: httpx.Response(
+            200, request=httpx.Request("POST", url), json=payload))
+        assert analyze(NS(id=1, question_text="질문", response_text="답변"), [], [], []) == ([], [], "unavailable")
+
+
+def test_goal_judgment_missing_gemini_key_does_not_call_openai(monkeypatch):
+    from pydantic import SecretStr
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "gemini_api_key", SecretStr(""))
+    monkeypatch.setattr(settings, "openai_api_key", SecretStr("unused"))
+    def unexpected(*args, **kwargs):
+        raise AssertionError("Missing Gemini key must abstain without a network request")
+    monkeypatch.setattr("app.services.response_judgment.httpx.post", unexpected)
+    assert analyze(NS(question_text="질문", response_text="답변"), [], [], []) == ([], [], "unavailable")
+
+
+def test_health_tracks_gemini_goal_judge_instead_of_openai_key(monkeypatch):
+    from pydantic import SecretStr
+    from app.core.config import settings
+    from app.main import health
+
+    monkeypatch.setattr('app.main._ollama_status', lambda: {})
+    monkeypatch.setattr('app.ai.stt.get_stt_provider', lambda: None)
+    monkeypatch.setattr('app.ai.semantic_match.available', lambda: False)
+    monkeypatch.setattr('app.ai.text_match.kiwi_available', lambda: False)
+    monkeypatch.setattr('app.services.dialogue.availability.dialogue_ready', lambda: True)
+    monkeypatch.setattr('app.services.tts.elevenlabs_ready', lambda: False)
+    monkeypatch.setattr('app.services.iris_tts.iris_female_ready', lambda: False)
+    for gemini, openai, missing in [('', 'test', True), ('test', '', False)]:
+        monkeypatch.setattr(settings, 'gemini_api_key', SecretStr(gemini))
+        monkeypatch.setattr(settings, 'openai_api_key', SecretStr(openai))
+        reasons = health()['degraded_reasons']
+        assert any('목표 판정 미가동' in reason and 'Gemini' in reason for reason in reasons) is missing
+        assert not any('OpenAI 키가 없어 응답 분석' in reason for reason in reasons)

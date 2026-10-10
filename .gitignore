@@ -14,3 +14,10 @@ poc/backend/whisper-models/
 
 # Temporary local runtime bundles and logs used while running the backend/MVP.
 poc/backend/work/
+
+# Local expression checkpoint; distribution scope is not confirmed.
+poc/backend/app/ai/assets/expression_resnet18_v1/model.pth
+
+# Local browser expression model and generated ONNX Runtime assets.
+mvp/public/models/expression_resnet18_v1/*.onnx
+mvp/public/onnxruntime/

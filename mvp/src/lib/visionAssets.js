@@ -27,7 +27,8 @@ export const MODELS = {
 async function checkLocal(url) {
   try {
     const res = await fetch(url, { method: "HEAD" });
-    return res.ok;
+    // Vite returns index.html with 200 for missing public assets.
+    return res.ok && !(res.headers.get("content-type") || "").includes("text/html");
   } catch {
     return false;
   }

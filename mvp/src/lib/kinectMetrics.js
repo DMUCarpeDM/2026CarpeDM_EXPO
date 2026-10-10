@@ -2,7 +2,7 @@
  *
  * 생산자 교체의 원칙 (docs/kinect/04-integration-s6-design.md):
  *   - Posture-Fit 채점 입력(어깨 기울기·흔들림·유지력)만 뎁스 실측으로 교체한다.
- *   - 표정(점수 축)·시선(관찰)은 계속 MediaPipe가 채운다 — k4abt에는 홍채·blendshape가 없다.
+ *   - 표정(점수 축)은 계속 MediaPipe가 채운다 — k4abt에는 blendshape가 없다.
  *   - head_down_ratio는 교체하지 않는다: 기존 밴드는 '프레임 비율', 키넥트는
  *     '실제 각도'라 단위가 다르다. 근거 있는 임계(θ)가 나오기 전에는 환산하지
  *     않고, 각도는 관찰 지표(kinect.head_pitch_delta_deg)로만 내보낸다.
@@ -145,7 +145,7 @@ export function finalizeKinectTurn(acc, { calibrated = false, mode = "" } = {}) 
  *
  * 정책 (04 설계 §2.2):
  *   avg_shoulder_tilt_deg · posture_sway · tilt_drift_deg → 키넥트 값으로 교체
- *   head_down_ratio·시선·표정 계열 → MediaPipe 유지
+ *   head_down_ratio·표정 계열 → MediaPipe 유지
  *   나머지 키넥트 실측은 kinect 중첩 객체로 동봉 (관찰 문장 재료)
  *
  * MediaPipe가 통째로 죽은 턴(mp === null)에도 키넥트만으로 자세 페이로드를

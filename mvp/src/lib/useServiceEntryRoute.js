@@ -25,6 +25,7 @@ import { WORKPLACE_SCENARIO_SLUG } from "./workplaceTrack";
 
 export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, visitorEpochRef, onVisitorReset }) {
   const deploymentServiceModeId = currentDeploymentServiceMode();
+  const liveMirrorTest = import.meta.env.DEV && isMirrorDeployment() && new URLSearchParams(location.search).get("test") === "live";
   const [active, setActive] = useState("boot");
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedServiceModeId, setSelectedServiceModeId] = useState(deploymentServiceModeId || null);
@@ -221,6 +222,12 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
     onTap: handleMirrorTap,
   });
 
+  const startMirrorTest = () => {
+    if (!liveMirrorTest) return;
+    resetVisitor(true);
+    setPocScenarioSlug(WORKPLACE_SCENARIO_SLUG);
+    navigate("preview");
+  };
   const startFromJobRole = (role) => {
     setNfcCard({ uid: nfcCard?.uid || "", kioskSessionId: nfcCard?.kioskSessionId, jobRole: role.id,
       scenarioSlug: selectedServiceModeId === "workplace" ? WORKPLACE_SCENARIO_SLUG : role.scenarioSlug, jobRoleLabel: role.label });
@@ -252,7 +259,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
 
   return {
     state: {
-      active, menuOpen, selectedServiceModeId, counterpartProfile, difficulty, session, turn,
+      active, menuOpen, selectedServiceModeId, counterpartProfile, difficulty, session, turn, liveMirrorTest,
       turnHistory, turnSignals, report, history, pocScenarioSlug, selectedEpisodeId, nfcCard,
       nfcFallback, consented, apiError,
     },
@@ -262,7 +269,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
       setNfcFallback, setNfcCard, setConsented, setApiError,
     },
     actions: {
-      navigate, go, chooseServiceMode, chooseCounterpartProfile, chooseScenario, startFromJobRole,
+      navigate, go, chooseServiceMode, chooseCounterpartProfile, chooseScenario, startFromJobRole, startMirrorTest,
     },
   };
 }

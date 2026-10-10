@@ -1,4 +1,4 @@
-export const MIRROR_SCENE_MS = 18000;
+export const MIRROR_SCENE_MS = 10000;
 export const MIRROR_OVERVIEW_MS = MIRROR_SCENE_MS * 3 + 3000;
 export function mirrorPhase(elapsed) {
   const time = Math.max(0, elapsed);

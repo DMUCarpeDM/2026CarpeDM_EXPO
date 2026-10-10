@@ -113,7 +113,7 @@ export default function App() {
   const entry = useServiceEntryRoute({ kioskIssueMode: KIOSK_ISSUE_MODE, requestExerciseMedia, visitorEpochRef, onVisitorReset: resetVisitorMedia });
   const {
     active, selectedServiceModeId, counterpartProfile, difficulty,
-    session, turn, report, pocScenarioSlug, selectedEpisodeId, nfcCard, consented,
+    session, turn, report, pocScenarioSlug, selectedEpisodeId, nfcCard, consented, liveMirrorTest,
   } = entry.state;
   const {
     setSession, setTurn, setTurnHistory, setTurnSignals, setReport, setHistory,
@@ -236,7 +236,7 @@ export default function App() {
         if (mirror) throw mediaError;
         console.warn("[media] 카메라·마이크 없이 시작:", mediaError?.message || mediaError);
       }
-      if (mirror && (!nfcCard?.uid || (!nfcCard?.issuedCount && !nfcCard?.kioskSessionId))) throw new Error("키오스크에서 동의 후 카드를 발급해 주세요.");
+      if (mirror && !liveMirrorTest && (!nfcCard?.uid || (!nfcCard?.issuedCount && !nfcCard?.kioskSessionId))) throw new Error("키오스크에서 동의 후 카드를 발급해 주세요.");
       if (epoch !== visitorEpochRef.current) return;
       const workplace = selectedServiceModeId === "workplace" && !nfcCard;
       const prepared = mirror && preparedMirrorSession.current?.key === requestKey ? preparedMirrorSession.current.session : null;
@@ -250,7 +250,7 @@ export default function App() {
         nfcUid: nfcCard?.uid || "",
         kioskSessionId: nfcCard?.kioskSessionId,
         consent: consented,
-        ...(mirror && !nfcCard?.kioskSessionId ? { nfcIssuedCount: nfcCard.issuedCount } : {}),
+        ...(mirror && nfcCard?.issuedCount && !nfcCard?.kioskSessionId ? { nfcIssuedCount: nfcCard.issuedCount } : {}),
       });
       if (epoch !== visitorEpochRef.current) return;
       if (mirror && mirrorPreparationKey.current !== requestKey) return;

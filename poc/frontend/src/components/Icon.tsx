@@ -9,7 +9,6 @@ export type IconName =
   | 'volume'
   | 'message'
   | 'activity'
-  | 'eye'
   | 'user'
   | 'trend'
   | 'key'
@@ -39,12 +38,6 @@ const PATHS: Record<IconName, ReactNode> = {
   ),
   message: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z" />,
   activity: <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />,
-  eye: (
-    <>
-      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
-      <circle cx="12" cy="12" r="3" />
-    </>
-  ),
   user: (
     <>
       <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />

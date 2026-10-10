@@ -1,0 +1,75 @@
+{
+  "version": "expression-resnet18-v1",
+  "status": "browser_integrated_unvalidated",
+  "architecture": "resnet18",
+  "weights_file": "model.pth",
+  "weights_format": "pytorch_state_dict",
+  "weights_sha256": "fe61ced9461e362ae407ff598a44e4ec6c0e15f39eed3bb66237444017809ed5",
+  "weights_bytes": 44800011,
+  "input": {
+    "channels": 3,
+    "height": 224,
+    "width": 224,
+    "layout": "NCHW",
+    "normalization": {
+      "status": "provisional",
+      "mean": [
+        0.485,
+        0.456,
+        0.406
+      ],
+      "std": [
+        0.229,
+        0.224,
+        0.225
+      ]
+    },
+    "face_crop_policy": "provisional: single face bounding square, 20% margin, reject clipped or <32px faces"
+  },
+  "label_order": [
+    "smile",
+    "brow_furrow",
+    "brow_raise",
+    "eyes_wide",
+    "eyes_closed",
+    "mouth_wide_open",
+    "neutral"
+  ],
+  "label_names_ko": [
+    "미소",
+    "눈썹 찌푸림",
+    "눈썹 올림",
+    "눈 크게 뜸",
+    "눈 감음",
+    "입 크게 벌어짐",
+    "무표정"
+  ],
+  "output": {
+    "count": 7,
+    "activation": "sigmoid",
+    "multi_label": true,
+    "thresholds": null
+  },
+  "contract_source": "표정모델_개발전달안내 2026-09-18 수정본",
+  "verification": {
+    "state_dict_strict_load": true,
+    "synthetic_forward_shape": [
+      1,
+      7
+    ],
+    "accuracy_validated": false,
+    "training_code_verified": false,
+    "label_order_embedded_in_weights": false,
+    "onnx_parity_max_abs_error": 8.344650268554688e-06,
+    "browser_inference_verified": true
+  },
+  "scoring_enabled": false,
+  "browser": {
+    "model_file": "mvp/public/models/expression_resnet18_v1/model.onnx",
+    "sha256": "aa7f0372b8d79b9fed8b424b592456b185aec280587a0251f8f7df5351008906",
+    "runtime": "onnxruntime-web 1.23.2 wasm",
+    "sampling_interval_ms": 1000,
+    "images_uploaded": false,
+    "preprocessing_version": "imagenet-face-square-provisional-v1"
+  }
+}

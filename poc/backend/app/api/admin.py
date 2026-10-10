@@ -169,7 +169,6 @@ def metrics(
     )
     voice = [r for r in turn_results if r.fit_type == FitType.voice]
     voice_audio = [r for r in voice if not r.raw_metrics.get("estimated")]
-    eye = [r for r in turn_results if r.fit_type == FitType.eye]
     posture = [r for r in turn_results if r.fit_type == FitType.posture]
     response = [r for r in turn_results if r.fit_type == FitType.response]
 
@@ -188,7 +187,6 @@ def metrics(
         "semantic_rescue_rate": _rate(
             [1.0 if r.raw_metrics.get("semantic_hits") else 0.0 for r in response]
         ),
-        "iris_active_rate": _rate([r.raw_metrics.get("iris_ratio", 0.0) for r in eye]),
         "world_3d_rate": _rate([r.raw_metrics.get("world_ratio", 0.0) for r in posture]),
         # 다인 가드가 폐기한 프레임 총합 — 급증하면 부스 동선 문제
         "guard_dropped_frames": sum(

@@ -40,7 +40,7 @@ export default function RoleplayPage() {
     live,
     startTurn,
     endTurn,
-    setGazePhase,
+    setInteractionPhase,
     startCalibration,
     finishCalibration,
   } = useNonverbal(videoRef, overlayRef);
@@ -143,7 +143,7 @@ export default function RoleplayPage() {
         onStart: () => {
           if (cancelled) return;
           setAiSpeaking(true);
-          setGazePhase('listening'); // 듣기 시선 측정 구간
+          setInteractionPhase('listening'); // 듣기 구간
         },
         onEnd: () => !cancelled && setAiSpeaking(false),
       });
@@ -156,7 +156,7 @@ export default function RoleplayPage() {
         onStart: () => {
           if (cancelled) return;
           setAiSpeaking(true);
-          setGazePhase('listening');
+          setInteractionPhase('listening');
         },
         onEnd: () => {
           if (cancelled) return;
@@ -225,7 +225,7 @@ export default function RoleplayPage() {
   function setRecordingState(on: boolean) {
     recordingRef.current = on;
     setRecording(on);
-    setGazePhase(on ? 'answering' : null); // 말하기 시선 측정 구간 전환
+    setInteractionPhase(on ? 'answering' : null); // 말하기 구간 전환
   }
 
   function toggleMic() {
@@ -510,7 +510,7 @@ export default function RoleplayPage() {
               <div className="camera-placeholder">
                 <Icon name="cameraOff" size={22} />
                 카메라 미사용
-                <small>시선·자세 분석 없이 진행됩니다</small>
+                <small>자세 분석 없이 진행됩니다</small>
               </div>
             )}
             {visionStatus === 'loading' && (
@@ -522,7 +522,7 @@ export default function RoleplayPage() {
             {visionStatus === 'failed' && (
               <div className="camera-placeholder">
                 <Icon name="cameraOff" size={22} />
-                시선·자세 모듈 로드 실패
+                자세 모듈 로드 실패
                 <small>네트워크 확인 후 새로고침 하거나, npm run setup-offline으로 오프라인 자산을 준비하세요</small>
               </div>
             )}
@@ -535,14 +535,6 @@ export default function RoleplayPage() {
           </div>
           {cameraReady && (
             <div className="live-gauges">
-              <div className={`gauge-item ${live.front ? 'ok' : 'warn'}`}>
-                <span className="gauge-item-label">시선</span>
-                <span className="gauge-item-value">
-                  {live.front
-                    ? '정면 유지'
-                    : `이탈${live.offDir ? ` (${{ down: '아래', up: '위', left: '옆', right: '옆' }[live.offDir]})` : ''}`}
-                </span>
-              </div>
               <div className={`gauge-item ${live.tiltDeg <= 6 && !live.headDown ? 'ok' : 'warn'}`}>
                 <span className="gauge-item-label">자세</span>
                 <span className="gauge-item-value">

@@ -5,7 +5,6 @@ import { Bulb2 } from "reicon-react/icons/Bulb2";
 import { ChartBarTrendUp } from "reicon-react/icons/ChartBarTrendUp";
 import { ChatRound } from "reicon-react/icons/ChatRound";
 import { ChatRoundCheck } from "reicon-react/icons/ChatRoundCheck";
-import { Eye } from "reicon-react/icons/Eye";
 import { CircleGraph } from "reicon-react/icons/CircleGraph";
 import { DocumentText2 } from "reicon-react/icons/DocumentText2";
 import { EmojiCircle } from "reicon-react/icons/EmojiCircle";
@@ -44,7 +43,6 @@ const reiconGlyphs = {
   response: Soundwave,
   voice: Mic,
   expression: FaceSmile,
-  eye: Eye,  // 시선 관찰(카메라·라이브 넛지)용 — 점수 축 아님
   posture: BodyShape2,
   roleplay: ChatRound,
   report: DocumentText2,

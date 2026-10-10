@@ -19,7 +19,7 @@ const feed = (acc, n, sample) => {
   for (let i = 0; i < n; i += 1) accumulateSample(acc, sample);
 };
 
-const FRONT = { front: true, tiltAdj: 0, shoulderX: 5, worldUsed: true, headTracked: true, torsoTracked: true, handFaceTracked: true };
+const FRONT = { tiltAdj: 0, shoulderX: 5, worldUsed: true, headTracked: true, torsoTracked: true, handFaceTracked: true };
 
 test("표본 1초 미만이면 측정 보류(null)", () => {
   const acc = makeTurnAcc();
@@ -37,8 +37,7 @@ test("서버가 채점하는 자세 지표를 빠짐없이 보낸다 (기본값 
   feed(acc, framesFor(5000), FRONT);
   const m = finalizeTurnMetrics(acc);
 
-  for (const key of ["posture_sway", "tilt_drift_deg", "contact_bout_mean_sec",
-    "listening_front_ratio", "answering_front_ratio", "onset_aversion_sec"]) {
+  for (const key of ["posture_sway", "tilt_drift_deg"]) {
     assert.ok(key in m, `${key}가 페이로드에 없다`);
   }
   assert.equal(m.sample_ms, SAMPLE_MS); // 서버가 프레임→시간 환산에 쓴다
@@ -59,7 +58,7 @@ test("posture_sway는 어깨 중심의 흔들림을 잡고, 정지 자세에는 
 
 test("posture_sway는 표본 2개 이하에서 표준편차를 만들어내지 않는다", () => {
   const acc = makeTurnAcc();
-  feed(acc, framesFor(2000), { front: true }); // 어깨 미검출 — 자세 표본 없음
+  feed(acc, framesFor(2000), {}); // 어깨 미검출 — 자세 표본 없음
   const m = finalizeTurnMetrics(acc);
   assert.equal(m.posture_sway, 0);
   assert.equal(m.avg_shoulder_tilt_deg, 0);
@@ -106,55 +105,6 @@ test("tilt_drift_deg는 표본 2초 미만이면 추세를 추정하지 않는�
   feed(acc, framesFor(2000) - 2, { ...FRONT, tiltAdj: 1 });
   feed(acc, 1, { ...FRONT, tiltAdj: 30 }); // 표본 총합이 게이트 바로 아래
   assert.equal(finalizeTurnMetrics(acc).tilt_drift_deg, 0);
-});
-
-test("듣기/말하기 응시를 분리 집계한다", () => {
-  const acc = makeTurnAcc();
-  const n = framesFor(4000);
-  // 듣는 중에는 계속 정면
-  feed(acc, n, { ...FRONT, phase: "listening" });
-  // 말하는 중에는 절반만 정면
-  for (let i = 0; i < n; i += 1) {
-    accumulateSample(acc, { ...FRONT, front: i % 2 === 0, offDir: "down", phase: "answering" });
-  }
-  const m = finalizeTurnMetrics(acc);
-  assert.equal(m.listening_front_ratio, 1);
-  assert.equal(m.answering_front_ratio, 0.5);
-});
-
-test("듣기/말하기 표본이 2초 미만이면 판정을 보류한다(null)", () => {
-  const acc = makeTurnAcc();
-  feed(acc, framesFor(2000) - 1, { ...FRONT, phase: "listening" });
-  feed(acc, framesFor(2000), { ...FRONT, phase: "answering" });
-  const m = finalizeTurnMetrics(acc);
-  // null이면 서버 score_eye가 v1(통합 응시) 경로로 하위 호환 동작한다
-  assert.equal(m.listening_front_ratio, null);
-  assert.equal(m.answering_front_ratio, 1);
-});
-
-test("contact_bout_mean_sec는 완료된 응시 구간과 진행 중인 구간을 함께 센다", () => {
-  const acc = makeTurnAcc();
-  const bout = framesFor(4000); // 4초짜리 응시 구간
-  feed(acc, bout, FRONT);
-  feed(acc, framesFor(1000), { ...FRONT, front: false, offDir: "left" });
-  feed(acc, bout, FRONT); // 턴 종료 시점에 진행 중 — 이것도 인정돼야 한다
-
-  const m = finalizeTurnMetrics(acc);
-  assert.equal(m.contact_bout_mean_sec, 4);
-  assert.equal(m.contact_streak_max_sec, 4);
-  assert.equal(m.longest_off_sec, 1);
-  assert.equal(m.gaze_off_count, 1); // 이탈 '횟수'는 전환 시점에만
-});
-
-test("onset_aversion_sec는 답변 개시 유예 구간의 회피만 센다", () => {
-  const acc = makeTurnAcc();
-  const grace = framesFor(2500);
-  // 답변 시작 직후 유예 구간 내내 회피 (생각 정리 — 정상 행동)
-  feed(acc, grace, { ...FRONT, front: false, offDir: "up", phase: "answering" });
-  // 유예 구간을 지난 뒤의 회피는 집계 대상이 아니다
-  feed(acc, framesFor(3000), { ...FRONT, front: false, offDir: "up", phase: "answering" });
-
-  assert.equal(finalizeTurnMetrics(acc).onset_aversion_sec, 2.5);
 });
 
 test("resolveHeadDown은 기준이 있으면 코-어깨 거리 감소량으로 판정한다", () => {
@@ -236,10 +186,10 @@ test("타임라인이 2초 빈으로 정면율·긴장율·기울기를 직렬�
   const acc = makeTurnAcc();
   const binN = framesFor(TIMELINE_BIN_MS);
   feed(acc, binN, FRONT); // 빈 0: 전부 정면, 긴장 없음
-  feed(acc, binN, { front: false, press: true, tiltAdj: 10, shoulderX: 5 }); // 빈 1: 이탈+긴장+기울어짐
+  feed(acc, binN, { press: true, tiltAdj: 10, shoulderX: 5 }); // 빈 1: 이탈+긴장+기울어짐
   const m = finalizeTurnMetrics(acc);
-  assert.deepEqual(m.timeline[0], { t: 0, front: 1, press: 0, tilt: 0 });
-  assert.deepEqual(m.timeline[1], { t: 2, front: 0, press: 1, tilt: 10 });
+  assert.deepEqual(m.timeline[0], { t: 0, press: 0, tilt: 0 });
+  assert.deepEqual(m.timeline[1], { t: 2, press: 1, tilt: 10 });
 });
 
 test("찡그림(brow)도 긴장율에 합산된다 — 긴장 = 입술 압축 ∥ 찡그림", () => {
@@ -252,7 +202,7 @@ test("찡그림(brow)도 긴장율에 합산된다 — 긴장 = 입술 압축 �
 
 test("어깨 미검출 빈의 tilt는 null — 0(수평)으로 오인시키지 않는다", () => {
   const acc = makeTurnAcc();
-  feed(acc, framesFor(TIMELINE_BIN_MS), { front: true, tiltAdj: null, shoulderX: null });
+  feed(acc, framesFor(TIMELINE_BIN_MS), { tiltAdj: null, shoulderX: null });
   assert.equal(finalizeTurnMetrics(acc).timeline[0].tilt, null);
 });
 
@@ -272,7 +222,7 @@ test("answer_offset_sec은 0 — MVP는 녹음과 비언어 집계가 턴 시작
 
 test('face-only samples never claim valid posture measurements', () => {
   const acc = makeTurnAcc();
-  for (let i = 0; i < 50; i++) accumulateSample(acc, {front: true});
+  for (let i = 0; i < 50; i++) accumulateSample(acc, {});
   assert.deepEqual(finalizeTurnMetrics(acc, true).posture_samples, {
     avg_shoulder_tilt_deg: 0, posture_sway: 0, head_down_ratio: 0,
     hunched_ratio: 0, hand_face_sec: 0,
@@ -281,9 +231,9 @@ test('face-only samples never claim valid posture measurements', () => {
 
 test('posture validity counts only tracked samples, including neutral posture', () => {
   const acc = makeTurnAcc();
-  for (let i = 0; i < 50; i++) accumulateSample(acc, {front: true});
+  for (let i = 0; i < 50; i++) accumulateSample(acc, {});
   for (let i = 0; i < 40; i++) accumulateSample(acc, {
-    front: true, tiltAdj: 0, shoulderX: 1, headTracked: true,
+    tiltAdj: 0, shoulderX: 1, headTracked: true,
     torsoTracked: true, handFaceTracked: true,
   });
   const metrics = finalizeTurnMetrics(acc, true);
@@ -296,7 +246,7 @@ test('tracking gaps do not dilute measured posture ratios or add hand-face time'
   feed(acc, 40, {...FRONT, headDown: true, hunched: true, handNearFace: true});
   const before = finalizeTurnMetrics(acc, true);
   // Even stale positive flags must not count when their landmarks are missing.
-  feed(acc, 160, {front: true, headDown: true, hunched: true, handNearFace: true});
+  feed(acc, 160, {headDown: true, hunched: true, handNearFace: true});
   const after = finalizeTurnMetrics(acc, true);
   for (const key of ['head_down_ratio', 'hunched_ratio', 'lean_back_ratio', 'hand_face_sec']) {
     assert.equal(after[key], before[key]);
@@ -312,9 +262,20 @@ test('tracking gaps do not dilute measured posture ratios or add hand-face time'
 
 test('head and torso ratios each use their own measured denominator', () => {
   const acc = makeTurnAcc();
-  feed(acc, 40, {front: true, headTracked: true, headDown: true});
-  feed(acc, 40, {front: true, torsoTracked: true, hunched: true});
+  feed(acc, 40, {headTracked: true, headDown: true});
+  feed(acc, 40, {torsoTracked: true, hunched: true});
   const metrics = finalizeTurnMetrics(acc, true);
   assert.equal(metrics.head_down_ratio, 1);
   assert.equal(metrics.hunched_ratio, 1);
+});
+
+ test("직렬화는 자세 지표를 유지하고 제거한 시선 필드를 내보내지 않는다", () => {
+  const acc = makeTurnAcc();
+  feed(acc, framesFor(4000), FRONT);
+  const metrics = finalizeTurnMetrics(acc);
+  for (const key of ["front_gaze_ratio", "gaze_off_count", "gaze_zones", "listening_front_ratio", "iris_ratio"]) {
+    assert.equal(key in metrics, false);
+  }
+  assert.ok(metrics.posture_samples.avg_shoulder_tilt_deg > 0);
+  assert.ok(metrics.timeline.every(bin => !("front" in bin)));
 });

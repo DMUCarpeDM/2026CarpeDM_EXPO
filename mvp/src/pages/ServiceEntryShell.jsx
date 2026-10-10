@@ -16,6 +16,7 @@ import { ServiceModeSelectPage } from "./setup/ServiceModeSelectPage";
 import { SERVICE_ENTRY_FLOW, demoDestination, isChromelessView } from "../lib/serviceEntryRoute";
 import { workplaceStartView } from "../lib/workplaceTrack";
 
+import { WorkplaceMirrorNfcWaitingPage } from "../features/smart-mirror/components/WorkplaceMirrorNfcWaitingPage";
 import { isMirrorDeployment } from "../features/smart-mirror/lib/workplaceMirrorTimeline";
 
 const SETUP_NAV_VIEWS = new Set(["role", "scenario", "difficulty", "preview", "practice"]);
@@ -36,10 +37,10 @@ export function ServiceEntryShell({
   const {
     active, menuOpen, selectedServiceModeId, counterpartProfile, difficulty,
     session, turn, turnHistory, turnSignals, report, history, selectedEpisodeId,
-    nfcFallback, nfcCard, consented, apiError,
+    nfcFallback, nfcCard, consented, apiError, liveMirrorTest,
   } = entry.state;
   const { setMenuOpen, setDifficulty, setNfcFallback, setNfcCard, setConsented, setPocScenarioSlug } = entry.setters;
-  const { navigate, go, chooseServiceMode, chooseCounterpartProfile, chooseScenario, startFromJobRole } = entry.actions;
+  const { navigate, go, chooseServiceMode, chooseCounterpartProfile, chooseScenario, startFromJobRole, startMirrorTest } = entry.actions;
   const {
     serviceMode, apiScenarios, previewScenario, previewEpisode, previewCounterpartProfile,
     difficultyOption, aiHealth, permissionState, mediaStream, analysisProgress, starting,
@@ -79,12 +80,12 @@ export function ServiceEntryShell({
       {active === "usage" && <UsagePage onPractice={() => navigate("home")} />}
       {active === "intro" && <SiteIntroPage onPractice={() => navigate("home")} />}
       {active === "records" && <ResultsHistoryPage onResultBack={() => navigate("home")} onPractice={() => navigate("home")} report={report} history={history} onIssueCode={issueCode} selectedDifficulty={difficulty} progress={analysisProgress} error={apiError} />}
-      {active === "home" && <HomePage serviceMode={serviceMode} onNext={() => navigate(startView)} onModeSelect={() => navigate("service")} />}
+      {active === "home" && (mirror ? <WorkplaceMirrorNfcWaitingPage onTest={liveMirrorTest ? startMirrorTest : undefined} /> : <HomePage serviceMode={serviceMode} onNext={() => navigate(startView)} onModeSelect={() => navigate("service")} />)}
       {active === "role" && <RoleSelectPage serviceMode={serviceMode} counterpartProfile={counterpartProfile} onCounterpart={chooseCounterpartProfile} onPrev={() => window.history.back()} onNext={() => navigate("scenario")} />}
       {active === "scenario" && <ScenarioSelectPage serviceMode={serviceMode} counterpartProfile={counterpartProfile} scenarios={apiScenarios} status={scenarioStatus} onRetry={retryScenarios} selectedEpisodeId={selectedEpisodeId} onScenario={chooseScenario} onPrev={() => go(-1)} onNext={() => navigate("difficulty")} />}
       {active === "difficulty" && <DifficultyPage serviceMode={serviceMode} counterpartProfile={counterpartProfile} scenario={previewScenario} selectedEpisode={previewEpisode} difficulty={difficulty} onDifficulty={setDifficulty} onPrev={() => go(-1)} onNext={() => navigate("preview")} />}
-      {active === "preview" && <PreviewPage externalCard={Boolean(nfcCard?.kioskSessionId)} serviceMode={serviceMode} onPrev={() => navigate("difficulty")} onNext={startPractice} onPrepare={prepareMirror} previewKey={`${nfcCard?.uid || ""}:${nfcCard?.issuedCount || ""}:${nfcCard?.kioskSessionId || ""}`} starting={starting} scenario={previewScenario} selectedEpisode={previewEpisode} counterpartProfile={previewCounterpartProfile} difficulty={difficultyOption} aiHealth={aiHealth} consented={consented} onConsent={setConsented} error={apiError} permissionState={permissionState} mode={mode} />}
-      {active === "practice" && <PracticePage session={session} onFinish={endPractice} onPrev={() => go(-1)} scenario={session?.scenario} aiHealth={aiHealth} turn={turn} history={turnHistory} turnSignals={turnSignals} onSubmit={sendAnswer} busy={submitting} error={apiError} mediaStream={mediaStream} onRequestMedia={requestExerciseMedia} onSwitchMic={switchMicDevice} />}
+      {active === "preview" && <PreviewPage manualConsent={liveMirrorTest} externalCard={Boolean(nfcCard?.kioskSessionId)} serviceMode={serviceMode} onPrev={() => navigate("difficulty")} onNext={startPractice} onPrepare={prepareMirror} previewKey={`${nfcCard?.uid || ""}:${nfcCard?.issuedCount || ""}:${nfcCard?.kioskSessionId || ""}`} starting={starting} scenario={previewScenario} selectedEpisode={previewEpisode} counterpartProfile={previewCounterpartProfile} difficulty={difficultyOption} aiHealth={aiHealth} consented={consented} onConsent={setConsented} error={apiError} permissionState={permissionState} mode={mode} />}
+      {active === "practice" && <PracticePage manualTest={liveMirrorTest} session={session} onFinish={endPractice} onPrev={() => go(-1)} scenario={session?.scenario} aiHealth={aiHealth} turn={turn} history={turnHistory} turnSignals={turnSignals} onSubmit={sendAnswer} busy={submitting} error={apiError} mediaStream={mediaStream} onRequestMedia={requestExerciseMedia} onSwitchMic={switchMicDevice} />}
       {active === "result" && <ResultPage mirror={mirror && serviceMode?.id === "workplace"} onPrev={() => navigate("home")} onPractice={() => navigate("preview")} report={report} history={history} onIssueCode={issueCode} selectedDifficulty={difficulty} progress={analysisProgress} error={apiError} />}
     </main>
     <span className="screen-reader-note" aria-live="polite">현재 화면: {current.label}</span>

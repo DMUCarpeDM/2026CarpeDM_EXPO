@@ -2,6 +2,12 @@
 import json
 import logging
 import re
+from functools import lru_cache
+
+import google.auth
+from google.auth.exceptions import GoogleAuthError
+from google.auth.transport.requests import Request
+from requests.exceptions import RequestException
 
 import httpx
 
@@ -70,8 +76,38 @@ def _recent_history(turns: list[Turn], limit: int = 8) -> str:
 
 
 def _gemini_url(model: str) -> str:
+    if settings.gemini_api_backend == "vertex":
+        project = settings.gemini_vertex_project
+        if not project:
+            raise DialogueGenerationError("GCP 프로젝트가 설정되지 않았습니다")
+        return f"https://aiplatform.googleapis.com/v1/projects/{project}/locations/global/publishers/google/models/{model}:generateContent"
     base = settings.gemini_base_url.rstrip("/")
     return f"{base}{_GEMINI_GENERATE_PATH.format(model=model)}"
+
+
+@lru_cache(maxsize=1)
+def _vertex_credentials():
+    credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
+    return credentials
+
+
+def _gemini_headers() -> dict[str, str]:
+    if settings.gemini_api_backend == "vertex":
+        try:
+            credentials = _vertex_credentials()
+            if not credentials.valid:
+                request = Request()
+                def refresh_request(*args, **kwargs):
+                    kwargs["timeout"] = settings.gemini_timeout_sec
+                    return request(*args, **kwargs)
+                credentials.refresh(refresh_request)
+            return {"Authorization": f"Bearer {credentials.token}"}
+        except (GoogleAuthError, RequestException) as error:
+            raise DialogueGenerationError("GCP 로그인 인증을 확인해 주세요") from error
+    api_key = settings.gemini_api_key.get_secret_value()
+    if not api_key:
+        raise DialogueGenerationError("Gemini API 키가 설정되지 않았습니다")
+    return {"x-goog-api-key": api_key}
 
 
 def _extract_text(payload: dict) -> str:
@@ -98,9 +134,6 @@ def _extract_text(payload: dict) -> str:
 
 
 def _call_gemini(system: str, user: str, *, max_tokens: int, temperature: float, json_mode: bool = False) -> str:
-    api_key = settings.gemini_api_key.get_secret_value()
-    if not api_key:
-        raise DialogueGenerationError("Gemini API 키가 설정되지 않았습니다")
     body: dict = {
         "system_instruction": {"parts": [{"text": system}]},
         "contents": [{"role": "user", "parts": [{"text": user}]}],
@@ -114,7 +147,7 @@ def _call_gemini(system: str, user: str, *, max_tokens: int, temperature: float,
     try:
         response = httpx.post(
             _gemini_url(settings.gemini_model),
-            headers={"x-goog-api-key": api_key},
+            headers=_gemini_headers(),
             json=body,
             timeout=settings.gemini_timeout_sec,
         )

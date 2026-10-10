@@ -4,6 +4,7 @@ import arrival from "../assets/arrival.png";
 import work from "../assets/work.png";
 import leaving from "../assets/leaving.png";
 import "../styles/workplace-mirror-overview.css";
+import "../styles/workplace-mirror-city.css";
 
 const illustrations = [arrival, work, leaving];
 const descriptions = ["사무실 입구에서 선임과 대화하는 두 사람", "책상 앞에서 업무를 확인하는 두 사람", "사무실 출구에서 퇴근 전 대화하는 두 사람"];
@@ -22,7 +23,7 @@ export function WorkplaceMirrorOverview({ scenes, phase, starting, reduced, paus
   const scene = scenes[phase.scene];
   const countdown = phase.kind === "countdown";
   const finishing = starting || phase.kind === "complete";
-  return <section className="mirror-overview" aria-labelledby="overview-title" data-scene={phase.scene} data-starting={countdown || finishing} data-glass={new URLSearchParams(window.location.search).get("glass") === "bright" ? "bright" : "standard"}>
+  return <section className="mirror-overview mirror-city-surface" aria-labelledby="overview-title" data-scene={phase.scene} data-starting={countdown || finishing} data-glass={new URLSearchParams(window.location.search).get("glass") === "bright" ? "bright" : "standard"}>
     <header className="overview-masthead"><strong>Mirror-Ting</strong></header>
     <DayProgress scenes={scenes} phase={phase} />
     <div className="overview-content">
@@ -32,12 +33,12 @@ export function WorkplaceMirrorOverview({ scenes, phase, starting, reduced, paus
         <p className="overview-situation">출근부터 퇴근까지, 세 장면을 미리 살펴봐요.</p>
       </div>
       <div className="overview-art" aria-hidden="true">
-        <AnimatePresence initial={false}>
+        <AnimatePresence initial={false} mode="wait">
           <motion.img key={phase.scene} src={illustrations[phase.scene]} alt={descriptions[phase.scene]}
             initial={{ opacity: 0, transform: reduced ? "none" : "translateX(24px)" }}
             animate={{ opacity: 1, transform: "translateX(0px)" }}
-            exit={{ opacity: 0, transform: reduced ? "none" : "translateX(-24px)" }}
-            transition={{ duration: reduced ? .15 : .28, ease: [.23, 1, .32, 1] }} />
+            exit={{ opacity: 0, transform: reduced ? "none" : "translateX(-24px)", transition: { duration: reduced ? .06 : .08, ease: [.23, 1, .32, 1] } }}
+            transition={{ duration: reduced ? .12 : .2, ease: [.23, 1, .32, 1] }} />
         </AnimatePresence>
       </div>
       <WorkplaceOverviewCard scene={scene} live="polite" />

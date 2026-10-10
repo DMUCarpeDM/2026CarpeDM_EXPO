@@ -14,13 +14,13 @@ export function HomeMotion({ children }) {
     const revealed = new Set();
     const targets = [];
     const reveal = (element, immediate = false) => {
-      if (immediate) {
+      if (immediate || document.documentElement.dataset.input === "keyboard") {
         running.get(element)?.stop();
         element.style.opacity = "1";
         element.style.transform = "none";
       } else if (!revealed.has(element)) {
-        running.set(element, animate(element, { opacity: 1, y: 0 }, {
-          duration: 0.24, delay: Number(element.dataset.homeDelay || 0), ease: [0.22, 1, 0.36, 1],
+        running.set(element, animate(element, { opacity: 1, transform: "translateY(0px)" }, {
+          duration: 0.24, delay: Number(element.dataset.homeDelay || 0), ease: [0.23, 1, 0.32, 1],
         }));
       }
       revealed.add(element);
