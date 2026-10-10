@@ -569,3 +569,5 @@
 }
 .practice-live-tip strong { flex-shrink: 0; }
 .practice-live-tip span { overflow-wrap: anywhere; }
+
+.practice-camera .counterpart-video-stage[data-orientation="portrait"] .counterpart-video-canvas { object-fit: contain; object-position: center; }

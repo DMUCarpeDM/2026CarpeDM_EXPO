@@ -13,7 +13,7 @@ import workplaceDisappointment from "../assets/workplace-videos/disappointment.m
 import workplaceIrritation from "../assets/workplace-videos/irritation.mp4";
 import workplaceAnger from "../assets/workplace-videos/anger.mp4";
 
-/** 직장대화 공용 클립 — 기본말하기 + 감정 4종. 인물별 촬영분이 오기 전까지 네 캐릭터가 공유한다. */
+/** 직장대화 공용 클립 — 기본말하기 + 감정 4종. 여성 전신 9:16 · 2160×3840 · 24fps · 8초 · 무음. 네 캐릭터가 공유한다. */
 const WORKPLACE_VIDEOS = Object.freeze({
   speaking: workplaceSpeakingBase,
   listening: workplaceSpeakingBase,
@@ -29,6 +29,7 @@ function workplaceMedia(name) {
   return {
     name,
     chromaKey: true,
+    videoOrientation: "portrait",
     reactionStates: WORKPLACE_REACTION_STATES,
     videos: WORKPLACE_VIDEOS,
   };

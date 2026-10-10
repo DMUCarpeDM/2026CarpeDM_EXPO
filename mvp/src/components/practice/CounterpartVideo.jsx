@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
 import { mediaById } from "../../data/characterMedia";
 
-function ChromaKeyVideo({ source, name, paused, loop, onEnded, onError }) {
+function ChromaKeyVideo({ source, name, paused, loop, onEnded, onError, orientation }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const frameRef = useRef(0);
@@ -66,7 +66,7 @@ function ChromaKeyVideo({ source, name, paused, loop, onEnded, onError }) {
     };
   }, [source, paused]);
 
-  return <div className="counterpart-video-stage">
+  return <div className="counterpart-video-stage" data-orientation={orientation}>
     <video
       ref={videoRef}
       className="counterpart-video-source"
@@ -119,6 +119,7 @@ export function CounterpartVideo({ characterId, state = "listening", name = "AI 
   if (media?.chromaKey) {
     return <ChromaKeyVideo
       source={source}
+      orientation={media.videoOrientation}
       name={name}
       paused={paused || reducedMotion}
       loop={!isReaction}
