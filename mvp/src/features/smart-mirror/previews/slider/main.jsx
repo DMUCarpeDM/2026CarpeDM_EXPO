@@ -31,7 +31,6 @@ function SceneSlider() {
   }, [loaded]);
   const index = Math.floor(elapsed / HOLD_MS) % 3;
   const scene = workplacePreviewScenes[index];
-  const progress = elapsed % HOLD_MS / HOLD_MS;
   return <main className="scene-slider" data-scene={index}>
     <header className="slider-brand"><strong>Mirror-Ting</strong><span>직장 대화 · 약 5분</span></header>
     <div className="slider-heading"><p>오늘의 대화 연습</p><h1>회사에서 보내는 하루.</h1><span>출근부터 퇴근까지, 세 장면을 따라가요.</span></div>
@@ -43,7 +42,7 @@ function SceneSlider() {
         </motion.article>
       </AnimatePresence>
     </div>
-    <footer className="slider-footer"><ol aria-label="장면 안내 진행">{workplacePreviewScenes.map((item, i) => <li key={item.name} aria-current={i === index ? "step" : undefined} className={i === index ? "active" : ""}><div><i style={{ transform: `scaleX(${i < index ? 1 : i === index ? progress : 0})` }} /></div><span>{item.name}</span></li>)}</ol><p>편하게 읽어 주세요. 다음 장면으로 자동으로 넘어가요.</p><small>장면별 이미지 슬라이더 · 검토용 반복 시안</small></footer>
+    <footer className="slider-footer"><p>편하게 읽어 주세요. 다음 장면으로 자동으로 넘어가요.</p><small>장면별 이미지 슬라이더 · 검토용 반복 시안</small></footer>
   </main>;
 }
 createRoot(document.getElementById("root")).render(<SceneSlider />);

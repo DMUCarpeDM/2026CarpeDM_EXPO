@@ -61,7 +61,6 @@ export function WorkplaceMirrorPreflight({ mode = 5, consented, starting, onNext
   const index = Math.max(0, phase.scene);
   const scene = scenes?.[index] || overviewCategories[index];
   const blocked = !consented || currentError;
-  const sceneProgress = Math.max(0, Math.min(1, phase.progress || 0));
   if (scenes && !blocked) return <WorkplaceMirrorOverview scenes={scenes} phase={phase} mode={mode} starting={starting} reduced={reduced} paused={stopped} onPause={reviewElapsed === null ? () => setPaused(value => !value) : undefined} onScene={index => setElapsed(index * MIRROR_SCENE_MS)} onStart={() => { if (!started.current) { started.current = true; next.current?.(); } }} />;
   return <section className="mirror-summary scene-slider mirror-city-surface" aria-labelledby="mirror-summary-title" data-glass={new URLSearchParams(window.location.search).get("glass") === "bright" ? "bright" : "standard"} data-phase={phase.kind} data-scene={index}>
     <header className="slider-brand"><strong>Mirror-Ting</strong><span>직장 대화 · 약 {mode}분</span></header>
@@ -74,6 +73,6 @@ export function WorkplaceMirrorPreflight({ mode = 5, consented, starting, onNext
           </div>
       </article>
     </div>
-    <footer className="slider-footer"><ol aria-label="장면 안내 진행">{(scenes || overviewCategories).map((item, i) => <li key={item.name} aria-current={phase.scene === i ? "step" : undefined} className={phase.scene === i ? "active" : ""}><div><i style={{transform: `scaleX(${i < index ? 1 : i === index && phase.scene >= 0 ? sceneProgress : 0})`}} /></div><span>{item.name}</span></li>)}</ol><p>{blocked ? "운영자에게 도움을 요청해 주세요." : !scenes ? "시나리오를 준비하고 있어요." : starting || phase.kind === "complete" ? "출근 대화를 준비하고 있어요." : phase.kind === "countdown" ? `${phase.remaining}초 후 출근 대화가 시작돼요.` : "편하게 읽어 주세요. 다음 장면으로 자동으로 넘어가요."}</p><div className="mirror-total-progress" role="progressbar" aria-label="하루 안내 진행" aria-valuemin={0} aria-valuemax={MIRROR_OVERVIEW_MS / 1000} aria-valuenow={Math.floor(elapsed / 1000)}><i style={{transform: `scaleX(${elapsed / MIRROR_OVERVIEW_MS})`}} /></div></footer>
+    <footer className="slider-footer"><p>{blocked ? "운영자에게 도움을 요청해 주세요." : !scenes ? "시나리오를 준비하고 있어요." : starting || phase.kind === "complete" ? "출근 대화를 준비하고 있어요." : phase.kind === "countdown" ? `${phase.remaining}초 후 출근 대화가 시작돼요.` : "편하게 읽어 주세요. 다음 장면으로 자동으로 넘어가요."}</p></footer>
   </section>;
 }

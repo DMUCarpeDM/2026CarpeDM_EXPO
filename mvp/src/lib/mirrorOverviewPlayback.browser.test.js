@@ -13,6 +13,8 @@ test("4K overview plays all scenes while still=1 explicitly freezes a scene", { 
   await page.goto(`${preview}?scene=morning&backdrop=city`);
   const frame = await (await page.locator("iframe").elementHandle()).contentFrame();
   await frame.locator('.mirror-overview[data-scene="0"]').waitFor();
+  assert.equal(await frame.locator(".overview-steps").count(), 1);
+  assert.equal(await frame.locator(".slider-footer ol, .mirror-total-progress").count(), 0);
   await page.clock.fastForward(8000);
   await frame.locator('.mirror-overview[data-scene="1"]').waitFor();
   await page.clock.fastForward(10000);
@@ -33,6 +35,12 @@ test("4K overview plays all scenes while still=1 explicitly freezes a scene", { 
   await still.locator('.mirror-overview[data-scene="1"]').waitFor();
   await page.clock.fastForward(60000);
   assert.equal(await still.locator('.mirror-overview[data-scene="1"]').count(), 1);
+  for (const state of ["consent", "error"]) {
+    await page.goto(`${preview}?state=${state}`);
+    const blocked = await (await page.locator("iframe").elementHandle()).contentFrame();
+    await blocked.locator(".slider-explanation").waitFor();
+    assert.equal(await blocked.locator(".slider-footer ol, .mirror-total-progress").count(), 0);
+  }
 });
 
 test("glass modal uses shared progress bar and closes automatically after five seconds", { timeout: 45000 }, async t => {

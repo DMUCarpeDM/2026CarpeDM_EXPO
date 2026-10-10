@@ -20,12 +20,6 @@
 .slider-explanation blockquote { font-size: max(1rem, 1.5vh); line-height: 1.6; margin: 1.4vh 0; }
 .slider-explanation > span { font-size: max(.8125rem, 1.2vh); line-height: 1.7; color: #d0d7e1; }
 .slider-footer { padding-top: 2vh; text-align: center; }
-.slider-footer ol { padding: 0; list-style: none; display: flex; gap: 1.2vh; margin: 0 0 1.6vh; }
-.slider-footer li { flex: 1; color: #9fa9b7; }
-.slider-footer li.active { color: #f5f7fc; }
-.slider-footer li > div { height: .14vh; background: #e2ecfa25; margin-bottom: .95vh; overflow: hidden; border-radius: 1vh; }
-.slider-footer li i { height: 100%; display: block; background: #e8eef8; box-shadow: 0 0 .6vh #fff; }
-.slider-footer li span { font-size: max(.8125rem, 1.15vh); }
 .slider-footer > p { font-size: max(.8125rem, 1.12vh); color: #c6cdd8; margin: 0; }
 .slider-footer > small { font-size: max(.8125rem, .85vh); color: #8b97a7; display: block; margin-top: .8vh; }
 
@@ -38,13 +32,10 @@
 .mirror-summary[data-glass='bright'] .slider-explanation { background: linear-gradient(130deg,#d9e4f03b,#78879624 52%,#c5d5e52e); }
 .mirror-summary[data-glass='bright'] .slider-explanation p,
 .mirror-summary[data-glass='bright'] .slider-explanation > span { color: #e0e5ec; }
-.mirror-total-progress { height: .14vh; margin-top: 1.2vh; background: #e2ecfa25; overflow: hidden; border-radius: 1vh; }
-.mirror-total-progress i { display: block; height: 100%; background: #e8eef8; }
 .mirror-summary .consent-check { font-size: max(.875rem,1.2vh); line-height: 1.6; margin-top: 1.2vh; }
 
 .slider-explanation .mirror-scene-situation { margin: 1vh 0 0; line-height: 1.6; }
 
-.slider-footer ol li > div > i, .mirror-total-progress > i { width: 100%; transform-origin: left; }
 
 @media (max-width: 700px), (max-height: 700px) {
   .mirror-summary.scene-slider { width: 100%; height: auto; padding: 24px 20px; gap: 20px; }
