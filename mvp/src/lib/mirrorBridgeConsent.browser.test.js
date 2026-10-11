@@ -171,15 +171,16 @@ test("4K mirror microphone popup uses glass, records automatically, and hides di
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
   await page.clock.fastForward(34000);
-  const popup = page.getByRole("dialog", { name: "내 목소리를 확인할게요." });
+  const popup = page.getByRole("dialog", { name: "아래 문장을 큰 목소리로 읽어요." });
   await popup.waitFor();
   await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100));
   const box = await popup.boundingBox();
   assert.ok(box.width >= 1800 && box.x >= 0 && box.x + box.width <= 2160);
   assert.ok(box.y >= 0 && box.y + box.height <= 3840);
   const surface = await popup.locator(".overview-summary-card").evaluate(element => ({ blur: getComputedStyle(element).backdropFilter, background: getComputedStyle(element).backgroundImage }));
-  assert.match(surface.blur, /blur\(8px\)/);
+  assert.match(surface.blur, /blur\(16px\)/);
   assert.match(surface.background, /gradient/);
+  assert.ok(await popup.evaluate(el => Boolean(el.querySelector(".mirror-microphone-sentence").compareDocumentPosition(el.querySelector(".mirror-microphone-steps")) & Node.DOCUMENT_POSITION_FOLLOWING)));
   assert.ok(await popup.locator("h2").evaluate(element => parseFloat(getComputedStyle(element).fontSize)) >= 80);
   assert.equal(await popup.getByRole("button").count(), 0);
   const progress = await popup.locator(".mirror-countdown-track i").evaluate(element => ({
@@ -217,7 +218,7 @@ test("4K mirror microphone popup uses glass, records automatically, and hides di
 test("mirror microphone deadline continues speech input at 10 seconds and ignores a late calibration result", { timeout: 45000 }, async t => {
   const { page, calibrations, finishCalibration } = await open(t, { external: false, briefing: true, voice: true, pendingCalibration: true });
   await page.clock.fastForward(34000);
-  const popup = page.getByRole("dialog", { name: "내 목소리를 확인할게요." });
+  const popup = page.getByRole("dialog", { name: "아래 문장을 큰 목소리로 읽어요." });
   await popup.waitFor();
   await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100));
   await page.clock.runFor(600);
@@ -225,7 +226,7 @@ test("mirror microphone deadline continues speech input at 10 seconds and ignore
   await popup.locator('.mirror-microphone-sentence[data-active="true"]').waitFor();
   await page.clock.runFor(900);
   await page.clock.runFor(4000);
-  await page.waitForFunction(() => document.querySelector("#mirror-microphone-instruction")?.textContent.includes("녹음 상태"));
+  assert.equal(await popup.locator("#mirror-microphone-instruction").count(), 0);
   assert.equal(calibrations.length, 1);
   await page.clock.runFor(2500);
   await popup.waitFor({ state: "hidden" });

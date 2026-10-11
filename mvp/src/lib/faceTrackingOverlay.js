@@ -57,10 +57,8 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
   const dy = (ch - vh * scale) / 2;
   const px = (p) => [p.x * vw * scale + dx, p.y * vh * scale + dy];
 
-  // 상체 스켈레톤 (흰 선) + 가슴 곡선 (파란색) — 디자인 시안의 표현
+  // 상체 포즈는 어두운 외곽선과 진한 파란 선으로 밝은 영상에서도 구분한다.
   if (poseLm) {
-    ctx.strokeStyle = "rgba(183, 224, 255, 0.96)";
-    ctx.lineWidth = 2.8;
     ctx.lineCap = "round";
     for (const [a, b] of POSE_LINKS) {
       const pa = poseLm[a];
@@ -69,6 +67,11 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
       ctx.beginPath();
       ctx.moveTo(...px(pa));
       ctx.lineTo(...px(pb));
+      ctx.strokeStyle = "rgba(9, 25, 43, 0.9)";
+      ctx.lineWidth = 6;
+      ctx.stroke();
+      ctx.strokeStyle = "#60a5fa";
+      ctx.lineWidth = 3.8;
       ctx.stroke();
     }
     const sl = poseLm[11];
@@ -76,23 +79,26 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
     if (sl && sr && (sl.visibility ?? 1) > 0.4 && (sr.visibility ?? 1) > 0.4) {
       const [lx, ly] = px(sl);
       const [rx, ry] = px(sr);
-      ctx.strokeStyle = "rgba(96, 165, 250, 0.9)";
-      ctx.lineWidth = 2.5;
-      ctx.shadowColor = "rgba(96, 165, 250, 0.6)";
-      ctx.shadowBlur = 6;
       ctx.beginPath();
       ctx.moveTo(lx, ly);
       ctx.quadraticCurveTo((lx + rx) / 2, Math.max(ly, ry) + Math.abs(rx - lx) * 0.22, rx, ry);
+      ctx.strokeStyle = "rgba(9, 25, 43, 0.9)";
+      ctx.lineWidth = 6;
       ctx.stroke();
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = "#e8f6ff";
+      ctx.strokeStyle = "#60a5fa";
+      ctx.lineWidth = 3.8;
+      ctx.stroke();
+      ctx.fillStyle = "#93c5fd";
+      ctx.strokeStyle = "#09192b";
+      ctx.lineWidth = 2;
       for (const index of new Set(POSE_LINKS.flat())) {
         const point = poseLm[index];
         if (!point || (point.visibility ?? 1) < 0.4) continue;
         const [x, y] = px(point);
         ctx.beginPath();
-        ctx.arc(x, y, 4.5, 0, Math.PI * 2);
+        ctx.arc(x, y, 5.5, 0, Math.PI * 2);
         ctx.fill();
+        ctx.stroke();
       }
     }
   }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
 import { createChromaKeyRenderer } from "../../lib/chromaKeyRenderer";
+import { BufferedCounterpartVideo } from "./BufferedCounterpartVideo";
 import { mediaById } from "../../data/characterMedia";
 
 function ChromaKeyVideo({ source, name, paused, loop, onEnded, onError }) {
@@ -136,6 +137,8 @@ export function CounterpartVideo({ characterId, category, state = "listening", n
       onError={() => setFailed(true)}
     />;
   }
+
+  if (media?.videosByScene) return <BufferedCounterpartVideo source={source} name={name} paused={paused} reducedMotion={reducedMotion} loop={!isReaction} onEnded={() => { if (isReaction) onReactionComplete?.(); }} onError={() => setFailed(true)} />;
 
   return <video
     ref={videoRef}

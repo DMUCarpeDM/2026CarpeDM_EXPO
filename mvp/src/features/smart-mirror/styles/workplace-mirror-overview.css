@@ -64,8 +64,8 @@
     radial-gradient(ellipse 70% 60% at 100% 0%, #f5f8ff38, transparent 65%),
     radial-gradient(ellipse 32% 85% at 108% 60%, #e3eeff30, transparent 75%),
     linear-gradient(180deg, #e8f0ff05, transparent 48%, #00000010);
-  backdrop-filter: blur(8px) saturate(105%);
-  -webkit-backdrop-filter: blur(8px) saturate(105%);
+  backdrop-filter: blur(16px) saturate(105%);
+  -webkit-backdrop-filter: blur(16px) saturate(105%);
   box-shadow: inset calc(-.35 * var(--u)) calc(.25 * var(--u)) calc(1.1 * var(--u)) #ffffff30,
     0 0 0 1px #e5efff30,
     0 0 calc(.9 * var(--u)) #c6dcff22,

@@ -56,10 +56,13 @@ test("mirror subtitles leave room for the live camera and bottom-right capture p
       const canvas = document.querySelector(".simulation-actor canvas");
       return canvas ? canvas.width > 300 : document.querySelector(".simulation-actor video")?.videoWidth > 300;
     });
-    await page.locator(".simulation-actor video").evaluate(async video => { video.currentTime = 2; await video.play(); });
+    await page.locator(".simulation-actor video:not([aria-hidden='true'])").evaluate(async video => { video.currentTime = 2; await video.play(); });
     await page.waitForTimeout(400);
     assert.equal(await page.locator(".simulation-dialogue-text > span").first().getAttribute("data-focus"), "active");
     assert.equal(await page.locator(".simulation-dialogue-text > span").nth(1).getAttribute("data-focus"), "upcoming");
+    await page.evaluate(() => window.__subtitleUtterance.onboundary({ charIndex: 3 }));
+    assert.equal(await page.locator(".simulation-dialogue-text > span").first().getAttribute("data-tracking"), "true");
+    assert.ok(Number(await page.locator(".simulation-dialogue-text > span").first().evaluate(el => el.style.getPropertyValue("--speech-progress"))) > 0);
     const metrics = await page.evaluate(() => {
       const box = selector => { const r = document.querySelector(selector).getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; };
       return { caption: box(".simulation-card-slot"), user: box(".simulation-user-preview"), pill: box(".mirror-capture-status"), frame: box(".mirror-scene-simulation"),
@@ -73,10 +76,12 @@ test("mirror subtitles leave room for the live camera and bottom-right capture p
     assert.ok(metrics.pill.bottom < metrics.frame.bottom);
     observations.push({ viewport, ...metrics });
     await page.screenshot({ path: `${out}/${viewport.width}.png` });
-    await page.locator(".simulation-actor video").evaluate(video => video.pause());
+    await page.locator(".simulation-actor video:not([aria-hidden='true'])").evaluate(video => video.pause());
     await page.evaluate(() => window.__subtitleUtterance.onboundary({charIndex: window.__subtitleUtterance.text.indexOf(".") + 1}));
     assert.equal(await page.locator(".simulation-dialogue-text > span").first().getAttribute("data-focus"), "past");
     assert.equal(await page.locator(".simulation-dialogue-text > span").nth(1).getAttribute("data-focus"), "active");
+    assert.equal(await page.locator(".simulation-dialogue-text > span").first().getAttribute("data-tracking"), "false");
+    assert.equal(await page.locator(".simulation-dialogue-text > span").nth(1).getAttribute("data-tracking"), "true");
     await page.clock.runFor(300);
     await page.screenshot({ path: `${out}/${viewport.width}-second-sentence.png` });
     if (viewport.width === 390) assert.equal(await page.locator(".simulation-dialogue-text").evaluate(el => getComputedStyle(el).transform), "none");

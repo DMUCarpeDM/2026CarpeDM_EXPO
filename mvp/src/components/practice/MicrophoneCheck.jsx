@@ -108,17 +108,16 @@ export function MicrophoneCheck({ mirror = false, automatic = false, session, st
     return () => { clearInterval(interval); document.removeEventListener("visibilitychange", tick); };
   }, [automatic, mirror, step, message]);
   const busy = ["connecting", "noise", "speech", "checking"].includes(step);
-  if (mirror) return <MirrorGlassModal className="mirror-microphone-check" labelledBy="voice-check-title" describedBy="mirror-microphone-instruction">
+  if (mirror) return <MirrorGlassModal className="mirror-microphone-check" labelledBy="voice-check-title">
     <div className="overview-card-context">
       <p className="overview-scene-meta"><span className="overview-scene-badge">대화 준비</span></p>
-      <div className="mirror-microphone-heading"><Soundwave aria-hidden="true" /><h2 id="voice-check-title">내 목소리를 확인할게요.</h2></div>
-      <p id="mirror-microphone-instruction" className="mirror-microphone-instruction" role="status">{message ? "기준 확인 없이 대화를 이어갈게요." : ["ready", "connecting", "noise"].includes(step) ? "잠시 조용히 기다려 주세요." : step === "checking" ? "녹음 상태를 확인하고 있어요." : "아래 문장을 평소 목소리로 읽어 주세요."}</p>
+      <div className="mirror-microphone-heading"><Soundwave aria-hidden="true" /><h2 id="voice-check-title">아래 문장을 큰 목소리로 읽어요.</h2></div>
     </div>
+    <blockquote className="mirror-microphone-sentence" data-active={["read", "speech"].includes(step)}>안녕하세요.<br />오늘 업무를 확인하겠습니다.</blockquote>
     <ol className="mirror-microphone-steps" aria-label="마이크 확인 순서">
       <li aria-current={["ready", "connecting", "noise"].includes(step) ? "step" : undefined}><span>01</span><div><strong>주변 소음</strong><small>2초</small></div></li>
-      <li aria-current={["read", "speech", "checking"].includes(step) ? "step" : undefined}><span>02</span><div><strong>목소리 확인</strong><small>4초</small></div></li>
+      <li aria-current={["read", "speech", "checking"].includes(step) ? "step" : undefined}><span>02</span><div><strong>문장 확인</strong><small>4초</small></div></li>
     </ol>
-    <blockquote className="mirror-microphone-sentence" data-active={["read", "speech"].includes(step)}>안녕하세요.<br />오늘 업무를 확인하겠습니다.</blockquote>
     {message && <p className="mirror-microphone-error" role="alert">{message}</p>}
     <div className="mirror-microphone-footer">
       <p className="mirror-briefing-next">{Math.max(0, Math.ceil((10000 - elapsed) / 1000))}초 후 자동으로 계속</p>

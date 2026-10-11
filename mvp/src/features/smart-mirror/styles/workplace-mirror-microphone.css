@@ -4,7 +4,6 @@
 .mirror-microphone-heading { display: flex; align-items: center; gap: calc(1.2 * var(--u)); }
 .mirror-microphone-heading > svg { width: calc(3.6 * var(--u)); height: calc(3.6 * var(--u)); flex: none; color: #c5dfff; padding: calc(.7 * var(--u)); border: 1px solid #c5dfff55; border-radius: 50%; background: #c5dfff0d; box-shadow: inset 0 1px 3px #ffffff40, 0 0 calc(1 * var(--u)) #c5dfff12; }
 .mirror-microphone-check .overview-card-context h2 { font-size: max(1.375rem, calc(2.35 * var(--u))); line-height: 1.4; }
-.mirror-microphone-instruction { margin: 0; font-size: max(1rem, calc(1.4 * var(--u))); line-height: 1.65; color: var(--muted); word-break: keep-all; }
 .mirror-microphone-steps { display: grid; grid-template-columns: 1fr 1fr; gap: calc(1.5 * var(--u)); margin: 0; padding: calc(1.5 * var(--u)) 0; list-style: none; border-block: 1px solid var(--divider); }
 .mirror-microphone-steps li { display: flex; align-items: baseline; gap: calc(.9 * var(--u)); color: var(--muted); }
 .mirror-microphone-steps li[aria-current] { color: #e0edff; }
