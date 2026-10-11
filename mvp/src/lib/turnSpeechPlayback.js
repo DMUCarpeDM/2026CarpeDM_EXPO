@@ -1,7 +1,7 @@
 import { synthesizeSpeech } from "./pocApi.js";
 
 // 반환한 정리 함수는 질문 변경·일시정지·화면 이탈 시 호출한다.
-export function startTurnSpeech({ text, voice = "female", serverTtsReady, onSpeakingChange, onFinish, onNote }) {
+export function startTurnSpeech({ text, voice = "female", serverTtsReady, onSpeakingChange, onFinish, onNote, onProgress }) {
   const synth = window.speechSynthesis;
   const speechRequest = new AbortController();
   let cancelled = false;
@@ -9,8 +9,15 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, onSpea
   let speakTimer = 0;
   let audio = null;
   let audioUrl = "";
+  let progressTimer = 0;
+  const report = (status, charIndex = 0) => {
+    if (!cancelled) onProgress?.({ text, status, charIndex });
+  };
   const finishSpeaking = () => {
     if (!cancelled) {
+      window.clearInterval(progressTimer);
+      if (audio) audio.ontimeupdate = audio.onplaying = null;
+      report("ended", text.length);
       onSpeakingChange(false);
       onFinish();
     }
@@ -21,6 +28,7 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, onSpea
     if (!synth) {
       onNote("음성 재생을 지원하지 않는 브라우저예요 — 질문은 자막으로 표시돼요");
       finishSpeaking();
+      report("unavailable");
       return;
     }
     const voices = synth.getVoices();
@@ -35,12 +43,24 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, onSpea
     utter.onstart = () => {
       if (cancelled) return;
       onSpeakingChange(true);
+      report("playing");
+      // Korean browser voices may omit boundary events; keep an estimated fallback.
+      let index = 0;
+      if (onProgress) progressTimer = window.setInterval(() => {
+        index = Math.min(text.length - 1, index + 1);
+        report("playing", index);
+      }, 140);
+      utter.onboundary = (event) => {
+        window.clearInterval(progressTimer);
+        report("playing", event.charIndex);
+      };
       onNote("AI 음성 재생 시작 — 소리가 안 들리면 Windows 소리 출력 장치를 확인하세요");
     };
     utter.onend = finishSpeaking;
     utter.onerror = (event) => {
       if (!cancelled) onNote(`음성 합성 오류(${event?.error || "unknown"}) — 소리 출력 장치를 확인하세요`);
       finishSpeaking();
+      report("unavailable");
     };
     synth.speak(utter);
   };
@@ -63,6 +83,16 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, onSpea
       if (cancelled) return;
       audioUrl = URL.createObjectURL(blob);
       audio = new Audio(audioUrl);
+      let playbackStarted = false;
+      const updateProgress = () => {
+        if (!playbackStarted) return;
+        // Iris returns audio without alignment metadata. Follow its playback clock,
+        // estimating sentence boundaries from each sentence's character share.
+        const ratio = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.currentTime / audio.duration : 0;
+        report("playing", Math.min(text.length - 1, Math.floor(ratio * text.length)));
+      };
+      audio.onplaying = () => { playbackStarted = true; updateProgress(); };
+      audio.ontimeupdate = updateProgress;
       audio.onplay = () => {
         if (!cancelled) {
           onSpeakingChange(true);
@@ -72,6 +102,8 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, onSpea
       audio.onended = finishSpeaking;
       audio.onerror = () => {
         if (!cancelled) {
+          audio.ontimeupdate = audio.onplaying = null;
+          report("waiting");
           onNote("AI 음성 재생에 실패해 브라우저 음성으로 전환해요");
           startBrowserSpeech();
         }
@@ -86,6 +118,7 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, onSpea
   };
   // 음성 재생이 시작되는 동안에도 상대 영상이 즉시 speaking 상태로 보인다.
   onSpeakingChange(true);
+  report("waiting");
   synth?.cancel();
   if (serverTtsReady) {
     void playServerSpeech();
@@ -96,6 +129,8 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, onSpea
     cancelled = true;
     speechRequest.abort();
     window.clearTimeout(speakTimer);
+    window.clearInterval(progressTimer);
+    onProgress?.({ text, status: "cancelled", charIndex: 0 });
     if (audio) audio.pause();
     if (audioUrl) URL.revokeObjectURL(audioUrl);
     synth?.cancel();

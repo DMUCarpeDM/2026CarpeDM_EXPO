@@ -3,7 +3,7 @@
 .simulation-environment { position: absolute; inset: 0; z-index: -2; overflow: hidden; }
 .simulation-environment img { position: absolute; width: 100%; height: 100%; object-fit: cover; filter: blur(calc(.45 * var(--u))); transform: scale(1.025); }
 .mirror-scene-simulation::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, #000b, #0003 24%, transparent 42%, #0001 67%, #0008); pointer-events: none; }
-.simulation-card-slot { position: absolute; inset-inline: calc(3.6 * var(--u)); top: 45%; }
+.simulation-card-slot { position: absolute; left: 5%; top: 30%; width: 54%; max-height: 56%; overflow-y: auto; text-shadow: 0 2px 12px #000d; }
 
 .simulation-actor { position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
 .simulation-actor .counterpart-video-stage { position: absolute; top: 2%; left: -100%; width: 300%; aspect-ratio: 16 / 9; }
@@ -13,7 +13,7 @@
 .simulation-actor .counterpart-video-stage[data-orientation="portrait"] .counterpart-video { mask-image: linear-gradient(90deg, transparent 3%, #000 8%, #000 92%, transparent 97%); }
 .simulation-card-slot { z-index: 1; }
 .simulation-dialogue-name { margin: 0; color: var(--muted); font-size: max(.8125rem, calc(1.2 * var(--u))); }
-.simulation-dialogue-text { margin: 0; font-size: max(1.25rem, calc(2.1 * var(--u))); line-height: 1.65; word-break: keep-all; overflow-wrap: anywhere; }
+.simulation-dialogue-text { margin: 0; font-size: max(1.25rem, calc(2.1 * var(--u))); line-height: 1.65; word-break: keep-all; overflow-wrap: anywhere; font-weight: 600; color: #fff; opacity: 0; transform: translateY(4px); transition: opacity 240ms cubic-bezier(0.23, 1, 0.32, 1), transform 240ms cubic-bezier(0.23, 1, 0.32, 1); }
 .simulation-dialogue-status { margin: 0; color: var(--muted); font-size: max(.8125rem, calc(1.2 * var(--u))); line-height: 1.6; }
 .simulation-answer { border-top: 1px solid var(--divider); padding-top: calc(1.2 * var(--u)); }
 .simulation-answer p { font-size: max(1rem, calc(1.3 * var(--u))); line-height: 1.65; margin: calc(.6 * var(--u)) 0; }
@@ -21,17 +21,23 @@
 .simulation-answer textarea { width: 100%; min-height: calc(6 * var(--u)); padding: calc(.8 * var(--u)); color: var(--ink); background: #0003; border: 1px solid var(--divider); border-radius: calc(.6 * var(--u)); font: inherit; font-size: max(1rem, calc(1.3 * var(--u))); }
 .simulation-answer button { border: 1px solid var(--divider); border-radius: calc(.6 * var(--u)); padding: calc(.65 * var(--u)) calc(1.4 * var(--u)); color: var(--ink); background: #ffffff18; font-size: max(.8125rem, calc(1.2 * var(--u))); }
 .simulation-answer button:disabled { opacity: .4; }
-.simulation-capture { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
+.simulation-dialogue-text[data-visible="true"] { opacity: 1; transform: translateY(0); transition-duration: 160ms; }
+.simulation-dialogue-text > span { display: block; margin-bottom: .8em; opacity: 0; transform: translateY(4px); transition: opacity 180ms cubic-bezier(0.23, 1, 0.32, 1), transform 180ms cubic-bezier(0.23, 1, 0.32, 1); }
+.simulation-dialogue-text > span[data-focus="active"] { opacity: 1; transform: translateY(0); }
+.simulation-dialogue-text > span[data-focus="past"] { opacity: .45; transform: translateY(0); }
+.simulation-user-preview { position: absolute; right: 4%; bottom: 11%; width: 26%; height: 26%; z-index: 1; overflow: hidden; border: 1px solid #ffffff65; border-radius: calc(1.8 * var(--u)); background: #070b12; }
+.simulation-user-preview video, .simulation-user-preview canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+.simulation-user-preview > span { position: absolute; inset: 0; display: grid; place-items: center; padding: 8px; text-align: center; font-size: max(.75rem, calc(1 * var(--u))); color: var(--muted); }
 .mirror-deployment .screen-frame:has(.mirror-scene-simulation) { padding: 0; max-width: none; }
 
 .simulation-answer button { min-height: 44px; cursor: pointer; }
 @media (max-width: 700px), (max-height: 700px) {
   .mirror-scene-simulation { width: 100%; overflow-y: auto; }
-  .simulation-card-slot { position: relative; inset: auto; margin: 45dvh 20px 24px; }
+  .simulation-card-slot { top: 28%; width: 59%; }
   .simulation-answer textarea { min-height: 96px; }
 }
 
-.mirror-capture-status { position: absolute; top: calc(3.3 * var(--u)); right: calc(3.6 * var(--u)); z-index: 1; display: flex; flex-wrap: wrap; align-items: center; gap: calc(.9 * var(--u)); max-width: calc(100% - 7.2 * var(--u)); padding: calc(.65 * var(--u)) calc(1.2 * var(--u)); border-radius: calc(2 * var(--u)); color: var(--ink); font-size: max(.875rem, calc(1.1 * var(--u))); line-height: 1.5; }
+.mirror-capture-status { position: absolute; bottom: calc(3.3 * var(--u)); right: calc(3.6 * var(--u)); z-index: 1; display: flex; flex-wrap: wrap; align-items: center; gap: calc(.9 * var(--u)); max-width: calc(100% - 7.2 * var(--u)); padding: calc(.65 * var(--u)) calc(1.2 * var(--u)); border-radius: calc(2 * var(--u)); color: var(--ink); font-size: max(.875rem, calc(1.1 * var(--u))); line-height: 1.5; }
 .mirror-capture-audio > span:first-of-type { color: #c5dfff; }
 .mirror-capture-camera[data-active="true"] { color: #9edcff; }
 .mirror-capture-wave[data-active="true"] i { background: #b8ddff; }
@@ -45,7 +51,7 @@
 .mirror-capture-wave i { width: 3px; height: 100%; border-radius: 2px; background: #f0f2f8; transform: scaleY(.18); transform-origin: center; }
 .mirror-capture-wave[data-active="false"] i { transform: scaleY(.18) !important; opacity: .4; }
 
-@media (prefers-reduced-motion: reduce) { .mirror-capture-wave i { transform: scaleY(.18) !important; } }
+@media (prefers-reduced-motion: reduce) { .simulation-dialogue-text[data-visible], .simulation-dialogue-text > span[data-focus] { transform: none; transition: opacity 120ms cubic-bezier(0.23, 1, 0.32, 1); } .mirror-capture-wave i { transform: scaleY(.18) !important; } }
 
 /* 배경 포함 세로 영상은 원본 비율로 표시한다. */
 .simulation-actor > video.counterpart-video { object-fit: contain; object-position: center; mask-image: none; }

@@ -37,12 +37,13 @@ const CALIB_SAMPLES = 24;
 const TRACK_LOST_RESET_MS = 3000;
 const emptyCalib = () => ({ tilt: [], headGap: [], torsoZ: [] });
 
-export function useFaceTracking(mediaStream, videoRef, canvasRef) {
+export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverlay = false) {
   const [live, setLive] = useState({ status: "idle", tracking: false, calibrating: false, tiltDeg: 0, postureLevel: false, poseTracked: false, inferMs: 0 });
   const liveRef = useRef(live);
   const turnAccRef = useRef(makeTurnAcc());
   const calibratedRef = useRef(false);
-  const expressionStatus = useExpressionTracking(mediaStream, videoRef, turnAccRef);
+  const faceLandmarksRef = useRef(null);
+  const expressionStatus = useExpressionTracking(mediaStream, videoRef, turnAccRef, showFaceOverlay ? faceLandmarksRef : undefined);
   // 지난 수집 시점 이후의 집계를 NonverbalIn 모양으로 돌려주고 리셋 (턴 제출 시 호출)
   const collectTurnStats = useRef(() => {
     const acc = turnAccRef.current;
@@ -107,7 +108,7 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
             if (features && turnAccRef.current.poseFeatures.length < 1500) turnAccRef.current.poseFeatures.push(features);
             const handLandmarks = handResult.landmarks || [];
 
-            drawOverlay(canvasRef.current, video, null, plm, handLandmarks);
+            drawOverlay(canvasRef.current, video, showFaceOverlay ? faceLandmarksRef.current : null, plm, handLandmarks);
 
             // ---- 포즈 기하: 어깨 기울기 · 어깨중심(흔들림) · 코-어깨 거리(고개 숙임) ----
             let tiltRaw = null;
@@ -233,7 +234,7 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef) {
       const ctx = canvas?.getContext("2d");
       if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
     };
-  }, [mediaStream, videoRef, canvasRef]);
+  }, [mediaStream, videoRef, canvasRef, showFaceOverlay]);
 
   return { ...live, expressionStatus, collectTurnStats, peekTurnStats };
 }

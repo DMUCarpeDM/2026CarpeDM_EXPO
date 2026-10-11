@@ -10,6 +10,7 @@ function playbackEnvironment(t) {
   const audioPlayers = [];
   const speaking = [];
   const notes = [];
+  const progress = [];
   let finished = 0;
   let nextTimer = 0;
   const koreanVoice = { lang: "ko-KR", localService: true };
@@ -23,6 +24,8 @@ function playbackEnvironment(t) {
       speechSynthesis: synth,
       setTimeout: (callback) => { timers.set(++nextTimer, callback); return nextTimer; },
       clearTimeout: (id) => timers.delete(id),
+      setInterval: (callback) => { timers.set(++nextTimer, callback); return nextTimer; },
+      clearInterval: (id) => timers.delete(id),
     },
     SpeechSynthesisUtterance: class { constructor(text) { this.text = text; } },
     Audio: class {
@@ -41,7 +44,7 @@ function playbackEnvironment(t) {
   t.mock.method(URL, "createObjectURL", () => "blob:turn-audio");
   const revoke = t.mock.method(URL, "revokeObjectURL", () => {});
   return {
-    synth, koreanVoice, utterances, audioPlayers, speaking, notes, timers, revoke,
+    synth, koreanVoice, utterances, audioPlayers, speaking, notes, progress, timers, revoke,
     get finished() { return finished; },
     flushTimers() {
       const callbacks = [...timers.values()];
@@ -54,6 +57,7 @@ function playbackEnvironment(t) {
         onSpeakingChange: (value) => speaking.push(value),
         onFinish: () => { finished++; },
         onNote: (note) => notes.push(note),
+        onProgress: (value) => progress.push(value),
       });
       stopPlayback = stop;
       return stop;
@@ -71,8 +75,13 @@ test("browser speech uses Korean voice and signals completion", (t) => {
   assert.equal(utterance.text, "안녕하세요.");
   assert.equal(utterance.voice, env.koreanVoice);
   assert.equal(utterance.lang, "ko-KR");
+  assert.equal(env.progress.at(-1).status, "waiting");
   utterance.onstart();
+  assert.equal(env.progress.at(-1).status, "playing");
+  utterance.onboundary({ charIndex: 3 });
+  assert.equal(env.progress.at(-1).charIndex, 3);
   utterance.onend();
+  assert.equal(env.progress.at(-1).status, "ended");
   assert.equal(env.speaking.at(-1), false);
   assert.equal(env.finished, 1);
 });
@@ -105,12 +114,33 @@ test("server audio stops and releases its URL when the turn is cancelled", async
   const stop = env.start(true);
   await flushAsync();
   assert.equal(env.audioPlayers.length, 1);
+  const audio = env.audioPlayers[0];
+  assert.equal(env.progress.at(-1).status, "waiting");
+  audio.duration = 10; audio.currentTime = 5; audio.onplaying();
+  assert.equal(env.progress.at(-1).charIndex, 3);
+  audio.currentTime = 8; audio.ontimeupdate();
+  assert.equal(env.progress.at(-1).charIndex, 4);
   stop();
+  assert.equal(env.progress.at(-1).status, "cancelled");
   assert.equal(env.audioPlayers[0].pause.mock.callCount(), 1);
   assert.equal(env.revoke.mock.calls[0].arguments[0], "blob:turn-audio");
   env.audioPlayers[0].onended();
   assert.equal(env.finished, 0);
   assert.equal(env.speaking.at(-1), false);
+  assert.equal(env.progress.at(-1).status, "cancelled");
+});
+
+test("server end removes progress handlers and finishes subtitles immediately", async t => {
+  const env = playbackEnvironment(t);
+  t.mock.method(globalThis, "fetch", async () => new Response("wav"));
+  env.start(true);
+  await flushAsync();
+  const audio = env.audioPlayers[0];
+  audio.onplaying();
+  audio.onended();
+  assert.equal(env.progress.at(-1).status, "ended");
+  assert.equal(audio.ontimeupdate, null);
+  assert.equal(audio.onplaying, null);
 });
 
 test("a late server response cannot start speech after cancellation", async (t) => {

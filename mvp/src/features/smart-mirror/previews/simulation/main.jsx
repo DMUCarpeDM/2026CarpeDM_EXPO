@@ -10,8 +10,7 @@ const episode = pack.episodes.find(item => item.order === category.orders[0]);
 const character = pack.characters.find(item => item.id === episode.character_id);
 function PreviewSimulation() {
   const [briefingOpen, setBriefingOpen] = useState(true);
-  return <><WorkplaceMirrorSceneSimulation category={category.id} characterId={character.id} name={character.name} videoState="speaking" paused={briefingOpen} dialogueHidden={briefingOpen}>
-  <p className="simulation-dialogue-name">{character.name}</p><h1 id="mirror-dialogue-title" className="simulation-dialogue-text">{episode.initial_question}</h1>
+  return <><WorkplaceMirrorSceneSimulation dialogue={episode.initial_question} category={category.id} characterId={character.id} name={character.name} videoState="speaking" paused={briefingOpen} dialogueHidden={briefingOpen}>
 </WorkplaceMirrorSceneSimulation>
   {briefingOpen && <MirrorScenarioBriefing briefing={{ category_label: category.label, title: episode.title, situation: episode.situation, tip: episode.question_intent, step: pack.world_setting.workplace_categories.indexOf(category) + 1, total: 3 }} onClose={() => setBriefingOpen(false)} />}
   </>;

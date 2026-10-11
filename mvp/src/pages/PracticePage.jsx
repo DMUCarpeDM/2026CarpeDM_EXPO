@@ -120,7 +120,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   }, [confirmEnd]);
   const aiReady = Boolean(aiHealth?.dialogue_ready);
   // MediaPipe 실시간 얼굴·상체 트래킹 (영상 미전송 — 브라우저 안에서만 분석)
-  const track = useFaceTracking(mediaStream, analysisVideoRef, overlayRef);
+  const track = useFaceTracking(mediaStream, analysisVideoRef, overlayRef, mirror && workplace);
   const trackingLive = track.status === "ready" && track.tracking;
 
   // ---- 턴 단위 비언어 집계: 훅 내부에서 샘플 단위로 모은
@@ -134,6 +134,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
 
   // ---- AI 음성(TTS): 새 질문이 오면 AI 상대가 실제로 읽어준다 ----
   const [aiSpeaking, setAiSpeaking] = useState(false);
+  const [speechPlayback, setSpeechPlayback] = useState({ status: "waiting" });
   const aiSpeechActiveRef = useRef(false);
   const turnSpeech = composeTurnSpeech(turn);
   const [teamLeadReaction, setTeamLeadReaction] = useState("");
@@ -193,6 +194,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
         setAiSpeaking(speaking);
       },
       onFinish: () => {}, // 질문은 음성 재생 종료 후에도 입력 패널에 유지한다.
+      onProgress: mirror && workplace ? setSpeechPlayback : undefined,
       onNote: ttsNoteOnce,
     });
   }, [turn?.id, turnSpeech, paused, entryOverlayOpen, character?.voice_gender, aiHealth?.tts_female, mirror, workplace]);
@@ -484,11 +486,8 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   };
 
   if (mirror && workplace) return <>
-    <div className="simulation-capture" aria-hidden="true"><video ref={analysisVideoRef} autoPlay muted playsInline /><canvas ref={overlayRef} /></div>
-    <WorkplaceMirrorSceneSimulation category={sceneBriefing?.category_id} characterId={character?.id} name={characterName} videoState={teamLeadVideoState} paused={paused || entryOverlayOpen} dialogueHidden={entryOverlayOpen} onReactionComplete={() => setTeamLeadReaction("")} waveRef={waveRef} captureStatus={{ recording: audioRecording && hasMicrophone && !captureError, audioError: Boolean(captureError), cameraReady: hasCamera && track.status === "ready", cameraStarting: hasCamera && track.status === "loading", cameraError: track.status === "failed" }}>
-      <p className="simulation-dialogue-name">{characterName}</p>
-      <h1 id="mirror-dialogue-title" className="simulation-dialogue-text">{sceneOverlayOpen ? sceneBriefing.situation : turnSpeech || "다음 대화를 준비하고 있어요."}</h1>
-      <p className="simulation-dialogue-status" role="status">{sceneOverlayOpen ? "잠시 후 대화가 시작돼요." : inputStatus.title === "직접 입력" ? "마이크 연결을 확인해 주세요." : inputStatus.title}</p>
+    <WorkplaceMirrorSceneSimulation speechPlayback={speechPlayback} dialogue={turnSpeech || "다음 대화를 준비하고 있어요."} userPreview={<div className="simulation-user-preview" aria-label="내 카메라와 실시간 추적"><video ref={analysisVideoRef} autoPlay muted playsInline aria-label="내 카메라" /><canvas ref={overlayRef} aria-hidden="true" />{!hasCamera && <span>카메라 꺼짐</span>}</div>} category={sceneBriefing?.category_id} characterId={character?.id} name={characterName} videoState={teamLeadVideoState} paused={paused || entryOverlayOpen} dialogueHidden={entryOverlayOpen} onReactionComplete={() => setTeamLeadReaction("")} waveRef={waveRef} captureStatus={{ recording: audioRecording && hasMicrophone && !captureError, audioError: Boolean(captureError), cameraReady: hasCamera && track.status === "ready", cameraStarting: hasCamera && track.status === "loading", cameraError: track.status === "failed" }}>
+      {inputStatus.title === "직접 입력" && <p className="simulation-dialogue-status" role="status">마이크 연결을 확인해 주세요.</p>}
       {!entryOverlayOpen && inputValue && <div className="simulation-answer"><p>{inputValue}</p></div>}
       {liveTip && <p className="simulation-dialogue-status" role="status"><strong>대화 팁 · </strong>{liveTip.message}</p>}
 
