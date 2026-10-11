@@ -1,138 +1,463 @@
 {
-  "platform": "Google Vertex AI Veo 3.1",
-  "reference": "female-reference.jpeg",
-  "resolution": [
-    2160,
-    3840
-  ],
-  "aspect_ratio": "9:16",
-  "duration_seconds": 8,
-  "audio": false,
-  "credit_policy": "Free/trial credit only",
-  "direction": "Very subtle expression and nearly stationary head; continuous natural speech articulation for most of the shot",
-  "clips": [
+  "approved_character": "approved-character.png",
+  "provider": "Google Vertex Veo 3.1",
+  "spec": {
+    "width": 2160,
+    "height": 3840,
+    "seconds": 8,
+    "audio": false,
+    "free_trial_only": true
+  },
+  "required": 18,
+  "verified": 18,
+  "items": [
     {
-      "name": "speaking-base",
-      "prompt_file": "speaking-base.txt",
-      "status": "generated_and_sampled_frames_checked",
-      "output_file": "mvp/src/assets/workplace-videos/speaking-base.mp4",
-      "sha256": "fc1b6665952aab4ffd1ea1d271972a17d62cd9b2b8de0472e62eab27c8465f1e",
+      "id": "morning-speaking-base",
+      "status": "downloaded",
+      "verified": true,
+      "attempt": 2,
+      "reference": "morning-reference.png",
+      "file": "mvp/src/assets/workplace-videos/morning/speaking-base.mp4",
+      "qa": "Format verified; full-motion visual review pending",
       "metadata": {
         "programs": [],
         "stream_groups": [],
         "streams": [
           {
-            "codec_type": "video",
             "width": 2160,
             "height": 3840,
             "r_frame_rate": "24/1"
           }
         ],
         "format": {
-          "duration": "8.000000"
+          "duration": "8.000000",
+          "size": "16410113"
         }
       },
-      "visual_check": "Head and both shoes visible; conversational mouth movements in most sampled frames. Some mild head tilt and smile remain; no precise TTS lip sync."
+      "sha256": "ff5f738ac6c9827948e2088db00265b1d4a670de91712b0e98b0feeab33ed623"
     },
     {
-      "name": "joy",
-      "prompt_file": "joy.txt",
-      "status": "generated_and_sampled_frames_checked",
-      "output_file": "mvp/src/assets/workplace-videos/joy.mp4",
-      "sha256": "3c4ba0d3fa194bae93861f7a1cb5c859d8798a63e4b8787464e2de8edc0511e5",
+      "id": "morning-joy",
+      "status": "downloaded",
+      "verified": true,
+      "reference": "morning-reference.png",
+      "file": "mvp/src/assets/workplace-videos/morning/joy.mp4",
       "metadata": {
         "programs": [],
         "stream_groups": [],
         "streams": [
           {
-            "codec_type": "video",
             "width": 2160,
             "height": 3840,
             "r_frame_rate": "24/1"
           }
         ],
         "format": {
-          "duration": "8.000000"
+          "duration": "8.000000",
+          "size": "15927744"
         }
       },
-      "visual_check": "Head and both shoes visible; conversational mouth movements in most sampled frames. Some mild head tilt and smile remain; no precise TTS lip sync."
+      "qa": "Format verified; full-motion visual review pending",
+      "sha256": "38881a6dc0fce00f5bedbb2709bc0d732364dae376494679e2cab9e7e843d9fd"
     },
     {
-      "name": "disappointment",
-      "prompt_file": "disappointment.txt",
-      "status": "generated_and_sampled_frames_checked",
-      "output_file": "mvp/src/assets/workplace-videos/disappointment.mp4",
-      "sha256": "9dd3a5a715ab291332f9f9cc74816e3c6abb9ad0de318cb738253b17c15d89b5",
+      "id": "morning-disappointment",
+      "status": "downloaded",
+      "verified": true,
+      "reference": "morning-reference.png",
+      "file": "mvp/src/assets/workplace-videos/morning/disappointment.mp4",
       "metadata": {
         "programs": [],
         "stream_groups": [],
         "streams": [
           {
-            "codec_type": "video",
             "width": 2160,
             "height": 3840,
             "r_frame_rate": "24/1"
           }
         ],
         "format": {
-          "duration": "8.000000"
+          "duration": "8.000000",
+          "size": "15883543"
         }
       },
-      "visual_check": "Head and both shoes visible; conversational mouth movements in most sampled frames. Some mild head tilt and smile remain; no precise TTS lip sync."
+      "qa": "Format verified; full-motion visual review pending",
+      "sha256": "b42a55d4edfb485210e38b638c83c782034b2a3d066f1e8e1c6721392509e1ef"
     },
     {
-      "name": "irritation",
-      "prompt_file": "irritation.txt",
-      "status": "generated_and_sampled_frames_checked",
-      "output_file": "mvp/src/assets/workplace-videos/irritation.mp4",
-      "sha256": "51d722ca96ff3482ada2f412ec1354e1f30af578eaaee58af8be7d3a3df8b325",
+      "id": "morning-irritation",
+      "status": "downloaded",
+      "verified": true,
+      "reference": "morning-reference.png",
+      "file": "mvp/src/assets/workplace-videos/morning/irritation.mp4",
       "metadata": {
         "programs": [],
         "stream_groups": [],
         "streams": [
           {
-            "codec_type": "video",
             "width": 2160,
             "height": 3840,
             "r_frame_rate": "24/1"
           }
         ],
         "format": {
-          "duration": "8.000000"
+          "duration": "8.000000",
+          "size": "15815379"
         }
       },
-      "visual_check": "Head and both shoes visible; conversational mouth movements in most sampled frames. Some mild head tilt and smile remain; no precise TTS lip sync."
+      "qa": "Format verified; full-motion visual review pending",
+      "sha256": "c4bb52f9cf44774400f2ec9b913641dfcc4806a40fe09fd052f583f184e40f4d"
     },
     {
-      "name": "anger",
-      "prompt_file": "anger.txt",
-      "status": "generated_and_sampled_frames_checked",
-      "output_file": "mvp/src/assets/workplace-videos/anger.mp4",
-      "sha256": "feb5c2c85c7daf569132eca0232a20c0b6eb2e89961e70b0460b11c191db4971",
+      "id": "morning-anger",
+      "status": "downloaded",
+      "verified": true,
+      "reference": "morning-reference.png",
+      "file": "mvp/src/assets/workplace-videos/morning/anger.mp4",
       "metadata": {
         "programs": [],
         "stream_groups": [],
         "streams": [
           {
-            "codec_type": "video",
             "width": 2160,
             "height": 3840,
             "r_frame_rate": "24/1"
           }
         ],
         "format": {
-          "duration": "8.000000"
+          "duration": "8.000000",
+          "size": "17578890"
         }
       },
-      "visual_check": "Head and both shoes visible; conversational mouth movements in most sampled frames. Some mild head tilt and smile remain; no precise TTS lip sync."
+      "qa": "Format verified; full-motion visual review pending",
+      "sha256": "10f6297ac6feeffe013292d31ce1b28e226ed254e2802439c7cde8a4ef911c8d"
+    },
+    {
+      "id": "morning-listening",
+      "status": "downloaded",
+      "verified": true,
+      "reference": "morning-reference.png",
+      "file": "mvp/src/assets/workplace-videos/morning/listening.mp4",
+      "metadata": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "width": 2160,
+            "height": 3840,
+            "r_frame_rate": "24/1"
+          }
+        ],
+        "format": {
+          "duration": "8.000000",
+          "size": "15393342"
+        }
+      },
+      "qa": "Format verified; full-motion visual review pending",
+      "sha256": "0e7332e7e70e8a7cd0b141c3d72783e527f027d24ec5538c5e7f4fe358c29a02"
+    },
+    {
+      "id": "work-speaking-base",
+      "status": "downloaded",
+      "verified": true,
+      "reference": "work-reference.png",
+      "file": "mvp/src/assets/workplace-videos/work/speaking-base.mp4",
+      "qa": "Format verified; full-motion visual review pending",
+      "metadata": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "width": 2160,
+            "height": 3840,
+            "r_frame_rate": "24/1"
+          }
+        ],
+        "format": {
+          "duration": "8.000000",
+          "size": "21579377"
+        }
+      },
+      "sha256": "f93ffceb27f1711676d396b65b69da389187d56457238b2d4b92bcf8138fc5de"
+    },
+    {
+      "id": "work-joy",
+      "status": "downloaded",
+      "verified": true,
+      "reference": "work-reference.png",
+      "file": "mvp/src/assets/workplace-videos/work/joy.mp4",
+      "metadata": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "width": 2160,
+            "height": 3840,
+            "r_frame_rate": "24/1"
+          }
+        ],
+        "format": {
+          "duration": "8.000000",
+          "size": "24310798"
+        }
+      },
+      "qa": "Format verified; full-motion visual review pending",
+      "sha256": "87b718fb1bfafc3b739342d22af06f75df6af8fe475f876d63e5110572aaeaa3"
+    },
+    {
+      "id": "work-disappointment",
+      "status": "downloaded",
+      "verified": true,
+      "reference": "work-reference.png",
+      "file": "mvp/src/assets/workplace-videos/work/disappointment.mp4",
+      "metadata": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "width": 2160,
+            "height": 3840,
+            "r_frame_rate": "24/1"
+          }
+        ],
+        "format": {
+          "duration": "8.000000",
+          "size": "24071301"
+        }
+      },
+      "qa": "Format verified; full-motion visual review pending",
+      "sha256": "5cc57d27f6489603df7e115936ed00f1ae3909d98fe0400774a657718703b8bb"
+    },
+    {
+      "id": "work-irritation",
+      "status": "downloaded",
+      "verified": true,
+      "reference": "work-reference.png",
+      "file": "mvp/src/assets/workplace-videos/work/irritation.mp4",
+      "metadata": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "width": 2160,
+            "height": 3840,
+            "r_frame_rate": "24/1"
+          }
+        ],
+        "format": {
+          "duration": "8.000000",
+          "size": "25539446"
+        }
+      },
+      "qa": "Format verified; full-motion visual review pending",
+      "sha256": "2078790023b2434df90f64a930a32a5b39da4b38d98b744265b0c9536432dbbe"
+    },
+    {
+      "id": "work-anger",
+      "status": "downloaded",
+      "verified": true,
+      "reference": "work-reference.png",
+      "file": "mvp/src/assets/workplace-videos/work/anger.mp4",
+      "metadata": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "width": 2160,
+            "height": 3840,
+            "r_frame_rate": "24/1"
+          }
+        ],
+        "format": {
+          "duration": "8.000000",
+          "size": "26501802"
+        }
+      },
+      "qa": "Format verified; full-motion visual review pending",
+      "sha256": "3f4a205e7c61da627cbb0367019639f44d56560cf8b5af7c6c593b3d207e1cdd"
+    },
+    {
+      "id": "work-listening",
+      "status": "downloaded",
+      "verified": true,
+      "reference": "work-reference.png",
+      "file": "mvp/src/assets/workplace-videos/work/listening.mp4",
+      "metadata": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "width": 2160,
+            "height": 3840,
+            "r_frame_rate": "24/1"
+          }
+        ],
+        "format": {
+          "duration": "8.000000",
+          "size": "20354746"
+        }
+      },
+      "qa": "Format verified; full-motion visual review pending",
+      "sha256": "abac1820196d16f4b1c4e39f425193205a05f1ad2b20811795215def8b6eb379"
+    },
+    {
+      "id": "leaving-speaking-base",
+      "status": "downloaded",
+      "verified": true,
+      "reference": "leaving-reference.png",
+      "file": "mvp/src/assets/workplace-videos/leaving/speaking-base.mp4",
+      "qa": "Format verified; full-motion visual review pending",
+      "metadata": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "width": 2160,
+            "height": 3840,
+            "r_frame_rate": "24/1"
+          }
+        ],
+        "format": {
+          "duration": "8.000000",
+          "size": "19166510"
+        }
+      },
+      "sha256": "6f5767bcda1146237cc5930289cbdd864a36a50eb6269d2a7e947c3fba0aed9b"
+    },
+    {
+      "id": "leaving-joy",
+      "status": "downloaded",
+      "verified": true,
+      "reference": "leaving-reference.png",
+      "file": "mvp/src/assets/workplace-videos/leaving/joy.mp4",
+      "metadata": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "width": 2160,
+            "height": 3840,
+            "r_frame_rate": "24/1"
+          }
+        ],
+        "format": {
+          "duration": "8.000000",
+          "size": "16212615"
+        }
+      },
+      "qa": "Format verified; full-motion visual review pending",
+      "sha256": "50dded032f7813dd3e56f0ffc9f8fe5fc7450ad788ca06916ab5a2ea5ab72698"
+    },
+    {
+      "id": "leaving-disappointment",
+      "status": "downloaded",
+      "verified": true,
+      "reference": "leaving-reference.png",
+      "file": "mvp/src/assets/workplace-videos/leaving/disappointment.mp4",
+      "metadata": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "width": 2160,
+            "height": 3840,
+            "r_frame_rate": "24/1"
+          }
+        ],
+        "format": {
+          "duration": "8.000000",
+          "size": "17007980"
+        }
+      },
+      "qa": "Format verified; full-motion visual review pending",
+      "sha256": "313102c5a4fdb75bfb829f07c78a913eeecee60505465f941102f521202f7f9b"
+    },
+    {
+      "id": "leaving-irritation",
+      "status": "downloaded",
+      "verified": true,
+      "reference": "leaving-reference.png",
+      "file": "mvp/src/assets/workplace-videos/leaving/irritation.mp4",
+      "metadata": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "width": 2160,
+            "height": 3840,
+            "r_frame_rate": "24/1"
+          }
+        ],
+        "format": {
+          "duration": "8.000000",
+          "size": "16291757"
+        }
+      },
+      "qa": "Format verified; full-motion visual review pending",
+      "sha256": "8383afbf45976facbe53d1a185d0b1eda5e218173f358d9e4e9b7e048c245c15"
+    },
+    {
+      "id": "leaving-anger",
+      "status": "downloaded",
+      "verified": true,
+      "reference": "leaving-reference.png",
+      "file": "mvp/src/assets/workplace-videos/leaving/anger.mp4",
+      "metadata": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "width": 2160,
+            "height": 3840,
+            "r_frame_rate": "24/1"
+          }
+        ],
+        "format": {
+          "duration": "8.000000",
+          "size": "19378628"
+        }
+      },
+      "qa": "Format verified; full-motion visual review pending",
+      "sha256": "056f77592d48321b0a7d0e17a1ba14b587761507afd59c00a5c73374a67eb35e"
+    },
+    {
+      "id": "leaving-listening",
+      "status": "downloaded",
+      "verified": true,
+      "reference": "leaving-reference.png",
+      "file": "mvp/src/assets/workplace-videos/leaving/listening.mp4",
+      "metadata": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "width": 2160,
+            "height": 3840,
+            "r_frame_rate": "24/1"
+          }
+        ],
+        "format": {
+          "duration": "8.000000",
+          "size": "19773109"
+        }
+      },
+      "qa": "Format verified; full-motion visual review pending",
+      "sha256": "f8a331e2c75acd725a5cb3b1a394993ef61bb14a6ddbbf626c378d6750325c13"
     }
   ],
-  "status": "integrated_into_service",
-  "integrated_into_service": true,
-  "notes": [
-    "Irritation first attempt and speaking-base second refinement were filtered with safety code 15236754; adult-only safety settings preserved",
-    "Disappointment first attempt replaced by a second generated candidate",
-    "Movement restriction is not perfectly followed; review before service replacement"
+  "scene_references": {
+    "morning": "morning-reference.png",
+    "work": "work-reference.png",
+    "leaving": "leaving-reference.png"
+  },
+  "discarded_drafts": [
+    {
+      "id": "morning-studio-draft",
+      "reason": "studio background remained; not counted",
+      "observed_width": 2160,
+      "observed_height": 3840,
+      "observed_seconds": 8
+    }
   ],
-  "service_commit": "2898a98"
+  "browser_generation_tabs_closed": true
 }

@@ -46,3 +46,6 @@
 .mirror-capture-wave[data-active="false"] i { transform: scaleY(.18) !important; opacity: .4; }
 
 @media (prefers-reduced-motion: reduce) { .mirror-capture-wave i { transform: scaleY(.18) !important; } }
+
+/* 배경 포함 세로 영상은 원본 비율로 표시한다. */
+.simulation-actor > video.counterpart-video { object-fit: contain; object-position: center; mask-image: none; }

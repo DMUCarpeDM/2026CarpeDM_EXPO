@@ -7,31 +7,63 @@ import cafeComplaintListening from "../assets/team-lead-videos/team-lead-complai
 import cafeComplaintReaction from "../assets/team-lead-videos/team-lead-complaint-reaction.mp4";
 import cafeListening from "../assets/team-lead-videos/team-lead-listening-smile.mp4";
 import cafeSpeaking from "../assets/team-lead-videos/team-lead-speaking-smile.mp4";
-import workplaceSpeakingBase from "../assets/workplace-videos/speaking-base.mp4";
-import workplaceJoy from "../assets/workplace-videos/joy.mp4";
-import workplaceDisappointment from "../assets/workplace-videos/disappointment.mp4";
-import workplaceIrritation from "../assets/workplace-videos/irritation.mp4";
-import workplaceAnger from "../assets/workplace-videos/anger.mp4";
+import morningSpeakingBase from "../assets/workplace-videos/morning/speaking-base.mp4";
+import morningJoy from "../assets/workplace-videos/morning/joy.mp4";
+import morningDisappointment from "../assets/workplace-videos/morning/disappointment.mp4";
+import morningIrritation from "../assets/workplace-videos/morning/irritation.mp4";
+import morningAnger from "../assets/workplace-videos/morning/anger.mp4";
+import morningListening from "../assets/workplace-videos/morning/listening.mp4";
+import workSpeakingBase from "../assets/workplace-videos/work/speaking-base.mp4";
+import workJoy from "../assets/workplace-videos/work/joy.mp4";
+import workDisappointment from "../assets/workplace-videos/work/disappointment.mp4";
+import workIrritation from "../assets/workplace-videos/work/irritation.mp4";
+import workAnger from "../assets/workplace-videos/work/anger.mp4";
+import workListening from "../assets/workplace-videos/work/listening.mp4";
+import leavingSpeakingBase from "../assets/workplace-videos/leaving/speaking-base.mp4";
+import leavingJoy from "../assets/workplace-videos/leaving/joy.mp4";
+import leavingDisappointment from "../assets/workplace-videos/leaving/disappointment.mp4";
+import leavingIrritation from "../assets/workplace-videos/leaving/irritation.mp4";
+import leavingAnger from "../assets/workplace-videos/leaving/anger.mp4";
+import leavingListening from "../assets/workplace-videos/leaving/listening.mp4";
 
-/** 직장대화 공용 클립 — 기본말하기 + 감정 4종. 여성 전신 9:16 · 2160×3840 · 24fps · 8초 · 무음. 네 캐릭터가 공유한다. */
+/** 장소별 여성 전신 4K 영상: 기본 발화·감정 4종·듣기. 배경이 영상에 포함된다. */
 const WORKPLACE_VIDEOS = Object.freeze({
-  speaking: workplaceSpeakingBase,
-  listening: workplaceSpeakingBase,
-  joy: workplaceJoy,
-  disappointment: workplaceDisappointment,
-  irritation: workplaceIrritation,
-  anger: workplaceAnger,
+  morning: Object.freeze({
+    speaking: morningSpeakingBase,
+    joy: morningJoy,
+    disappointment: morningDisappointment,
+    irritation: morningIrritation,
+    anger: morningAnger,
+    listening: morningListening,
+  }),
+  work: Object.freeze({
+    speaking: workSpeakingBase,
+    joy: workJoy,
+    disappointment: workDisappointment,
+    irritation: workIrritation,
+    anger: workAnger,
+    listening: workListening,
+  }),
+  leaving: Object.freeze({
+    speaking: leavingSpeakingBase,
+    joy: leavingJoy,
+    disappointment: leavingDisappointment,
+    irritation: leavingIrritation,
+    anger: leavingAnger,
+    listening: leavingListening,
+  }),
 });
 
 const WORKPLACE_REACTION_STATES = Object.freeze(["joy", "disappointment", "irritation", "anger"]);
 
-function workplaceMedia(name) {
+function workplaceMedia(name, category) {
   return {
     name,
-    chromaKey: true,
+    chromaKey: false,
     videoOrientation: "portrait",
     reactionStates: WORKPLACE_REACTION_STATES,
-    videos: WORKPLACE_VIDEOS,
+    videos: WORKPLACE_VIDEOS[category],
+    videosByScene: WORKPLACE_VIDEOS,
   };
 }
 
@@ -74,10 +106,10 @@ export const CHARACTER_MEDIA = {
     },
   },
   // 직장대화 팩(workplace-conversation) — 기본말하기를 루프하고 감정 클립은 1회 재생 후 복귀
-  park_senior: workplaceMedia("박선임"),
-  lee_teamlead: workplaceMedia("이팀장"),
-  choi_coworker: workplaceMedia("최동료"),
-  yoon_partner: workplaceMedia("윤 담당"),
+  park_senior: workplaceMedia("박선임", "morning"),
+  lee_teamlead: workplaceMedia("이팀장", "work"),
+  choi_coworker: workplaceMedia("최동료", "leaving"),
+  yoon_partner: workplaceMedia("윤 담당", "work"),
 };
 
 /** 이름·id가 모두 없는 자리(리포트 '하루의 결말' 카드)에 쓰는 기본 초상.
@@ -86,8 +118,10 @@ export const CHARACTER_MEDIA = {
 export const DEFAULT_PORTRAIT_CHARACTER_ID = "kim_teamlead";
 
 /** character_id로 자산 조회 */
-export function mediaById(characterId) {
-  return (characterId && CHARACTER_MEDIA[characterId]) || null;
+export function mediaById(characterId, category) {
+  const media = (characterId && CHARACTER_MEDIA[characterId]) || null;
+  const videos = media?.videosByScene?.[category];
+  return videos ? { ...media, videos } : media;
 }
 
 /** 이름으로 자산 조회 — id를 모르는 화면용.

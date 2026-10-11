@@ -96,12 +96,12 @@ function ChromaKeyVideo({ source, name, paused, loop, onEnded, onError, orientat
 /** AI 상대의 반응 영상 — 듣기/말하기/긍정/부정 4상태를 클립으로 전환한다.
  *  자산은 data/characterMedia.js 등록부에서 character_id로 찾는다(팀장 전용 아님).
  *  등록이 없으면 렌더하지 않는다 — 호출부가 hasCharacterVideo로 먼저 거른다. */
-export function CounterpartVideo({ characterId, state = "listening", name = "AI 상대", paused = false, onReactionComplete }) {
+export function CounterpartVideo({ characterId, category, state = "listening", name = "AI 상대", paused = false, onReactionComplete }) {
   const reducedMotion = useReducedMotion();
   const videoRef = useRef(null);
   const previousSourceRef = useRef("");
   const [failed, setFailed] = useState(false);
-  const media = mediaById(characterId);
+  const media = mediaById(characterId, category);
   const clips = media?.videos;
   const source = clips ? (clips[state] || clips.listening) : "";
   const reactionStates = media?.reactionStates || ["positive", "negative"];
