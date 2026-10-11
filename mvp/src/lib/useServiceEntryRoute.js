@@ -25,7 +25,6 @@ import { WORKPLACE_SCENARIO_SLUG } from "./workplaceTrack";
 
 export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, visitorEpochRef, onVisitorReset }) {
   const deploymentServiceModeId = currentDeploymentServiceMode();
-  const liveMirrorTest = import.meta.env.DEV && isMirrorDeployment() && new URLSearchParams(location.search).get("test") === "live";
   const [active, setActive] = useState("boot");
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedServiceModeId, setSelectedServiceModeId] = useState(deploymentServiceModeId || null);
@@ -270,7 +269,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
 
   return {
     state: {
-      active, menuOpen, selectedServiceModeId, counterpartProfile, difficulty, session, turn, liveMirrorTest, directMirrorEntry,
+      active, menuOpen, selectedServiceModeId, counterpartProfile, difficulty, session, turn, directMirrorEntry,
       turnHistory, turnSignals, report, history, pocScenarioSlug, selectedEpisodeId, nfcCard,
       nfcFallback, consented, apiError,
     },

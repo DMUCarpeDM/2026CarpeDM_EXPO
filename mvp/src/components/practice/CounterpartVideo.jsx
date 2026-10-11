@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
+import { createChromaKeyRenderer } from "../../lib/chromaKeyRenderer";
 import { mediaById } from "../../data/characterMedia";
 
 function ChromaKeyVideo({ source, name, paused, loop, onEnded, onError, orientation }) {
@@ -17,8 +18,14 @@ function ChromaKeyVideo({ source, name, paused, loop, onEnded, onError, orientat
 
     let active = true;
     let lastDraw = 0;
+    let renderer;
+    try { renderer = createChromaKeyRenderer(canvas); }
+    catch { onErrorRef.current?.(); return undefined; }
+    let lastMediaTime = -1;
     const draw = (timestamp = 0) => {
-      if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && timestamp - lastDraw >= 33) {
+      if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && timestamp - lastDraw >= 30 && video.currentTime !== lastMediaTime) {
+        if (renderer) renderer.draw(video);
+        else {
         const width = Math.min(video.videoWidth || 960, 960);
         const height = Math.round(width * ((video.videoHeight || 540) / (video.videoWidth || 960)));
         if (canvas.width !== width || canvas.height !== height) {
@@ -44,6 +51,8 @@ function ChromaKeyVideo({ source, name, paused, loop, onEnded, onError, orientat
           }
         }
         context.putImageData(frame, 0, 0);
+        }
+        lastMediaTime = video.currentTime;
         lastDraw = timestamp;
       }
       if (!video.paused && !video.ended) frameRef.current = window.requestAnimationFrame(draw);
@@ -63,6 +72,7 @@ function ChromaKeyVideo({ source, name, paused, loop, onEnded, onError, orientat
       video.removeEventListener("play", start);
       video.removeEventListener("loadeddata", paintFirstFrame);
       video.pause();
+      renderer?.dispose();
     };
   }, [source, paused]);
 

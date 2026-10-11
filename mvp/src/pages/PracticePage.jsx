@@ -44,7 +44,7 @@ function containDialogTab(event) {
   else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
 }
 
-export function PracticePage({ manualTest = false, onPrev, onFinish, session, scenario, aiHealth, turn, history, turnSignals, onSubmit, busy, error, mediaStream, onRequestMedia, onSwitchMic }) {
+export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, turn, history, turnSignals, onSubmit, busy, error, mediaStream, onRequestMedia, onSwitchMic }) {
   const mirror = isMirrorDeployment();
   const voice = useVoiceCalibration(session, mediaStream);
   const exclusionsRef = useRef([]);
@@ -181,11 +181,11 @@ export function PracticePage({ manualTest = false, onPrev, onFinish, session, sc
   useEffect(() => {
     const text = turnSpeech;
     if (!text || paused || entryOverlayOpen) return undefined;
-    const femaleVoice = character?.voice_gender === "female" && aiHealth?.tts_female === "iris";
+    const femaleVoice = (mirror && workplace) || character?.voice_gender === "female";
     return startTurnSpeech({
       text,
-      voice: character?.voice_gender === "female" ? "female" : "male",
-      serverTtsReady: femaleVoice,
+      voice: femaleVoice ? "female" : "male",
+      serverTtsReady: femaleVoice && aiHealth?.tts_female === "iris",
       onSpeakingChange: (speaking) => {
         aiSpeechActiveRef.current = speaking;
         if (speaking) stopBrowserRecognition();
@@ -195,7 +195,7 @@ export function PracticePage({ manualTest = false, onPrev, onFinish, session, sc
       onFinish: () => {}, // 질문은 음성 재생 종료 후에도 입력 패널에 유지한다.
       onNote: ttsNoteOnce,
     });
-  }, [turn?.id, turnSpeech, paused, entryOverlayOpen, character?.voice_gender, aiHealth?.tts_female]);
+  }, [turn?.id, turnSpeech, paused, entryOverlayOpen, character?.voice_gender, aiHealth?.tts_female, mirror, workplace]);
 
   useEffect(() => {
     // 브리핑이 닫히는 순간 그동안 쌓인 비언어 표본을 버려 집계 창을 정렬한다
@@ -488,16 +488,10 @@ export function PracticePage({ manualTest = false, onPrev, onFinish, session, sc
     <WorkplaceMirrorSceneSimulation category={sceneBriefing?.category_id} characterId={character?.id} name={characterName} videoState={teamLeadVideoState} paused={paused || entryOverlayOpen} dialogueHidden={entryOverlayOpen} onReactionComplete={() => setTeamLeadReaction("")} waveRef={waveRef} captureStatus={{ recording: audioRecording && hasMicrophone && !captureError, audioError: Boolean(captureError), cameraReady: hasCamera && track.status === "ready", cameraStarting: hasCamera && track.status === "loading", cameraError: track.status === "failed" }}>
       <p className="simulation-dialogue-name">{characterName}</p>
       <h1 id="mirror-dialogue-title" className="simulation-dialogue-text">{sceneOverlayOpen ? sceneBriefing.situation : turnSpeech || "다음 대화를 준비하고 있어요."}</h1>
-      <p className="simulation-dialogue-status" role="status">{sceneOverlayOpen ? "잠시 후 대화가 시작돼요." : inputStatus.title}</p>
-      {voice.skipped && <p className="simulation-dialogue-status">목소리 기준 미확인 · 음성 입력은 계속돼요.</p>}
-      {!entryOverlayOpen && <div className="simulation-answer">
-        {voice.textOnly || !hasMicrophone || sttMode === "off" ? <>
-          <label htmlFor="mirror-answer">답변</label><textarea id="mirror-answer" value={inputValue} disabled={busy || !turn} onChange={event => { clearAutoSubmit(); setDraft(event.target.value); setInterim(""); }} />
-          <button type="button" onClick={submitDraft} disabled={busy || paused || !inputValue.trim() || !turn}>답변 보내기</button>
-        </> : inputValue && <p>{inputValue}</p>}
-      </div>}
+      <p className="simulation-dialogue-status" role="status">{sceneOverlayOpen ? "잠시 후 대화가 시작돼요." : inputStatus.title === "직접 입력" ? "마이크 연결을 확인해 주세요." : inputStatus.title}</p>
+      {!entryOverlayOpen && inputValue && <div className="simulation-answer"><p>{inputValue}</p></div>}
       {liveTip && <p className="simulation-dialogue-status" role="status"><strong>대화 팁 · </strong>{liveTip.message}</p>}
-      {manualTest && !entryOverlayOpen && <div className="simulation-answer"><button type="button" disabled={busy || !history.length} onClick={onFinish}>제출한 답변으로 결과 보기</button></div>}
+
       {(error || captureError || mediaError) && <p className="simulation-dialogue-status" role="alert">{error || captureError || mediaError}</p>}
     </WorkplaceMirrorSceneSimulation>
     {sceneOverlayOpen && <MirrorScenarioBriefing key={turn?.episode_id} briefing={sceneBriefing} onClose={() => setSceneBriefingOpen(false)} />}

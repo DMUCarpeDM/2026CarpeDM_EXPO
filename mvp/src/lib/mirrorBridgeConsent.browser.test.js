@@ -226,7 +226,7 @@ test("mirror microphone deadline continues speech input at 10 seconds and ignore
   await finishCalibration();
   await page.clock.runFor(5100);
   await page.getByRole("dialog").waitFor({ state: "hidden" });
-  await page.getByText("목소리 기준 미확인 · 음성 입력은 계속돼요.", { exact: true }).waitFor();
+  assert.equal(await page.getByText("목소리 기준 미확인 · 음성 입력은 계속돼요.", { exact: true }).count(), 0);
   await page.getByText("음성 녹음 중", { exact: true }).waitFor();
   assert.equal(await page.locator(".simulation-card-slot").count(), 1);
 });
@@ -246,7 +246,7 @@ test("live mirror entry creates a real anonymous session from the disclosed NFC 
   await page.clock.fastForward(34000);
   await page.getByRole("region", { name: "직장 대화 시뮬레이션", exact: true }).waitFor();
   assert.equal(creates.length, 1);
-  await page.getByRole("button", { name: "제출한 답변으로 결과 보기" }).waitFor();
-  assert.equal(await page.getByRole("button", { name: "제출한 답변으로 결과 보기" }).isDisabled(), true);
+  for (const name of ["제출한 답변으로 결과 보기", "답변 보내기"]) assert.equal(await page.getByRole("button", { name }).count(), 0);
+
   assert.equal(await page.getByText("미리보기 · 녹음 안 함", { exact: true }).count(), 0);
 });

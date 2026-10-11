@@ -37,7 +37,7 @@ export function ServiceEntryShell({
   const {
     active, menuOpen, selectedServiceModeId, counterpartProfile, difficulty,
     session, turn, turnHistory, turnSignals, report, history, selectedEpisodeId,
-    nfcFallback, nfcCard, consented, apiError, liveMirrorTest,
+    nfcFallback, nfcCard, consented, apiError,
   } = entry.state;
   const { setMenuOpen, setDifficulty, setNfcFallback, setNfcCard, setConsented, setPocScenarioSlug } = entry.setters;
   const { navigate, go, chooseServiceMode, chooseCounterpartProfile, chooseScenario, startFromJobRole, startMirrorExperience } = entry.actions;
@@ -85,7 +85,7 @@ export function ServiceEntryShell({
       {active === "scenario" && <ScenarioSelectPage serviceMode={serviceMode} counterpartProfile={counterpartProfile} scenarios={apiScenarios} status={scenarioStatus} onRetry={retryScenarios} selectedEpisodeId={selectedEpisodeId} onScenario={chooseScenario} onPrev={() => go(-1)} onNext={() => navigate("difficulty")} />}
       {active === "difficulty" && <DifficultyPage serviceMode={serviceMode} counterpartProfile={counterpartProfile} scenario={previewScenario} selectedEpisode={previewEpisode} difficulty={difficulty} onDifficulty={setDifficulty} onPrev={() => go(-1)} onNext={() => navigate("preview")} />}
       {active === "preview" && <PreviewPage serviceMode={serviceMode} onPrev={() => navigate("difficulty")} onNext={startPractice} onPrepare={prepareMirror} previewKey={`${nfcCard?.uid || ""}:${nfcCard?.issuedCount || ""}:${nfcCard?.kioskSessionId || ""}`} starting={starting} scenario={previewScenario} selectedEpisode={previewEpisode} counterpartProfile={previewCounterpartProfile} difficulty={difficultyOption} aiHealth={aiHealth} consented={consented} onConsent={setConsented} error={apiError} permissionState={permissionState} mode={mode} />}
-      {active === "practice" && <PracticePage manualTest={liveMirrorTest} session={session} onFinish={endPractice} onPrev={() => go(-1)} scenario={session?.scenario} aiHealth={aiHealth} turn={turn} history={turnHistory} turnSignals={turnSignals} onSubmit={sendAnswer} busy={submitting} error={apiError} mediaStream={mediaStream} onRequestMedia={requestExerciseMedia} onSwitchMic={switchMicDevice} />}
+      {active === "practice" && <PracticePage session={session} onFinish={endPractice} onPrev={() => go(-1)} scenario={session?.scenario} aiHealth={aiHealth} turn={turn} history={turnHistory} turnSignals={turnSignals} onSubmit={sendAnswer} busy={submitting} error={apiError} mediaStream={mediaStream} onRequestMedia={requestExerciseMedia} onSwitchMic={switchMicDevice} />}
       {active === "result" && <ResultPage mirror={mirror && serviceMode?.id === "workplace"} onPrev={() => navigate("home")} onPractice={() => navigate("preview")} report={report} history={history} onIssueCode={issueCode} selectedDifficulty={difficulty} progress={analysisProgress} error={apiError} />}
     </main>
     <span className="screen-reader-note" aria-live="polite">현재 화면: {current.label}</span>

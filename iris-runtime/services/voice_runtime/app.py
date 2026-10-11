@@ -247,6 +247,7 @@ def voice_prepare(req: VoicePrepareRequest) -> Any:
 
 class SpeechRequest(BaseModel):
     text: str
+    force_regenerate: bool = False
     # 비우면 커밋된 보이스 프로필을 쓰고 톤은 텍스트에서 추론한다.
     voice_prompt_hash: str = ""
     tts_model_name: str = DEFAULT_TTS_MODEL
@@ -277,6 +278,7 @@ def speech(req: SpeechRequest) -> Any:
                 tts_model_name=req.tts_model_name,
                 output_dir=out_dir,
                 tone=req.tone,
+                force_regenerate=req.force_regenerate,
             )
         return SpeechResponse(
             audio_path=result.audio_path, text=result.text, tone=result.tone

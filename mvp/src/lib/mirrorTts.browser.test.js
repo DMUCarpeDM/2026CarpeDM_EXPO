@@ -3,13 +3,13 @@ import test from "node:test";
 import { chromium } from "playwright";
 import { startVite } from "./serviceEntryRouteHarness.js";
 
-test("mirror uses Iris only for a ready female voice and falls back without ElevenLabs", { timeout: 75_000 }, async (t) => {
+test("workplace mirror uses Iris for every female avatar and falls back without ElevenLabs", { timeout: 75_000 }, async (t) => {
   const { server, url } = await startVite();
   t.after(() => server.close());
   const browser = await chromium.launch({ channel: "chrome", headless: true });
   t.after(() => browser.close());
 
-  for (const [gender, irisReady, expectedRequests] of [["female", true, 1], ["female", false, 0], ["male", true, 0]]) {
+  for (const [gender, irisReady, expectedRequests] of [["female", true, 1], ["female", false, 0], ["male", true, 1], [undefined, true, 1]]) {
     const page = await browser.newPage();
     try {
       const errors = [];

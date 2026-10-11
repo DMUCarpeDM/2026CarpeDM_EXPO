@@ -25,9 +25,12 @@ def test_profile_and_runtime_to_backend_wav(tmp_path, monkeypatch):
     monkeypatch.setattr(tts, 'CONFIG', config)
     monkeypatch.setattr(runtime.tts_service, 'prepare_profile_prompt', lambda tone: PreparedVoiceClone('test:'+tone, {'fake': True}))
 
+    calls = []
     class Model:
         def generate_voice_clone(self, **kwargs):
             assert kwargs['language'] == 'korean'
+            assert kwargs['non_streaming_mode'] is True
+            calls.append(kwargs)
             return [np.array([0.1, -0.1] * 2400)], 24000
 
     monkeypatch.setattr(runtime.tts_service, '_ensure_tts_model', lambda name: Model())
@@ -36,9 +39,14 @@ def test_profile_and_runtime_to_backend_wav(tmp_path, monkeypatch):
     monkeypatch.setattr(adapter.settings, 'iris_audio_dir', tmp_path/'audio')
     data = adapter.synthesize_iris('안녕하세요. 연결 검증입니다.')
     assert data.startswith(b'RIFF') and len(data) > 44
+    client.post('/v1/audio/speech', json={'text': '안녕하세요. 연결 검증입니다.'}).raise_for_status()
+    assert len(calls) == 1
+    client.post('/v1/audio/speech', json={'text': '안녕하세요. 연결 검증입니다.', 'force_regenerate': True}).raise_for_status()
+    assert len(calls) == 2
 
 
-def test_mock_runtime_is_not_ready(monkeypatch):
+def test_mock_runtime_is_not_ready(monkeypatch, tmp_path):
+    monkeypatch.setattr(adapter, "PREPARED_SPEECH_DIR", tmp_path)
     config = replace(runtime.CONFIG, mock_mode=True)
     monkeypatch.setattr(runtime, 'CONFIG', config)
     client = TestClient(runtime.app)

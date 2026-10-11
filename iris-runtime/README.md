@@ -15,3 +15,14 @@ GTX 1060용으로 CUDA에서 bf16 미지원 시 float32/SDPA를 선택하고 WAV
 실제 합성/백엔드 검사: `py -3.12 ./scripts/test-iris.py --backend http://127.0.0.1:8001`.
 
 실제 1060에서 모델 로딩·메모리·합성 시간·스피커는 별도 실측해야 한다.
+
+Mac: Python 3.12와 SoX(`brew install sox`) 설치 후 저장소 루트에서 `bash scripts/setup-iris-mac.sh`를 실행한다.
+현재 Mac 합성은 CPU float32 경로를 사용한다. 설치 후 백엔드를 재시작하면 Iris도 자동 실행한다.
+고정 첫 질문 15개 사전 생성: `iris-runtime/.venv-voice/bin/python scripts/prepare-iris-questions.py`.
+실제 모드 Iris 서버가 실행 중이어야 한다. WAV는 `iris/assets/prepared-speech`에 저장되며,
+백엔드는 같은 문장의 파일을 합성 요청보다 우선한다. 질문 변경 시 새 해시로 생성한다.
+WAV를 함께 배포하면 다른 PC에서도 고정 질문은 재합성하지 않는다. 후속 질문은 런타임 설치가 필요하다.
+끝말 누락·파일 끝 파형 검수: `poc/backend/.venv/bin/python scripts/audit-iris-questions.py --repair`.
+로컬 Whisper small로 원문과 끝말을 대조하고, 의심 파일만 최대 3회 재합성한다.
+통과한 후보만 교체한다. 결과는 `.omo/evidence/iris-question-audit.json`에 기록한다.
+전사는 자동 선별용이므로 실제 발음·마무리는 청취로도 확인한다.

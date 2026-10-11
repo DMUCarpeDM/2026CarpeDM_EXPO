@@ -66,7 +66,8 @@ def test_runtime_kills_only_owned_process_after_timeout():
 
 
 @pytest.mark.parametrize('profile', [{'available': False}, [], {}])
-def test_iris_health_requires_profile(monkeypatch, profile):
+def test_iris_health_requires_profile(monkeypatch, profile, tmp_path):
+    monkeypatch.setattr(iris_tts, 'PREPARED_SPEECH_DIR', tmp_path)
     monkeypatch.setattr(iris_tts, '_CACHE', {'at': 0.0, 'ready': False})
     def get(url, **kw):
         payload = profile if url.endswith('/v1/voice/profile') else {'status': 'ok', 'mock_mode': False}

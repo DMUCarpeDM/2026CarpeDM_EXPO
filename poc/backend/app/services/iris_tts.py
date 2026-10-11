@@ -1,5 +1,6 @@
 """명시적으로 선택한 Iris 런타임에서 합성된 WAV를 읽는다."""
 
+import hashlib
 import time
 from pathlib import Path
 
@@ -7,6 +8,13 @@ import httpx
 
 from app.core.config import settings
 from app.services.tts import SpeechSynthesisError
+
+PREPARED_SPEECH_DIR = Path(__file__).resolve().parents[4] / "iris-runtime/iris/assets/prepared-speech"
+
+
+def prepared_speech_path(text: str) -> Path:
+    return PREPARED_SPEECH_DIR / (hashlib.sha256(text.strip().encode()).hexdigest() + ".wav")
+
 
 _CACHE = {"at": 0.0, "ready": False}
 _CACHE_SEC = 15.0
@@ -25,7 +33,9 @@ def _is_iris_wav(path: Path) -> bool:
 
 
 def iris_female_ready() -> bool:
-    """실모드 아이리스 런타임만 준비된 것으로 본다. mock은 무음 wav라 제외한다."""
+    """사전 합성 WAV 또는 실제 Iris 런타임을 사용한다. mock 런타임은 제외한다."""
+    if PREPARED_SPEECH_DIR.is_dir() and any(PREPARED_SPEECH_DIR.glob("*.wav")):
+        return True
     now = time.monotonic()
     if now - _CACHE["at"] < _CACHE_SEC:
         return bool(_CACHE["ready"])
@@ -57,6 +67,9 @@ def synthesize_iris(text: str) -> bytes:
     spoken = text.strip()
     if not spoken:
         raise SpeechSynthesisError("읽을 문장이 없습니다")
+    prepared = prepared_speech_path(spoken)
+    if prepared.is_file():
+        return prepared.read_bytes()
     try:
         response = httpx.post(
             f"{settings.iris_voice_base_url.rstrip('/')}/v1/audio/speech",

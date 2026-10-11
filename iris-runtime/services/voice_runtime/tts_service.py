@@ -346,6 +346,7 @@ class TTSService:
         tts_model_name: str,
         output_dir: Path,
         tone: str | None = None,
+        force_regenerate: bool = False,
     ) -> SpeechResult:
         if not (text or "").strip():
             raise RuntimeError("TTS 텍스트가 비어 있습니다.")
@@ -378,7 +379,7 @@ class TTSService:
         # 같은 톤·같은 문장이면 이미 만든 파일을 그대로 쓴다.
         # 이 노트북은 RTF가 8배라 재생성 비용이 크다.
         # mock이 남긴 무음 파일은 캐시로 치지 않는다.
-        if out_path.is_file() and out_path.stat().st_size > 0 and not _wav_is_silent(out_path):
+        if not force_regenerate and out_path.is_file() and out_path.stat().st_size > 0 and not _wav_is_silent(out_path):
             return SpeechResult(audio_path=str(out_path), text=text, tone=resolved_tone)
 
         if prepared is None or prepared.voice_clone_prompt is None:
@@ -391,6 +392,7 @@ class TTSService:
             "text": text,
             "language": TTS_LANGUAGE,
             "voice_clone_prompt": prepared.voice_clone_prompt,
+            "non_streaming_mode": True,
         }
         # 프로필 경로는 프롬프트 아이템이 모드를 이미 들고 있다.
         # 여기서 x_vector_only_mode를 덮어쓰면 ICL 참조가 무시된다.
