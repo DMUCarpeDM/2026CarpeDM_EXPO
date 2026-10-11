@@ -17,7 +17,10 @@ GTX 1060용으로 CUDA에서 bf16 미지원 시 float32/SDPA를 선택하고 WAV
 실제 1060에서 모델 로딩·메모리·합성 시간·스피커는 별도 실측해야 한다.
 
 Mac: Python 3.12와 SoX(`brew install sox`) 설치 후 저장소 루트에서 `bash scripts/setup-iris-mac.sh`를 실행한다.
-현재 Mac 합성은 CPU float32 경로를 사용한다. 설치 후 백엔드를 재시작하면 Iris도 자동 실행한다.
+Apple Silicon Mac은 설치된 Metal 전용 런타임을 우선한다. 원본 Qwen 0.6B Base의 BF16 추론 모델과 float32 음성 디코더를 사용하며, 기존 Iris 화자 임베딩·ICL 참고 토큰·톤·샘플링 설정을 유지한다. 작은 모델·Q4/Q8 양자화·재생 속도 조절을 사용하지 않는다.
+설치 스크립트는 `qwentts-cpp-python==0.5.0`과 모델 파일을 준비한다. 모델은 `models/metal/`에 저장하며 Git에서 제외한다. 요청 처리 중에는 다운로드하지 않는다. 미설치·로딩 실패 환경과 Windows는 기존 PyTorch 경로를 사용한다.
+Metal 변환 모델 출처는 `Serveurperso/Qwen3-TTS-GGUF`의 고정 리비전 `b7ee2e8c7459c3bea99da23e3d178125a7d1713c`다. 기존 Mac 환경은 `iris-runtime/.venv-voice/bin/python -m pip install qwentts-cpp-python==0.5.0`, `HF_HUB_DISABLE_XET=1 iris-runtime/.venv-voice/bin/python scripts/setup-iris-metal.py` 실행 후 Iris를 재시작한다.
+`IRIS_TTS_BACKEND=pytorch` 환경값으로 기존 경로를 선택할 수 있다. 설치된 Metal 모델은 서버 시작 단계에서 짧은 문장으로 예열한다. 준비가 끝나야 API 요청을 받으므로 초기 로딩 시간을 사용자 첫 대사에서 제외한다. 설치 후 백엔드를 재시작하면 Iris도 자동 실행한다.
 고정 첫 질문 15개 사전 생성: `iris-runtime/.venv-voice/bin/python scripts/prepare-iris-questions.py`.
 실제 모드 Iris 서버가 실행 중이어야 한다. WAV는 `iris/assets/prepared-speech`에 저장되며,
 백엔드는 같은 문장의 파일을 합성 요청보다 우선한다. 질문 변경 시 새 해시로 생성한다.

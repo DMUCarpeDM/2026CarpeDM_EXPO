@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import asyncio
 import logging
 import os
 import signal
+import sys
 import threading
 import time
 from dataclasses import asdict
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -29,7 +32,26 @@ from .tts_stream import (
 from .voice_dataset import analyze_folder, load_manifest, recommend_reference_samples
 
 
-app = FastAPI(title="Iris Light Voice Runtime")
+@asynccontextmanager
+async def lifespan(_app):
+    if sys.platform == "darwin" and not CONFIG.mock_mode and os.environ.get("IRIS_TTS_BACKEND", "auto") != "pytorch":
+        from .tts_metal import METAL_MODEL_DIR
+
+        if METAL_MODEL_DIR.is_dir():
+            def warm_metal():
+                with _speech_lock:
+                    tts_service.synthesize_speech(
+                        text="안녕하세요.", voice_prompt_hash="", tts_model_name=DEFAULT_TTS_MODEL,
+                        output_dir=CONFIG.iris_home_dir / "audio" / "generated", force_regenerate=True,
+                    )
+            try:
+                await asyncio.to_thread(warm_metal)
+            except Exception:
+                LOGGER.exception("Iris startup warmup failed; synthesis will retry on request")
+    yield
+
+
+app = FastAPI(title="Iris Light Voice Runtime", lifespan=lifespan)
 LOGGER = logging.getLogger(__name__)
 model_manager = VoiceModelManager()
 stt_service = STTService(model_manager)
@@ -49,14 +71,17 @@ class HealthResponse(BaseModel):
     fast_model_warmed: bool = False
     fast_model_warming: bool = False
     stream_backend: str = "qwen_tts_fallback"
+    tts_backend: str = "not_loaded"
 
 
 @app.get("/health", response_model=HealthResponse)
 def health() -> Any:
+    loaded_tts = model_manager.get_tts(DEFAULT_TTS_MODEL)
     return HealthResponse(
         status="ok",
         pid=os.getpid(),
         mock_mode=CONFIG.mock_mode,
+        tts_backend=getattr(loaded_tts, "backend_name", "pytorch") if loaded_tts is not None else "not_loaded",
         **fast_backend_diagnostics(tts_service),
     )
 

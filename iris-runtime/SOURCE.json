@@ -3,8 +3,9 @@
   "commit": "062ae3931d83bf3dd56a43bcc7b82897dc01126c",
   "contents": "Unmodified voice runtime, committed profile, setup script, voice docs and licenses; desktop app excluded",
   "local_modifications": {
-    "services/voice_runtime/tts_service.py": "CUDA bf16 support check; float32 for Pascal; SDPA attention. All other upstream files unchanged.",
-    "services/voice_runtime/app.py": "Serialize WAV synthesis for a single 6GB GPU.",
+    "services/voice_runtime/tts_service.py": "CUDA bf16 support check; float32 for Pascal; SDPA attention; optional native Metal model loading on macOS with PyTorch fallback.",
+    "services/voice_runtime/tts_metal.py": "Local adapter for qwentts-cpp-python 0.5.0: original BF16 talker and float32 codec, pinned GGUF revision, existing Iris speaker embedding and ICL acoustic references.",
+    "services/voice_runtime/app.py": "Serialize WAV synthesis for a single 6GB GPU; warm installed Metal models before serving requests; expose loaded buffered TTS backend in health.",
     "LICENSE.md": "Replace two unbundled-document relative links with verified upstream commit permalinks; license text unchanged."
   }
 }

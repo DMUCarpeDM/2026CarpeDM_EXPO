@@ -32,4 +32,5 @@ mvp/public/onnxruntime/
 # Iris dedicated runtime environment and generated logs
 iris-runtime/.venv-voice/
 iris-runtime/.logs/
+iris-runtime/models/
 iris-runtime/**/__pycache__/

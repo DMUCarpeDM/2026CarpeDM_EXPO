@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import sys
 import tempfile
@@ -25,6 +26,7 @@ TTS_X_VECTOR_ONLY_MODE = True
 
 # 보이스 프로필 경로는 전사문이 녹음과 함께 저장돼 있어 ICL을 신뢰할 수 있다.
 PROFILE_PROMPT_PREFIX = "profile"
+LOGGER = logging.getLogger(__name__)
 
 # qwen-tts는 language 문자열을 프로세서 프롬프트에 그대로 넣는다.
 # "Korean"(대문자)로 주면 발음이 깨지므로 반드시 소문자로 고정한다.
@@ -263,6 +265,16 @@ class TTSService:
         key = self._get_tts_model_key(model_name)
 
         def _load() -> Any:
+            # 설치된 Metal 모델이 있으면 동일 Iris 프로필을 네이티브 GPU에서 합성한다.
+            if sys.platform == "darwin" and os.environ.get("IRIS_TTS_BACKEND", "auto") != "pytorch":
+                try:
+                    from .tts_metal import MetalVoiceCloneModel
+
+                    model = MetalVoiceCloneModel.from_pretrained(model_name)
+                    LOGGER.info("Iris TTS backend: Metal, BF16 talker / float32 codec")
+                    return model
+                except Exception as exc:
+                    LOGGER.warning("Iris Metal unavailable; using PyTorch: %s", exc)
             try:
                 from qwen_tts import Qwen3TTSModel  # type: ignore
             except Exception as exc:  # noqa: BLE001

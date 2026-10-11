@@ -32,3 +32,11 @@ MIRROR_TING_IRIS_AUTOSTART=true
 - MVP: `src/lib/turnSpeechPlayback.test.js`, `mirrorTts.browser.test.js`, `usePracticeTranscription.test.js`.
 
 합성은 직렬 처리합니다. 브라우저의 요청 취소는 이미 시작한 GPU 추론까지 중단하지 않으며, 결과는 서버에 캐시될 수 있습니다.
+
+## Apple Silicon 합성 가속
+
+Mac은 `qwentts-cpp-python==0.5.0`과 준비된 모델이 있으면 Metal 네이티브 추론을 사용합니다. 기존 Iris 프로필의 화자 임베딩과 ICL 참고 음성 토큰을 그대로 전달합니다. 원본 가중치 정밀도(BF16 추론 모델 / float32 디코더)와 샘플링 설정을 유지하며, 재생 속도를 높이거나 Q4/Q8 양자화를 적용하지 않습니다.
+
+설치는 `scripts/setup-iris-mac.sh` 또는 기존 가상환경에서 `scripts/setup-iris-metal.py`로 진행합니다. 요청 중 모델 다운로드는 하지 않습니다. Metal 미설치·로딩 실패 시 PyTorch를 사용하며, `IRIS_TTS_BACKEND=pytorch`로 직접 이전 경로를 선택할 수 있습니다. Windows CUDA 경로는 기존과 같습니다.
+
+설치된 Metal 모델은 서버 시작 단계에서 짧은 문장으로 예열한 후 요청을 받습니다. `/health`의 `tts_backend`는 실제 로딩된 `metal` 또는 `pytorch`를 표시합니다. 현재 MVP 재생은 전체 WAV 응답을 기다리는 방식이며, 엔진의 첫 스트림 청크 시간과 실제 앱 대기 시간을 혼동하지 않아야 합니다.
