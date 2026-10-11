@@ -1,3 +1,6 @@
+.mirror-deployment { background: #000; color: #f5f7fc; min-height: 100dvh; }
+.mirror-deployment .screen-frame { width: 100%; max-width: none; margin: 0; padding: 0; }
+
 .mirror-nfc-waiting {
   --u: min(1dvh, 1.77778vw);
   --ink: #f5f7fc;
@@ -24,8 +27,6 @@
 .mirror-nfc-instruction { margin: 0; font-size: max(1rem, calc(1.6 * var(--u))); line-height: 1.75; color: var(--muted); word-break: keep-all; }
 .mirror-nfc-next { margin: 0; padding-top: calc(1.8 * var(--u)); border-top: 1px solid var(--divider); font-size: max(.875rem, calc(1.25 * var(--u))); line-height: 1.7; color: var(--muted); word-break: keep-all; }
 
-.mirror-nfc-symbol[href] { cursor: pointer; border-radius: 24px; }
-.mirror-nfc-symbol[href]:focus-visible { outline: 2px solid #f5f7fc; outline-offset: 8px; }
 
 button.mirror-nfc-symbol { padding: 0; border: 0; background: transparent; cursor: pointer; }
 button.mirror-nfc-symbol:focus-visible { outline: 2px solid #f5f7fc; outline-offset: 8px; border-radius: 24px; }

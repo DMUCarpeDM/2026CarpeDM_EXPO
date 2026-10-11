@@ -66,23 +66,21 @@ async function open(t, { external = true, agreed = true, media = true, tap = tru
   const page = await context.newPage();
   await page.goto(`${url}?service=workplace&mirror=1${live ? "&test=live" : ""}`);
   if (!tap) {
-    await page.getByRole("heading", { name: live ? "아이콘을 눌러 체험을 시작해요." : "사원증을 태그해 주세요." }).waitFor();
+    await page.getByRole("heading", { name: "사원증을 태그해 주세요." }).waitFor();
     return { page, creates };
   }
-  if (external) {
-    await page.getByRole("heading", { name: "사원증을 확인했어요" }).waitFor();
-    await page.locator(".nfc-fallback-roles button").click();
-  }
-  await page.locator(external || !agreed ? ".mirror-summary" : ".mirror-overview").waitFor();
+  if (external) await page.getByText("사원증을 확인했어요. NFC 아이콘을 눌러 체험을 시작해 주세요.").waitFor();
+  else if (!agreed) await page.getByRole("alert").filter({ hasText: "동의 후 발급한 카드" }).waitFor();
+  else await page.locator(".mirror-overview").waitFor();
   await page.clock.install();
   return { page, creates, calibrations, finishCalibration: () => heldCalibration?.() };
 }
 
-test("external mirror card waits for explicit consent, then starts once with its snapshot", { timeout: 45000 }, async t => {
+test("external mirror card starts from NFC icon without consent or role-selection screens", { timeout: 45000 }, async t => {
   const { page, creates } = await open(t);
   await page.clock.fastForward(58000);
   assert.equal(creates.length, 0);
-  await page.getByRole("checkbox").click();
+  await page.getByRole("button", { name: "분석에 동의하고 실제 체험 시작" }).click();
   await page.locator(".mirror-overview").waitFor();
   await page.clock.fastForward(58000);
   await page.getByRole("region", { name: "직장 대화 시뮬레이션", exact: true }).waitFor();
@@ -111,16 +109,17 @@ test("local kiosk consent retains the current issuance guard and automatic scene
 test("a local card without current consent cannot start after automatic scene time", { timeout: 45000 }, async t => {
   const { page, creates } = await open(t, { external: false, agreed: false });
   await page.clock.fastForward(58000);
-  await page.getByRole("heading", { name: "키오스크에서 먼저 동의해 주세요." }).waitFor();
+  await page.getByRole("heading", { name: "사원증을 태그해 주세요." }).waitFor();
   assert.equal(await page.getByRole("checkbox").count(), 0);
   assert.equal(creates.length, 0);
 });
 
 test("mirror device failure cannot create a session even with explicit consent", { timeout: 45000 }, async t => {
   const { page, creates } = await open(t, { media: false });
-  await page.getByRole("checkbox").click();
+  await page.getByRole("button", { name: "분석에 동의하고 실제 체험 시작" }).click();
   await page.clock.fastForward(58000);
-  await page.getByRole("heading", { name: "연습을 준비하지 못했어요." }).waitFor();
+  await page.getByRole("alert").filter({ hasText: "카메라·마이크 권한이 차단" }).waitFor();
+  await page.getByRole("heading", { name: "사원증을 태그해 주세요." }).waitFor();
   assert.equal(creates.length, 0);
 });
 
@@ -140,16 +139,17 @@ test("mirror entry shows a separate NFC waiting page before any NFC tag", { time
 });
 
 
-test("development NFC icon opens overview then simulation without creating a visitor session", { timeout: 45000 }, async t => {
+test("NFC icon starts an actual session without a test query or separate consent UI", { timeout: 45000 }, async t => {
   const { page, creates } = await open(t, { tap: false });
-  await page.getByRole("link", { name: "NFC 없이 요약 화면 테스트" }).click();
+  await page.getByRole("button", { name: "분석에 동의하고 실제 체험 시작" }).click();
   await page.locator('.mirror-overview[data-scene="0"]').waitFor();
   await page.clock.install();
   await page.clock.fastForward(34000);
-  await page.getByRole("dialog").waitFor();
-  await page.clock.fastForward(13000);
   await page.getByRole("region", { name: "직장 대화 시뮬레이션", exact: true }).waitFor();
-  assert.equal(creates.length, 0);
+  assert.equal(creates.length, 1);
+  assert.equal(creates[0].consent.agreed, true);
+  assert.equal(await page.getByRole("checkbox").count(), 0);
+  assert.equal(await page.locator(".nfc-fallback-roles").count(), 0);
 });
 
 
@@ -232,12 +232,11 @@ test("mirror microphone deadline continues speech input at 10 seconds and ignore
 });
 
 
-test("development live mirror test requires consent and creates a real anonymous session", { timeout: 45000 }, async t => {
+test("live mirror entry creates a real anonymous session from the disclosed NFC start action", { timeout: 45000 }, async t => {
   const { page, creates } = await open(t, { tap: false, live: true });
-  await page.getByRole("button", { name: "사원증 없이 실제 체험 시작" }).click();
-  await page.getByRole("checkbox").waitFor();
   assert.equal(creates.length, 0);
-  await page.getByRole("checkbox").click();
+  await page.getByRole("button", { name: "분석에 동의하고 실제 체험 시작" }).click();
+  assert.equal(await page.getByRole("checkbox").count(), 0);
   await page.locator(".mirror-overview").waitFor();
   assert.equal(creates.length, 1);
   assert.equal(creates[0].consent.agreed, true);

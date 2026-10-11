@@ -13,10 +13,9 @@ const reviewScenes = sessionOverview({
 });
 function Review() {
   const params = new URLSearchParams(location.search);
-  const state = params.get("state");
   const sceneElapsed = { morning: 3000, work: MIRROR_SCENE_MS + 3000, leaving: MIRROR_SCENE_MS * 2 + 3000 }[params.get("scene")] ?? 0;
   const reviewElapsed = params.get("still") === "1" ? sceneElapsed : null;
   // Review only: no NFC session or camera request is made in this harness.
-  return <main><WorkplaceMirrorPreflight reviewScenes={reviewScenes} reviewElapsed={reviewElapsed} reviewStartElapsed={sceneElapsed} consented={state !== "consent"} error={state === "error" ? "서버에 연결하지 못했어요." : undefined} onNext={() => location.replace("../simulation/scene.html?scene=morning")} /></main>;
+  return <main><WorkplaceMirrorPreflight reviewScenes={reviewScenes} reviewElapsed={reviewElapsed} reviewStartElapsed={sceneElapsed} consented={true} onNext={() => location.replace("../simulation/scene.html?scene=morning")} /></main>;
 }
 createRoot(document.getElementById("root")).render(<Review />);

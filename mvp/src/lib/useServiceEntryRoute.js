@@ -42,6 +42,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
   const [nfcCard, setNfcCard] = useState(null);
   const [nfcFallback, setNfcFallback] = useState(false);
   const [consented, setConsented] = useState(false);
+  const [directMirrorEntry, setDirectMirrorEntry] = useState(false);
   const [apiError, setApiError] = useState("");
   const nfcResolvingRef = useRef(false);
   const localEpochRef = useRef(0);
@@ -55,7 +56,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
     if (!keepServiceMode) setSelectedServiceModeId(null);
     setCounterpartProfile(null);
     setPocScenarioSlug(""); setSelectedEpisodeId(null); setDifficulty(null);
-    setConsented(false); setNfcCard(null); setNfcFallback(false);
+    setConsented(false); setDirectMirrorEntry(false); setNfcCard(null); setNfcFallback(false);
     onVisitorReset?.();
   };
 
@@ -197,10 +198,15 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
       if (card.requires_role_selection) {
         if (!card.uid || !card.kiosk_session_id) throw new Error("사원증 확인 응답이 올바르지 않아요.");
         setNfcCard({ uid: card.uid, kioskSessionId: card.kiosk_session_id });
-        setNfcFallback(true); setApiError("");
+        setNfcFallback(!isMirrorDeployment()); setApiError(isMirrorDeployment() ? "사원증을 확인했어요. NFC 아이콘을 눌러 체험을 시작해 주세요." : "");
         return;
       }
       setNfcCard({ uid: card.uid, jobRole: card.job_role, scenarioSlug: card.scenario_slug, jobRoleLabel: card.job_role_label, issuedCount: card.issued_count });
+      if (isMirrorDeployment() && !hasCurrentCardConsent(card)) {
+        setNfcCard(null);
+        setApiError("동의 후 발급한 카드를 태그하거나, 아래 아이콘을 눌러 체험을 시작해 주세요.");
+        return;
+      }
       setConsented(hasCurrentCardConsent(card));
       setNfcFallback(false);
       setApiError("");
@@ -222,9 +228,14 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
     onTap: handleMirrorTap,
   });
 
-  const startMirrorTest = () => {
-    if (!liveMirrorTest) return;
+  const startMirrorExperience = () => {
+    if (!isMirrorDeployment() || nfcResolvingRef.current) return;
+    const card = nfcCard?.kioskSessionId ? nfcCard : null;
     resetVisitor(true);
+    if (card) setNfcCard({ ...card, jobRole: "office_admin", scenarioSlug: WORKPLACE_SCENARIO_SLUG });
+    setDirectMirrorEntry(!card);
+    // The NFC screen discloses analysis; clicking its start button is the affirmative action.
+    setConsented(true);
     setPocScenarioSlug(WORKPLACE_SCENARIO_SLUG);
     navigate("preview");
   };
@@ -259,7 +270,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
 
   return {
     state: {
-      active, menuOpen, selectedServiceModeId, counterpartProfile, difficulty, session, turn, liveMirrorTest,
+      active, menuOpen, selectedServiceModeId, counterpartProfile, difficulty, session, turn, liveMirrorTest, directMirrorEntry,
       turnHistory, turnSignals, report, history, pocScenarioSlug, selectedEpisodeId, nfcCard,
       nfcFallback, consented, apiError,
     },
@@ -269,7 +280,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
       setNfcFallback, setNfcCard, setConsented, setApiError,
     },
     actions: {
-      navigate, go, chooseServiceMode, chooseCounterpartProfile, chooseScenario, startFromJobRole, startMirrorTest,
+      navigate, go, chooseServiceMode, chooseCounterpartProfile, chooseScenario, startFromJobRole, startMirrorExperience,
     },
   };
 }

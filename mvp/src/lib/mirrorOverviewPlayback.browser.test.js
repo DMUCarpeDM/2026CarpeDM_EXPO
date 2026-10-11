@@ -38,7 +38,8 @@ test("4K overview plays all scenes while still=1 explicitly freezes a scene", { 
   for (const state of ["consent", "error"]) {
     await page.goto(`${preview}?state=${state}`);
     const blocked = await (await page.locator("iframe").elementHandle()).contentFrame();
-    await blocked.locator(".slider-explanation").waitFor();
+    await blocked.locator(".mirror-overview").waitFor();
+    assert.equal(await blocked.locator(".slider-explanation, .consent-check").count(), 0);
     assert.equal(await blocked.locator(".slider-footer ol, .mirror-total-progress").count(), 0);
   }
 });
