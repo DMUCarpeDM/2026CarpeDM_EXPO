@@ -59,8 +59,6 @@ const WORKPLACE_REACTION_STATES = Object.freeze(["joy", "disappointment", "irrit
 function workplaceMedia(name, category) {
   return {
     name,
-    chromaKey: false,
-    videoOrientation: "portrait",
     reactionStates: WORKPLACE_REACTION_STATES,
     videos: WORKPLACE_VIDEOS[category],
     videosByScene: WORKPLACE_VIDEOS,

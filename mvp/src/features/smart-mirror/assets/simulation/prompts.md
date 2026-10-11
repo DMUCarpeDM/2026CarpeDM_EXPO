@@ -1,6 +1,6 @@
 # Photorealistic simulation backgrounds
 
-Method: built-in imagegen. Original generated background plates; existing workplace-videos/speaking-base.mp4 is reused through CounterpartVideo and its chroma key. No generated person is used.
+Method: built-in imagegen. Original generated background plates; The current player uses scene-specific portrait videos with embedded backgrounds. These background plates are not used for chroma-key compositing.
 
 Shared prompt: photorealistic natural architectural interior photograph, portrait 9:16, modern Korean office, eye-level straight-ahead camera, muted blue-gray and ivory materials. Uncluttered empty center for an existing filmed AI colleague, dark quiet ceiling in upper fifth and dark clean floor in bottom quarter for existing glass cards. No people, text, logos, UI, plants or cropped foreground furniture.
 

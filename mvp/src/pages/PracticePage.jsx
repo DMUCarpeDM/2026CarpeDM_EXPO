@@ -86,7 +86,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
 
   const workplace = isWorkplaceSession(session);
   const isWorkplaceCounterpart = workplace && hasCounterpartVideo;
-  const isChromaCounterpart = (isCafeCounterpart || isWorkplaceCounterpart) && !mirrorMain;
+  const isChromaCounterpart = isCafeCounterpart && !mirrorMain;
   useEffect(() => {
     // 카페·직장대화는 AI 상대 영상을 메인, 내 카메라는 우측 상단 PIP로 둔다.
     if (isCafeCounterpart || isWorkplaceCounterpart) setStageView("counterpart");
@@ -529,7 +529,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
           <h2 id="practice-question">{turnSpeech || "다음 질문을 준비하고 있어요."}</h2>
         </section>
         <section
-          className={`practice-camera ${isChromaCounterpart ? (isCafeCounterpart ? "is-cafe-counterpart" : "is-workplace-counterpart") : ""}`}
+          className={`practice-camera ${isChromaCounterpart ? "is-cafe-counterpart" : ""}`}
           style={isCafeCounterpart && !mirrorMain ? { "--counterpart-background": `url(${cafeCounterpartBackground})` } : undefined}
           aria-label={hasCounterpartVideo ? "AI 상대 반응 영상" : "연습 카메라"}
         >

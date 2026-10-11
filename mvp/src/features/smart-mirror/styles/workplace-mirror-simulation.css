@@ -6,11 +6,6 @@
 .simulation-card-slot { position: absolute; left: 5%; top: 30%; width: 54%; max-height: 56%; overflow-y: auto; text-shadow: 0 2px 12px #000d; }
 
 .simulation-actor { position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
-.simulation-actor .counterpart-video-stage { position: absolute; top: 2%; left: -100%; width: 300%; aspect-ratio: 16 / 9; }
-.simulation-actor .counterpart-video-source { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-.simulation-actor .counterpart-video { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center bottom; mask-image: radial-gradient(ellipse 27% 100% at 50% 50%, #000 55%, transparent 96%); }
-.simulation-actor .counterpart-video-stage[data-orientation="portrait"] { top: 2%; left: 0; width: 100%; height: 96%; aspect-ratio: 9 / 16; }
-.simulation-actor .counterpart-video-stage[data-orientation="portrait"] .counterpart-video { mask-image: linear-gradient(90deg, transparent 3%, #000 8%, #000 92%, transparent 97%); }
 .simulation-card-slot { z-index: 1; }
 .simulation-dialogue-name { margin: 0; color: var(--muted); font-size: max(.8125rem, calc(1.2 * var(--u))); }
 .simulation-dialogue-text { margin: 0; font-size: max(1.25rem, calc(2.1 * var(--u))); line-height: 1.65; word-break: keep-all; overflow-wrap: anywhere; font-weight: 600; color: #fff; opacity: 0; transform: translateY(4px); transition: opacity 240ms cubic-bezier(0.23, 1, 0.32, 1), transform 240ms cubic-bezier(0.23, 1, 0.32, 1); }

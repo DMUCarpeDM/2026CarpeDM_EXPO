@@ -136,21 +136,12 @@
 }
 .camera-pip-connect { position: absolute; inset: 0; margin: auto; width: fit-content; height: 44px; z-index: 3; padding: 8px 12px; border: 1px solid #ffffffaa; border-radius: 24px; background: #ffffffdf; color: #102236; font-size: 13px; }
 .practice-camera .counterpart-video { transform: none; object-position: center 30%; }
-.practice-camera.is-cafe-counterpart,
-.practice-camera.is-workplace-counterpart {
+.practice-camera.is-cafe-counterpart {
   background: center / cover no-repeat var(--counterpart-background);
 }
-.practice-camera.is-workplace-counterpart {
-  /* 사무실 톤 그라데이션 — 전용 배경 촬영분이 오면 --counterpart-background로 덮는다 */
-  --counterpart-background: linear-gradient(165deg, #1e2a3a 0%, #3d4f63 42%, #6a7d90 78%, #8fa0b0 100%);
-}
-.practice-camera.is-cafe-counterpart::before,
-.practice-camera.is-workplace-counterpart::before {
+.practice-camera.is-cafe-counterpart::before {
   background: linear-gradient(180deg, rgba(22, 18, 14, 0.1), transparent 34%, rgba(22, 18, 14, 0.22));
   mask-image: none;
-}
-.practice-camera.is-workplace-counterpart::before {
-  background: linear-gradient(180deg, rgba(8, 14, 28, 0.18), transparent 36%, rgba(8, 14, 28, 0.28));
 }
 .counterpart-video-stage { position: absolute; inset: 0; z-index: 1; }
 .counterpart-video-source { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
@@ -503,5 +494,3 @@
 }
 .practice-live-tip strong { flex-shrink: 0; }
 .practice-live-tip span { overflow-wrap: anywhere; }
-
-.practice-camera .counterpart-video-stage[data-orientation="portrait"] .counterpart-video-canvas { object-fit: contain; object-position: center; }
