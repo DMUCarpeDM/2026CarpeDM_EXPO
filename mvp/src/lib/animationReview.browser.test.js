@@ -54,6 +54,20 @@ test("4K glass modal uses a short entrance and an opacity-only reduced alternati
     assert.equal(motion.duration, reducedMotion === "reduce" ? "0.15s" : "0.22s");
     if (reducedMotion === "reduce") assert.equal(motion.frames.some(frame => "transform" in frame), false);
     assert.equal(await frame.locator(".simulation-dialogue").count(), 0);
+    assert.equal(await frame.locator(".mirror-briefing-tip").count(), 0);
+    const countdown = await frame.locator(".mirror-countdown-track i").evaluate(element => {
+      const animation = element.getAnimations()[0];
+      if (!animation) return null;
+      animation.pause();
+      animation.currentTime = 2500;
+      return { duration: animation.effect.getTiming().duration, easing: animation.effect.getTiming().easing, transform: getComputedStyle(element).transform };
+    });
+    if (reducedMotion === "reduce") assert.equal(countdown, null);
+    else {
+      assert.equal(countdown.duration, 5000);
+      assert.equal(countdown.easing, "linear");
+      assert.equal(countdown.transform, "matrix(0.5, 0, 0, 1, 0, 0)");
+    }
   }
 });
 

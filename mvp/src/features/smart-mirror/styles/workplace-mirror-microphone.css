@@ -14,6 +14,6 @@
 .mirror-microphone-sentence { margin: 0; padding: calc(1.4 * var(--u)) 0 calc(1.4 * var(--u)) calc(1.5 * var(--u)); border-left: max(2px, calc(.1 * var(--u))) solid #c5dfff40; font-size: max(1.375rem, calc(2.2 * var(--u))); font-weight: 500; line-height: 1.65; letter-spacing: -.025em; word-break: keep-all; }
 .mirror-microphone-sentence[data-active='true'] { border-color: #c5dfff; }
 .mirror-microphone-footer { display: grid; gap: calc(1 * var(--u)); }
-.mirror-microphone-note, .mirror-microphone-error { margin: 0; font-size: max(.875rem, calc(1.1 * var(--u))); line-height: 1.65; color: var(--muted); word-break: keep-all; }
+.mirror-microphone-error { margin: 0; font-size: max(.875rem, calc(1.1 * var(--u))); line-height: 1.65; color: var(--muted); word-break: keep-all; }
 .mirror-microphone-error { color: #ffcfb8; }
 @media (max-width: 480px) { .mirror-microphone-steps { grid-template-columns: 1fr; } }
