@@ -31,3 +31,8 @@ body:has(.mirror-deployment) { margin: 0; background: #000; }
 
 button.mirror-nfc-symbol { padding: 0; border: 0; background: transparent; cursor: pointer; }
 button.mirror-nfc-symbol:focus-visible { outline: 2px solid #f5f7fc; outline-offset: 8px; border-radius: 24px; }
+.mirror-start-retry { padding: 14px 20px; border-radius: 12px; background: #fff; color: #111; border: 0; cursor: pointer; font-size: 1rem; }
+.mirror-media-notice { position: fixed; inset: auto 16px 12px; margin: 0; padding: 10px 16px; color: #fff; background: #171717; border-radius: 12px; font-size: .95rem; text-align: center; z-index: 20; }
+.mirror-input-recovery { padding: 14px; background: #171717ed; color: #fff; border-radius: 14px; font-size: 1rem; }
+.mirror-input-recovery textarea { display: block; width: 100%; min-height: 65px; padding: 10px; margin-block: 10px; color: #111; background: #fff; border-radius: 8px; }
+.mirror-input-recovery button { padding: 10px 14px; margin-right: 8px; border: 0; border-radius: 8px; cursor: pointer; }

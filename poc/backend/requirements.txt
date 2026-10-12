@@ -12,6 +12,8 @@ soundfile
 kiwipiepy
 sentence-transformers
 faster-whisper>=1.2.1
+# faster-whisper 1.2.1 passes metadata_errors, removed by newer PyAV releases.
+av==16.0.1
 
 pytest
 httpx
@@ -26,3 +28,6 @@ silero-vad==6.2.1
 
 # Vertex Gemini authentication (uses local Application Default Credentials)
 google-auth[requests]>=2.0,<3
+
+# Windows exhibition NFC readers use PC/SC instead of browser Web NFC.
+pyscard==2.3.1; sys_platform == "win32"

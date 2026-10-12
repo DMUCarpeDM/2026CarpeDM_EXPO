@@ -85,8 +85,10 @@ def test_workplace_plan_uses_selected_ollama(monkeypatch):
     assert _plan_workplace(None, None, [], None) is plan
 
 
-def test_iris_health_rejects_mock_and_bad_payload(monkeypatch):
+def test_iris_health_rejects_mock_and_bad_payload(monkeypatch, tmp_path):
     from app.services import iris_tts
+    # Exercise runtime health independently of the shipped prepared WAV files.
+    monkeypatch.setattr(iris_tts, "PREPARED_SPEECH_DIR", tmp_path)
     for payload, expected in [({"status": "ok", "mock_mode": False}, True),
                               ({"status": "ok", "mock_mode": True}, False), ([], False)]:
         monkeypatch.setattr(iris_tts, "_CACHE", {"at": 0.0, "ready": False})

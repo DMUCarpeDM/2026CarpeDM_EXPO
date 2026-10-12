@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import sys
 import threading
 import urllib.error
 import urllib.parse
@@ -114,6 +115,10 @@ def _fast_model_warmed(model: Any | None) -> bool:
 
 def _load_fast_model(service: TTSService, model_name: str) -> Any | None:
     """CUDA graph 모델을 한 번만 로드하고, 실패를 절대 묵살하지 않는다."""
+    if sys.platform == "win32":
+        # 6 GB 카드에 WAV 모델과 스트림 모델을 중복 로드하지 않는다.
+        model = service._ensure_tts_model(model_name)
+        return model if getattr(model, "backend_name", "").startswith("cuda_graph") else None
     key = _fast_model_key(model_name)
     cached = service._mm.get_tts(key)
     if cached is not None:
@@ -141,7 +146,8 @@ def _load_fast_model(service: TTSService, model_name: str) -> Any | None:
             getattr(fast_mod, "__version__", "unknown"),
             model_name,
         )
-        model = cls.from_pretrained(model_name, device="cuda:0", dtype=torch.bfloat16)
+        dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32
+        model = cls.from_pretrained(model_name, device="cuda:0", dtype=dtype)
         LOGGER.info("FAST QWEN LOADED: model=%s", model_name)
         return model
 
@@ -157,6 +163,10 @@ def fast_backend_diagnostics(
 ) -> dict[str, bool | str]:
     """health/warmup 응답용으로 실제 fast backend 상태를 노출한다."""
     model = service._mm.get_tts(_fast_model_key(model_name))
+    if model is None:
+        shared = service._mm.get_tts(model_name)
+        if getattr(shared, "backend_name", "").startswith("cuda_graph"):
+            model = shared
     available = faster_qwen_available()
     has_stream = callable(getattr(model, "generate_voice_clone_streaming", None))
     with _FAST_WARMUP_LOCK:
@@ -459,12 +469,14 @@ def iter_pcm_chunks(service: TTSService, req: StreamSynthRequest) -> Iterator[tu
         "text": text,
         "language": TTS_LANGUAGE,
         "voice_clone_prompt": prepared.voice_clone_prompt,
+        "non_streaming_mode": True,
     }
     if not use_profile:
         from services.voice_runtime.tts_service import TTS_X_VECTOR_ONLY_MODE
 
         generate_kwargs["x_vector_only_mode"] = TTS_X_VECTOR_ONLY_MODE
-    wavs, sample_rate = model.generate_voice_clone(**generate_kwargs)
+    with _FAST_INFERENCE_LOCK:
+        wavs, sample_rate = model.generate_voice_clone(**generate_kwargs)
     pcm, sr = _pcm_from_audio(wavs[0], sample_rate)
     for piece in iter_pcm_slices(pcm):
         yield piece, sr

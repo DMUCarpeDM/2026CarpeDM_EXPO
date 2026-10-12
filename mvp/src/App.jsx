@@ -231,7 +231,7 @@ export default function App() {
       if (!consented) throw new Error("개인정보 처리에 동의하면 역할극을 시작할 수 있어요.");
       try {
         const stream = await requestExerciseMedia();
-        if (mirror && (!stream.getAudioTracks().some(t => t.readyState === "live") || !stream.getVideoTracks().some(t => t.readyState === "live"))) throw new Error("카메라와 마이크를 모두 준비해 주세요.");
+        if (mirror && !stream.getAudioTracks().some(t => t.readyState === "live")) throw new Error("음성 대화를 시작하려면 마이크를 연결하고 권한을 허용해 주세요.");
       } catch (mediaError) {
         if (mirror) throw mediaError;
         console.warn("[media] 카메라·마이크 없이 시작:", mediaError?.message || mediaError);
@@ -263,8 +263,8 @@ export default function App() {
       setSession(nextSession); setTurn(nextSession.current_turn); navigate("practice");
     } catch (error) {
       if (epoch === visitorEpochRef.current) {
-        if (mirror) navigate("home");
         setApiError(error.message);
+        if (prepareOnly === true) throw error;
       }
     }
     finally { if (epoch === visitorEpochRef.current) { startInFlight.current = false; setStarting(false); } }

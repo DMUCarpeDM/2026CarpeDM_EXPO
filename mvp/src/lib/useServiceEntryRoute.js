@@ -43,6 +43,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
   const [consented, setConsented] = useState(false);
   const [directMirrorEntry, setDirectMirrorEntry] = useState(false);
   const [apiError, setApiError] = useState("");
+  const [nfcError, setNfcError] = useState("");
   const nfcResolvingRef = useRef(false);
   const localEpochRef = useRef(0);
   const epochRef = visitorEpochRef || localEpochRef;
@@ -51,7 +52,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
     nfcResolvingRef.current = false;
     resetVisitorStorage(localStorage);
     setSession(null); setTurn(null); setTurnHistory([]); setTurnSignals(null);
-    setReport(null); setHistory([]); setApiError("");
+    setReport(null); setHistory([]); setApiError(""); setNfcError("");
     if (!keepServiceMode) setSelectedServiceModeId(null);
     setCounterpartProfile(null);
     setPocScenarioSlug(""); setSelectedEpisodeId(null); setDifficulty(null);
@@ -208,14 +209,21 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
       if (epoch !== epochRef.current) return;
       if (card.requires_role_selection) {
         if (!card.uid || !card.kiosk_session_id) throw new Error("사원증 확인 응답이 올바르지 않아요.");
-        setNfcCard({ uid: card.uid, kioskSessionId: card.kiosk_session_id });
-        setNfcFallback(!isMirrorDeployment()); setApiError(isMirrorDeployment() ? "사원증을 확인했어요. NFC 아이콘을 눌러 체험을 시작해 주세요." : "");
+        setNfcCard({ uid: card.uid, kioskSessionId: card.kiosk_session_id,
+          ...(isMirrorDeployment() ? { jobRole: "office_admin", scenarioSlug: WORKPLACE_SCENARIO_SLUG } : {}) });
+        setNfcFallback(!isMirrorDeployment());
+        if (isMirrorDeployment()) {
+          setConsented(true);
+          setPocScenarioSlug(WORKPLACE_SCENARIO_SLUG);
+          navigate("preview");
+        }
         return;
       }
       setNfcCard({ uid: card.uid, jobRole: card.job_role, scenarioSlug: card.scenario_slug, jobRoleLabel: card.job_role_label, issuedCount: card.issued_count });
       if (isMirrorDeployment() && !hasCurrentCardConsent(card)) {
         setNfcCard(null);
         setApiError("동의 후 발급한 카드를 태그하거나, 아래 아이콘을 눌러 체험을 시작해 주세요.");
+        setNfcError("동의 후 발급한 카드를 태그하거나, 위 아이콘을 눌러 체험을 시작해 주세요.");
         return;
       }
       setConsented(hasCurrentCardConsent(card));
@@ -227,6 +235,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
         setNfcCard(null);
         setNfcFallback(error.status === 404);
         setApiError(error.status === 404 ? "" : "사원증 서버 연결을 확인한 뒤 다시 태그해주세요.");
+        setNfcError(error.status === 404 ? "등록되지 않은 카드예요. 위 아이콘으로 체험을 시작할 수 있어요." : "사원증 서버 연결을 확인하거나 위 아이콘으로 체험을 시작해 주세요.");
       }
     } finally {
       if (epoch === epochRef.current) nfcResolvingRef.current = false;
@@ -240,7 +249,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
   });
 
   const startMirrorExperience = () => {
-    if (!isMirrorDeployment() || nfcResolvingRef.current) return;
+    if (!isMirrorDeployment()) return;
     const card = nfcCard?.kioskSessionId ? nfcCard : null;
     resetVisitor(true);
     if (card) setNfcCard({ ...card, jobRole: "office_admin", scenarioSlug: WORKPLACE_SCENARIO_SLUG });
@@ -283,7 +292,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
     state: {
       active, menuOpen, selectedServiceModeId, counterpartProfile, difficulty, session, turn, directMirrorEntry,
       turnHistory, turnSignals, report, history, pocScenarioSlug, selectedEpisodeId, nfcCard,
-      nfcFallback, consented, apiError,
+      nfcFallback, consented, apiError, nfcError,
     },
     setters: {
       setMenuOpen, setCounterpartProfile, setDifficulty, setSession, setTurn, setTurnHistory,

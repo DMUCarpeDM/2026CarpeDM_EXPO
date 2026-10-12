@@ -7,13 +7,18 @@ import { startVite } from "./serviceEntryRouteHarness.js";
 async function open(t, { external = true, agreed = true, media = true, tap = true, briefing = false, live = false, voice = false, pendingCalibration = false } = {}) {
   const { server, url } = await startVite();
   const browser = await chromium.launch({ channel: "chrome", headless: true,
-    args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] });
+    args: ["--mute-audio", "--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] });
   t.after(async () => { await browser.close(); await server.close(); });
   const context = await browser.newContext({ viewport: { width: 1080, height: 1920 }, reducedMotion: "no-preference", permissions: ["camera", "microphone"] });
   await context.addInitScript(({ media, voice }) => {
     localStorage.clear();
     localStorage.setItem("mirror-ting-client-key", "prior-test-only-key");
+    window.__restoreTestMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
     if (!media) navigator.mediaDevices.getUserMedia = async () => { throw new DOMException("test: devices unavailable", "NotAllowedError"); };
+    if (media === "audio") navigator.mediaDevices.getUserMedia = async constraints => {
+      if (constraints.video) throw new DOMException("test: camera unavailable", "NotFoundError");
+      return window.__restoreTestMedia(constraints);
+    };
     if (voice) {
       // Deterministic WAV clips let the browser clock test recording deadlines.
       window.__recordings = [];
@@ -69,19 +74,18 @@ async function open(t, { external = true, agreed = true, media = true, tap = tru
     await page.getByRole("heading", { name: "사원증을 태그해 주세요." }).waitFor();
     return { page, creates };
   }
-  if (external) await page.getByText("사원증을 확인했어요. NFC 아이콘을 눌러 체험을 시작해 주세요.").waitFor();
+  if (!media) await page.getByRole("heading", { name: "연결 상태를 확인해 주세요." }).waitFor();
+  else if (external) await page.locator(".mirror-overview").waitFor();
   else if (!agreed) await page.getByRole("alert").filter({ hasText: "동의 후 발급한 카드" }).waitFor();
   else await page.locator(".mirror-overview").waitFor();
   await page.clock.install();
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 2000));
   return { page, creates, calibrations, finishCalibration: () => heldCalibration?.() };
 }
 
-test("external mirror card starts from NFC icon without consent or role-selection screens", { timeout: 45000 }, async t => {
+test("external mirror card starts on tagging without another icon click or role-selection screen", { timeout: 45000 }, async t => {
   const { page, creates } = await open(t);
-  await page.clock.fastForward(58000);
-  assert.equal(creates.length, 0);
-  await page.getByRole("button", { name: "분석에 동의하고 실제 체험 시작" }).click();
-  await page.locator(".mirror-overview").waitFor();
+  assert.equal(creates.length, 1);
   await page.clock.fastForward(58000);
   await page.getByRole("region", { name: "직장 대화 시뮬레이션", exact: true }).waitFor();
   assert.equal(creates.length, 1);
@@ -116,11 +120,25 @@ test("a local card without current consent cannot start after automatic scene ti
 
 test("mirror device failure cannot create a session even with explicit consent", { timeout: 45000 }, async t => {
   const { page, creates } = await open(t, { media: false });
-  await page.getByRole("button", { name: "분석에 동의하고 실제 체험 시작" }).click();
   await page.clock.fastForward(58000);
   await page.getByRole("alert").filter({ hasText: "카메라·마이크 권한이 차단" }).waitFor();
-  await page.getByRole("heading", { name: "사원증을 태그해 주세요." }).waitFor();
+  await page.getByRole("heading", { name: "연결 상태를 확인해 주세요." }).waitFor();
   assert.equal(creates.length, 0);
+  await page.evaluate(() => { navigator.mediaDevices.getUserMedia = window.__restoreTestMedia; });
+  await page.getByRole("button", { name: "장치 연결 후 다시 시작" }).click();
+  await page.locator(".mirror-overview").waitFor();
+  assert.equal(creates.length, 1);
+});
+
+test("mirror continues with a real microphone stream when camera is unavailable", { timeout: 45000 }, async t => {
+  const { page, creates } = await open(t, { tap: false, media: "audio" });
+  await page.getByRole("button", { name: "분석에 동의하고 실제 체험 시작" }).click();
+  await page.locator(".mirror-overview").waitFor();
+  await page.getByText("카메라가 연결되지 않아 음성 대화로 진행해요. 표정·자세 분석은 제공되지 않아요.").waitFor();
+  await page.clock.install();
+  await page.clock.fastForward(34000);
+  await page.getByRole("region", { name: "직장 대화 시뮬레이션", exact: true }).waitFor();
+  assert.equal(creates.length, 1);
 });
 
 

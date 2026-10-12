@@ -2,6 +2,18 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { startTurnSpeech } from "./turnSpeechPlayback.js";
 
+test("question labels never request or play speech", t => {
+  const fetch = t.mock.method(globalThis, "fetch", () => { throw new Error("Unexpected TTS request"); });
+  for (const text of ["질문", "질문 2", "질문.", " "]) {
+    let finished = 0;
+    const stop = startTurnSpeech({ text, serverTtsReady: true,
+      onSpeakingChange: value => assert.equal(value, false), onFinish: () => finished++ });
+    assert.equal(finished, 1);
+    stop();
+  }
+  assert.equal(fetch.mock.callCount(), 0);
+});
+
 function playbackEnvironment(t) {
   let stopPlayback;
   t.after(() => stopPlayback?.());

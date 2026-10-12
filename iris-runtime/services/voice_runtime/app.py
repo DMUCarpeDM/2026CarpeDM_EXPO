@@ -28,24 +28,33 @@ from .tts_stream import (
     iter_pcm_events,
     schedule_faster_qwen_warmup,
     warmup_faster_qwen,
+    _FAST_INFERENCE_LOCK,
 )
 from .voice_dataset import analyze_folder, load_manifest, recommend_reference_samples
 
 
 @asynccontextmanager
 async def lifespan(_app):
-    if sys.platform == "darwin" and not CONFIG.mock_mode and os.environ.get("IRIS_TTS_BACKEND", "auto") != "pytorch":
-        from .tts_metal import METAL_MODEL_DIR
-
-        if METAL_MODEL_DIR.is_dir():
-            def warm_metal():
+    should_warm = False
+    if not CONFIG.mock_mode and os.environ.get("IRIS_TTS_BACKEND", "auto") != "pytorch":
+        if sys.platform == "darwin":
+            from .tts_metal import METAL_MODEL_DIR
+            should_warm = METAL_MODEL_DIR.is_dir()
+        elif sys.platform == "win32":
+            try:
+                import torch
+                should_warm = torch.cuda.is_available()
+            except ImportError:
+                pass
+        if should_warm:
+            def warm_voice():
                 with _speech_lock:
                     tts_service.synthesize_speech(
                         text="안녕하세요.", voice_prompt_hash="", tts_model_name=DEFAULT_TTS_MODEL,
                         output_dir=CONFIG.iris_home_dir / "audio" / "generated", force_regenerate=True,
                     )
             try:
-                await asyncio.to_thread(warm_metal)
+                await asyncio.to_thread(warm_voice)
             except Exception:
                 LOGGER.exception("Iris startup warmup failed; synthesis will retry on request")
     yield
@@ -58,7 +67,8 @@ stt_service = STTService(model_manager)
 tts_service = TTSService(model_manager)
 
 _shutdown_lock = threading.RLock()
-_speech_lock = threading.Lock()
+# WAV와 스트림이 같은 GPU 모델을 동시에 실행하지 않게 한다.
+_speech_lock = _FAST_INFERENCE_LOCK
 _should_exit = False
 
 
@@ -259,12 +269,13 @@ class VoicePrepareResponse(BaseModel):
 @app.post("/v1/voice/prepare", response_model=VoicePrepareResponse)
 def voice_prepare(req: VoicePrepareRequest) -> Any:
     try:
-        prepared = tts_service.prepare_voice_clone_prompt(
-            ref_audio_path=req.ref_audio_path,
-            ref_text=req.ref_text,
-            tts_model_name=req.tts_model_name,
-            voice_prompt_hash=req.voice_prompt_hash,
-        )
+        with _speech_lock:
+            prepared = tts_service.prepare_voice_clone_prompt(
+                ref_audio_path=req.ref_audio_path,
+                ref_text=req.ref_text,
+                tts_model_name=req.tts_model_name,
+                voice_prompt_hash=req.voice_prompt_hash,
+            )
         return VoicePrepareResponse(voice_prompt_hash=prepared.voice_prompt_hash)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e)) from e

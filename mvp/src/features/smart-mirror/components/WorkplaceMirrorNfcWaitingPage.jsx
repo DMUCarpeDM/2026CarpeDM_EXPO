@@ -4,7 +4,7 @@ import "../styles/workplace-mirror-overview.css";
 import "../styles/workplace-mirror-city.css";
 import "../styles/workplace-mirror-nfc.css";
 
-export function WorkplaceMirrorNfcWaitingPage({ onStart }) {
+export function WorkplaceMirrorNfcWaitingPage({ onStart, error }) {
   return <section className="mirror-nfc-waiting mirror-city-surface" aria-labelledby="nfc-waiting-title">
     <header className="overview-masthead"><strong>Mirror-Ting</strong></header>
     <div className="mirror-nfc-content">
@@ -17,7 +17,8 @@ export function WorkplaceMirrorNfcWaitingPage({ onStart }) {
           <h1 id="nfc-waiting-title">사원증을 태그해 주세요.</h1>
         </div>
         <p className="mirror-nfc-instruction">사원증을 리더기에 대거나<br />위 아이콘을 눌러 체험을 시작해요.</p>
-        <p className="mirror-nfc-next" id="mirror-nfc-disclosure">아이콘을 누르면 카메라·음성 분석과 결과 처리에 동의하고 시작해요. 연습 음성과 결과는 이 브라우저에 보관되며 서버에서도 세션·기록을 처리해요.</p>
+        {error && <p className="mirror-nfc-instruction" role="alert">{error}</p>}
+        <p className="mirror-nfc-next" id="mirror-nfc-disclosure">카드를 태그하거나 아이콘을 누르면 카메라·음성 분석과 결과 처리에 동의하고 시작해요. 연습 음성과 결과는 이 브라우저에 보관되며 서버에서도 세션·기록을 처리해요.</p>
       </WorkplaceOverviewCard>
     </div>
   </section>;

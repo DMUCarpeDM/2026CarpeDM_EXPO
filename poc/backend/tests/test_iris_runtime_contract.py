@@ -56,6 +56,7 @@ def test_mock_runtime_is_not_ready(monkeypatch, tmp_path):
 
 
 def test_pascal_loads_float32_sdpa(monkeypatch):
+    monkeypatch.setenv('IRIS_TTS_BACKEND', 'pytorch')
     captured = {}
     torch = SimpleNamespace(cuda=SimpleNamespace(is_available=lambda: True, is_bf16_supported=lambda: False), float32='fp32', bfloat16='bf16')
     monkeypatch.setitem(sys.modules, 'torch', torch)
@@ -67,3 +68,27 @@ def test_pascal_loads_float32_sdpa(monkeypatch):
     monkeypatch.setitem(sys.modules, 'qwen_tts', SimpleNamespace(Qwen3TTSModel=Model))
     tts.TTSService(VoiceModelManager())._ensure_tts_model('test')
     assert captured == {'device_map': 'cuda:0', 'dtype': 'fp32', 'attn_implementation': 'sdpa'}
+
+
+def test_windows_warms_voice_before_first_request(monkeypatch):
+    monkeypatch.setattr(runtime, 'CONFIG', replace(runtime.CONFIG, mock_mode=False))
+    monkeypatch.setattr(runtime.sys, 'platform', 'win32')
+    monkeypatch.delenv('IRIS_TTS_BACKEND', raising=False)
+    monkeypatch.setitem(sys.modules, 'torch', SimpleNamespace(
+        cuda=SimpleNamespace(is_available=lambda: True),
+    ))
+    warmed = []
+    monkeypatch.setattr(runtime.tts_service, 'synthesize_speech', lambda **kw: warmed.append(kw))
+    with TestClient(runtime.app):
+        assert len(warmed) == 1
+        assert warmed[0]['force_regenerate'] is True
+
+
+def test_windows_stream_reuses_wav_model(monkeypatch):
+    from services.voice_runtime import tts_stream
+    monkeypatch.setattr(tts_stream.sys, 'platform', 'win32')
+    shared = SimpleNamespace(backend_name='cuda_graph_fp32', _warmed_up=True)
+    service = tts.TTSService(VoiceModelManager())
+    service._mm.set_tts('test', shared)
+    assert tts_stream._load_fast_model(service, 'test') is shared
+    assert service._mm.get_tts('fast:test') is None

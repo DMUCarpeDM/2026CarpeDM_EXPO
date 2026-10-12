@@ -42,7 +42,7 @@ export function PreviewPage({ serviceMode, onNext, onPrev, onPrepare, previewKey
   ];
 
   if (focused) return <InterviewPreflight {...{ facts, mode, lead, objectives, aiReady, permissionState, consented, onConsent, starting, onNext, onPrev, error }} />;
-  if (workplace && isMirrorDeployment()) return <WorkplaceMirrorPreflight key={previewKey} {...{ mode, consented, starting, onNext, error, onPrepare }} />;
+  if (workplace && isMirrorDeployment()) return <><WorkplaceMirrorPreflight key={previewKey} {...{ mode, consented, starting, onNext, error, onPrepare }} />{permissionState.microphone === "granted" && permissionState.camera !== "granted" && <p className="mirror-media-notice" role="status">카메라가 연결되지 않아 음성 대화로 진행해요. 표정·자세 분석은 제공되지 않아요.</p>}</>;
   if (workplace) return <WorkplacePreflight {...{ mode, aiReady, permissionState, consented, onConsent, starting, onNext, error }} />;
 
   return <section className={`page preview-page preview-redesign preflight-preview ${focused ? "interview-preflight" : ""}`} aria-labelledby="preview-title">

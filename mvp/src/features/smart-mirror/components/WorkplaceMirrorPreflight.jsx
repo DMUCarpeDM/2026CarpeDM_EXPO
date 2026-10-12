@@ -10,6 +10,7 @@ export function WorkplaceMirrorPreflight({ mode = 5, consented, starting, onNext
   const [elapsed, setElapsed] = useState(reviewElapsed ?? reviewStartElapsed);
   const [scenes, setScenes] = useState(reviewScenes);
   const [preparationError, setPreparationError] = useState("");
+  const [retry, setRetry] = useState(0);
   const preparation = useRef(null);
   const prepare = useRef(onPrepare);
   prepare.current = onPrepare;
@@ -25,7 +26,7 @@ export function WorkplaceMirrorPreflight({ mode = 5, consented, starting, onNext
       if (!cancelled) setPreparationError(failure.message);
     });
     return () => { cancelled = true; };
-  }, [consented, reviewScenes]);
+  }, [consented, reviewScenes, retry]);
   const [visible, setVisible] = useState(!document.hidden);
   const started = useRef(false);
   const next = useRef(onNext);
@@ -61,6 +62,11 @@ export function WorkplaceMirrorPreflight({ mode = 5, consented, starting, onNext
       <WorkplaceOverviewCard labelledBy="mirror-preparation-title" live="polite">
         <h1 id="mirror-preparation-title">{currentError ? "연결 상태를 확인해 주세요." : "오늘의 대화를 준비하고 있어요."}</h1>
         {currentError && <p role="alert" className="mirror-nfc-instruction">{currentError}</p>}
+        {currentError && <button type="button" className="mirror-start-retry" disabled={starting} onClick={() => {
+          preparation.current = null;
+          started.current = false;
+          setPreparationError(""); setScenes(null); setElapsed(0); setRetry(value => value + 1);
+        }}>장치 연결 후 다시 시작</button>}
       </WorkplaceOverviewCard>
     </div>
   </section>;

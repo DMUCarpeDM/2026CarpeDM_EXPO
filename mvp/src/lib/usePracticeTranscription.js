@@ -113,11 +113,12 @@ export function usePracticeTranscription({
     setInterim("");
   };
   const resumeBrowserRecognition = () => setRecognitionEpoch(epoch => epoch + 1);
+  const retryBrowserRecognition = () => { setWebSpeechFailed(false); setMicEnabled(true); setRecognitionEpoch(epoch => epoch + 1); };
   const getSttSource = () => sttUsedRef.current ? "webspeech" : "text";
   const resetSttUsage = () => { sttUsedRef.current = false; };
 
   return {
     listening, interim, setInterim, micEnabled, setMicEnabled, sttMode,
-    clearAutoSubmit, stopBrowserRecognition, resumeBrowserRecognition, getSttSource, resetSttUsage,
+    clearAutoSubmit, stopBrowserRecognition, resumeBrowserRecognition, retryBrowserRecognition, getSttSource, resetSttUsage,
   };
 }

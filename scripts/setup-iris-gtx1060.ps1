@@ -13,7 +13,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "pip upgrade failed." }
     & $Python -m pip install torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu126
     if ($LASTEXITCODE -ne 0) { throw "CUDA 12.6 torch installation failed." }
-    & $Python -m pip install -c $Constraints -r services/voice_runtime/requirements-voice.txt qwen-tts
+    & $Python -m pip install -c $Constraints -r services/voice_runtime/requirements-voice.txt qwen-tts faster-qwen3-tts==0.3.2
     if ($LASTEXITCODE -ne 0) { throw "Voice dependency installation failed." }
     & $Python -m pip check
     if ($LASTEXITCODE -ne 0) { throw "Dependency check failed." }

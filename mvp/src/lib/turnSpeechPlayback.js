@@ -2,6 +2,13 @@ import { synthesizeSpeech } from "./pocApi.js";
 
 // 반환한 정리 함수는 질문 변경·일시정지·화면 이탈 시 호출한다.
 export function startTurnSpeech({ text, voice = "female", serverTtsReady, onSpeakingChange, onFinish, onNote, onProgress }) {
+  // UI/테스트의 질문 라벨은 실제 상대 대사가 아니다.
+  if (!text?.trim() || /^질문(?:\s*\d+)?[.!?]?$/u.test(text.trim())) {
+    onSpeakingChange(false);
+    onProgress?.({ text, status: "ended", charIndex: text?.length || 0 });
+    onFinish();
+    return () => {};
+  }
   const synth = window.speechSynthesis;
   const speechRequest = new AbortController();
   let cancelled = false;

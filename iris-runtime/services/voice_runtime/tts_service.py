@@ -265,6 +265,18 @@ class TTSService:
         key = self._get_tts_model_key(model_name)
 
         def _load() -> Any:
+            # Pascal 카드에서는 FP32를 유지하고 큰 텍스트 임베딩만 CPU에 둔다.
+            # 설치되지 않은 환경은 기존 PyTorch 경로를 계속 사용할 수 있다.
+            if sys.platform == "win32" and os.environ.get("IRIS_TTS_BACKEND", "auto") != "pytorch":
+                try:
+                    import torch
+                    if torch.cuda.is_available():
+                        from .tts_cuda import CudaVoiceCloneModel
+                        model = CudaVoiceCloneModel.from_pretrained(model_name)
+                        LOGGER.info("Iris TTS backend: %s", model.backend_name)
+                        return model
+                except Exception as exc:
+                    LOGGER.warning("Iris CUDA optimization unavailable; using PyTorch: %s", exc)
             # 설치된 Metal 모델이 있으면 동일 Iris 프로필을 네이티브 GPU에서 합성한다.
             if sys.platform == "darwin" and os.environ.get("IRIS_TTS_BACKEND", "auto") != "pytorch":
                 try:
