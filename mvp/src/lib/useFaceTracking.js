@@ -43,7 +43,8 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
   const turnAccRef = useRef(makeTurnAcc());
   const calibratedRef = useRef(false);
   const faceLandmarksRef = useRef(null);
-  const expressionStatus = useExpressionTracking(mediaStream, videoRef, turnAccRef, showFaceOverlay ? faceLandmarksRef : undefined);
+  const lastPersonAtRef = useRef(-Infinity);
+  const expressionStatus = useExpressionTracking(mediaStream, videoRef, turnAccRef, showFaceOverlay ? faceLandmarksRef : undefined, lastPersonAtRef);
   // 지난 수집 시점 이후의 집계를 NonverbalIn 모양으로 돌려주고 리셋 (턴 제출 시 호출)
   const collectTurnStats = useRef(() => {
     const acc = turnAccRef.current;
@@ -54,6 +55,7 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
   const peekTurnStats = useRef(() => finalizeTurnMetrics(turnAccRef.current, calibratedRef.current)).current;
 
   useEffect(() => {
+    lastPersonAtRef.current = -Infinity;
     const hasVideo = Boolean(mediaStream?.getVideoTracks?.().some((track) => track.readyState === "live"));
     if (!hasVideo) { setLive((prev) => ({ ...prev, status: "idle", tracking: false, poseTracked: false })); return undefined; }
 
@@ -62,6 +64,7 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
     let hand = null;
     let timer = 0;
     let lastPush = 0;
+    let lastVideoTime = -1;
     let inferAvg = 0;
     // 개인 기준(캘리브레이션) 상태
     let base = null; // 자세 기준값
@@ -96,7 +99,8 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
 
         timer = window.setInterval(() => {
           const video = videoRef.current;
-          if (!video || video.readyState < 2) return;
+          if (!video || video.readyState < 2 || video.currentTime === lastVideoTime) return;
+          lastVideoTime = video.currentTime;
           const ts = performance.now();
           try {
             const poseResult = poseLm.detectForVideo(video, ts + 0.001);
@@ -107,6 +111,7 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
             const features = postureFeatures(plm);
             if (features && turnAccRef.current.poseFeatures.length < 1500) turnAccRef.current.poseFeatures.push(features);
             const handLandmarks = handResult.landmarks || [];
+            if (plm?.some((point) => (point.visibility ?? 1) > 0.5) || handLandmarks.length) lastPersonAtRef.current = ts;
 
             drawOverlay(canvasRef.current, video, showFaceOverlay ? faceLandmarksRef.current : null, plm, handLandmarks);
 
@@ -236,5 +241,5 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
     };
   }, [mediaStream, videoRef, canvasRef, showFaceOverlay]);
 
-  return { ...live, expressionStatus, collectTurnStats, peekTurnStats };
+  return { ...live, expressionStatus, collectTurnStats, peekTurnStats, lastPersonAtRef };
 }

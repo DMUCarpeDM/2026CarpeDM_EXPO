@@ -14,7 +14,10 @@ import { RoleSelectPage } from "./setup/RoleSelectPage";
 import { ScenarioSelectPage } from "./setup/ScenarioSelectPage";
 import { ServiceModeSelectPage } from "./setup/ServiceModeSelectPage";
 import { SERVICE_ENTRY_FLOW, demoDestination, isChromelessView } from "../lib/serviceEntryRoute";
-import { workplaceStartView } from "../lib/workplaceTrack";
+import { isWorkplaceSession, workplaceStartView } from "../lib/workplaceTrack";
+import { shouldArmReportIdleReset } from "../lib/exhibitionSession";
+import { useFaceTracking } from "../lib/useFaceTracking";
+import { useMirrorVisitorIdle } from "../lib/useMirrorVisitorIdle";
 
 import { WorkplaceMirrorNfcWaitingPage } from "../features/smart-mirror/components/WorkplaceMirrorNfcWaitingPage";
 import { isMirrorDeployment } from "../features/smart-mirror/lib/workplaceMirrorTimeline";
@@ -40,7 +43,7 @@ export function ServiceEntryShell({
     nfcFallback, nfcCard, consented, apiError,
   } = entry.state;
   const { setMenuOpen, setDifficulty, setNfcFallback, setNfcCard, setConsented, setPocScenarioSlug } = entry.setters;
-  const { navigate, go, chooseServiceMode, chooseCounterpartProfile, chooseScenario, startFromJobRole, startMirrorExperience } = entry.actions;
+  const { navigate, go, chooseServiceMode, chooseCounterpartProfile, chooseScenario, startFromJobRole, startMirrorExperience, returnToStart } = entry.actions;
   const {
     serviceMode, apiScenarios, previewScenario, previewEpisode, previewCounterpartProfile,
     difficultyOption, aiHealth, permissionState, mediaStream, analysisProgress, starting,
@@ -50,6 +53,22 @@ export function ServiceEntryShell({
     startPractice, prepareMirror, sendAnswer, endPractice, requestExerciseMedia, switchMicDevice, issueCode, retryScenarios, retryCardLink,
   } = actions;
   const mirror = isMirrorDeployment();
+  const analysisVideoRef = useRef(null);
+  const overlayRef = useRef(null);
+  const idlePausedRef = useRef(false);
+  // Keep the same local trackers alive when practice hands off to the report.
+  const trackingStream = active === "practice" || (mirror && active === "result") ? mediaStream : null;
+  const track = useFaceTracking(trackingStream, analysisVideoRef, overlayRef, mirror && isWorkplaceSession(session));
+  const markVisitorActivity = useMirrorVisitorIdle({
+    enabled: mirror && (active === "practice" || shouldArmReportIdleReset(active, report)),
+    mediaStream, lastPersonAtRef: track.lastPersonAtRef, pausedRef: idlePausedRef, onIdle: returnToStart,
+  });
+  useEffect(() => {
+    if (mirror && active === "result" && analysisVideoRef.current) analysisVideoRef.current.srcObject = mediaStream;
+  }, [active, mirror, mediaStream]);
+  useEffect(() => {
+    if (mirror && active === "result" && !mediaStream) requestExerciseMedia().catch(() => {});
+  }, [active, mirror]);
   const contentRef = useRef(null);
   useEffect(() => {
     if (kioskIssueMode) return;
@@ -76,7 +95,7 @@ export function ServiceEntryShell({
       <DemoNotice />
       {session?.kiosk_link_status === "pending" && <div className="preview-error" role="status">사원증 결과 연결을 기다리고 있어요. <button type="button" disabled={linkRetrying} onClick={retryCardLink}>{linkRetrying ? "연결 확인 중" : "사원증 연결 다시 시도"}</button></div>}
       {session?.kiosk_link_status === "conflict" && <p className="preview-error" role="alert">사원증이 재발급되어 이 결과를 연결할 수 없어요. 운영자에게 문의하고 다음 체험에서는 다시 태그해주세요.</p>}
-      {active === "home" && apiError && <p className="preview-error" role="alert">{apiError}</p>}
+      {active === "home" && !mirror && apiError && <p className="preview-error" role="alert">{apiError}</p>}
       {active === "usage" && <UsagePage onPractice={() => navigate("home")} />}
       {active === "intro" && <SiteIntroPage onPractice={() => navigate("home")} />}
       {active === "records" && <ResultsHistoryPage onResultBack={() => navigate("home")} onPractice={() => navigate("home")} report={report} history={history} onIssueCode={issueCode} selectedDifficulty={difficulty} progress={analysisProgress} error={apiError} />}
@@ -85,7 +104,8 @@ export function ServiceEntryShell({
       {active === "scenario" && <ScenarioSelectPage serviceMode={serviceMode} counterpartProfile={counterpartProfile} scenarios={apiScenarios} status={scenarioStatus} onRetry={retryScenarios} selectedEpisodeId={selectedEpisodeId} onScenario={chooseScenario} onPrev={() => go(-1)} onNext={() => navigate("difficulty")} />}
       {active === "difficulty" && <DifficultyPage serviceMode={serviceMode} counterpartProfile={counterpartProfile} scenario={previewScenario} selectedEpisode={previewEpisode} difficulty={difficulty} onDifficulty={setDifficulty} onPrev={() => go(-1)} onNext={() => navigate("preview")} />}
       {active === "preview" && <PreviewPage serviceMode={serviceMode} onPrev={() => navigate("difficulty")} onNext={startPractice} onPrepare={prepareMirror} previewKey={`${nfcCard?.uid || ""}:${nfcCard?.issuedCount || ""}:${nfcCard?.kioskSessionId || ""}`} starting={starting} scenario={previewScenario} selectedEpisode={previewEpisode} counterpartProfile={previewCounterpartProfile} difficulty={difficultyOption} aiHealth={aiHealth} consented={consented} onConsent={setConsented} error={apiError} permissionState={permissionState} mode={mode} />}
-      {active === "practice" && <PracticePage session={session} onFinish={endPractice} onPrev={() => go(-1)} scenario={session?.scenario} aiHealth={aiHealth} turn={turn} history={turnHistory} turnSignals={turnSignals} onSubmit={sendAnswer} busy={submitting} error={apiError} mediaStream={mediaStream} onRequestMedia={requestExerciseMedia} onSwitchMic={switchMicDevice} />}
+      {active === "practice" && <PracticePage session={session} onFinish={endPractice} onPrev={() => go(-1)} scenario={session?.scenario} aiHealth={aiHealth} turn={turn} history={turnHistory} turnSignals={turnSignals} onSubmit={sendAnswer} busy={submitting} error={apiError} mediaStream={mediaStream} onRequestMedia={requestExerciseMedia} onSwitchMic={switchMicDevice} track={track} analysisVideoRef={analysisVideoRef} overlayRef={overlayRef} idlePausedRef={idlePausedRef} onVisitorActivity={markVisitorActivity} />}
+      {mirror && active === "result" && <video ref={analysisVideoRef} className="screen-reader-note" autoPlay muted playsInline aria-hidden="true" tabIndex={-1} />}
       {active === "result" && <ResultPage mirror={mirror && serviceMode?.id === "workplace"} onPrev={() => navigate("home")} onPractice={() => navigate("preview")} report={report} history={history} onIssueCode={issueCode} selectedDifficulty={difficulty} progress={analysisProgress} error={apiError} />}
     </main>
     <span className="screen-reader-note" aria-live="polite">현재 화면: {current.label}</span>

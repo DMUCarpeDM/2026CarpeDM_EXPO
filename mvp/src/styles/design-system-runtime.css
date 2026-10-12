@@ -1,4 +1,4 @@
-.app-shell:not(.practice-mode),
+.app-shell:not(.practice-mode):not(.mirror-deployment),
 .chromeless {
   --color-apple-blue: #0071e3;
   --color-link-blue: #0066cc;
@@ -33,12 +33,12 @@
   --page-padding: 24px;
 }
 
-body:has(.app-shell:not(.practice-mode)),
+body:has(.app-shell:not(.practice-mode):not(.mirror-deployment)),
 body:has(.chromeless) {
   background: white;
 }
 
-.app-shell:not(.practice-mode),
+.app-shell:not(.practice-mode):not(.mirror-deployment),
 .chromeless {
   --mode-accent: var(--color-apple-blue);
   --mode-accent-soft: var(--color-ice);
@@ -58,7 +58,7 @@ body:has(.chromeless) {
   font-family: var(--font-text);
 }
 
-.app-shell:not(.practice-mode) > .top-nav {
+.app-shell:not(.practice-mode):not(.mirror-deployment) > .top-nav {
   top: 0;
   width: 100%;
   min-height: 64px;
@@ -72,30 +72,30 @@ body:has(.chromeless) {
   backdrop-filter: saturate(180%) blur(18px);
 }
 
-.app-shell:not(.practice-mode) > .top-nav .brand {
+.app-shell:not(.practice-mode):not(.mirror-deployment) > .top-nav .brand {
   color: var(--color-carbon);
   font-size: 21px;
   font-weight: 600;
 }
 
-.app-shell:not(.practice-mode) > .top-nav nav {
+.app-shell:not(.practice-mode):not(.mirror-deployment) > .top-nav nav {
   gap: 28px;
   padding-left: 28px;
 }
 
-.app-shell:not(.practice-mode) > .top-nav nav button {
+.app-shell:not(.practice-mode):not(.mirror-deployment) > .top-nav nav button {
   color: var(--color-graphite);
   font-size: 14px;
   font-weight: 600;
 }
 
-.app-shell:not(.practice-mode) > .top-nav nav button.active {
+.app-shell:not(.practice-mode):not(.mirror-deployment) > .top-nav nav button.active {
   color: var(--color-link-blue);
   box-shadow: none;
 }
 
-.app-shell:not(.practice-mode) .glass-panel,
-.app-shell:not(.practice-mode) .card,
+.app-shell:not(.practice-mode):not(.mirror-deployment) .glass-panel,
+.app-shell:not(.practice-mode):not(.mirror-deployment) .card,
 .chromeless .glass-panel,
 .chromeless .card {
   border-color: var(--color-pebble);
@@ -103,49 +103,49 @@ body:has(.chromeless) {
   box-shadow: none;
 }
 
-.app-shell:not(.practice-mode) .nav-dropdown {
+.app-shell:not(.practice-mode):not(.mirror-deployment) .nav-dropdown {
   border-radius: var(--radius-content);
   background: var(--color-white);
   box-shadow: none;
   backdrop-filter: none;
 }
 
-.app-shell:not(.practice-mode) .scenario-select {
+.app-shell:not(.practice-mode):not(.mirror-deployment) .scenario-select {
   border-color: var(--color-pebble);
   border-radius: var(--radius-pill);
   background: var(--color-white);
 }
 
-.app-shell:not(.practice-mode) .screen-frame {
+.app-shell:not(.practice-mode):not(.mirror-deployment) .screen-frame {
   min-height: calc(100vh - 65px);
 }
 
-.app-shell:not(.practice-mode) .ui-button,
+.app-shell:not(.practice-mode):not(.mirror-deployment) .ui-button,
 .chromeless .ui-button {
   border-radius: var(--radius-pill);
   box-shadow: none;
   font-weight: 600;
 }
 
-.app-shell:not(.practice-mode) .ui-button--default,
+.app-shell:not(.practice-mode):not(.mirror-deployment) .ui-button--default,
 .chromeless .ui-button--default {
   background: var(--color-apple-blue);
   color: var(--color-white);
 }
 
-.app-shell:not(.practice-mode) .ui-button--outline,
+.app-shell:not(.practice-mode):not(.mirror-deployment) .ui-button--outline,
 .chromeless .ui-button--outline {
   border-color: var(--color-link-blue);
   background: var(--color-white);
   color: var(--color-link-blue);
 }
 
-.app-shell:not(.practice-mode) .ui-button--ghost,
+.app-shell:not(.practice-mode):not(.mirror-deployment) .ui-button--ghost,
 .chromeless .ui-button--ghost {
   color: var(--color-link-blue);
 }
 
-.app-shell:not(.practice-mode) .ui-card,
+.app-shell:not(.practice-mode):not(.mirror-deployment) .ui-card,
 .chromeless .ui-card {
   border-color: var(--color-pebble);
   border-radius: var(--radius-content);
@@ -153,14 +153,14 @@ body:has(.chromeless) {
   box-shadow: none;
 }
 
-.app-shell:not(.practice-mode) .ui-badge,
+.app-shell:not(.practice-mode):not(.mirror-deployment) .ui-badge,
 .chromeless .ui-badge {
   border-radius: var(--radius-pill);
   font-weight: 600;
 }
 
 @media (max-width: 900px) {
-  .app-shell:not(.practice-mode) > .top-nav {
+  .app-shell:not(.practice-mode):not(.mirror-deployment) > .top-nav {
     padding-inline: 16px;
   }
 }

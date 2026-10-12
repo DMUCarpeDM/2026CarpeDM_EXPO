@@ -3,12 +3,13 @@ import {resolveModel, resolveWasmUrl} from "./visionAssets.js";
 import {addExpressionSample, faceCrop, normalizeFace} from "./expressionModel.js";
 
 // Face crops stay in this browser. Only aggregated model outputs leave it.
-export function useExpressionTracking(mediaStream, videoRef, turnAccRef, faceLandmarksRef) {
+export function useExpressionTracking(mediaStream, videoRef, turnAccRef, faceLandmarksRef, lastPersonAtRef) {
   const [status, setStatus] = useState("idle");
   useEffect(() => {
     if (faceLandmarksRef) faceLandmarksRef.current = null;
     if (!mediaStream?.getVideoTracks?.().some(t => t.readyState === "live")) { setStatus("idle"); return; }
     let cancelled = false, timer, face, session, busy = false;
+    let lastVideoTime = -1;
     let pending = Promise.resolve();
     const dispose = async () => {
       const detector = face, model = session;
@@ -41,7 +42,10 @@ export function useExpressionTracking(mediaStream, videoRef, turnAccRef, faceLan
           pending = (async () => {
             try {
               const video = videoRef.current;
+              if (video.currentTime === lastVideoTime) return;
+              lastVideoTime = video.currentTime;
               const result = face.detectForVideo(video, performance.now());
+              if (result.faceLandmarks.length && lastPersonAtRef) lastPersonAtRef.current = performance.now();
               if (faceLandmarksRef) faceLandmarksRef.current = result.faceLandmarks.length === 1 ? result.faceLandmarks[0] : null;
               if (result.faceLandmarks.length !== 1) { if (!cancelled) setStatus("no_face"); return; }
               const crop = faceCrop(result.faceLandmarks[0], video.videoWidth, video.videoHeight);
@@ -68,6 +72,6 @@ export function useExpressionTracking(mediaStream, videoRef, turnAccRef, faceLan
       window.clearInterval(timer);
       Promise.allSettled([initialization, pending]).then(dispose).catch(() => {});
     };
-  }, [mediaStream, videoRef, turnAccRef, faceLandmarksRef]);
+  }, [mediaStream, videoRef, turnAccRef, faceLandmarksRef, lastPersonAtRef]);
   return status;
 }

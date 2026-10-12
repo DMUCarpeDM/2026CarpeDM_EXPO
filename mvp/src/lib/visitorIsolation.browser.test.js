@@ -10,7 +10,7 @@ const report = { session_id: 21, total_score: 75,
   speech_stats: {}, evidence_segments: [], deep_analysis: {}, rebuild: {}, mode: 5 };
 const json = (route, body) => route.fulfill({ contentType: "application/json", body: JSON.stringify(body) });
 
-async function open(t, { saved = true, holdReport = false, holdCreate = false, mirror = false } = {}) {
+async function open(t, { saved = true, holdReport = false, holdCreate = false, mirror = false, practice = false } = {}) {
   const { server, url } = await startVite();
   let browser;
   t.after(async () => { await browser?.close(); await server.close(); });
@@ -20,6 +20,7 @@ async function open(t, { saved = true, holdReport = false, holdCreate = false, m
     navigator.mediaDevices.getUserMedia = async () => { throw new DOMException("no hardware in regression", "NotAllowedError"); };
     localStorage.setItem("mirror-ting-client-key", "visitor-a-client");
     if (saved) localStorage.setItem("mirror-ting-active-session", JSON.stringify({ id: 21, access_token: "test-only-token" }));
+    Object.defineProperty(window.speechSynthesis, "speak", { value: utterance => { window.__testUtterance = utterance; } });
   }, { saved });
   let release, requested;
   const requestSeen = new Promise(resolve => { requested = resolve; });
@@ -36,13 +37,15 @@ async function open(t, { saved = true, holdReport = false, holdCreate = false, m
       return json(route, { id: 22, access_token: "new-test-only-token", current_turn: { id: 221, question_text: "질문" } });
     }
     const body = path === "/api/scenarios" ? []
-      : path === "/api/sessions/21" ? { id: 21, status: "completed", scenario: { title: "test" }, history: [] }
+      : path === "/api/sessions/21" ? { id: 21, status: practice ? "in_progress" : "completed",
+        scenario: { title: "test", slug: "workplace-conversation", characters: [{ id: "c", name: "박선임" }] }, history: [],
+        ...(practice ? { current_turn: { id: 31, character_id: "c", question_text: "상황을 알려 주세요." } } : {}) }
         : path.endsWith("/progress") ? { status: "completed", stage: "done", pct: 100 }
           : path === "/api/history" ? { items: [{ session_id: 21, total_score: 75 }] } : {};
     return json(route, body);
   });
   const page = await context.newPage();
-  await page.goto(`${url}?service=workplace${mirror ? "&mirror=1&idle=1" : ""}`);
+  await page.goto(`${url}?service=workplace${mirror ? "&mirror=1&idle=0" : ""}`);
   return { page, requestSeen, release };
 }
 
@@ -96,10 +99,51 @@ test("mirror idle returns to card waiting with no prior report or history capabi
   const { page } = await open(t, { mirror: true });
   await page.getByText(marker, { exact: true }).first().waitFor();
   await page.clock.install();
-  await page.clock.fastForward(1500);
+  await page.clock.fastForward(30_100);
   await page.locator(".home-mode-workplace").waitFor();
   assert.equal((await page.locator("body").innerText()).includes(marker), false);
   assert.equal(await page.locator(".report-page").count(), 0);
   assert.equal(await page.evaluate(() => localStorage.getItem("mirror-ting-active-session")), null);
   assert.equal(await page.evaluate(() => localStorage.getItem("mirror-ting-client-key")), null);
+});
+
+test("mirror reload returns to the first screen without resuming, retaining completed records", { timeout: 45000 }, async t => {
+  const { page } = await open(t, { mirror: true });
+  await page.getByText(marker, { exact: true }).first().waitFor();
+  const retained = await page.evaluate(() => localStorage.getItem("mirror-ting-retained-records"));
+  assert.ok(retained);
+  let resumeRequests = 0;
+  page.on("request", request => { if (new URL(request.url()).pathname === "/api/sessions/21") resumeRequests++; });
+  await page.reload();
+  await page.locator(".home-mode-workplace").waitFor();
+  assert.equal(resumeRequests, 0);
+  assert.equal(await page.evaluate(() => localStorage.getItem("mirror-ting-active-session")), null);
+  assert.equal(await page.evaluate(() => localStorage.getItem("mirror-ting-client-key")), null);
+  assert.equal(await page.evaluate(() => localStorage.getItem("mirror-ting-retained-records")), retained);
+  assert.equal((await page.locator("body").innerText()).includes(marker), false);
+});
+
+test("mirror simulation waits during TTS then returns home after 30 seconds without either input", { timeout: 45000 }, async t => {
+  const { page } = await open(t, { mirror: true, practice: true });
+  await page.waitForFunction(() => window.__testUtterance);
+  await page.evaluate(() => window.__testUtterance.onstart());
+  await page.locator('.simulation-dialogue-text[data-visible="true"]').waitFor();
+  await page.clock.install();
+  await page.clock.fastForward(60_000);
+  assert.equal(await page.locator(".home-mode-workplace").count(), 0);
+  await page.evaluate(() => window.__testUtterance.onend());
+  await page.locator('.simulation-dialogue-text[data-visible="false"]').waitFor({ state: "attached" });
+  await page.clock.fastForward(29_000);
+  assert.equal(await page.locator(".home-mode-workplace").count(), 0);
+  await page.clock.fastForward(1_200);
+  await page.locator(".home-mode-workplace").waitFor();
+  assert.equal(await page.evaluate(() => localStorage.getItem("mirror-ting-active-session")), null);
+});
+
+test("reload during mirror simulation ignores the saved in-progress session", { timeout: 45000 }, async t => {
+  const { page } = await open(t, { mirror: true, practice: true });
+  await page.waitForFunction(() => window.__testUtterance);
+  await page.reload();
+  await page.locator(".home-mode-workplace").waitFor();
+  assert.equal(await page.evaluate(() => localStorage.getItem("mirror-ting-active-session")), null);
 });

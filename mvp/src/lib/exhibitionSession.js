@@ -22,7 +22,8 @@ export function shouldArmReportIdleReset(view, report) {
   return true;
 }
 
-/** 리포트 흐름 방치 복귀 대기 시간 — `?idle=<초>`로 조정한다 (AttractLoop의 `?attract=`와 같은 방침).
+/** 웹 리포트 흐름 방치 복귀 대기 시간 — `?idle=<초>`로 조정한다.
+ *  스마트 미러는 별도로 음성·사람 감지 기반의 30초 복귀를 사용하며 이 쿼리를 적용하지 않는다.
  *
  *  `?idle=0`(또는 off/none)이면 **복귀 자체를 끈다.** 시연 영상 촬영처럼 리포트 화면을
  *  90초 넘게 띄워 두고 내레이션해야 하는 경우, 기본값이 세션까지 지우고 홈으로 보내버린다.

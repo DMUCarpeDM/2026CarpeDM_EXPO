@@ -86,6 +86,15 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
     showView(destination);
   };
 
+  const returnToStart = () => {
+    resetVisitor(Boolean(deploymentServiceModeId));
+    const url = new URL(window.location.href);
+    url.searchParams.delete("demo");
+    const destination = deploymentServiceModeId ? "home" : "service";
+    window.history.replaceState({ mirrorTingView: destination }, "", url);
+    showView(destination);
+  };
+
   useEffect(() => { window.scrollTo(0, 0); }, [active]);
   useEffect(() => {
     const handlePopState = (event) => {
@@ -113,6 +122,10 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
     const enter = (target) => { if (!cancelled) replaceView(target); };
     const enterPractice = () => requestExerciseMedia().catch(() => {});
     const resolveEntry = async () => {
+      if (isMirrorDeployment() && performance.getEntriesByType("navigation")[0]?.type === "reload") {
+        returnToStart();
+        return;
+      }
       const directDestination = demoDestination();
       if (directDestination === "practice") {
         setReport(DEMO_REPORT); setHistory(DEMO_HISTORY);
@@ -164,6 +177,8 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
   }, []);
 
   useEffect(() => {
+    // Mirror practice/results share a media-aware 30-second timer in ServiceEntryShell.
+    if (isMirrorDeployment()) return undefined;
     if (!shouldArmReportIdleReset(active, report)) return undefined;
     const idleMs = resolveReportIdleTimeoutMs(window.location.search);
     if (idleMs === null) return undefined;
@@ -171,10 +186,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
     const resetTimer = () => {
       window.clearTimeout(timer);
       timer = window.setTimeout(() => {
-        if (isMirrorDeployment()) {
-          resetVisitor(true);
-          navigate("home");
-        } else navigate("service");
+        navigate("service");
       }, idleMs);
     };
     resetTimer();
@@ -279,7 +291,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
       setNfcFallback, setNfcCard, setConsented, setApiError,
     },
     actions: {
-      navigate, go, chooseServiceMode, chooseCounterpartProfile, chooseScenario, startFromJobRole, startMirrorExperience,
+      navigate, go, chooseServiceMode, chooseCounterpartProfile, chooseScenario, startFromJobRole, startMirrorExperience, returnToStart,
     },
   };
 }

@@ -20,7 +20,6 @@ import { blobToWav } from "../lib/audioWav";
 import { startTurnSpeech } from "../lib/turnSpeechPlayback";
 import { usePracticeTranscription } from "../lib/usePracticeTranscription";
 import { useLiveCoaching } from "../lib/useLiveCoaching";
-import { useFaceTracking } from "../lib/useFaceTracking";
 import { PersonaFace } from "../components/ui/PersonaFace";
 import { composeTurnSpeech } from "../lib/turnSpeech";
 import { isWorkplaceSession, workplaceBriefing } from "../lib/workplaceTrack";
@@ -44,7 +43,7 @@ function containDialogTab(event) {
   else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
 }
 
-export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, turn, history, turnSignals, onSubmit, busy, error, mediaStream, onRequestMedia, onSwitchMic }) {
+export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, turn, history, turnSignals, onSubmit, busy, error, mediaStream, onRequestMedia, onSwitchMic, track, analysisVideoRef, overlayRef, idlePausedRef, onVisitorActivity }) {
   const mirror = isMirrorDeployment();
   const voice = useVoiceCalibration(session, mediaStream);
   const exclusionsRef = useRef([]);
@@ -56,8 +55,6 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   const [elapsed, setElapsed] = useState(0);
   const [paused, setPaused] = useState(false);
   const [recSeconds, setRecSeconds] = useState(0);
-  const analysisVideoRef = useRef(null);
-  const overlayRef = useRef(null);
   const screenRef = useRef(null);
   const [fullscreen, setFullscreen] = useState(false);
   useEffect(() => {
@@ -119,8 +116,6 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
     return () => { dialog.close(); if (previousFocus?.isConnected) previousFocus.focus(); };
   }, [confirmEnd]);
   const aiReady = Boolean(aiHealth?.dialogue_ready);
-  // MediaPipe 실시간 얼굴·상체 트래킹 (영상 미전송 — 브라우저 안에서만 분석)
-  const track = useFaceTracking(mediaStream, analysisVideoRef, overlayRef, mirror && workplace);
   const trackingLive = track.status === "ready" && track.tracking;
 
   // ---- 턴 단위 비언어 집계: 훅 내부에서 샘플 단위로 모은
@@ -136,6 +131,11 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   const [aiSpeaking, setAiSpeaking] = useState(false);
   const [speechPlayback, setSpeechPlayback] = useState({ status: "waiting" });
   const aiSpeechActiveRef = useRef(false);
+  useEffect(() => {
+    idlePausedRef.current = Boolean(aiSpeaking || busy);
+    onVisitorActivity();
+    return () => { idlePausedRef.current = false; };
+  }, [aiSpeaking, busy, idlePausedRef, onVisitorActivity]);
   const turnSpeech = composeTurnSpeech(turn);
   const [teamLeadReaction, setTeamLeadReaction] = useState("");
   // 감정 클립이 있으면 말하기보다 우선 — 1회 재생 후 onReactionComplete로 기본말하기 복귀
@@ -262,6 +262,9 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
     { label: "마이크", detail: micSilent ? "신호 없음" : micDeviceLabel || "입력", title: micDeviceLabel, ready: hasMicrophone && !micSilent },
   ];
   const inputValue = interim ? `${draft} ${interim}`.trim() : draft;
+  useEffect(() => {
+    if (inputValue.trim()) onVisitorActivity();
+  }, [inputValue, onVisitorActivity]);
   const inputStatus = practiceInputStatus({ busy, entryOverlayOpen, paused, turn, aiSpeaking, textOnly: voice.textOnly, sttMode, micEnabled, hasMicrophone, listening });
 
   useEffect(() => {
