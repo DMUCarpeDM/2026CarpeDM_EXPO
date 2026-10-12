@@ -121,3 +121,15 @@
   .overview-card-details { grid-template-columns: 1fr; gap: 16px; padding-block-start: 16px; }
   .overview-step-label { gap: 6px; }
 }
+
+/* Lift foreground content by 3% of the mirror viewport without moving media. */
+.mirror-overview > .overview-masthead,
+.mirror-overview > .overview-steps,
+.mirror-overview .overview-context,
+.mirror-overview .overview-content > .overview-summary-card,
+.mirror-overview > .overview-footer,
+.mirror-dashboard > *,
+.mirror-scene-simulation > .simulation-card-slot,
+.mirror-scene-simulation > .mirror-capture-status {
+  translate: 0 calc(-3 * var(--u));
+}
