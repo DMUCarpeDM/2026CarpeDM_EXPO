@@ -122,14 +122,9 @@
   .overview-step-label { gap: 6px; }
 }
 
-/* Lift foreground content by 3% of the mirror viewport without moving media. */
-.mirror-overview > .overview-masthead,
-.mirror-overview > .overview-steps,
-.mirror-overview .overview-context,
-.mirror-overview .overview-content > .overview-summary-card,
-.mirror-overview > .overview-footer,
-.mirror-dashboard > *,
-.mirror-scene-simulation > .simulation-card-slot,
-.mirror-scene-simulation > .mirror-capture-status {
+/* Lift only NFC content and popups by 3% of the mirror viewport. */
+.mirror-nfc-waiting > .overview-masthead,
+.mirror-nfc-waiting > .mirror-nfc-content,
+.mirror-glass-modal {
   translate: 0 calc(-3 * var(--u));
 }
