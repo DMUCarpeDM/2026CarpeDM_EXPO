@@ -58,7 +58,7 @@ def _turn() -> Turn:
 
 def test_valid_line_rejects_act_meta_leak():
     """세션 39 turn 69 재현 — 막 메타가 대사로 새면 폴백해야 한다."""
-    from app.services.dialogue.openai_provider import _history_question, _scene_context, _valid_line
+    from app.services.dialogue.openai_provider import _history_question, _valid_line
 
     assert _valid_line("그냥 지난달 보고서부터 먼저 읽어요.")
     assert not _valid_line("Act**: * Act: Morning")
@@ -69,8 +69,6 @@ def test_valid_line_rejects_act_meta_leak():
     assert not _valid_line("보고까지 할 건 없고,")
     assert not _valid_line("그럼 우선 자료 중에서 일정표")
     assert _history_question("Act**: * Act: Morning") == "(이전 장면)"
-    assert _scene_context({"act_id": "morning", "act_label": "Act: Morning"}) == "출근"
-    assert _scene_context({"act_id": "morning", "act_label": "출근"}) == "출근"
 
 
 def test_continuous_mode_falls_back_when_model_leaks_act_meta(monkeypatch):
@@ -189,12 +187,13 @@ def test_next_question_sends_full_roleplay_context_to_gpt4o(monkeypatch):
     assert next_turn.question_type == "ai_roleplay"
     assert next_turn.question_text == "그럼 새 음료는 언제 받을 수 있나요?"
     prompt = captured["json"]["messages"][1]["content"]
-    assert "카페 온도" in prompt
+    assert "픽업대 앞" in prompt
+    assert "컴플레인 고객 응대 연습" not in prompt
     assert "강선우 고객" in prompt
     assert "매장 크루" in prompt
     assert "정말 죄송합니다" in prompt
     assert "성격(고정):" in prompt
-    assert "현재 난이도 태도(세션 고정):" in prompt
+    assert "평소 대화 태도:" in prompt
 
 
 def test_persona_includes_fixed_enrichment_fields_when_present():
@@ -206,7 +205,7 @@ def test_persona_includes_fixed_enrichment_fields_when_present():
     )
     assert "나와의 관계:" not in thin
     assert "성격(고정): 화난 단골" in thin
-    assert "현재 난이도 태도(세션 고정):" in thin
+    assert "평소 대화 태도:" in thin
 
     rich = _persona(
         {
@@ -228,7 +227,7 @@ def test_persona_includes_fixed_enrichment_fields_when_present():
     assert "자주 쓰는 말: 그냥 좀, 신입인데" in rich
     assert "절대 안 하는 말/행동: 사과" in rich
     assert "이 사람의 숨은 목표: 일을 넘긴다" in rich
-    assert "현재 난이도 태도(세션 고정): 부드럽게 부탁한다." in rich
+    assert "평소 대화 태도: 부드럽게 부탁한다." in rich
 
 
 def test_next_question_stops_after_the_mode_turn_limit(monkeypatch):
@@ -268,5 +267,6 @@ def test_interview_reaction_uses_shared_feedback_but_keeps_prepared_question(mon
     spec = OpenAIDialogueProvider().next_question(session, scenario, [_episode()], [_turn()])
     assert spec.question_type == "main" and spec.question_text == "주요 질문 1"
     assert spec.reaction_text == "고개를 조금 들어 저를 보며 말씀해 주시겠어요?"
-    assert 'head_down' in captured['json']['messages'][1]['content']
+    assert 'head_down' not in captured['json']['messages'][1]['content']
+    assert '고개를 숙여' in captured['json']['messages'][1]['content']
     assert '표정·감정·성격을 지적하지 않습니다' in captured['json']['messages'][0]['content']

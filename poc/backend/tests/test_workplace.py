@@ -177,13 +177,14 @@ def test_flatten_avoids_goal_probe_template():
     assert items[1]["fallback_pool"] == plan["acts"][0]["fallback_pool"]
 
 
-def test_continuous_fallback_uses_catchphrase_and_last_reply():
+def test_continuous_fallback_uses_catchphrase_without_quoting_user_or_goal():
     character = {"catchphrases": ["그냥 좀", "신입인데"]}
     turns = [NS(response_text="네 알겠습니다")]
     item = {"goal": "방향을 확인한다", "label": "방향 확인"}
     line = continuous_fallback_line(character, turns, item)
     assert line.startswith("그냥 좀")
-    assert "네 알겠습니다" in line
+    assert "네 알겠습니다" not in line
+    assert item["goal"] not in line
     assert "에 대해 구체적으로" not in line
 
 
@@ -258,7 +259,7 @@ def test_continuous_fallback_prefers_reaction_pool_for_case():
     assert "말투" in line
 
 
-def test_act_bridge_line_mentions_carry_then_opening():
+def test_act_bridge_line_does_not_claim_to_know_another_conversation():
     from app.services.workplace import act_bridge_line
 
     line = act_bridge_line(
@@ -266,7 +267,7 @@ def test_act_bridge_line_mentions_carry_then_opening():
         "자료를 먼저 확인하겠습니다",
         {"text": "이거 오늘까지 해보세요."},
     )
-    assert "자료를 먼저 확인" in line
+    assert "자료를 먼저 확인" not in line
     assert "이거 오늘까지" in line
 
 

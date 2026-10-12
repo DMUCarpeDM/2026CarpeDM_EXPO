@@ -2,6 +2,8 @@
 import random
 import re
 
+from app.services.role_boundary import is_role_drift
+
 WORKPLACE_SLUG = "workplace-conversation"
 PLAN_VERSION = "workplace-continuous-v1"
 CONTINUOUS_MODE = "workplace_continuous"
@@ -195,7 +197,7 @@ def continuous_fallback_line(character: dict | None, turns, item: dict, case: st
     character = character or {}
     used = _used_ai_questions(turns)
     # 1) 아직 안 쓴 장면 오프닝만 — 소진되면 리액션/템플릿으로 (첫 대사 재등장 방지)
-    scene_pool = [str(line).strip() for line in (item.get("fallback_pool") or []) if str(line).strip()]
+    scene_pool = [str(line).strip() for line in (item.get("fallback_pool") or []) if str(line).strip() and not is_role_drift(str(line))]
     if scene_pool:
         candidates = [line for line in scene_pool if not any(_SPACE.sub(" ", line) in prior for prior in used)]
         if candidates:
@@ -203,7 +205,7 @@ def continuous_fallback_line(character: dict | None, turns, item: dict, case: st
 
     # 2) 품질별 고정 리액션 풀
     pool = (character.get("reactions") or {}).get(case or "") or []
-    pool = [str(line).strip() for line in pool if str(line).strip()]
+    pool = [str(line).strip() for line in pool if str(line).strip() and not is_role_drift(str(line))]
     if pool:
         candidates = [line for line in pool if _SPACE.sub(" ", line) not in used]
         if candidates:
@@ -213,35 +215,16 @@ def continuous_fallback_line(character: dict | None, turns, item: dict, case: st
 
     phrases = [str(p).strip() for p in (character.get("catchphrases") or []) if str(p).strip()]
     hook = phrases[0] if phrases else "그래서"
-    last = _last_user_reply(turns)
-    snippet = (last[:24] + "…") if len(last) > 24 else last
-    goal = (item.get("goal") or item.get("label") or "").strip()
-    if snippet and goal:
-        line = f"{hook}, 방금 '{snippet}'라고 하셨는데 그걸로는 부족해요. {goal}만 짧게 말해요."
-    elif snippet:
-        line = f"{hook}, 방금 말씀은 알겠는데 그래서 어떻게 하실 건데요?"
-    elif goal:
-        line = f"{hook}, {goal} 기준으로 어떻게 하실 건지 말해요."
-    else:
-        line = f"{hook}, 그래서 어떻게 하실 건데요?"
-    return _SPACE.sub(" ", line).strip()[:180]
+    # 내부 평가 목표나 사용자가 삽입한 지시를 상대의 대사로 복사하지 않는다.
+    return f"{hook}, 방금 말씀하신 대로 하려면 먼저 뭘 하실 건가요?"[:180]
 
 
 def act_bridge_line(character: dict | None, carry: str, item: dict) -> str:
-    """막 전환 첫 턴 — carry를 한 번 언급한 뒤 새 장면 오프닝으로 이어진다."""
-    character = character or {}
-    carry = _SPACE.sub(" ", (carry or "").strip())
+    """새 상대는 다른 인물에게 한 말을 들었다고 주장하지 않는다."""
     opening = (item.get("text") or item.get("opening_line") or "").strip()
-    if not carry:
-        return (opening or continuous_fallback_line(character, [], item))[:180]
-    snippet = (carry[:40] + "…") if len(carry) > 40 else carry
-    phrases = [str(p).strip() for p in (character.get("catchphrases") or []) if str(p).strip()]
-    hook = phrases[0] if phrases else "아까"
-    if opening:
-        line = f"{hook}, 아까 '{snippet}' 이야기 이어서요. {opening}"
-    else:
-        line = f"{hook}, 아까 '{snippet}' 이어서 오늘 일 이야기할까요."
-    return _SPACE.sub(" ", line).strip()[:180]
+    if opening and not is_role_drift(opening):
+        return opening[:180]
+    return continuous_fallback_line(character, [], item)
 
 
 def validate_day_plan(plan: dict, character_ids: set[str], mode: int, episodes, categories=None) -> dict:
@@ -336,7 +319,7 @@ def flatten_plan_items(plan: dict) -> list[dict]:
     for act_index, act in enumerate(plan["acts"]):
         check = (act.get("checklist") or [{}])[0]
         goals = act["beat_goals"]
-        scene_pool = [str(line).strip() for line in (act.get("fallback_pool") or []) if str(line).strip()]
+        scene_pool = [str(line).strip() for line in (act.get("fallback_pool") or []) if str(line).strip() and not is_role_drift(str(line))]
         if not scene_pool and act.get("opening_line"):
             scene_pool = [act["opening_line"]]
         for i, goal in enumerate(goals):
@@ -345,8 +328,7 @@ def flatten_plan_items(plan: dict) -> list[dict]:
             elif scene_pool:
                 text = scene_pool[i % len(scene_pool)]
             else:
-                label = check.get("label") or goal
-                text = f"그래서 {label}, 어떻게 하실 건데요?"[:180]
+                text = "지금 어떻게 하실 건가요?"
             items.append({
                 "id": f"{act['id']}:{i+1}",
                 "assessment_id": f"{act['id']}:{check.get('id') or 'goal'}",
