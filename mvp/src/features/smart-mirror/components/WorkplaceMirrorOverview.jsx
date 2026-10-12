@@ -24,13 +24,11 @@ export function WorkplaceMirrorOverview({ scenes, phase, starting, reduced, paus
   const countdown = phase.kind === "countdown";
   const finishing = starting || phase.kind === "complete";
   return <section className="mirror-overview mirror-city-surface" aria-labelledby="overview-title" data-scene={phase.scene} data-starting={countdown || finishing} data-glass={new URLSearchParams(window.location.search).get("glass") === "bright" ? "bright" : "standard"}>
-    <header className="overview-masthead"><strong>Mirror-Ting</strong></header>
-    <DayProgress scenes={scenes} phase={phase} />
     <div className="overview-content">
       <div className="overview-context">
-        <p className="overview-eyebrow">오늘의 대화 연습</p>
         <h1 id="overview-title">회사에서 보내는 하루.</h1>
         <p className="overview-situation">출근부터 퇴근까지, 세 장면을 미리 살펴봐요.</p>
+        <DayProgress scenes={scenes} phase={phase} />
       </div>
       <div className="overview-art" aria-hidden="true">
         <AnimatePresence initial={false} mode="wait">
