@@ -126,7 +126,6 @@
 }
 
 /* Lift only NFC content and popups by 3% of the mirror viewport. */
-.mirror-nfc-waiting > .overview-masthead,
 .mirror-nfc-waiting > .mirror-nfc-content,
 .mirror-glass-modal {
   translate: 0 calc(-3 * var(--u));

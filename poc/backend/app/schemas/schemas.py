@@ -343,6 +343,7 @@ class PoseEnsembleIn(BaseModel):
 
 
 class ExpressionModelIn(BaseModel):
+    sustained_smile_ms: float = Field(default=0, ge=0, le=60000, allow_inf_nan=False)
     version: Literal["expression-resnet18-v1"]
     status: Literal["unvalidated"]
     preprocessing: Literal["imagenet-face-square-provisional-v1"]

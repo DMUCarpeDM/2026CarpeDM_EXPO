@@ -11,22 +11,22 @@ def result(events=(), measured=("response",)):
 def test_unmeasured_is_not_zero_and_axes_average():
     assert calculate([])["total"] is None
     out = calculate([result([event(1, "response", "goal_met", "positive", {"goal_id": "x"}, "")], ["response", "posture"])])
-    assert out["scores"] == {"response": 78, "voice": None, "expression": None, "posture": 75}
-    assert out["total"] == 76.5
+    assert out["scores"] == {"response": 76, "voice": None, "expression": None, "posture": 75}
+    assert out["total"] == 75.5
 
 
 def test_repeats_caps_and_duplicate_ids():
     events = [event(i, "posture", "sway", "negative", {}, "") for i in range(20)]
     out = calculate([result(events + events, ["posture"])])
-    assert out["scores"]["posture"] == 63
+    assert out["scores"]["posture"] == 72
     assert len(out["changes"]["posture"]) == 3
 
 
 def test_contradictions_deduplicate_and_cap():
     events = [event(i, "response", "contradiction", "negative", {"fact_key": "일정"}, "") for i in range(5)]
-    assert calculate([result(events)])["contradiction_deduction"] == 4
+    assert calculate([result(events)])["contradiction_deduction"] == 1
     events += [event(10+i, "response", "contradiction", "negative", {"fact_key": f"사실{i}"}, "") for i in range(5)]
-    assert calculate([result(events)])["contradiction_deduction"] == 12
+    assert calculate([result(events)])["contradiction_deduction"] == 3
 
 
 def test_audio_excludes_estimates_intonation_and_missing_data():
@@ -37,7 +37,7 @@ def test_audio_excludes_estimates_intonation_and_missing_data():
 
 
 def test_only_grounded_unexplained_conflicts_survive():
-    prior = NS(id=1, order=1, response_text="제가 담당자입니다")
+    prior = NS(id=1, order=1, question_text="자료 확인은?", response_text="제가 담당자입니다")
     current = NS(id=2, order=2, response_text="저는 담당자가 아닙니다", question_text="담당자입니까?")
     conflict = {"previous_turn_id": 1, "previous_quote": "제가 담당자입니다", "current_quote": "저는 담당자가 아닙니다", "fact_key": "담당자", "confidence": .95, "explained_change": False}
     assert len(validate({"conflicts": [conflict]}, current, [prior], [], [])[0]) == 1
@@ -88,7 +88,7 @@ def test_training_report_uses_shared_score_and_purges_internal_quotes(monkeypatc
     assert report["fit_scores"]["voice"]["score"] is None
     assert report["fit_scores"]["expression"]["score"] is None
     assert "유효한 얼굴 표본이 수집되지 않아" in report["fit_scores"]["expression"]["summary"]
-    assert report["deep_analysis"]["interaction"]["version"] == "interaction-score-v1"
+    assert report["deep_analysis"]["interaction"]["version"] == "interaction-score-v3"
     with SessionLocal() as db:
         session = db.get(RoleplaySession, sid)
         assert "judgments" not in session.rapport
@@ -102,10 +102,10 @@ def test_same_quotes_with_different_fact_names_are_one_conflict():
     events = [conflict(2, "업무 담당자"), conflict(3, "담당자 여부"),
               conflict(4, "다른 명칭", "제가담당자가아닙니다", "제가담당자입니다")]
     out = calculate([result(events)])
-    assert out["contradiction_deduction"] == 4
+    assert out["contradiction_deduction"] == 1
     assert len(out["contradictions"]) == 1
     events.append(conflict(5, "마감일", "마감은 월요일", "마감은 금요일"))
-    assert calculate([result(events)])["contradiction_deduction"] == 8
+    assert calculate([result(events)])["contradiction_deduction"] == 2
 
 
 def test_confirmation_uses_same_aliases_as_scoring_and_reads_legacy_names():
@@ -125,7 +125,7 @@ def test_goal_judgment_calls_gemini_with_grounded_evidence(monkeypatch):
     monkeypatch.setattr(settings, "gemini_api_key", SecretStr("gemini-test"))
     monkeypatch.setattr(settings, "openai_api_key", SecretStr(""))
     current = NS(id=2, order=2, question_text="일정은?", response_text="내일까지 하겠습니다")
-    prior = NS(id=1, order=1, response_text="자료를 확인했습니다")
+    prior = NS(id=1, order=1, question_text="자료 확인은?", response_text="자료를 확인했습니다")
     def respond(url, **kwargs):
         assert url.endswith(f"/v1beta/models/{settings.gemini_model}:generateContent")
         assert kwargs["headers"] == {"x-goog-api-key": "gemini-test"}
@@ -133,7 +133,7 @@ def test_goal_judgment_calls_gemini_with_grounded_evidence(monkeypatch):
         assert body["generationConfig"]["responseMimeType"] == "application/json"
         payload = json.loads(body["contents"][0]["parts"][0]["text"])
         assert payload["requested_goal"] == ["schedule"]
-        assert payload["history"] == [{"turn_id": 1, "answer": prior.response_text}]
+        assert payload["history"] == [{"turn_id": 1, "question": prior.question_text, "answer": prior.response_text}]
         data = {"met_goals": [{"goal_id": "schedule", "quote": "내일까지"}]}
         return httpx.Response(200, request=httpx.Request("POST", url), json={
             "candidates": [{"finishReason": "STOP", "content": {"parts": [{"text": json.dumps(data)}]}}]})

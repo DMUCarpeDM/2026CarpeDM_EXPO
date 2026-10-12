@@ -1,4 +1,4 @@
-"""Browser-local experimental outputs; no emotion inference or scoring."""
+"""Browser-local experimental outputs and explicitly provisional context scoring."""
 from pydantic import ValidationError
 from app.schemas.schemas import ExpressionModelIn
 
@@ -20,10 +20,12 @@ def summarize(session):
             continue
         turns.append({"turn_id": turn.id, "turn_order": turn.order, **value.model_dump()})
     samples = sum(t["samples"] for t in turns)
+    from app.services.judgments import results
+    context_scored = any(r.get("context_policy") and "expression" in r.get("measured", []) for r in results(session))
     return {"version": "expression-resnet18-v1", "status": "unvalidated" if samples else "unmeasured",
-            "scoring_enabled": False, "samples": samples, "turns": turns,
+            "scoring_enabled": context_scored, "provisional": True, "samples": samples, "turns": turns,
             "mean_outputs": {key: sum(t["samples"] * t["mean_outputs"][key] for t in turns) / samples for key in LABELS} if samples else {},
-            "note": "학습 전처리·판정 기준 미검증. 출력값은 감정·태도·표정 비율 또는 점수가 아닙니다."}
+            "note": ("얼굴 표본과 대화 맥락으로 실험적 표정 점수를 계산했습니다. 검증된 감정·태도 판단은 아닙니다." if context_scored else "학습 전처리·판정 기준 미검증. 출력값은 감정·태도·표정 비율 또는 점수가 아닙니다.")}
 
 
 def summary_text(session):

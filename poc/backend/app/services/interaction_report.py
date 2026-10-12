@@ -9,6 +9,8 @@ LABELS = {"response": "응답", "voice": "음성", "expression": "표정", "post
 def _fit_summary(session, area, score):
     if area == "voice" and voice_analysis.enabled(session):
         return "측정값과 측정 불가 사유는 목소리 기록에서 확인할 수 있습니다. 평가 기준 검증 전에는 점수를 계산하지 않습니다."
+    if area == "expression" and score is not None:
+        return "75점에서 대화 맥락과 지속된 미소 신호를 반영한 검증 전 참고 점수입니다. 감정이나 태도를 단정하지 않습니다."
     if area == "expression" and score is None:
         from app.services.expression_measurement import summary_text
         return summary_text(session)
@@ -62,13 +64,13 @@ def build(db, session, outcome, raw_rows, analysis_ms):
         "fit_type": e["area"], "quote": e["evidence"].get("quote", ""),
         "observed": e["message"], "interpretation": e["message"],
         "suggestion": e["message"] if e["outcome"] == "negative" else "",
-        "event_id": e["id"], "rule": e["rule"], "points": e.get("points", -4),
+        "event_id": e["id"], "rule": e["rule"], "points": e.get("points", -1),
         "evidence": e["evidence"]} for e in events]
     available = outcome["total"] is not None
     report = Report(session_id=session.id, total_score=outcome["total"] if available else 0,
         engine_version=(voice_analysis.SCORE_VERSION if voice_analysis.enabled(session) else scoring.VERSION) if available else scoring.NO_SCORE,
         fit_scores={area: {"score": score, "label": LABELS[area],
-            "summary": _fit_summary(session, area, score)}
+            "summary": _fit_summary(session, area, score), **({"provisional": True, "note": "맥락·표정 모델 기반의 검증 전 참고 점수"} if area == "expression" and score is not None else {})}
             for area, score in outcome["scores"].items()},
         strengths=positive, improvements=negative, evidence_segments=evidence,
         headline={"sentence": negative[0] if negative else "확인된 근거를 바탕으로 결과를 정리했습니다." if available else "측정 자료가 부족해 점수를 계산하지 않았습니다."},

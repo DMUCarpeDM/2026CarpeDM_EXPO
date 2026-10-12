@@ -6,9 +6,10 @@ function harness(observe, memory) {
   let tick;
   let time = 0;
   const tips = [];
+  const observations = [];
   const stop = startLiveCoaching({ observe, sample: () => ({durationMs: 5000}), onTip: tip => tips.push(tip),
-    now: () => time, setIntervalFn: fn => { tick = fn; return 1; }, clearIntervalFn: () => {}, memory });
-  return { tick: () => tick(), stop, tips, time: t => { time = t; } };
+    onObservation: result => observations.push(result), now: () => time, setIntervalFn: fn => { tick = fn; return 1; }, clearIntervalFn: () => {}, memory });
+  return { tick: () => tick(), stop, tips, observations, time: t => { time = t; } };
 }
 
 test('same evidence is shown once and different tips wait twenty seconds', async () => {
@@ -17,6 +18,7 @@ test('same evidence is shown once and different tips wait twenty seconds', async
   await h.tick(); await h.tick();
   id = 'b'; h.time(10000); await h.tick();
   assert.equal(h.tips.length, 1);
+  assert.equal(h.observations.length, 3);
   h.time(20000); await h.tick();
   assert.deepEqual(h.tips.map(t => t.id), ['a','b']);
   h.stop();
@@ -30,6 +32,7 @@ test('late response and overlapping requests are discarded on stop', async () =>
   h.stop(); assert.ok(signal.aborted);
   resolve({tip:{id:'late'}}); await pending;
   assert.deepEqual(h.tips, []);
+  assert.deepEqual(h.observations, []);
 });
 
 test('cooldown survives a pause or new turn', async () => {

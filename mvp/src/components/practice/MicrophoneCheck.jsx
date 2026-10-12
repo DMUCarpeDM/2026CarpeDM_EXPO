@@ -1,5 +1,4 @@
 import { createVisibleClock } from "../../features/smart-mirror/lib/workplaceMirrorTimeline";
-import { MirrorCountdownProgress } from "../../features/smart-mirror/components/MirrorCountdownProgress";
 import { MirrorGlassModal } from "../../features/smart-mirror/components/MirrorGlassModal";
 import { useEffect, useRef, useState } from "react";
 import { Soundwave } from "reicon-react/icons/Soundwave";
@@ -12,15 +11,12 @@ import { captureSettings, sameCapture, voiceReason } from "../../lib/voiceCaptur
 import "../../styles/voice-measurement.css";
 import "../../features/smart-mirror/styles/workplace-mirror-microphone.css";
 
-export function MicrophoneCheck({ mirror = false, automatic = false, session, stream, onRequestMedia, onReady, onTextOnly, onContinueWithoutCalibration }) {
+export function MicrophoneCheck({ mirror = false, automatic = false, session, stream, onRequestMedia, onReady, onTextOnly }) {
   const dialog = useRef(null);
   const recorder = useRef(null);
   const timer = useRef(null);
   const alive = useRef(true);
   const finished = useRef(false);
-  const continueWithoutCalibration = useRef(onContinueWithoutCalibration);
-  continueWithoutCalibration.current = onContinueWithoutCalibration;
-  const [elapsed, setElapsed] = useState(0);
   const [step, setStep] = useState("ready");
   const [message, setMessage] = useState("");
   const [noise, setNoise] = useState(null);
@@ -36,19 +32,6 @@ export function MicrophoneCheck({ mirror = false, automatic = false, session, st
       dialog.current?.close();
     };
   }, []);
-  useEffect(() => {
-    if (!mirror) return undefined;
-    const started = performance.now();
-    const interval = setInterval(() => setElapsed(Math.min(10000, Math.floor((performance.now() - started) / 1000) * 1000)), 100);
-    const deadline = setTimeout(() => {
-      if (finished.current) return;
-      finished.current = true;
-      clearTimeout(timer.current);
-      if (recorder.current?.state === "recording") recorder.current.stop();
-      continueWithoutCalibration.current?.();
-    }, 10000);
-    return () => { clearInterval(interval); clearTimeout(deadline); };
-  }, [mirror]);
   const record = async (seconds, source) => new Promise((resolve, reject) => {
     const track = source?.getAudioTracks?.()[0];
     if (!track || track.readyState !== "live") { reject(new Error("마이크를 연결하고 접근을 허용해 주세요.")); return; }
@@ -120,8 +103,8 @@ export function MicrophoneCheck({ mirror = false, automatic = false, session, st
     </ol>
     {message && <p className="mirror-microphone-error" role="alert">{message}</p>}
     <div className="mirror-microphone-footer">
-      <p className="mirror-briefing-next">{Math.max(0, Math.ceil((10000 - elapsed) / 1000))}초 후 자동으로 계속</p>
-      <MirrorCountdownProgress duration={10000} elapsed={elapsed} label="마이크 확인 진행" />
+      <p className="mirror-briefing-next" role="status">{step === "noise" ? "주변 소음을 확인해요. 잠시 조용히 기다려 주세요." : step === "speech" ? "지금 위 문장을 읽어 주세요." : step === "checking" ? "녹음된 음성을 확인하고 있어요." : "음성 확인을 완료하면 다음 화면으로 넘어가요."}</p>
+      {message && <Button onClick={startNoise}>마이크 다시 확인</Button>}
     </div>
   </MirrorGlassModal>;
   return <dialog ref={dialog} className="voice-check" aria-labelledby="voice-check-title" onCancel={(event) => event.preventDefault()}>

@@ -1,3 +1,4 @@
+from app.services import context_scoring, interaction_scoring
 from app.services.interaction_scoring import public_total
 from app.services import interaction, judgments, response_judgment, feedback, contradictions, interview, cafe
 import secrets
@@ -517,8 +518,13 @@ def observe_turn(
     result = judgments.evaluate(turn_id, text=body.text,
         nonverbal=body.nonverbal.model_dump(exclude_unset=True) if body.nonverbal else None,
         duration_ms=body.duration_ms, voice_text=body.stt_source == "webspeech" and not voice_analysis.enabled(session))
+    if interaction.state(session).get("mode") == CONTINUOUS_MODE:
+        episode = db.get(Episode, turn.episode_id)
+        context = context_scoring.classify(session.id, turn.id, turn.question_text, episode.situation if episode else "")
+        context_scoring.apply(result, context, body.nonverbal.model_dump() if body.nonverbal else None)
+    snapshot = [r for r in judgments.results(session) if r.get("turn_id") != turn_id] + [result]
     # 읽기 전용. 팁 폴링이 답변 저장 트랜잭션의 JSON 상태를 덮어쓰지 않는다.
-    return {"turn_id": turn_id, "judgment": result, "tip": feedback.select(result)}
+    return {"turn_id": turn_id, "judgment": result, "tip": feedback.select(result), "live_score": {**interaction_scoring.calculate(snapshot), "provisional": True}, "context_policy": result.get("context_policy")}
 
 
 @router.post("/{session_id}/turns/{turn_id}/response", response_model=NextTurnOut)
@@ -632,6 +638,9 @@ def submit_response(
         if status == "completed" and semantic:
             judgment["measured"].append("response")
         judgment["semantic_status"] = status
+    if flow_before.get("mode") == CONTINUOUS_MODE:
+        context = context_scoring.classify(session.id, turn.id, turn.question_text, episode.situation if episode else "")
+        context_scoring.apply(judgment, context, turn.nonverbal_metrics)
     selected_feedback = feedback.assign(session, judgment, turn.order)
     if selected_feedback:
         db.add(AiFeedback(

@@ -129,4 +129,4 @@ def test_renamed_conflict_does_not_repeat_confirmation(monkeypatch):
         assert turn['question_type'] == expected
     with SessionLocal() as db:
         stored = db.get(RoleplaySession, sid)
-        assert interaction_scoring.calculate(judgments.results(stored))['contradiction_deduction'] == 4
+        assert interaction_scoring.calculate(judgments.results(stored))['contradiction_deduction'] == 1

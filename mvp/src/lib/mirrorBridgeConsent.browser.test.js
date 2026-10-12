@@ -4,7 +4,7 @@ import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { startVite } from "./serviceEntryRouteHarness.js";
 
-async function open(t, { external = true, agreed = true, media = true, tap = true, briefing = false, live = false, voice = false, pendingCalibration = false } = {}) {
+async function open(t, { external = true, agreed = true, media = true, tap = true, briefing = false, live = false, voice = false, pendingCalibration = false, failFirstCalibration = false } = {}) {
   const { server, url } = await startVite();
   const browser = await chromium.launch({ channel: "chrome", headless: true,
     args: ["--mute-audio", "--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] });
@@ -63,6 +63,7 @@ async function open(t, { external = true, agreed = true, media = true, tap = tru
     if (path.endsWith("/voice/calibration") && req.method() === "POST") {
       const capture = JSON.parse(req.postDataBuffer().toString().match(/name="capture"\r\n\r\n([^\r]+)/)[1]);
       body = { id: "mirror-calibration", status: "measured", reference_rms: .07, capture };
+      if (failFirstCalibration && calibrations.length === 0) body = { status: "unmeasured", reason: "insufficient_speech" };
       calibrations.push(capture);
       if (pendingCalibration) { heldCalibration = () => route.fulfill({ contentType: "application/json", body: JSON.stringify(body) }); return; }
     }
@@ -201,12 +202,7 @@ test("4K mirror microphone popup uses glass, records automatically, and hides di
   assert.ok(await popup.evaluate(el => Boolean(el.querySelector(".mirror-microphone-sentence").compareDocumentPosition(el.querySelector(".mirror-microphone-steps")) & Node.DOCUMENT_POSITION_FOLLOWING)));
   assert.ok(await popup.locator("h2").evaluate(element => parseFloat(getComputedStyle(element).fontSize)) >= 80);
   assert.equal(await popup.getByRole("button").count(), 0);
-  const progress = await popup.locator(".mirror-countdown-track i").evaluate(element => ({
-    transition: getComputedStyle(element).transitionDuration,
-    animations: element.getAnimations().map(animation => ({ duration: animation.effect.getTiming().duration, easing: animation.effect.getTiming().easing })),
-  }));
-  assert.equal(progress.transition, "0s");
-  assert.deepEqual(progress.animations, [{ duration: 10000, easing: "linear" }]);
+  assert.equal(await popup.locator(".mirror-countdown-track").count(), 0);
   assert.equal(await popup.locator(".mirror-microphone-note").count(), 0);
   assert.equal(await page.locator(".simulation-card-slot").count(), 0);
   await mkdir("../.omo/evidence/mirror-microphone", { recursive: true });
@@ -233,7 +229,7 @@ test("4K mirror microphone popup uses glass, records automatically, and hides di
   assert.deepEqual(errors, []);
 });
 
-test("mirror microphone deadline continues speech input at 10 seconds and ignores a late calibration result", { timeout: 45000 }, async t => {
+test("mirror microphone waits past 10 seconds until calibration succeeds", { timeout: 45000 }, async t => {
   const { page, calibrations, finishCalibration } = await open(t, { external: false, briefing: true, voice: true, pendingCalibration: true });
   await page.clock.fastForward(34000);
   const popup = page.getByRole("dialog", { name: "아래 문장을 큰 목소리로 읽어요." });
@@ -246,10 +242,12 @@ test("mirror microphone deadline continues speech input at 10 seconds and ignore
   await page.clock.runFor(4000);
   assert.equal(await popup.locator("#mirror-microphone-instruction").count(), 0);
   assert.equal(calibrations.length, 1);
-  await page.clock.runFor(2500);
+  await page.clock.runFor(15000);
+  assert.equal(await popup.isVisible(), true);
+  assert.equal(await page.locator(".simulation-card-slot").count(), 0);
+  await finishCalibration();
   await popup.waitFor({ state: "hidden" });
   await page.getByRole("dialog", { name: "출근 대화 미리보기" }).waitFor();
-  await finishCalibration();
   await page.clock.runFor(5100);
   await page.getByRole("dialog").waitFor({ state: "hidden" });
   assert.equal(await page.getByText("목소리 기준 미확인 · 음성 입력은 계속돼요.", { exact: true }).count(), 0);
@@ -275,4 +273,30 @@ test("live mirror entry creates a real anonymous session from the disclosed NFC 
   for (const name of ["제출한 답변으로 결과 보기", "답변 보내기"]) assert.equal(await page.getByRole("button", { name }).count(), 0);
 
   assert.equal(await page.getByText("미리보기 · 녹음 안 함", { exact: true }).count(), 0);
+});
+
+
+test("mirror microphone failure stays blocked and offers retry", { timeout: 45000 }, async t => {
+  const { page, calibrations } = await open(t, { external: false, briefing: true, voice: true, failFirstCalibration: true });
+  await page.clock.fastForward(34000);
+  const popup = page.getByRole("dialog", { name: "아래 문장을 큰 목소리로 읽어요." });
+  await popup.waitFor();
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100));
+  await page.clock.runFor(600);
+  await page.clock.runFor(2000);
+  await popup.locator('.mirror-microphone-sentence[data-active="true"]').waitFor();
+  await page.clock.runFor(900);
+  await page.clock.runFor(4000);
+  const retry = popup.getByRole("button", { name: "마이크 다시 확인" });
+  await retry.waitFor();
+  await page.clock.runFor(15000);
+  assert.equal(await popup.isVisible(), true);
+  assert.equal(await page.locator(".simulation-card-slot").count(), 0);
+  await retry.click();
+  await page.clock.runFor(2000);
+  await popup.locator('.mirror-microphone-sentence[data-active="true"]').waitFor();
+  await page.clock.runFor(900);
+  await page.clock.runFor(4000);
+  await popup.waitFor({ state: "hidden" });
+  assert.equal(calibrations.length, 2);
 });

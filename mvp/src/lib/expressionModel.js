@@ -29,9 +29,15 @@ export function normalizeFace(rgba) {
   return tensor;
 }
 
-export function addExpressionSample(acc, logits) {
+export function addExpressionSample(acc, logits, now = performance.now()) {
   if (logits.length !== 7 || !Array.from(logits).every(Number.isFinite)) throw new Error("Invalid expression outputs");
   acc.expression ??= {samples: 0, sums: Array(7).fill(0)};
+  const smiling = 1 / (1 + Math.exp(-logits[0])) >= .85;
+  const previous = acc.expression.lastSampleAt;
+  if (!smiling) acc.expression.smileSince = null;
+  else if (acc.expression.smileSince == null || previous == null || now - previous > 2000) acc.expression.smileSince = now;
+  acc.expression.maxSmileMs = Math.max(acc.expression.maxSmileMs || 0, smiling && acc.expression.smileSince != null ? now - acc.expression.smileSince : 0);
+  acc.expression.lastSampleAt = now;
   acc.expression.samples++;
   for (let i = 0; i < 7; i++) acc.expression.sums[i] += 1 / (1 + Math.exp(-logits[i]));
 }
@@ -39,6 +45,7 @@ export function addExpressionSample(acc, logits) {
 export function expressionMetrics(acc) {
   if (!acc.expression?.samples) return null;
   return {version: EXPRESSION_VERSION, status: "unvalidated", preprocessing: EXPRESSION_PREPROCESSING,
+    sustained_smile_ms: Math.min(60000, acc.expression.maxSmileMs || 0),
     samples: acc.expression.samples,
     mean_outputs: Object.fromEntries(EXPRESSION_LABELS.map((key, i) => [key, acc.expression.sums[i] / acc.expression.samples]))};
 }

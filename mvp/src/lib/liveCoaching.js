@@ -1,5 +1,5 @@
 // 턴 변경·일시정지 때 진행 중인 요청과 늦게 도착한 팁을 함께 폐기한다.
-export function startLiveCoaching({ observe, sample, onTip, onError = () => {},
+export function startLiveCoaching({ observe, sample, onTip, onObservation = () => {}, onError = () => {},
   intervalMs = 5000, cooldownMs = 20000, now = () => Date.now(),
   setIntervalFn = setInterval, clearIntervalFn = clearInterval,
   memory = { lastShown: -Infinity, shown: new Set() } }) {
@@ -14,6 +14,7 @@ export function startLiveCoaching({ observe, sample, onTip, onError = () => {},
     const timeout = setTimeout(() => controller?.abort(), 4000);
     try {
       const result = await observe(input, controller.signal);
+      if (!stopped) onObservation(result);
       const tip = result.tip;
       if (!stopped && tip && !memory.shown.has(tip.id) && now() - memory.lastShown >= cooldownMs) {
         memory.shown.add(tip.id);

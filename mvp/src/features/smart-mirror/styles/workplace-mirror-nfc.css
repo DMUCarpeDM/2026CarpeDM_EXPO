@@ -20,8 +20,8 @@ body:has(.mirror-deployment) { margin: 0; background: #000; }
   font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', Arial, sans-serif;
 }
 .mirror-nfc-waiting * { box-sizing: border-box; }
-.mirror-nfc-content { width: 100%; margin-block: auto; padding-block: calc(5 * var(--u)); }
-.mirror-nfc-symbol { display: block; width: calc(21 * var(--u)); margin: 0 auto calc(4 * var(--u)); }
+.mirror-nfc-content { width: 100%; margin-block: auto; padding-block: calc(2 * var(--u)) calc(5 * var(--u)); }
+.mirror-nfc-symbol { display: block; width: calc(27.72 * var(--u)); margin: 0 auto calc(7 * var(--u)); }
 .mirror-nfc-symbol img { display: block; width: 100%; height: auto; }
 .mirror-nfc-waiting .overview-card-content { gap: calc(1.8 * var(--u)); padding: calc(3 * var(--u)); }
 .mirror-nfc-waiting h1 { margin: 0; font-size: max(1.5rem, calc(2.7 * var(--u))); line-height: 1.45; letter-spacing: -.04em; word-break: keep-all; }
@@ -33,6 +33,3 @@ button.mirror-nfc-symbol { padding: 0; border: 0; background: transparent; curso
 button.mirror-nfc-symbol:focus-visible { outline: 2px solid #f5f7fc; outline-offset: 8px; border-radius: 24px; }
 .mirror-start-retry { padding: 14px 20px; border-radius: 12px; background: #fff; color: #111; border: 0; cursor: pointer; font-size: 1rem; }
 .mirror-media-notice { position: fixed; inset: auto 16px 12px; margin: 0; padding: 10px 16px; color: #fff; background: #171717; border-radius: 12px; font-size: .95rem; text-align: center; z-index: 20; }
-.mirror-input-recovery { padding: 14px; background: #171717ed; color: #fff; border-radius: 14px; font-size: 1rem; }
-.mirror-input-recovery textarea { display: block; width: 100%; min-height: 65px; padding: 10px; margin-block: 10px; color: #111; background: #fff; border-radius: 8px; }
-.mirror-input-recovery button { padding: 10px 14px; margin-right: 8px; border: 0; border-radius: 8px; cursor: pointer; }

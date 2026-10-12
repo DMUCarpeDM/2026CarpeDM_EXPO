@@ -2,15 +2,17 @@
 from app.services.judgments import event, number
 from app.services.contradictions import keys as conflict_keys
 
-VERSION = "interaction-score-v1"
+VERSION = "interaction-score-v3"
+OFF_TOPIC_FIRST = -1
+OFF_TOPIC_REPEAT = -2
 # 읽는 순서 4: 모델이 남긴 관찰 기록을 실제 점수로 바꾸는 곳입니다.
 # POINTS는 현재 적용되는 점수표입니다. 새 계획서의 시험용 숫자와 같다고 보면 안 됩니다.
 # 간투어·말 반복 가감점은 아직 이 점수표에 없습니다. 추후 관찰 품질 확인 후 연결할 부분입니다.
 NO_SCORE = "interaction-no-score"
 AREAS = ("response", "voice", "expression", "posture")
-POINTS = {"goal_met": 3, "relevant_answer": 3, "missing_goal": -6,
-    "head_down": -4, "side_lean": -4, "forward_lean": -4, "sway": -4, "hand_face": -4, "arms_crossed": -4,
-    "fast_speech": -4, "slow_speech": -4, "long_pause": -4, "clear_pace": 3}
+POINTS = {"off_topic": OFF_TOPIC_FIRST, "context_smile": -1, "goal_met": 1, "relevant_answer": 1, "missing_goal": -2,
+    "head_down": -1, "side_lean": -1, "forward_lean": -1, "sway": -1, "hand_face": -1, "arms_crossed": -1,
+    "fast_speech": -1, "slow_speech": -1, "long_pause": -1, "clear_pace": 1}
 
 
 def public_total(report):
@@ -60,19 +62,23 @@ def calculate(results):
             if rule not in POINTS or area not in measured or area not in changes:
                 continue
             key = (area, rule, item["evidence"].get("goal_id", ""))
-            cap = 1 if rule in {"goal_met", "missing_goal"} else 3
+            cap = len(results) if rule == "off_topic" else 1 if rule in {"goal_met", "missing_goal"} else 3
             if counts.get(key, 0) >= cap:
                 continue
             counts[key] = counts.get(key, 0) + 1
-            changes[area].append({**item, "points": POINTS[rule]})
+            points = OFF_TOPIC_REPEAT if rule == "off_topic" and counts[key] > 1 else POINTS[rule]
+            multiplier = (result.get("context_policy") or {}).get("multipliers", {}).get(area, 1)
+            multiplier = max(.7, min(1.3, multiplier)) if number(multiplier) else 1
+            points = round(points * multiplier, 2)
+            changes[area].append({**item, "points": points})
     scores = {}
     for area in AREAS:
         if area not in measured:
             # 측정하지 못한 영역에는 0점이나 기본 75점을 주지 않고 None(점수 없음)을 남깁니다.
             scores[area] = None
             continue
-        plus = min(15, sum(max(0, e["points"]) for e in changes[area]))
-        minus = min(30, sum(max(0, -e["points"]) for e in changes[area]))
+        plus = min(8, sum(max(0, e["points"]) for e in changes[area]))
+        minus = min(15, sum(max(0, -e["points"]) for e in changes[area]))
         scores[area] = max(0, min(100, 75 + plus - minus))
     interview_results = [r["interview_result"] for r in results if r.get("interview_result")]
     if interview_results:
@@ -92,11 +98,11 @@ def calculate(results):
         minus = min(15, sum(max(0, -e["points"]) for e in changes["response"]))
         scores["response"] = 75 + plus - minus if latest["measured"] else None
     values = [s for s in scores.values() if s is not None]
-    deduction = min(12, len(conflicts) * 4)
+    deduction = min(3, len(conflicts))
     return {"version": VERSION, "scores": scores,
         "response_policy": ("interview-2026-09-16-v1" if interview_results else "cafe-orders-2026-09-16-v1" if cafe_results else VERSION),
         "response_limits": ({"base": 75, "per_question": {"fulfilled": 3, "insufficient": -2, "irrelevant_or_skip": -4}, "concept_bonus_per_job_question": 2, "range": [0, 100]}
-                            if interview_results else {"base": 75, "bonus": 6, "penalty": 15} if cafe_results else {"base": 75, "bonus": 15, "penalty": 30}),
-        "limits": {"base": 75, "bonus": 15, "penalty": 30, "repeats": 3, "contradiction": 12},
+                            if interview_results else {"base": 75, "bonus": 6, "penalty": 15} if cafe_results else {"base": 75, "bonus": 8, "penalty": 15}),
+        "limits": {"base": 75, "bonus": 8, "penalty": 15, "repeats": 3, "contradiction": 3},
         "total": round(max(0, sum(values) / len(values) - deduction), 1) if values else None,
         "contradiction_deduction": deduction, "contradictions": conflicts, "changes": changes}

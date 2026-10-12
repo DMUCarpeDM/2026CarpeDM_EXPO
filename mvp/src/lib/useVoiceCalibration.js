@@ -2,16 +2,14 @@ import { useEffect, useState } from "react";
 import { captureSettings, sameCapture } from "./voiceCapture";
 import { invalidateVoiceCalibration } from "./pocApi";
 
-export function useVoiceCalibration(session, stream) {
-  const enabled = Boolean(session?.voice_analysis?.engine_version);
+export function useVoiceCalibration(session, stream, required = false) {
+  const enabled = required || Boolean(session?.voice_analysis?.engine_version);
   const [calibration, setCalibration] = useState(session?.voice_analysis?.calibration || null);
   const [textOnly, setTextOnly] = useState(false);
-  const [skipped, setSkipped] = useState(false);
   const [capture, setCapture] = useState(() => captureSettings(stream));
   useEffect(() => {
     setCalibration(session?.voice_analysis?.calibration || null);
     setTextOnly(false);
-    setSkipped(false);
   }, [session?.id]);
   useEffect(() => {
     if (!enabled) return undefined;
@@ -32,8 +30,7 @@ export function useVoiceCalibration(session, stream) {
       void invalidateVoiceCalibration(session).catch(() => {});
     }
   }, [enabled, calibration, valid, session?.id]);
-  return { enabled, calibration, capture, textOnly, skipped, open: enabled && !textOnly && !skipped && !valid,
+  return { enabled, calibration, capture, textOnly, open: enabled && (required || !textOnly) && !valid,
     onReady: setCalibration, onTextOnly: () => setTextOnly(true),
-    onContinueWithoutCalibration: () => setSkipped(true),
-    onRetry: () => { setTextOnly(false); setSkipped(false); } };
+    onRetry: () => { setTextOnly(false); } };
 }

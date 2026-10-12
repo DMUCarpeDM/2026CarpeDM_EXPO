@@ -45,7 +45,7 @@ function containDialogTab(event) {
 
 export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, turn, history, turnSignals, onSubmit, busy, error, mediaStream, onRequestMedia, onSwitchMic, track, analysisVideoRef, overlayRef, idlePausedRef, onVisitorActivity }) {
   const mirror = isMirrorDeployment();
-  const voice = useVoiceCalibration(session, mediaStream);
+  const voice = useVoiceCalibration(session, mediaStream, mirror);
   const exclusionsRef = useRef([]);
   const excludeStartRef = useRef(null);
   const turnCaptureRef = useRef(null);
@@ -212,13 +212,16 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   const pushFeed = (text) => setFeed((prev) => [...prev.slice(-4), { id: (feedIdRef.current += 1), time: wallClock(), text }]);
   const {
     listening, interim, setInterim, micEnabled, setMicEnabled, sttMode,
-    clearAutoSubmit, stopBrowserRecognition, resumeBrowserRecognition, retryBrowserRecognition, getSttSource, resetSttUsage,
+    clearAutoSubmit, stopBrowserRecognition, resumeBrowserRecognition, getSttSource, resetSttUsage,
   } = usePracticeTranscription({
     draft, setDraft, mediaStream, turn, busy, paused: paused || voice.textOnly, aiSpeaking, aiSpeechActiveRef, entryOverlayOpen,
     pushFeed, onAutoSubmit: () => submitDraftRef.current?.(),
   });
+  const [liveAssessment, setLiveAssessment] = useState(null);
+  useEffect(() => { setLiveAssessment(null); }, [turn?.id]);
   const liveTip = useLiveCoaching({ session, turnId: turn?.id,
-    active: listening && !busy && !paused && !aiSpeaking && !entryOverlayOpen,
+    active: (mirror || (listening && !aiSpeaking)) && !busy && !paused && !entryOverlayOpen,
+    onObservation: setLiveAssessment,
     sample: () => ({ text: `${draft} ${interim}`.trim().slice(0, 4000), sttSource: "webspeech",
       durationMs: Math.max(0, Math.round(performance.now() - recordingStartedAtRef.current)),
       nonverbal: track.peekTurnStats?.() || null }),
@@ -490,19 +493,15 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
 
   if (mirror && workplace) return <>
     <WorkplaceMirrorSceneSimulation speechPlayback={speechPlayback} dialogue={turnSpeech || "다음 대화를 준비하고 있어요."} userPreview={<div className="simulation-user-preview" aria-label="내 카메라와 실시간 추적"><video ref={analysisVideoRef} autoPlay muted playsInline aria-label="내 카메라" /><canvas ref={overlayRef} aria-hidden="true" />{!hasCamera && <span>카메라 꺼짐</span>}</div>} category={sceneBriefing?.category_id} characterId={character?.id} name={characterName} videoState={teamLeadVideoState} paused={paused || entryOverlayOpen} dialogueHidden={entryOverlayOpen} onReactionComplete={() => setTeamLeadReaction("")} waveRef={waveRef} captureStatus={{ recording: audioRecording && hasMicrophone && !captureError, audioError: Boolean(captureError), cameraReady: hasCamera && track.status === "ready", cameraStarting: hasCamera && track.status === "loading", cameraError: track.status === "failed" }}>
-      {!entryOverlayOpen && inputStatus.title === "직접 입력" && <div className="mirror-input-recovery">
-        <p role="status">음성 인식을 사용할 수 없어요. 다시 연결하거나 답변을 입력해 주세요.</p>
-        <textarea aria-label="답변 직접 입력" value={draft} onChange={event => setDraft(event.target.value)} maxLength={4000} />
-        <button type="button" onClick={retryBrowserRecognition}>음성 인식 다시 연결</button>
-        <button type="button" onClick={submitDraft} disabled={!inputValue.trim() || busy || paused}>답변 보내기</button>
-      </div>}
+      {!entryOverlayOpen && inputStatus.title === "직접 입력" && <p className="simulation-dialogue-status" role="status">음성 인식에 실패했어요. 다시 실행해 주세요.</p>}
+      {liveAssessment?.live_score?.total != null && <p className="simulation-dialogue-status" role="status">참고 점수 {liveAssessment.live_score.total} · {{ serious: "심각한 대화", technical: "업무 설명", supportive: "지원 대화", casual: "일상 대화", neutral: "기본 기준" }[liveAssessment.context_policy?.kind] || "기본 기준"} · 검증 전</p>}
       {!entryOverlayOpen && inputValue && <div className="simulation-answer"><p>{inputValue}</p></div>}
       {liveTip && <p className="simulation-dialogue-status" role="status"><strong>대화 팁 · </strong>{liveTip.message}</p>}
 
       {(error || captureError || mediaError) && <p className="simulation-dialogue-status" role="alert">{error || captureError || mediaError}</p>}
     </WorkplaceMirrorSceneSimulation>
     {sceneOverlayOpen && <MirrorScenarioBriefing key={turn?.episode_id} briefing={sceneBriefing} onClose={() => setSceneBriefingOpen(false)} />}
-    {voice.open && <MicrophoneCheck mirror automatic session={session} stream={mediaStream} onRequestMedia={onRequestMedia} onReady={voice.onReady} onTextOnly={voice.onTextOnly} onContinueWithoutCalibration={voice.onContinueWithoutCalibration} />}
+    {voice.open && <MicrophoneCheck mirror automatic session={session} stream={mediaStream} onRequestMedia={onRequestMedia} onReady={voice.onReady} onTextOnly={voice.onTextOnly} />}
   </>;
 
   return (

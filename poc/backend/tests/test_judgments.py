@@ -47,4 +47,4 @@ def test_tracking_gap_does_not_change_score_with_same_valid_observations():
         nv = {"frames": frames, "sample_ms": 80, "calibrated": True,
               "head_down_ratio": 1, "posture_samples": {"head_down_ratio": 40}}
         judged = evaluate(1, nonverbal=nv, duration_ms=frames * 80)
-        assert calculate([judged])["scores"]["posture"] == 71
+        assert calculate([judged])["scores"]["posture"] == 74

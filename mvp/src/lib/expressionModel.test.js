@@ -28,3 +28,16 @@ test("sigmoid allows simultaneous outputs; no face samples means no result", () 
   assert.throws(()=>addExpressionSample(acc,[NaN,0,0,0,0,0,0]));
   assert.equal(expressionMetrics(makeTurnAcc()),null);
 });
+
+test('sustained smile needs contiguous high-output samples; gaps and low samples break the streak', () => {
+  const high=[3,0,0,0,0,0,0], low=[0,0,0,0,0,0,0];
+  const acc=makeTurnAcc();
+  for(const t of [0,1000,2000]) addExpressionSample(acc,high,t);
+  assert.equal(expressionMetrics(acc).sustained_smile_ms,2000);
+  addExpressionSample(acc,low,3000);
+  addExpressionSample(acc,high,4000);
+  addExpressionSample(acc,high,7000);
+  assert.equal(expressionMetrics(acc).sustained_smile_ms,2000);
+  for(const t of [8000,9000,10000]) addExpressionSample(acc,high,t);
+  assert.equal(expressionMetrics(acc).sustained_smile_ms,3000);
+});

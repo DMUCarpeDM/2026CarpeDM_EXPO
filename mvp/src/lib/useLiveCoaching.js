@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { observeTurn } from "./pocApi";
 import { startLiveCoaching } from "./liveCoaching";
 
-export function useLiveCoaching({ session, turnId, active, sample }) {
+export function useLiveCoaching({ session, turnId, active, sample, onObservation }) {
   const [tip, setTip] = useState(null);
   const memoryRef = useRef({ lastShown: -Infinity, shown: new Set() });
+  const observationRef = useRef(onObservation);
+  observationRef.current = onObservation;
   const sampleRef = useRef(sample);
   sampleRef.current = sample;
   useEffect(() => {
@@ -14,6 +16,7 @@ export function useLiveCoaching({ session, turnId, active, sample }) {
       observe: (input, signal) => observeTurn(session, turnId, input, signal),
       sample: () => sampleRef.current(),
       onTip: setTip,
+      onObservation: result => observationRef.current?.(result),
       memory: memoryRef.current,
     });
   }, [session?.id, session?.access_token, turnId, active]);

@@ -8,7 +8,7 @@ from app.services import judgments, interaction_scoring
 
 def payload(samples=3, value=.5):
     return {"version":"expression-resnet18-v1", "status":"unvalidated",
-            "preprocessing":"imagenet-face-square-provisional-v1", "samples":samples,
+            "preprocessing":"imagenet-face-square-provisional-v1", "samples":samples, "sustained_smile_ms":0,
             "mean_outputs":dict.fromkeys(LABELS,value)}
 
 
@@ -19,7 +19,7 @@ def test_schema_retains_outputs_and_rejects_bad_samples():
 
 
 def test_report_weights_valid_samples_and_does_not_claim_emotions():
-    session=NS(turns=[NS(id=1,order=1,nonverbal_metrics={"expression_model":payload(1,.2)}),
+    session=NS(rapport={}, turns=[NS(id=1,order=1,nonverbal_metrics={"expression_model":payload(1,.2)}),
                      NS(id=2,order=2,nonverbal_metrics={"expression_model":payload(3,.6)}),
                      NS(id=3,order=3,nonverbal_metrics={"expression_model":{"bad":1}})])
     data=summarize(session)
@@ -34,7 +34,7 @@ def test_expression_never_changes_score_and_missing_face_is_not_neutral():
     scores=interaction_scoring.calculate([result])
     assert scores["scores"]["expression"] is None
     assert scores["total"] is None
-    empty=summarize(NS(turns=[NS(id=1,order=1,nonverbal_metrics={})]))
+    empty=summarize(NS(rapport={}, turns=[NS(id=1,order=1,nonverbal_metrics={})]))
     assert empty["status"] == "unmeasured"
     assert empty["mean_outputs"] == {}
 

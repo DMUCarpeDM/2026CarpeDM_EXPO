@@ -111,3 +111,19 @@ def test_fallback_never_echoes_injected_goal_reply_or_carry():
     assert _valid_line(line)
     assert "평가" not in line and "지시" not in line and "채점" not in line
     assert act_bridge_line(character, flow["carry"], item) == item["text"]
+
+
+@pytest.mark.parametrize("line", [
+    "지금 자료 얘기하는데 엉뚱한 말은 그만해 주세요. 자료는 언제까지 확인하실 수 있어요?",
+    "계속 다른 얘기를 하시면 업무 얘기를 이어갈 수 없어요. 맡긴 자료부터 확인해 주세요.",
+])
+def test_in_character_off_topic_rebuke_is_not_filtered_as_evaluator_drift(line):
+    assert _valid_line(line)
+
+
+def test_shared_actor_prompt_distinguishes_off_topic_from_legitimate_responses():
+    from app.services.dialogue.openai_provider import ROLEPLAY_SYSTEM_PROMPT
+    from app.services.dialogue.gemini_provider import ACTOR_SYSTEM
+    assert ACTOR_SYSTEM == ROLEPLAY_SYSTEM_PROMPT
+    for rule in ["완전히 무관한", "업무상 거절·반대", "음성 인식", "즉시 정상 대화", "인격 비하", "현재 상황 자체가 잡담"]:
+        assert rule in ACTOR_SYSTEM

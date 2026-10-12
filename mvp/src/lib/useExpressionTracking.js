@@ -47,9 +47,9 @@ export function useExpressionTracking(mediaStream, videoRef, turnAccRef, faceLan
               const result = face.detectForVideo(video, performance.now());
               if (result.faceLandmarks.length && lastPersonAtRef) lastPersonAtRef.current = performance.now();
               if (faceLandmarksRef) faceLandmarksRef.current = result.faceLandmarks.length === 1 ? result.faceLandmarks[0] : null;
-              if (result.faceLandmarks.length !== 1) { if (!cancelled) setStatus("no_face"); return; }
+              if (result.faceLandmarks.length !== 1) { if (acc.expression) acc.expression.smileSince = null; if (!cancelled) setStatus("no_face"); return; }
               const crop = faceCrop(result.faceLandmarks[0], video.videoWidth, video.videoHeight);
-              if (!crop) { if (!cancelled) setStatus("no_face"); return; }
+              if (!crop) { if (acc.expression) acc.expression.smileSince = null; if (!cancelled) setStatus("no_face"); return; }
               ctx.drawImage(video, crop.x, crop.y, crop.size, crop.size, 0, 0, 224, 224);
               const input = new ort.Tensor("float32", normalizeFace(ctx.getImageData(0, 0, 224, 224).data), [1, 3, 224, 224]);
               const output = await session.run({face: input});
@@ -57,7 +57,7 @@ export function useExpressionTracking(mediaStream, videoRef, turnAccRef, faceLan
                 addExpressionSample(acc, output.logits.data);
                 setStatus("ready");
               }
-            } catch { if (!cancelled && faceLandmarksRef) faceLandmarksRef.current = null; if (!cancelled) { setStatus("failed"); window.clearInterval(timer); } }
+            } catch { if (acc.expression) acc.expression.smileSince = null; if (!cancelled && faceLandmarksRef) faceLandmarksRef.current = null; if (!cancelled) { setStatus("failed"); window.clearInterval(timer); } }
             finally { busy = false; }
           })();
         }, 1000);
