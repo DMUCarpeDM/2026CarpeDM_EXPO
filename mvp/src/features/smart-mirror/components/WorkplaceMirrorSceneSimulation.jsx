@@ -10,6 +10,9 @@ export function WorkplaceMirrorSceneSimulation({ category = "morning", character
     <div className="simulation-actor"><CounterpartVideo category={category} characterId={characterId} name={name} state={videoState} paused={paused} onReactionComplete={onReactionComplete} /></div>
     {userPreview}
     <MirrorCaptureStatus capture={captureStatus} waveRef={waveRef} />
-    {!dialogueHidden && <div className="simulation-card-slot">{dialogue && <MirrorSubtitles text={dialogue} playback={speechPlayback} />}{children}</div>}
+    {!dialogueHidden && <div className="simulation-card-slot">
+      {speechPlayback?.status === "waiting" && speechPlayback.text === dialogue && <p className="simulation-dialogue-status" role="status" aria-live="polite">음성을 준비하고 있어요. 잠시만 기다려 주세요.</p>}
+      {dialogue && <MirrorSubtitles text={dialogue} playback={speechPlayback} />}{children}
+    </div>}
   </section>;
 }

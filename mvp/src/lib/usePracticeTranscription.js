@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { shouldScheduleAutoSubmit } from "./sttAutoSubmit.js";
+import { AUTO_SUBMIT_SILENCE_MS, shouldScheduleAutoSubmit } from "./sttAutoSubmit.js";
 
 // 받아쓰기와 자동 제출 예약을 관리한다. 답변 초안과 실제 제출은 페이지가 소유한다.
 export function usePracticeTranscription({
@@ -33,13 +33,13 @@ export function usePracticeTranscription({
     clearAutoSubmit();
     autoSubmitTimerRef.current = window.setTimeout(() => {
       autoSubmitTimerRef.current = null;
-      autoSubmitCallbackRef.current?.();
-    }, 3000);
+      if (allowedRef.current && !aiSpeechActiveRef?.current) autoSubmitCallbackRef.current?.();
+    }, AUTO_SUBMIT_SILENCE_MS);
   };
   useEffect(() => () => clearAutoSubmit(), []);
   useEffect(() => {
-    if (paused || busy || aiSpeaking) clearAutoSubmit();
-  }, [paused, busy, aiSpeaking]);
+    if (!shouldListen) clearAutoSubmit();
+  }, [shouldListen]);
 
 
   useEffect(() => {
@@ -63,17 +63,16 @@ export function usePracticeTranscription({
           setDraft((prev) => `${prev} ${transcript}`.trim());
           pushFeed(`음성 인식 확정 · “${transcript.slice(0, 14)}${transcript.length > 14 ? "…" : ""}”`);
         }
-        else interimText += transcript;
+        else { sttUsedRef.current = true; interimText += transcript; }
       }
       setInterim(interimText);
       if (shouldScheduleAutoSubmit({ receivedFinal, interimText })) scheduleAutoSubmit();
-      else if (interimText) clearAutoSubmit();
     };
     recognition.onstart = () => { if (isCurrent()) setListening(true); };
     recognition.onend = () => {
       if (!isCurrent()) return;
       setListening(false);
-      setInterim("");
+      // Preserve the last interim answer while Chrome restarts after silence.
       // 침묵으로 인식이 끊기면 다시 듣는다 (턴이 살아있는 동안)
       if (isCurrent()) { try { recognition.start(); } catch { /* 이미 시작됨 */ } }
     };
@@ -91,6 +90,7 @@ export function usePracticeTranscription({
     sttActiveRef.current = true;
     try { recognition.start(); } catch { /* 중복 시작 무시 */ }
     return () => {
+      clearAutoSubmit();
       sttActiveRef.current = false;
       recognition.onresult = recognition.onstart = recognition.onend = recognition.onerror = null;
       if (recognitionRef.current === recognition) recognitionRef.current = null;

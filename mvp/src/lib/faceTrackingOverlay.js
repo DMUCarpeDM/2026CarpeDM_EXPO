@@ -68,10 +68,10 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
       ctx.moveTo(...px(pa));
       ctx.lineTo(...px(pb));
       ctx.strokeStyle = "rgba(9, 25, 43, 0.9)";
-      ctx.lineWidth = 6;
+      ctx.lineWidth = 2;
       ctx.stroke();
       ctx.strokeStyle = "#60a5fa";
-      ctx.lineWidth = 3.8;
+      ctx.lineWidth = 1.2;
       ctx.stroke();
     }
     const sl = poseLm[11];
@@ -83,20 +83,20 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
       ctx.moveTo(lx, ly);
       ctx.quadraticCurveTo((lx + rx) / 2, Math.max(ly, ry) + Math.abs(rx - lx) * 0.22, rx, ry);
       ctx.strokeStyle = "rgba(9, 25, 43, 0.9)";
-      ctx.lineWidth = 6;
+      ctx.lineWidth = 2;
       ctx.stroke();
       ctx.strokeStyle = "#60a5fa";
-      ctx.lineWidth = 3.8;
+      ctx.lineWidth = 1.2;
       ctx.stroke();
       ctx.fillStyle = "#93c5fd";
       ctx.strokeStyle = "#09192b";
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 0.8;
       for (const index of new Set(POSE_LINKS.flat())) {
         const point = poseLm[index];
         if (!point || (point.visibility ?? 1) < 0.4) continue;
         const [x, y] = px(point);
         ctx.beginPath();
-        ctx.arc(x, y, 5.5, 0, Math.PI * 2);
+        ctx.arc(x, y, 2.5, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
       }
@@ -106,7 +106,7 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
   // 손 관절 21점과 연결선 — 손동작은 자세 분석에 쓰되, 하체 포즈는 표시하지 않는다.
   for (const hand of handLm) {
     ctx.strokeStyle = "rgba(94, 234, 212, 1)";
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 1;
     ctx.lineCap = "round";
     for (const [a, b] of HAND_LINKS) {
       const pa = hand[a];
@@ -120,7 +120,7 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
     ctx.fillStyle = "#effffc";
     for (const point of hand) {
       ctx.beginPath();
-      ctx.arc(...px(point), 4, 0, Math.PI * 2);
+      ctx.arc(...px(point), 2, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -138,7 +138,7 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
       if (p.y > maxY) maxY = p.y;
     }
     ctx.strokeStyle = "rgba(94, 234, 148, 0.35)";
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 0.6;
     for (const [a, b] of FACE_LINKS) {
       const pa = faceLm[a];
       const pb = faceLm[b];
@@ -150,13 +150,13 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
     }
     ctx.fillStyle = "rgba(134, 245, 182, 0.95)";
     ctx.shadowColor = "rgba(94, 234, 148, 0.8)";
-    ctx.shadowBlur = 4;
+    ctx.shadowBlur = 2;
     for (const idx of FACE_DOTS) {
       const p = faceLm[idx];
       if (!p) continue;
       const [x, y] = px(p);
       ctx.beginPath();
-      ctx.arc(x, y, 2.2, 0, Math.PI * 2);
+      ctx.arc(x, y, 1.2, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.shadowBlur = 0;
@@ -167,9 +167,9 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
     const [bx2, by2] = px({ x: maxX + pad, y: maxY + pad * 0.8 });
     const arm = Math.min(26, (bx2 - bx1) * 0.18);
     ctx.strokeStyle = "rgba(94, 234, 148, 0.85)";
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = 1;
     ctx.shadowColor = "rgba(94, 234, 148, 0.5)";
-    ctx.shadowBlur = 6;
+    ctx.shadowBlur = 2;
     const corners = [
       [bx1, by1, arm, 0, 0, arm], [bx2, by1, -arm, 0, 0, arm],
       [bx1, by2, arm, 0, 0, -arm], [bx2, by2, -arm, 0, 0, -arm],
