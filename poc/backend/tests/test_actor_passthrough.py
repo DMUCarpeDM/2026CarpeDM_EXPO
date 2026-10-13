@@ -217,3 +217,15 @@ def test_gemini_sampling_avoids_low_temperature_loop_regression(monkeypatch, mod
     from app.services.dialogue import gemini_provider as provider
     monkeypatch.setattr(provider.settings, 'gemini_model', model)
     assert provider._sampling_temperature(requested) == expected
+
+
+def test_exhibition_uses_scoped_actor_rules_and_preserves_generated_line():
+    from app.services.dialogue.openai_provider import EXHIBITION_ACTOR_SYSTEM_PROMPT
+    session, scenario, character, turns, scene = fixture()
+    scene['actor_persona'] = '성미가 급한 박선임'
+    seen = []
+    def complete(system, prompt, **kwargs):
+        seen.append(system)
+        return '할 수 있는지부터 분명히 얘기해요.'
+    assert _generate_actor_line(session, scenario, character, turns, scene, complete) == '할 수 있는지부터 분명히 얘기해요.'
+    assert seen == [EXHIBITION_ACTOR_SYSTEM_PROMPT]

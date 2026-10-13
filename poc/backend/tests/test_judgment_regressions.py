@@ -162,3 +162,20 @@ def test_judgment_receives_first_question_in_current_scene(monkeypatch, first_re
     events, _, status = judge.analyze(current, history, [], [])
     assert status == 'completed'
     assert events[0]['rule'] == 'relevant_answer'
+
+
+@pytest.mark.parametrize('kind,text,expected', [
+    ('vague', '할 수도 있고 못 할 수도 있어요.', []),
+    ('substantive', '소개는 사양할게요.', ['goal_met', 'relevant_answer']),
+    ('substantive', '어떤 도움인지 먼저 알려주세요.', ['goal_met', 'relevant_answer']),
+])
+def test_vague_judgment_is_neutral_but_clear_boundary_or_question_can_score(kind, text, expected):
+    current = turn(text)
+    data = {'answer_kind': kind, 'assessment_status': 'completed',
+            'assessed_quote': text, 'relevant_quote': text,
+            'met_goals': [{'goal_id': 'intent', 'quote': text}]}
+    events, met = judge.validate(data, current, [], [{'id': 'intent', 'label': '의사 표현'}], [])
+    assert [e['rule'] for e in events] == expected
+    if kind == 'vague':
+        assert not met
+        assert scoring.calculate([{'measured': ['response'], 'events': events}])['scores']['response'] == 75

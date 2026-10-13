@@ -120,3 +120,15 @@ def test_context_uses_selected_scene_instead_of_original_episode(monkeypatch):
     session.rapport = {}
     context_scoring.classify_turn(session, turn, '일반 시나리오 상황')
     assert seen[1][3] == '일반 시나리오 상황'
+
+
+def test_exhibition_persona_reaches_actor_even_at_basic_difficulty():
+    from app.services.dialogue.openai_provider import _actor_prompt
+    scenario, episodes = fixture()
+    character = {'id': 'park_senior', 'personality': '사용하지 않을 기본 인물 설정'}
+    for seed in range(12):
+        item = flatten_plan_items(build_exhibition_plan(scenario, episodes, Random(seed)))[0]
+        prompt = _actor_prompt(NS(difficulty='basic'), scenario, character, [], item)
+        assert item['actor_persona'] in prompt
+        assert '성미가 급하고 화가 많으며' in prompt
+        assert character['personality'] not in prompt
