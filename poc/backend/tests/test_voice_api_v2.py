@@ -83,7 +83,10 @@ def test_calibration_upload_report_and_no_score_or_reference_criticism(monkeypat
     assert report["fit_scores"]["expression"]["score"] is None
     results = report["speech_stats"]["voice_analysis"]["turns"]
     assert results[0]["volume"]["status"] == "measured"
-    assert results[0]["voice_irregularity"]["reference_only"]
+    assert report["speech_stats"]["voice_analysis"]["measurement_fields"] == ["volume", "speed", "pauses"]
+    assert results[0]["analysis_status"] == "completed"
+    assert results[0]["pitch"]["median_hz"] is None
+    assert results[0]["voice_irregularity"]["segments"] == []
     with SessionLocal() as db:
         session = db.get(RoleplaySession, data["id"])
         assert "transcript" not in session.rapport["voice_measurements"][str(tid)]["speed"]
@@ -154,3 +157,35 @@ def test_expired_voice_transcripts_are_purged_even_without_scored_evidence():
         assert stats["turns"][0]["speed"]["syllables_per_second"] == 4
         assert "before" not in stats["turns"][0]["pauses"]["segments"][0]
         assert stats["response_habits"]["1"] == {"filler_count": 1}
+
+
+def test_missing_or_changed_calibration_preserves_independent_measurements(tmp_path, monkeypatch):
+    from dataclasses import asdict
+    path = tmp_path / 'speech.wav'
+    path.write_bytes(wav())
+    monkeypatch.setattr(engine, 'speech_segments', lambda *_: [(0., 2.)])
+    monkeypatch.setattr(voice_analysis, 'get_stt_provider', lambda: SimpleNamespace(transcribe_words=lambda _: [
+        {'word':'안녕하세요', 'start':0., 'end':2., 'conf':.95}]))
+    baseline = {'id':'cal', 'status':'measured', 'capture':CAPTURE, 'reference_rms':.07, 'config':asdict(engine.DEFAULT)}
+    for calibration, capture, reason in [(None, CAPTURE, 'calibration_required'),
+            (baseline, {**CAPTURE, 'device_id':'changed'}, 'capture_changed')]:
+        result, habits, _ = voice_analysis._measure(str(path), 1, 2, calibration, {'capture':capture}, False)
+        assert result['volume']['relative_db'] is None
+        assert result['volume']['reason'] == reason
+        assert result['speed']['syllables_per_second'] == 2.5
+        assert result['pauses']['count'] == 0
+        assert result['analysis_status'] == 'partial'
+        assert habits['status'] == 'measured'
+        assert interaction_scoring.audio_events(2, result, 'workplace') == []
+
+
+def test_voice_summary_does_not_require_legacy_score_rows():
+    from app.services.report import _build_speech_stats
+    session=SimpleNamespace(rapport={'voice_engine_version':engine.VERSION,'voice_measurements':{
+        '1':{'duration_sec':2.,'speed':{'status':'measured','syllables_per_second':3.5}},
+        '2':{'duration_sec':3.,'speed':{'status':'uncertain','syllables_per_second':None}},
+    }},turns=[])
+    data=_build_speech_stats([],session)
+    assert data['measurement']['audio_sec']==5
+    assert data['avg_speech_rate']==3.5
+    assert data['voice_analysis']['score_status']=='criteria_pending'

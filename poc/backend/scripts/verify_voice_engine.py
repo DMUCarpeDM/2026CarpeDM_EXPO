@@ -17,6 +17,7 @@ def main():
     parser.add_argument("manifest", type=Path)
     parser.add_argument("--limit", type=int, default=3)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--references", action="store_true", help="Include legacy pitch/Praat research measurements")
     args = parser.parse_args()
     entries = json.loads(args.manifest.read_text())[:args.limit]
     provider = get_stt_provider()
@@ -30,10 +31,13 @@ def main():
                     "reference_rms": engine._rms(samples, sr, segments), "config": asdict(engine.DEFAULT)}
         words = provider.transcribe_words(str(audio)) if provider else None
         started = time.monotonic()
-        new = engine.analyze(audio, session_id=0, turn_id=item["id"], words=words, calibration=baseline, capture=capture)
+        new = engine.analyze(audio, session_id=0, turn_id=item["id"], words=words, calibration=baseline, capture=capture,
+                             references=args.references)
+        elapsed = time.monotonic() - started
         old = voice_fit.analyze_audio(str(audio), item["text"])
         rows.append({"id": item["id"], "duration_sec": item["duration_sec"],
-                     "measurement_elapsed_sec": round(time.monotonic() - started, 3),
+                     "measurement_elapsed_sec": round(elapsed, 3),
+                     "analysis_status": new["analysis_status"], "measurement_fields": new["measurement_fields"],
                      "statuses": {field: new[field]["status"] for field in engine.FIELDS},
                      "reasons": {field: new[field]["reason"] for field in engine.FIELDS},
                      "reference_db": new["volume"]["relative_db"],

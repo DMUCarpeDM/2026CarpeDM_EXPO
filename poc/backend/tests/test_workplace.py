@@ -177,18 +177,18 @@ def test_flatten_avoids_goal_probe_template():
     assert items[1]["fallback_pool"] == plan["acts"][0]["fallback_pool"]
 
 
-def test_continuous_fallback_uses_catchphrase_without_quoting_user_or_goal():
+def test_continuous_fallback_does_not_quote_persona_user_or_goal():
     character = {"catchphrases": ["그냥 좀", "신입인데"]}
     turns = [NS(response_text="네 알겠습니다")]
     item = {"goal": "방향을 확인한다", "label": "방향 확인"}
     line = continuous_fallback_line(character, turns, item)
-    assert line.startswith("그냥 좀")
+    assert "그냥 좀" not in line
     assert "네 알겠습니다" not in line
     assert item["goal"] not in line
     assert "에 대해 구체적으로" not in line
 
 
-def test_continuous_fallback_prefers_scene_pool_over_reactions():
+def test_continuous_fallback_does_not_add_situations_from_pool():
     character = {
         "catchphrases": ["그냥 좀"],
         "reactions": {"risky": ["지금 그 말투는 좀 아니지 않아요? 다시 말해봐요."]},
@@ -207,12 +207,12 @@ def test_continuous_fallback_prefers_scene_pool_over_reactions():
         item,
         case="risky",
     )
-    assert line in item["fallback_pool"]
+    assert line not in item["fallback_pool"]
     assert line != "자료 한번 쭉 보고 알아서 파악해보세요."
 
 
-def test_continuous_fallback_skips_used_openings_then_reactions():
-    """세션 43 — 장면 풀을 다 쓰면 첫 오프닝을 재사용하지 않고 리액션으로 간다."""
+def test_continuous_fallback_skips_used_openings_and_unverified_reactions():
+    """상황 근거 없는 리액션이나 이미 한 오프닝을 반복하지 않는다."""
     character = {
         "catchphrases": ["그냥 좀"],
         "reactions": {"missing": ["아니 그래서, 이해한 게 뭐예요? 그냥 좀 말해봐요."]},
@@ -231,7 +231,7 @@ def test_continuous_fallback_skips_used_openings_then_reactions():
         character, turns, {"goal": "방향", "fallback_pool": pool}, case="missing",
     )
     assert line not in pool
-    assert "이해한 게" in line
+    assert "용건" in line
 
 
 def test_build_fallback_plan_keeps_one_anchor_per_category():
@@ -248,7 +248,7 @@ def test_build_fallback_plan_keeps_one_anchor_per_category():
     assert all(len(row["fallback_pool"]) == 1 for row in morning)
 
 
-def test_continuous_fallback_prefers_reaction_pool_for_case():
+def test_continuous_fallback_does_not_assume_tone_from_case():
     character = {
         "catchphrases": ["그냥 좀"],
         "reactions": {"risky": ["지금 그 말투는 좀 아니지 않아요? 다시 말해봐요."]},
@@ -256,7 +256,7 @@ def test_continuous_fallback_prefers_reaction_pool_for_case():
     line = continuous_fallback_line(
         character, [NS(response_text="ㅅㅂ")], {"goal": "방향"}, case="risky",
     )
-    assert "말투" in line
+    assert "말투" not in line
 
 
 def test_act_bridge_line_does_not_claim_to_know_another_conversation():

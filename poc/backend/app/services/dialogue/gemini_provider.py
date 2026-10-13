@@ -21,6 +21,7 @@ from app.services.dialogue.openai_provider import (
     _character_for,
     _episode_for,
     _actor_prompt,
+    _grounded_actor_line,
     _valid_line,
     _without_speaker_prefix,
 )
@@ -301,7 +302,7 @@ class GeminiDialogueProvider:
         line = _without_speaker_prefix(re.sub(r"\s+", " ", line.strip().strip('"')), character.get("name", ""))
         if not _valid_line(line):
             raise DialogueGenerationError("Gemini가 사용할 수 없는 역할극 대사를 반환했습니다")
-        return line
+        return _grounded_actor_line(line, scenario, character, turns, item, self._complete)
 
     def _generate_line(
         self,

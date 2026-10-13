@@ -20,6 +20,8 @@ function PitchChart({ pitch, duration }) {
 
 export function VoiceMeasurements({ data }) {
   if (!data?.engine_version) return null;
+  // 이전 보고서의 참고값은 보존하고, 새 분석은 요청한 측정 항목만 표시한다.
+  const showReferences = !data.measurement_fields || data.measurement_fields.includes("pitch");
   return <section className="voice-report" aria-labelledby="voice-report-title">
     <h2 id="voice-report-title">목소리 측정 기록</h2>
     <p>{hasVoiceMeasurements(data) ? "확인된 측정값과 항목별 측정 상태를 표시해요." : "이번 연습에서는 목소리 측정값을 확인하지 못했어요."} 평가 기준을 검증하는 단계라 음성 점수와 감점에는 반영하지 않아요.</p>
@@ -31,12 +33,12 @@ export function VoiceMeasurements({ data }) {
         <dt>말 사이 멈춤</dt><dd>{turn.pauses?.status === "measured" ? `${turn.pauses.count}개 구간` : voiceReason(turn.pauses?.reason)}
           {(turn.pauses?.segments || []).map((pause) => <p key={pause.id}>{pause.start.toFixed(1)}~{pause.end.toFixed(1)}초 · {pause.duration_sec.toFixed(1)}초 멈춤</p>)}
           <small>자연스러운 쉼이 포함돼요. 불필요한 멈춤이라는 뜻은 아니에요.</small></dd>
-        <dt>높낮이 참고값</dt><dd>{value(turn.pitch, "median_hz", "Hz (중앙값)")}
+        {showReferences && <><dt>높낮이 참고값</dt><dd>{value(turn.pitch, "median_hz", "Hz (중앙값)")}
           {turn.pitch?.status === "measured" && <p>10~90백분위: {turn.pitch.p10_hz.toFixed(1)}~{turn.pitch.p90_hz.toFixed(1)}Hz</p>}
           <PitchChart pitch={turn.pitch} duration={turn.duration_sec} /></dd>
         <dt>발성 불규칙성</dt><dd>{turn.voice_irregularity?.status === "measured"
           ? turn.voice_irregularity.segments.map((s, i) => <p key={i}>{s.start.toFixed(1)}~{s.end.toFixed(1)}초 · jitter {s.jitter_local_pct.toFixed(2)}%, shimmer {s.shimmer_local_pct.toFixed(2)}%</p>)
-          : voiceReason(turn.voice_irregularity?.reason)}<small>발성 주기의 참고 수치예요. 긴장이나 자신감을 판단하지 않아요.</small></dd>
+          : voiceReason(turn.voice_irregularity?.reason)}<small>발성 주기의 참고 수치예요. 긴장이나 자신감을 판단하지 않아요.</small></dd></>}
       </dl>
     </details>)}
     {!data.turns?.length && <p>확인할 녹음이 없어요. 음성은 감점하지 않아요.</p>}

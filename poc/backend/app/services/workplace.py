@@ -193,30 +193,11 @@ def _last_user_reply(turns) -> str:
 
 
 def continuous_fallback_line(character: dict | None, turns, item: dict, case: str | None = None) -> str:
-    """LLM 실패 시 카테고리 장면 풀 → 품질 리액션 → 말버릇 템플릿 순으로 한 줄을 고른다."""
-    character = character or {}
-    used = _used_ai_questions(turns)
-    # 1) 아직 안 쓴 장면 오프닝만 — 소진되면 리액션/템플릿으로 (첫 대사 재등장 방지)
-    scene_pool = [str(line).strip() for line in (item.get("fallback_pool") or []) if str(line).strip() and not is_role_drift(str(line))]
-    if scene_pool:
-        candidates = [line for line in scene_pool if not any(_SPACE.sub(" ", line) in prior for prior in used)]
-        if candidates:
-            return _SPACE.sub(" ", random.choice(candidates)).strip()[:180]
-
-    # 2) 품질별 고정 리액션 풀
-    pool = (character.get("reactions") or {}).get(case or "") or []
-    pool = [str(line).strip() for line in pool if str(line).strip() and not is_role_drift(str(line))]
-    if pool:
-        candidates = [line for line in pool if _SPACE.sub(" ", line) not in used]
-        if candidates:
-            last = _last_user_reply(turns)
-            pick = candidates[hash(last) % len(candidates)] if last else candidates[0]
-            return _SPACE.sub(" ", pick).strip()[:180]
-
-    phrases = [str(p).strip() for p in (character.get("catchphrases") or []) if str(p).strip()]
-    hook = phrases[0] if phrases else "그래서"
-    # 내부 평가 목표나 사용자가 삽입한 지시를 상대의 대사로 복사하지 않는다.
-    return f"{hook}, 방금 말씀하신 대로 하려면 먼저 뭘 하실 건가요?"[:180]
+    """생성 실패 시 현재 장면의 확정 대사만 사용한다."""
+    opening = _SPACE.sub(" ", str(item.get("text") or "")).strip()
+    if opening and len(opening) <= 180 and not is_role_drift(opening) and opening not in _used_ai_questions(turns):
+        return opening
+    return "지금 이야기하던 용건에 대해 다시 말씀해 주시겠어요?"
 
 
 def act_bridge_line(character: dict | None, carry: str, item: dict) -> str:

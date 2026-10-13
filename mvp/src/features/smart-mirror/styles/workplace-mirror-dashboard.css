@@ -55,3 +55,8 @@
 @media (prefers-reduced-motion: reduce) {
   .mirror-dashboard .score-ring .fill, .mirror-dashboard [role='progressbar'] > div { transition: none; animation: none; }
 }
+
+.mirror-dashboard .voice-report { margin: 0; padding: 0; border: 0; background: transparent; color: var(--ink); line-height: 1.65; }
+.mirror-dashboard .voice-report h2 { font-size: max(1rem, calc(1.55 * var(--u))); font-weight: 500; }
+.mirror-dashboard .voice-report small { color: var(--muted); }
+.mirror-dashboard .voice-report svg { color: var(--ink); }

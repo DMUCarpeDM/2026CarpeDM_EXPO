@@ -88,7 +88,7 @@ def test_training_report_uses_shared_score_and_purges_internal_quotes(monkeypatc
     assert report["fit_scores"]["voice"]["score"] is None
     assert report["fit_scores"]["expression"]["score"] is None
     assert "유효한 얼굴 표본이 수집되지 않아" in report["fit_scores"]["expression"]["summary"]
-    assert report["deep_analysis"]["interaction"]["version"] == "interaction-score-v3"
+    assert report["deep_analysis"]["interaction"]["version"] == "interaction-score-v5"
     with SessionLocal() as db:
         session = db.get(RoleplaySession, sid)
         assert "judgments" not in session.rapport
@@ -188,3 +188,42 @@ def test_health_tracks_gemini_goal_judge_instead_of_openai_key(monkeypatch):
         reasons = health()['degraded_reasons']
         assert any('목표 판정 미가동' in reason and 'Gemini' in reason for reason in reasons) is missing
         assert not any('OpenAI 키가 없어 응답 분석' in reason for reason in reasons)
+
+
+def test_missing_goal_requires_grounded_explicit_request():
+    from types import SimpleNamespace
+    from app.services.response_judgment import validate
+    current = SimpleNamespace(id=1, order=1, question_text='완료 일정을 알려 주세요.', response_text='자료를 확인하겠습니다.')
+    goals = [{'id':'schedule','label':'완료 일정'}]
+    assert not validate({'missing_goal_ids':['schedule']}, current, [], goals, ['schedule'])[0]
+    hit = {'goal_id':'schedule','request_quote':'완료 일정을 알려 주세요.','confidence':.95}
+    for override in ({'request_quote':'담당자를 알려 주세요.'}, {'confidence':.5}, {'goal_id':'unknown'}):
+        assert not validate({'missing_goals':[{**hit, **override}]}, current, [], goals, ['schedule'])[0]
+    events, _ = validate({'missing_goals':[hit, hit]}, current, [], goals, ['schedule'])
+    assert len(events) == 1 and events[0]['evidence']['request_quote'] == current.question_text
+    assert calculate([{'measured':['response'],'events':events}])['scores']['response'] == 74.5
+
+
+def test_related_incomplete_answer_outscores_irrelevant_answer_in_every_context():
+    from app.services.context_scoring import POLICIES
+    for multipliers in POLICIES.values():
+        def score(rule):
+            return calculate([{'measured':['response'], 'context_policy':{'multipliers':multipliers},
+                'events':[event(1,'response',rule,'negative',{'goal_id':'g'},'')]}])['scores']['response']
+        assert score('missing_goal') > score('off_topic')
+
+
+def test_empty_analysis_requires_completed_status_and_whole_answer_evidence(monkeypatch):
+    import httpx
+    import json
+    from pydantic import SecretStr
+    from app.core.config import settings
+    monkeypatch.setattr(settings, 'gemini_api_key', SecretStr('test'))
+    current = NS(id=1, order=1, question_text='확인해 주세요.', response_text='자료는 책상 위에 있습니다.')
+    for data, expected in [({}, 'uncertain'),
+            ({'assessment_status':'completed', 'assessed_quote':'없는 발언'}, 'uncertain'),
+            ({'assessment_status':'uncertain', 'assessed_quote':current.response_text}, 'uncertain'),
+            ({'assessment_status':'completed', 'assessed_quote':current.response_text}, 'completed')]:
+        monkeypatch.setattr('app.services.response_judgment.httpx.post', lambda url, **kw: httpx.Response(
+            200, request=httpx.Request('POST', url), json={'candidates':[{'content':{'parts':[{'text':json.dumps(data)}]}}]}))
+        assert analyze(current, [], [], []) == ([], [], expected)

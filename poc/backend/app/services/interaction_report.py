@@ -10,7 +10,8 @@ def _fit_summary(session, area, score):
     if area == "voice" and voice_analysis.enabled(session):
         return "측정값과 측정 불가 사유는 목소리 기록에서 확인할 수 있습니다. 평가 기준 검증 전에는 점수를 계산하지 않습니다."
     if area == "expression" and score is not None:
-        return "75점에서 대화 맥락과 지속된 미소 신호를 반영한 검증 전 참고 점수입니다. 감정이나 태도를 단정하지 않습니다."
+        from app.services.expression_measurement import summarize
+        return summarize(session)["note"]
     if area == "expression" and score is None:
         from app.services.expression_measurement import summary_text
         return summary_text(session)

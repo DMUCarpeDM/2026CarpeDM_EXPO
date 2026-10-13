@@ -1,6 +1,7 @@
 """Experimental, bounded context policy. The model classifies dialogue, never the person."""
 import json
-from functools import lru_cache
+from collections import OrderedDict
+from time import monotonic
 import httpx
 from app.core.config import settings
 from app.services.judgments import event
@@ -20,8 +21,26 @@ SYSTEM = '''대화 상황만 분류한다. 사람의 감정·성격·능력을 �
 JSON만 출력: {"kind":"neutral", "confidence":0.0, "quote":"현재 대사에서의 정확한 근거 인용"}.'''
 
 
-@lru_cache(maxsize=512)
+_cache = OrderedDict()
+
+
 def classify(session_id, turn_id, question, situation):
+    key = (session_id, turn_id, question, situation)
+    cached = _cache.get(key)
+    if cached and (cached[1]["status"] == "classified" or monotonic() - cached[0] < 5):
+        return cached[1]
+    value = _classify(question, situation)
+    _cache[key] = (monotonic(), value)
+    _cache.move_to_end(key)
+    while len(_cache) > 512:
+        _cache.popitem(last=False)
+    return value
+
+
+classify.cache_clear = _cache.clear
+
+
+def _classify(question, situation):
     fallback = {'kind': 'neutral', 'status': 'unavailable', 'multipliers': POLICIES['neutral']}
     if settings.gemini_api_backend != 'vertex' and not settings.gemini_api_key.get_secret_value():
         return fallback
@@ -30,7 +49,7 @@ def classify(session_id, turn_id, question, situation):
         response = httpx.post(_gemini_url(settings.gemini_model), headers=_gemini_headers(),
             json={'system_instruction': {'parts': [{'text': SYSTEM}]},
                   'contents': [{'role': 'user', 'parts': [{'text': json.dumps({'question': question, 'situation': situation}, ensure_ascii=False)}]}],
-                  'generationConfig': {'temperature': 0, 'maxOutputTokens': 1024, 'responseMimeType': 'application/json'}}, timeout=2)
+                  'generationConfig': {'temperature': 0, 'maxOutputTokens': 1024, 'responseMimeType': 'application/json'}}, timeout=min(settings.gemini_timeout_sec, 5))
         response.raise_for_status()
         data = json.loads(_extract_text(response.json()))
         kind, quote = data.get('kind'), data.get('quote')
@@ -49,7 +68,7 @@ def apply(result, context, nonverbal):
     model = (nonverbal or {}).get('expression_model') or {}
     # Establish the reference baseline from usable face samples before applying a penalty.
     # Missing faces never create an axis or a default score.
-    if (context['status'] == 'classified' and model.get('version') == 'expression-resnet18-v1'
+    if (model.get('version') == 'expression-resnet18-v1'
             and model.get('samples', 0) >= 4):
         result['measured'] = list(dict.fromkeys([*result['measured'], 'expression']))
     # Experimental action observation, not an emotion or attitude judgment.

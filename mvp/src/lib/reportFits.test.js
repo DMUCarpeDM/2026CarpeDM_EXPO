@@ -59,3 +59,9 @@ test("voice report availability preserves missing, uncertain, and partial measur
   assert.equal(hasVoiceMeasurements({ turns: [{ volume: { status: "unmeasured", relative_db: null }, speed: { status: "uncertain" } }] }), false);
   assert.equal(hasVoiceMeasurements({ turns: [{ volume: { status: "unmeasured" }, pauses: { status: "measured", count: 0 } }] }), true);
 });
+
+test("core voice report excludes legacy reference-only measurements", () => {
+  const turns = [{ pitch: { status: "measured", median_hz: 180 }, volume: { status: "unmeasured" } }];
+  assert.equal(hasVoiceMeasurements({ turns }), true);
+  assert.equal(hasVoiceMeasurements({ turns, measurement_fields: ["volume", "speed", "pauses"] }), false);
+});

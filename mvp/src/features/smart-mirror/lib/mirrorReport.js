@@ -10,15 +10,20 @@ export function mirrorReport(report) {
   const stats = report.speech_stats || {};
   const coaching = report.coaching?.find(item => item?.suggestion);
   const rewrite = report.rebuild?.items?.find(item => item?.sentence || item?.after || item?.text);
+  const strengths = (report.strengths || []).filter(item => typeof item === "string" && item.trim());
+  const improvements = (report.improvements || []).filter(item => typeof item === "string" && item.trim());
   return {
+    strengths,
+    improvements,
+    voiceAnalysis: stats.voice_analysis || null,
     total: mirrorScore(report.total_score),
     fits: reportFits(report).map(fit => ({
       ...fit,
       score: fit.measured && !(fit.key === "Voice-Fit" && stats.voice_analysis) ? mirrorScore(fit.score) : null,
-      status: fit.key === "Expression-Fit" && stats.expression_analysis?.samples > 0 ? "표정 출력 수집 · 검증 중" : fit.key === "Voice-Fit" && stats.voice_analysis ? "점수 보류" : fit.measured ? fit.provisional ? "참고 지표" : "측정 완료" : "미측정",
+      status: fit.key === "Expression-Fit" && !fit.measured && stats.expression_analysis?.samples > 0 ? "표정 출력 수집 · 검증 중" : fit.key === "Voice-Fit" && stats.voice_analysis ? "점수 보류" : fit.measured ? fit.provisional ? "참고 지표" : "측정 완료" : "미측정",
     })),
-    strength: report.strengths?.[0] || null,
-    improvement: report.headline?.sentence || report.improvements?.[0] || null,
+    strength: strengths[0] || null,
+    improvement: improvements[0] || null,
     before: coaching?.quote || report.rebuild?.quote || null,
     after: coaching?.suggestion || rewrite?.sentence || rewrite?.after || rewrite?.text || null,
     turns: Number.isFinite(stats.turns) ? stats.turns : null,

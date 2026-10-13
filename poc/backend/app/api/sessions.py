@@ -626,16 +626,17 @@ def submit_response(
         # 면접 질문에도 항목별 기준을 붙이려면 이 조건과 interaction.py의 질문 형식을 함께 수정하세요.
         goals = interaction.assessment_goals(flow_before)
         current_item = flow_before["items"][flow_before["index"]] if not flow_before.get("finished") else {}
-        current_goal_id = goals[0]["id"] if goals and flow_before.get("mode") == CONTINUOUS_MODE else current_item.get("id")
+        # 자유 대화의 내부 체크리스트는 실제로 질문한 항목이 아니다.
+        # 고정 질문과 목표가 연결된 흐름에서만 누락 감점을 허용한다.
+        current_goal_id = None if flow_before.get("mode") == CONTINUOUS_MODE else current_item.get("id")
         requested = [current_goal_id] if goals and current_goal_id and turn.question_type != "confirmation" else []
         semantic, met, status = response_judgment.analyze(turn, turns, goals, requested)
         # 키워드 일치만으로 목표를 달성했다고 확정하지 않는다.
         judgment["events"] = [e for e in judgment["events"] if e["area"] != "response"] + semantic
         judgment["met_goals"] = met
         judgment["measured"] = [area for area in judgment["measured"] if area != "response"]
-        # 현재는 분석 성공뿐 아니라 결과 사건도 있어야 '측정됨'으로 기록합니다.
-        # '분석 성공했지만 지적할 내용 없음'을 미측정과 구분하는 것은 새 설계의 수정 지점입니다.
-        if status == "completed" and semantic:
+        # 근거를 확인한 중립 답변도 측정됨. 판단 보류·분석 실패는 점수를 만들지 않는다.
+        if status == "completed":
             judgment["measured"].append("response")
         judgment["semantic_status"] = status
     if flow_before.get("mode") == CONTINUOUS_MODE:

@@ -21,11 +21,12 @@ def summarize(session):
         turns.append({"turn_id": turn.id, "turn_order": turn.order, **value.model_dump()})
     samples = sum(t["samples"] for t in turns)
     from app.services.judgments import results
-    context_scored = any(r.get("context_policy") and "expression" in r.get("measured", []) for r in results(session))
+    context_scored = any((r.get("context_policy") or {}).get("status") == "classified" and "expression" in r.get("measured", []) for r in results(session))
+    baseline = any("expression" in r.get("measured", []) for r in results(session))
     return {"version": "expression-resnet18-v1", "status": "unvalidated" if samples else "unmeasured",
-            "scoring_enabled": context_scored, "provisional": True, "samples": samples, "turns": turns,
+            "scoring_enabled": baseline, "context_scored": context_scored, "provisional": True, "samples": samples, "turns": turns,
             "mean_outputs": {key: sum(t["samples"] * t["mean_outputs"][key] for t in turns) / samples for key in LABELS} if samples else {},
-            "note": ("얼굴 표본과 대화 맥락으로 실험적 표정 점수를 계산했습니다. 검증된 감정·태도 판단은 아닙니다." if context_scored else "학습 전처리·판정 기준 미검증. 출력값은 감정·태도·표정 비율 또는 점수가 아닙니다.")}
+            "note": ("얼굴 표본과 대화 맥락으로 실험적 표정 점수를 계산했습니다. 검증된 감정·태도 판단은 아닙니다." if context_scored else "유효한 얼굴 표본으로 참고 기준점 75점을 표시합니다. 맥락 분석이 완료되지 않아 맥락 가감점은 보류했습니다." if baseline else "학습 전처리·판정 기준 미검증. 출력값은 감정·태도·표정 비율 또는 점수가 아닙니다.")}
 
 
 def summary_text(session):

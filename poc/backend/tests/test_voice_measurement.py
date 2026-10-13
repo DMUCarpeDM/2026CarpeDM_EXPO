@@ -112,3 +112,25 @@ def test_real_libraries_measure_periodic_reference_without_inventing_confidence(
 def test_real_bundled_vad_loads_and_rejects_silence_without_model_download():
     # Calibration tests mock segmentation; they cannot detect a missing torchaudio.
     assert voice.speech_segments(np.zeros(16000, dtype=np.float32), 16000) == []
+
+
+def test_core_measurements_complete_without_running_reference_analysis(tmp_path, monkeypatch):
+    monkeypatch.setattr(voice, 'speech_segments', lambda *_: [(0.,2.)])
+    def unexpected(*_):
+        raise AssertionError('9/11 core analysis must not run pitch/Praat')
+    monkeypatch.setattr(voice, 'reference_metrics', unexpected)
+    result=voice.analyze(write(tmp_path,tone()), calibration=baseline(.07), capture=CAPTURE,
+        words=[{'word':'안녕하세요','start':0.,'end':2.,'conf':.95}], references=False)
+    assert result['analysis_status']=='completed'
+    assert result['measurement_fields']==['volume','speed','pauses']
+    assert result['pitch']['median_hz'] is None
+    assert result['pitch']['reason']=='not_requested'
+    assert result['speed']['syllables_per_second']==2.5
+
+
+def test_short_speech_and_unrecognized_pronunciation_never_create_speed():
+    word={'word':'네','start':0.,'end':.3,'conf':.99}
+    assert voice._speed([word],[(0.,.3)],.3,voice.DEFAULT)['status']=='uncertain'
+    for text in ['2026년입니다','API를 개발합니다','십월 십사일까지입니다']:
+        result=voice._speed([{**word,'word':text,'end':2.}],[(0.,2.)],2.,voice.DEFAULT)
+        assert result['status']==('measured' if text=='십월 십사일까지입니다' else 'uncertain')

@@ -6,8 +6,9 @@ const fitPresentation = [
 ];
 
 export function hasVoiceMeasurements(data) {
+  const fields = data?.measurement_fields || ["volume", "speed", "pauses", "pitch", "voice_irregularity"];
   return (data?.turns || []).some((turn) =>
-    ["volume", "speed", "pauses", "pitch", "voice_irregularity"].some((key) => turn?.[key]?.status === "measured"));
+    fields.some((key) => turn?.[key]?.status === "measured"));
 }
 
 function fitScore(item) {

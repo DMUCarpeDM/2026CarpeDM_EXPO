@@ -10,7 +10,7 @@ from app.ai.stt import get_stt_provider
 _POOL = ThreadPoolExecutor(max_workers=1, thread_name_prefix="voice-turn")
 _SLOT = threading.BoundedSemaphore(1)
 LIVE_BUDGET_SEC = 2.0
-SCORE_VERSION = "interaction-score-v2"
+SCORE_VERSION = "interaction-score-v5"
 
 
 def enabled(session):
@@ -39,10 +39,7 @@ def store_measurement(session, turn_id, measurement):
 
 
 def _measure(path, session_id, turn_id, baseline, source, references):
-    if not baseline or baseline.get("status") != "measured":
-        return engine.empty_result(session_id, turn_id, "calibration_required"), None, None
-    if not engine.capture_matches(baseline.get("capture"), source.get("capture")):
-        return engine.empty_result(session_id, turn_id, "capture_changed"), None, None
+    # 보정은 상대 크기에만 필요하다. 속도·멈춤·참고값의 독립 측정은 유지한다.
     # Reject corrupt/oversized decoded audio before STT can spend time on it.
     try:
         engine.load_audio(path)
@@ -90,7 +87,8 @@ def finish_turn(session, turn, *, include_stt_log=False):
         measurement, habits = engine.empty_result(session.id, turn.id), None
     else:
         try:
-            result = _measure(turn.audio_path, session.id, turn.id, baseline, source, True)
+            # 9/11 계획: 제품 분석은 크기·속도·멈춤만 계산한다.
+            result = _measure(turn.audio_path, session.id, turn.id, baseline, source, False)
             if len(result) == 2:  # 기존 테스트/확장 구현의 (measurement, habits) 계약 유지
                 measurement, habits = result
             else:
@@ -128,7 +126,8 @@ def live_turn(session, turn):
 def report_data(session):
     value = session.rapport or {}
     return {"engine_version": engine.VERSION, "criteria_version": engine.CRITERIA_VERSION,
-            "score_status": "criteria_pending", "reference_only": ["pitch", "voice_irregularity"],
+            "score_status": "criteria_pending", "measurement_fields": list(engine.CORE_FIELDS),
+            "reference_only": [],
             "turns": list(value.get("voice_measurements", {}).values()),
             "response_habits": value.get("response_habits", {})}
 

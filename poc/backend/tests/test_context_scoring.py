@@ -17,7 +17,7 @@ def test_context_changes_multiple_areas_without_fabricating_unmeasured_scores():
         event(1,'response','missing_goal','negative',{'goal_id':'x'},''),
         event(1,'posture','sway','negative',{},'')], 'context_policy':policy()}
     out = scoring.calculate([result])
-    assert out['scores']['response'] == 72.6
+    assert out['scores']['response'] == 74.4
     assert out['scores']['posture'] == 73.8
     assert out['scores']['voice'] is None
     assert out['scores']['expression'] is None

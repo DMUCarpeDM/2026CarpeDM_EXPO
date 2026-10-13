@@ -25,7 +25,8 @@ def test_bridge_consumes_opening_before_next_fallback():
     item = {"text": opening, "fallback_pool": [opening]}
     bridge = act_bridge_line(character, "자료 확인하겠습니다", item)
     line = continuous_fallback_line(character, [SimpleNamespace(question_text=bridge, response_text="네")], item, "covered")
-    assert line == character["reactions"]["covered"][0]
+    assert line != opening
+    assert line == "지금 이야기하던 용건에 대해 다시 말씀해 주시겠어요?"
 
 
 def test_existing_installations_keep_openai_default():
@@ -60,7 +61,7 @@ def test_repeated_beats_share_one_scoring_goal():
             index + 1, "response", "goal_met", "positive", {"goal_id": goals[0]["id"]}, "목표 충족") ]})
     assert len({item["id"] for item in items[:4]}) == 4
     assert len({item["assessment_id"] for item in items[:4]}) == 1
-    assert interaction_scoring.calculate(results)["scores"]["response"] == 78
+    assert interaction_scoring.calculate(results)["scores"]["response"] == 76
 
 
 @pytest.mark.parametrize("provider", ["openai", "gemini"])
@@ -99,7 +100,7 @@ def test_continuous_api_finishes_and_resumes_with_provider_outage(monkeypatch, p
         turn = payload["next_turn"]
     assert turn is None
     assert categories == ["morning"] * 4 + ["work"] * 5 + ["leaving"] * 3
-    assert all(len(goals) == 1 and requested == [goals[0]["id"]] for goals, requested in observed_goals)
+    assert all(len(goals) == 1 and requested == [] for goals, requested in observed_goals)
 
 
 def test_gemini_transport_keeps_credentials_out_of_url_and_logs(monkeypatch, caplog):

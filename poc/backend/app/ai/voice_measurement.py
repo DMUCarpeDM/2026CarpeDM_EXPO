@@ -12,6 +12,7 @@ import soundfile as sf
 VERSION = "voice-measure-v2"
 CRITERIA_VERSION = "voice-unvalidated-v1"
 FIELDS = ("volume", "speed", "pauses", "pitch", "voice_irregularity")
+CORE_FIELDS = ("volume", "speed", "pauses")
 CAPTURE_KEYS = ("capture_id", "device_id", "sample_rate", "channel_count", "auto_gain_control", "noise_suppression", "echo_cancellation")
 _VAD_LOCK = threading.Lock()  # Silero ONNX wrapper carries recurrent state.
 
@@ -268,6 +269,7 @@ def reference_metrics(samples, sr, segments, config=DEFAULT):
 def _analyze(path, *, session_id=None, turn_id=None, calibration=None, capture=None,
             words=None, excluded=(), config=DEFAULT, references=True):
     result = empty_result(session_id, turn_id)
+    result["measurement_fields"] = list(FIELDS if references else CORE_FIELDS)
     result.update(calibration_id=(calibration or {}).get("id"), config=asdict(config), quality_flags=[])
     try:
         samples, sr, channels = load_audio(path, config)
@@ -329,10 +331,10 @@ def _analyze(path, *, session_id=None, turn_id=None, calibration=None, capture=N
             result["pitch"] = missing("reference_analysis_failed", reference_only=True)
             result["voice_irregularity"] = missing("reference_analysis_failed", reference_only=True)
     else:
-        reason = "clipping" if clipped else "deferred"
+        reason = "clipping" if clipped else "not_requested"
         result["pitch"] = missing(reason, reference_only=True)
         result["voice_irregularity"] = missing(reason, reference_only=True)
-    statuses = [result[field]["status"] for field in FIELDS]
+    statuses = [result[field]["status"] for field in result["measurement_fields"]]
     result["analysis_status"] = "completed" if all(s == "measured" for s in statuses) else "partial" if "measured" in statuses else "unmeasured"
     return result
 

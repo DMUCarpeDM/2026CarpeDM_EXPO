@@ -47,3 +47,21 @@ test("measured response and posture scores pass through to the mirror report", (
   assert.equal(report.fits[1].score, null);
   assert.equal(report.fits[2].score, null);
 });
+
+test("feedback preserves every grounded item and never substitutes the headline", () => {
+  const report = mirrorReport({ strengths: ["일정을 확인했어요.", "역할을 확인했어요."], improvements: ["이유를 설명해 주세요.", "기한을 덧붙여 주세요."], headline: { sentence: "일반 요약" } });
+  assert.deepEqual(report.strengths, ["일정을 확인했어요.", "역할을 확인했어요."]);
+  assert.deepEqual(report.improvements, ["이유를 설명해 주세요.", "기한을 덧붙여 주세요."]);
+  assert.equal(report.improvement, "이유를 설명해 주세요.");
+  assert.equal(mirrorReport({ headline: { sentence: "일반 요약" } }).improvement, null);
+});
+
+test("all four axes preserve measured, provisional and withheld states", () => {
+  const report = mirrorReport({ fit_scores: {
+    response: { score: 77 }, posture: { score: 73.8 },
+    expression: { score: 73.7, provisional: true }, voice: { score: null },
+  }, speech_stats: { expression_analysis: { samples: 4 }, voice_analysis: { engine_version: "voice-measure-v2", turns: [] } } });
+  assert.deepEqual(report.fits.map(f => f.score), [77, null, 74, 74]);
+  assert.deepEqual(report.fits.map(f => f.status), ["측정 완료", "점수 보류", "참고 지표", "측정 완료"]);
+  assert.equal(report.voiceAnalysis.engine_version, "voice-measure-v2");
+});

@@ -1,0 +1,17 @@
+import React from "react";
+import { createRoot } from "react-dom/client";
+import { MirrorCaptureStatus } from "../../components/MirrorCaptureStatus";
+import { MirrorSubtitles } from "../../components/MirrorSubtitles";
+import "../../styles/workplace-mirror-overview.css";
+import "../../styles/workplace-mirror-simulation.css";
+import "./reference.css";
+const colors = [["캔버스", "#000000"], ["기본 텍스트", "#f5f7fc"], ["보조 텍스트", "#c6cdd8"], ["시뮬레이션 보조", "#e0e5ef"], ["밝은 글래스 글자", "#172338"], ["활성 카메라·파형", "#075985"], ["녹음 표시", "#c6283d"], ["비활성 표시", "#475569"]];
+const type = [["브랜드", "max(1rem, 1.7u)", "500"], ["NFC 제목", "max(1.5rem, 2.7u)", "기본 제목 굵기"], ["NFC 설명", "max(1rem, 1.6u)", "400"], ["시뮬레이션 자막", "max(1.375rem, 2.3u) + 16px", "500"], ["상태바", "max(.875rem, 1.1u)", "600"]];
+function App(){return <main className="ds"><header><p className="eyebrow">MIRROR-TING / SMART MIRROR</p><h1>스마트미러 디자인 시스템</h1><p>현재 미러 구현 기준 · 2026.10.13</p><p>검정 캔버스, 실버 글래스, 영상 위 자막을 중심으로 구성합니다. 아래 글래스·상태바·자막은 제품 컴포넌트와 CSS를 직접 사용합니다.</p><nav><a href="../flow/index.html">전체 화면 흐름</a><a href="../simulation/scene.html?scene=morning">시뮬레이션</a><a href="/?mirror=1&service=workplace&idle=0">실제 체험</a></nav></header>
+<section><h2>01 색상</h2><div className="swatches">{colors.map(([label,color])=><article key={label}><i style={{background:color}}/><strong>{label}</strong><code>{color}</code></article>)}</div><p>구분선 #ffffff24 · 밝은 상태바 바탕 #edf3fac7 · 자막 진행선 #d8edff</p></section>
+<section><h2>02 타이포그래피</h2><p>Apple SD Gothic Neo → Noto Sans KR → Arial → sans-serif</p><p>반응형 단위 u = min(1dvh, 1.77778vw). px 증분은 화면 크기에 상관없이 동일하게 더해집니다.</p><table><thead><tr><th>용도</th><th>크기</th><th>굵기</th></tr></thead><tbody>{type.map(row=><tr key={row[0]}>{row.map((v,i)=><td key={i}>{v}</td>)}</tr>)}</tbody></table><div className="subtitle-demo"><MirrorSubtitles text="현재 말하는 문장은 선명하게 보여요. 이전 문장은 부드럽게 흐려집니다." playback={{text:"현재 말하는 문장은 선명하게 보여요. 이전 문장은 부드럽게 흐려집니다.",status:"playing",charIndex:34}}/></div><p>자막: 행간 1.65 · 자간 −.02em · 그림자 0 1px 2px #000a, 0 0 6px #0005 · 이전 문장 불투명도 45%</p></section>
+<section><h2>03 실버 글래스</h2><div className="glass-demo"><div className="overview-summary-card"><h3>대화 준비</h3><p>반투명 표면과 얇은 반사 테두리로 깊이를 표현합니다.</p></div></div><p>블러 16px · 채도 105% · 모서리 1.8u · 다층 반사 그라데이션과 내부 그림자. 공통 표면은 workplace-mirror-overview.css의 overview-summary-card가 기준입니다.</p></section>
+<section><h2>04 상태 표시</h2><div className="status-demo"><MirrorCaptureStatus capture={{recording:true,cameraReady:true}}/><MirrorCaptureStatus capture={{recording:false,cameraReady:false}}/><MirrorCaptureStatus capture={{audioError:true,cameraError:true}}/></div><p>공통 글래스를 유지하고 밝은 바탕에 짙은 글자를 사용합니다. 녹음은 빨간 점, 활성 카메라는 파란색이며 상태를 문구로도 표시합니다.</p></section>
+<section><h2>05 화면 구성과 동작</h2><ul><li>NFC·요약: 최대 폭 56.25dvh. 바깥 여백 세로 3.3u, 가로 3.6u. 타이틀은 본문 이동과 분리합니다.</li><li>NFC 아이콘: 27.72u, 설명 카드와 간격 7u.</li><li>시뮬레이션: 폭 100%, 높이 100dvh. 영상 cover / center top. 화면 비율 차이만큼 가장자리가 잘립니다.</li><li>자막: 왼쪽 5%, 위 30%, 폭 54%. 작은 화면에서는 위 28%, 폭 59%.</li><li>사용자 영상: 오른쪽 4%, 아래 11%, 폭·높이 26%.</li><li>상태바: 오른쪽 3.6u, 아래 3.3u. 내부 여백 .65u × 1.2u, 모서리 2u.</li><li>자막 등장 160ms, 종료 페이드 240ms, 문장 전환 180ms. 모션 감소 설정에서는 움직임을 없애고 짧은 페이드만 사용합니다.</li><li>음성 확인 성공 후 시뮬레이션 진입. 인식 실패는 다시 실행 안내 문구만 표시합니다.</li></ul></section>
+<footer>기준 코드: src/features/smart-mirror/components · src/features/smart-mirror/styles<br/>이 페이지는 스마트미러 기준입니다. 웹 서비스의 Apple Light 문서와 별도로 관리합니다.</footer></main>}
+createRoot(document.getElementById("root")).render(<App/>);

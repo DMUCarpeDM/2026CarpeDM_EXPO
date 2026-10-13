@@ -2,7 +2,7 @@
 from app.services.judgments import event, number
 from app.services.contradictions import keys as conflict_keys
 
-VERSION = "interaction-score-v3"
+VERSION = "interaction-score-v5"
 OFF_TOPIC_FIRST = -1
 OFF_TOPIC_REPEAT = -2
 # 읽는 순서 4: 모델이 남긴 관찰 기록을 실제 점수로 바꾸는 곳입니다.
@@ -10,7 +10,7 @@ OFF_TOPIC_REPEAT = -2
 # 간투어·말 반복 가감점은 아직 이 점수표에 없습니다. 추후 관찰 품질 확인 후 연결할 부분입니다.
 NO_SCORE = "interaction-no-score"
 AREAS = ("response", "voice", "expression", "posture")
-POINTS = {"off_topic": OFF_TOPIC_FIRST, "context_smile": -1, "goal_met": 1, "relevant_answer": 1, "missing_goal": -2,
+POINTS = {"off_topic": OFF_TOPIC_FIRST, "context_smile": -1, "goal_met": 1, "relevant_answer": 1, "missing_goal": -.5,
     "head_down": -1, "side_lean": -1, "forward_lean": -1, "sway": -1, "hand_face": -1, "arms_crossed": -1,
     "fast_speech": -1, "slow_speech": -1, "long_pause": -1, "clear_pace": 1}
 
@@ -41,12 +41,14 @@ def audio_events(turn_id, metrics, mode):
 
 
 def calculate(results):
-    # 같은 사건 ID는 한 번만 반영합니다. 모순은 영역 점수가 아니라 전체 평균에서 따로 뺍니다.
+    # 같은 사건 ID는 한 번만 반영합니다. 모순은 응답 영역에서 한 번만 뺍니다.
     # 현재 목표 충족과 누락은 서로 다른 규칙으로 누적됩니다.
     # 새 설계의 '후속 답변으로 충족하면 이전 감점을 교체'하는 동작은 별도 구현이 필요합니다.
     measured = {area for result in results for area in result.get("measured", [])}
     changes = {area: [] for area in AREAS}
     used, counts, facts, conflicts = set(), {}, set(), []
+    conflict_turns = {e.get("turn_id") for r in results for e in r.get("events", [])
+                      if e["rule"] == "contradiction" and e.get("scorable") is not False}
     for result in results:
         for item in result.get("events", []):
             if item.get("scorable") is False or item["id"] in used:
@@ -60,6 +62,8 @@ def calculate(results):
                 facts.update(identifiers)
                 continue
             if rule not in POINTS or area not in measured or area not in changes:
+                continue
+            if area == "response" and POINTS[rule] > 0 and item.get("turn_id") in conflict_turns:
                 continue
             key = (area, rule, item["evidence"].get("goal_id", ""))
             cap = len(results) if rule == "off_topic" else 1 if rule in {"goal_met", "missing_goal"} else 3
@@ -97,12 +101,15 @@ def calculate(results):
         plus = min(6, sum(max(0, e["points"]) for e in changes["response"]))
         minus = min(15, sum(max(0, -e["points"]) for e in changes["response"]))
         scores["response"] = 75 + plus - minus if latest["measured"] else None
+    deduction = min(3, len(conflicts)) if scores["response"] is not None else 0
+    conflicts = [{**item, "points": -1 if index < deduction else 0} for index, item in enumerate(conflicts)]
+    if deduction:
+        scores["response"] = max(0, scores["response"] - deduction)
     values = [s for s in scores.values() if s is not None]
-    deduction = min(3, len(conflicts))
     return {"version": VERSION, "scores": scores,
         "response_policy": ("interview-2026-09-16-v1" if interview_results else "cafe-orders-2026-09-16-v1" if cafe_results else VERSION),
         "response_limits": ({"base": 75, "per_question": {"fulfilled": 3, "insufficient": -2, "irrelevant_or_skip": -4}, "concept_bonus_per_job_question": 2, "range": [0, 100]}
                             if interview_results else {"base": 75, "bonus": 6, "penalty": 15} if cafe_results else {"base": 75, "bonus": 8, "penalty": 15}),
         "limits": {"base": 75, "bonus": 8, "penalty": 15, "repeats": 3, "contradiction": 3},
-        "total": round(max(0, sum(values) / len(values) - deduction), 1) if values else None,
+        "total": round(max(0, sum(values) / len(values)), 1) if values else None,
         "contradiction_deduction": deduction, "contradictions": conflicts, "changes": changes}

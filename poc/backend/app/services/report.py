@@ -497,8 +497,6 @@ def _build_speech_stats(turn_results: list[AnalysisResult], session: RoleplaySes
     voice = [r for r in turn_results if r.fit_type == FitType.voice]
     from app.services import voice_analysis
     voice_v2 = {"voice_analysis": voice_analysis.report_data(session)} if voice_analysis.enabled(session) else {}
-    if not response:
-        return voice_v2
     total_syllables = sum(r.raw_metrics.get("syllables", 0) for r in response)
     banned = [h["phrase"] for r in response for h in r.raw_metrics.get("banned_hits", [])]
     recommended = sum(len(r.raw_metrics.get("recommended_hits", [])) for r in response)
@@ -518,6 +516,13 @@ def _build_speech_stats(turn_results: list[AnalysisResult], session: RoleplaySes
         r.raw_metrics.get("duration_sec", 0)
         for r in voice if not r.raw_metrics.get("estimated")
     )
+    if voice_v2:
+        # V2는 점수 행을 남기지 않으므로 독립 측정 기록에서 집계한다.
+        measurements = voice_v2["voice_analysis"]["turns"]
+        audio_sec = sum(row.get("duration_sec", 0) for row in measurements)
+        rates = [row["speed"]["syllables_per_second"] for row in measurements
+                 if row.get("speed", {}).get("status") == "measured"
+                 and row["speed"].get("syllables_per_second") is not None]
     if frames >= 60 and audio_sec >= 8:
         level = "높음"
     elif frames >= 20 or audio_sec >= 4:
