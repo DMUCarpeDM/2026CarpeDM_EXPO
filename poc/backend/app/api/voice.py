@@ -66,7 +66,7 @@ async def calibrate_voice(session_id: int, noise: UploadFile, speech: UploadFile
     if session.status != SessionStatus.in_progress:
         raise HTTPException(status_code=409, detail="진행 중인 연습이 아닙니다")
     session.rapport = {**(session.rapport or {}), "voice_engine_version": engine.VERSION,
-        "voice_calibration_id": result["id"] if result["status"] == "measured" else None,
+        "voice_calibration_id": result["id"] if result.get("can_proceed", result["status"] == "measured") else None,
         "voice_calibrations": {**(session.rapport or {}).get("voice_calibrations", {}), result["id"]: result}}
     db.commit()
     return result

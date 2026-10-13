@@ -189,3 +189,21 @@ def test_voice_summary_does_not_require_legacy_score_rows():
     assert data['measurement']['audio_sec']==5
     assert data['avg_speech_rate']==3.5
     assert data['voice_analysis']['score_status']=='criteria_pending'
+
+
+def test_noisy_calibration_is_retained_for_entry_without_trusted_reference(monkeypatch, ready_ollama):
+    monkeypatch.setattr(engine, "calibrate", lambda *args: {
+        "id": "noisy-cal", "status": "uncertain", "reason": "background_noise",
+        "can_proceed": True, "reference_rms": None, "capture": CAPTURE,
+    })
+    client = TestClient(app)
+    data, headers = start(client)
+    result = calibration(client, data, headers)
+    assert result.status_code == 200
+    with SessionLocal() as db:
+        session = db.get(RoleplaySession, data["id"])
+        assert session.rapport["voice_calibration_id"] == "noisy-cal"
+        baseline = voice_analysis.public_state(session)["calibration"]
+        assert baseline["can_proceed"] is True
+        assert baseline["status"] == "uncertain"
+        assert baseline["reference_rms"] is None

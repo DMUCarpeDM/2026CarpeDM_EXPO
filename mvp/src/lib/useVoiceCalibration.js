@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { captureSettings, sameCapture } from "./voiceCapture";
+import { calibrationAllowsPractice, captureSettings, sameCapture } from "./voiceCapture";
 import { invalidateVoiceCalibration } from "./pocApi";
 
 export function useVoiceCalibration(session, stream, required = false) {
@@ -23,7 +23,7 @@ export function useVoiceCalibration(session, stream, required = false) {
     const timer = setInterval(check, 1000);
     return () => { clearInterval(timer); track?.removeEventListener("ended", check); };
   }, [enabled, stream]);
-  const valid = calibration?.status === "measured" && sameCapture(calibration.capture, capture);
+  const valid = calibrationAllowsPractice(calibration) && sameCapture(calibration.capture, capture);
   useEffect(() => {
     if (enabled && calibration && !valid) {
       setCalibration(null);

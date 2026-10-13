@@ -7,7 +7,7 @@ import microphoneIllustration from "../../assets/voice-check-microphone.png";
 import { Button } from "../ui/shadcn";
 import { blobToWav } from "../../lib/audioWav";
 import { calibrateVoice } from "../../lib/pocApi";
-import { captureSettings, sameCapture, voiceReason } from "../../lib/voiceCapture";
+import { calibrationAllowsPractice, captureSettings, sameCapture, voiceReason } from "../../lib/voiceCapture";
 import "../../styles/voice-measurement.css";
 import "../../features/smart-mirror/styles/workplace-mirror-microphone.css";
 
@@ -69,7 +69,7 @@ export function MicrophoneCheck({ mirror = false, automatic = false, session, st
       setStep("checking");
       const result = await calibrateVoice(session, noise, speech, capture);
       if (!alive.current || finished.current) return;
-      if (result.status !== "measured") throw new Error(voiceReason(result.reason));
+      if (!calibrationAllowsPractice(result)) throw new Error(voiceReason(result.reason));
       if (!sameCapture(capture, captureSettings(stream))) throw new Error(voiceReason("capture_changed"));
       finished.current = true;
       onReady(result);

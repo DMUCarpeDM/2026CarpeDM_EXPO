@@ -10,8 +10,21 @@ export function WorkplaceMirrorWelcomePage({ onStart }) {
   const [speaking, setSpeaking] = useState(false);
   useEffect(() => {
     const audio = audioRef.current;
-    audio.play().catch(() => setSpeaking(false));
-    return () => { audio.pause(); audio.currentTime = 0; };
+    let disposed = false;
+    const play = () => {
+      if (startedRef.current || !audio.paused || document.hidden) return;
+      audio.currentTime = 0;
+      audio.play().catch(() => { if (!disposed) setSpeaking(false); });
+    };
+    play();
+    // Repeat every 10 seconds from entry; never interrupt an ongoing utterance.
+    const repeat = setInterval(play, 10_000);
+    return () => {
+      disposed = true;
+      clearInterval(repeat);
+      audio.pause();
+      audio.currentTime = 0;
+    };
   }, []);
   const start = () => {
     if (startedRef.current) return;

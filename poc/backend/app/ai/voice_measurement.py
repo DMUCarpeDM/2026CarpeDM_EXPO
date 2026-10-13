@@ -140,7 +140,7 @@ def calibrate(noise_path, speech_path, capture, config=DEFAULT):
     import uuid
     result = {"id": str(uuid.uuid4()), "status": "unmeasured", "reason": None,
               "engine_version": VERSION, "criteria_version": CRITERIA_VERSION,
-              "capture": capture, "config": asdict(config), "reference_rms": None}
+              "capture": capture, "config": asdict(config), "reference_rms": None, "can_proceed": False}
     try:
         noise, noise_sr, _ = load_audio(noise_path, config)
         speech, sr, _ = load_audio(speech_path, config)
@@ -166,7 +166,12 @@ def calibrate(noise_path, speech_path, capture, config=DEFAULT):
             reason = "background_noise"
         else:
             reason = None
-        result.update(status="measured" if reason is None else "uncertain", reason=reason)
+        # Entry readiness and a reliable volume reference are different checks.
+        # Noise may invalidate the reference without blocking detected speech.
+        result.update(status="measured" if reason is None else "uncertain", reason=reason,
+                      can_proceed=reason in (None, "speech_in_noise_sample", "background_noise"))
+        if reason is not None:
+            result["reference_rms"] = None
     except Exception as exc:
         result.update(status="unmeasured", reason=str(exc) if isinstance(exc, ValueError) else "calibration_failed")
     return result

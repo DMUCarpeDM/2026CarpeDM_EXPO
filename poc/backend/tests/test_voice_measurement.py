@@ -134,3 +134,27 @@ def test_short_speech_and_unrecognized_pronunciation_never_create_speed():
     for text in ['2026년입니다','API를 개발합니다','십월 십사일까지입니다']:
         result=voice._speed([{**word,'word':text,'end':2.}],[(0.,2.)],2.,voice.DEFAULT)
         assert result['status']==('measured' if text=='십월 십사일까지입니다' else 'uncertain')
+
+
+@pytest.mark.parametrize("noise_speech,reason", [(False, "background_noise"), (True, "speech_in_noise_sample")])
+def test_noisy_calibration_allows_practice_without_volume_reference(tmp_path, monkeypatch, noise_speech, reason):
+    noise = write(tmp_path, np.full(16000, .05), "noise.wav")
+    speech = write(tmp_path, tone(), "speech.wav")
+    monkeypatch.setattr(voice, "speech_segments", lambda samples, *_:
+        [(0., len(samples) / 16000)] if len(samples) > 16000 or noise_speech else [])
+    result = voice.calibrate(noise, speech, CAPTURE)
+    assert result["status"] == "uncertain"
+    assert result["reason"] == reason
+    assert result["can_proceed"] is True
+    assert result["reference_rms"] is None
+    analysis = voice.analyze(speech, calibration=result, capture=CAPTURE, references=False)
+    assert analysis["volume"]["relative_db"] is None
+
+
+def test_noise_without_detected_speech_does_not_allow_practice(tmp_path, monkeypatch):
+    noise = write(tmp_path, np.full(16000, .05), "noise.wav")
+    speech = write(tmp_path, np.full(32000, .05), "speech.wav")
+    monkeypatch.setattr(voice, "speech_segments", lambda *_: [])
+    result = voice.calibrate(noise, speech, CAPTURE)
+    assert result["reason"] == "insufficient_speech"
+    assert result["can_proceed"] is False

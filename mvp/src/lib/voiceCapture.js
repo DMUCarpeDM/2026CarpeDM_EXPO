@@ -38,3 +38,10 @@ export const voiceReason = (reason) => ({
   periodic_speech_insufficient: "높낮이나 발성 주기를 확인할 구간이 부족해요.",
   deferred: "연습 종료 후 참고값을 계산해요.",
 })[reason] || "측정 자료를 확인하지 못했어요. 이 항목은 감점하지 않아요.";
+
+// Noisy speech can start practice without becoming a trusted volume reference.
+export function calibrationAllowsPractice(calibration) {
+  return calibration?.status === "measured" || Boolean(calibration?.can_proceed
+    && calibration.status === "uncertain"
+    && ["background_noise", "speech_in_noise_sample"].includes(calibration.reason));
+}
