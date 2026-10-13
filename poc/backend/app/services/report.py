@@ -531,7 +531,14 @@ def _build_speech_stats(turn_results: list[AnalysisResult], session: RoleplaySes
         level = "제한적"
 
     from app.services.expression_measurement import summarize as expression_summary
+    from app.services.context_scoring import contextual_areas
     return {
+        "context_assessments": [{"turn_id": row["turn_id"], "context": row.get("context_policy"),
+                                 "areas": contextual_areas({**row, "voice_measurement":
+                                     (session.rapport or {}).get("voice_measurements", {}).get(str(row["turn_id"]), row.get("voice_measurement"))},
+                                     row["context_policy"])}
+                                for row in (session.rapport or {}).get("judgments", {}).values()
+                                if row.get("context_assessment")],
         "expression_analysis": expression_summary(session),
         **voice_v2,
         "turns": len(response),

@@ -51,7 +51,8 @@ def measured(**values):
 
 def complete_shape(result):
     defaults = {
-        "volume": {"relative_db": None, "rms": None, "reference_rms": None},
+        "volume": {"relative_db": None, "rms": None, "reference_rms": None,
+                   "speech_seconds": None, "noise_seconds": None, "snr_db": None},
         "speed": {"syllables": None, "speech_seconds": None, "syllables_per_second": None, "overall_syllables_per_second": None},
         "pauses": {"count": None, "segments": []},
         "pitch": {"median_hz": None, "p10_hz": None, "p90_hz": None, "track": [], "reference_only": True},
@@ -311,8 +312,14 @@ def _analyze(path, *, session_id=None, turn_id=None, calibration=None, capture=N
         elif not rms or rms <= 0 or not calibration.get("reference_rms") or calibration["reference_rms"] <= 1e-6:
             result["volume"] = missing("reference_invalid")
         else:
+            # 같은 녹음의 비발화 구간으로 현재 소음도 확인한다. TTS/대기 제외 구간은 섞지 않는다.
+            quiet = _subtract([(0., duration)], [*segments, *excluded])
+            noise_seconds = sum(b - a for a, b in quiet)
+            noise_rms = _rms(samples, sr, quiet, config) if noise_seconds >= config.min_noise_sec else None
+            snr = 20 * math.log10(rms / max(noise_rms, 1e-9)) if noise_rms is not None else None
             result["volume"] = measured(relative_db=20 * math.log10(rms / calibration["reference_rms"]), rms=rms,
-                                        reference_rms=calibration["reference_rms"], segments=result["speech_segments"])
+                                        reference_rms=calibration["reference_rms"], segments=result["speech_segments"],
+                                        speech_seconds=sum(b - a for a, b in segments), noise_seconds=noise_seconds, snr_db=snr)
     except Exception:
         result["volume"] = missing("rms_failed")
     usable_words = None if words is None else [w for w in words if not (

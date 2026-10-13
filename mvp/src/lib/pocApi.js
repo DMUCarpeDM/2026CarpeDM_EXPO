@@ -86,7 +86,7 @@ export async function synthesizeSpeech(text, voice = "female", signal) {
 
 const SESSION_DIFFICULTIES = new Set(["basic", "pressure", "ultra_pressure"]);
 
-export function createSession({ serviceMode = "workplace", difficulty, mode, scenarioSlug, selectedEpisodeId, consent, jobRole, nfcUid, nfcIssuedCount, kioskSessionId }) {
+export function createSession({ exhibition = false, serviceMode = "workplace", difficulty, mode, scenarioSlug, selectedEpisodeId, consent, jobRole, nfcUid, nfcIssuedCount, kioskSessionId }) {
   return request("/sessions", {
     method: "POST",
     body: JSON.stringify({
@@ -94,6 +94,7 @@ export function createSession({ serviceMode = "workplace", difficulty, mode, sce
       mode,
       scenario_slug: scenarioSlug,
       service_mode: serviceMode,
+      ...(exhibition ? { exhibition: true } : {}),
       ...(selectedEpisodeId ? { selected_episode_id: selectedEpisodeId } : {}),
       // ---- B2B 확장 (S-B2B-SESSION / S-B2B-NFC) — NFC·직무 흐름일 때만 실어 기존 계약을 보존한다.
       // nfc_uid를 주면 서버가 카드의 직무·시나리오를 세션에 스탬프한다 (미등록 카드 404).

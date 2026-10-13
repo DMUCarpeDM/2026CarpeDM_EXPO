@@ -21,13 +21,14 @@ function DayProgress({ scenes, phase }) {
 // Session preparation, consent and automatic navigation stay in the preflight controller.
 export function WorkplaceMirrorOverview({ scenes, phase, starting, reduced, paused, onPause, onScene, onStart }) {
   const scene = scenes[phase.scene];
+  const exhibition = Boolean(scenes[0]?.exhibition);
   const countdown = phase.kind === "countdown";
   const finishing = starting || phase.kind === "complete";
   return <section className="mirror-overview mirror-city-surface" aria-labelledby="overview-title" data-scene={phase.scene} data-starting={countdown || finishing} data-glass={new URLSearchParams(window.location.search).get("glass") === "bright" ? "bright" : "standard"}>
     <div className="overview-content">
       <div className="overview-context">
-        <h1 id="overview-title">회사에서 보내는 하루.</h1>
-        <p className="overview-situation">출근부터 퇴근까지, 세 장면을 미리 살펴봐요.</p>
+        <h1 id="overview-title">{exhibition ? "선배와 나누는 대화" : "회사에서 보내는 하루."}</h1>
+        <p className="overview-situation">{exhibition ? "대화할 상황을 확인해 보세요." : "출근부터 퇴근까지, 세 장면을 미리 살펴봐요."}</p>
         <DayProgress scenes={scenes} phase={phase} />
       </div>
       <div className="overview-art" aria-hidden="true">
@@ -42,7 +43,7 @@ export function WorkplaceMirrorOverview({ scenes, phase, starting, reduced, paus
       <WorkplaceOverviewCard scene={scene} live="polite" />
     </div>
     <footer className="overview-footer">
-      {(countdown || finishing) && <p role="status">{finishing ? "출근 대화를 준비하고 있어요." : `${phase.remaining}초 후 출근 대화가 시작돼요.`}</p>}
-    {onPause && !finishing && <div className="overview-playback"><button type="button" onClick={onPause}>{paused ? "자동 안내 재개" : "자동 안내 일시정지"}</button>{paused && <><button type="button" disabled={phase.scene === 0} onClick={() => onScene(phase.scene - 1)}>이전 장면</button><button type="button" onClick={() => phase.scene < 2 ? onScene(phase.scene + 1) : onStart()}>{phase.scene < 2 ? "다음 장면" : "대화 시작"}</button></>}</div>}</footer>
+      {(countdown || finishing) && <p role="status">{finishing ? "대화를 준비하고 있어요." : `${phase.remaining}초 후 대화가 시작돼요.`}</p>}
+    {onPause && !finishing && <div className="overview-playback"><button type="button" onClick={onPause}>{paused ? "자동 안내 재개" : "자동 안내 일시정지"}</button>{paused && <><button type="button" disabled={phase.scene === 0} onClick={() => onScene(phase.scene - 1)}>이전 장면</button><button type="button" onClick={() => phase.scene < scenes.length - 1 ? onScene(phase.scene + 1) : onStart()}>{phase.scene < scenes.length - 1 ? "다음 장면" : "대화 시작"}</button></>}</div>}</footer>
   </section>;
 }

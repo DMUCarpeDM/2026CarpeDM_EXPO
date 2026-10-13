@@ -1,5 +1,4 @@
 from pydantic import SecretStr
-import re
 
 from app.core.config import settings
 from app.models import Episode, RoleplaySession, Scenario, Turn
@@ -56,22 +55,7 @@ def _turn() -> Turn:
     )
 
 
-def test_valid_line_rejects_act_meta_leak():
-    """세션 39 turn 69 재현 — 막 메타가 대사로 새면 폴백해야 한다."""
-    from app.services.dialogue.openai_provider import _history_question, _valid_line
-
-    assert _valid_line("그냥 지난달 보고서부터 먼저 읽어요.")
-    assert not _valid_line("Act**: * Act: Morning")
-    assert not _valid_line("Act: Morning")
-    assert not _valid_line("**아침 막**")
-    assert not _valid_line("Okay, read the report.")
-    # 세션 43 — 잘린 Gemini 대사
-    assert not _valid_line("보고까지 할 건 없고,")
-    assert not _valid_line("그럼 우선 자료 중에서 일정표")
-    assert _history_question("Act**: * Act: Morning") == "(이전 장면)"
-
-
-def test_continuous_mode_falls_back_when_model_leaks_act_meta(monkeypatch):
+def test_continuous_mode_delivers_model_text_without_replacement(monkeypatch):
     from app.services.dialogue import stats as dialogue_stats
 
     class FakeResponse:
@@ -148,9 +132,8 @@ def test_continuous_mode_falls_back_when_model_leaks_act_meta(monkeypatch):
         response_text="네 지난달 포함 최근 3개월 보고서 읽고 숙지해 놓겠습니다",
     )
     spec = OpenAIDialogueProvider().next_question(session, scenario, [episode], [turn])
-    assert spec.question_text != "Act**: * Act: Morning"
-    assert re.search(r"[가-힣]", spec.question_text)
-    assert dialogue_stats.snapshot()["fallback"] == before + 1
+    assert spec.question_text == "Act**: * Act: Morning"
+    assert dialogue_stats.snapshot()["fallback"] == before
 
 
 def test_first_question_keeps_the_existing_episode_line():
@@ -185,7 +168,7 @@ def test_next_question_sends_full_roleplay_context_to_gpt4o(monkeypatch):
 
     assert next_turn is not None
     assert next_turn.question_type == "ai_roleplay"
-    assert next_turn.question_text == "그럼 새 음료는 언제 받을 수 있나요?"
+    assert next_turn.question_text == "상대: 강선우 고객: 그럼 새 음료는 언제 받을 수 있나요?"
     prompt = captured["json"]["messages"][1]["content"]
     assert "픽업대 앞" in prompt
     assert "컴플레인 고객 응대 연습" not in prompt

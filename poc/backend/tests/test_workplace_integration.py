@@ -15,18 +15,7 @@ from app.services import interaction, interaction_scoring, judgments
 from app.services.dialogue import availability
 from app.services.dialogue.gemini_provider import _call_gemini
 from app.services.dialogue.openai_provider import DialogueGenerationError
-from app.services.workplace import act_bridge_line, build_fallback_plan, continuous_fallback_line, enrich_plan_fallback_pools, flatten_plan_items
-from types import SimpleNamespace
-
-
-def test_bridge_consumes_opening_before_next_fallback():
-    opening = "이 자료를 오늘까지 확인해 주세요."
-    character = {"reactions": {"covered": ["확인한 내용을 조금 더 설명해 주세요."]}}
-    item = {"text": opening, "fallback_pool": [opening]}
-    bridge = act_bridge_line(character, "자료 확인하겠습니다", item)
-    line = continuous_fallback_line(character, [SimpleNamespace(question_text=bridge, response_text="네")], item, "covered")
-    assert line != opening
-    assert line == "지금 이야기하던 용건에 대해 다시 말씀해 주시겠어요?"
+from app.services.workplace import build_fallback_plan, enrich_plan_fallback_pools, flatten_plan_items
 
 
 def test_existing_installations_keep_openai_default():
@@ -65,7 +54,7 @@ def test_repeated_beats_share_one_scoring_goal():
 
 
 @pytest.mark.parametrize("provider", ["openai", "gemini"])
-def test_continuous_api_finishes_and_resumes_with_provider_outage(monkeypatch, provider):
+def test_continuous_api_holds_current_turn_when_provider_unavailable(monkeypatch, provider):
     monkeypatch.setattr(settings, "dialogue_provider", provider)
     monkeypatch.setattr(settings, "openai_api_key", SecretStr(""))
     monkeypatch.setattr(settings, "gemini_api_key", SecretStr(""))
@@ -86,20 +75,17 @@ def test_continuous_api_finishes_and_resumes_with_provider_outage(monkeypatch, p
     session = response.json()
     token = {"X-Session-Token": session["access_token"]}
     turn = session["current_turn"]
-    categories = []
-    for index in range(12):
+    for _ in range(2):
         resumed = client.get(f"/api/sessions/{session['id']}", headers=token).json()
         assert resumed["current_turn"]["id"] == turn["id"]
-        assert resumed["interaction"]["index"] == index
-        categories.append(resumed["interaction"]["briefing"]["category_id"])
+        assert resumed["interaction"]["index"] == 0
         response = client.post(f"/api/sessions/{session['id']}/turns/{turn['id']}/response",
             headers=token, json={"text": "자료를 확인하고 이해한 방향을 먼저 공유하겠습니다.", "stt_source": "text"})
-        assert response.status_code == 200, response.text
-        payload = response.json()
-        assert payload["finished"] == (index == 11)
-        turn = payload["next_turn"]
-    assert turn is None
-    assert categories == ["morning"] * 4 + ["work"] * 5 + ["leaving"] * 3
+        assert response.status_code == 503, response.text
+        assert 'next_turn' not in response.json()
+    resumed = client.get(f"/api/sessions/{session['id']}", headers=token).json()
+    assert resumed['interaction']['index'] == 0
+    assert resumed['current_turn']['id'] == turn['id']
     assert all(len(goals) == 1 and requested == [] for goals, requested in observed_goals)
 
 

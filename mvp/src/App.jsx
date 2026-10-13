@@ -241,6 +241,7 @@ export default function App() {
       const workplace = selectedServiceModeId === "workplace" && !nfcCard;
       const prepared = mirror && preparedMirrorSession.current?.key === requestKey ? preparedMirrorSession.current.session : null;
       const nextSession = prepared || await createSession({
+        exhibition: mirror,
         serviceMode: selectedServiceModeId || selectedServiceMode.id,
         difficulty: workplace ? "basic" : (difficulty || "basic"),
         mode,
@@ -300,7 +301,10 @@ export default function App() {
         setSession((previous) => ({ ...previous, status: "analyzing" }));
         setTurn(null); navigate("result");
       } else setTurn(result.next_turn);
-    } catch (error) { if (epoch === visitorEpochRef.current) setApiError(error.message); }
+    } catch (error) {
+      if (epoch === visitorEpochRef.current) setApiError(error.message);
+      return false;
+    }
     finally { if (epoch === visitorEpochRef.current) setSubmitting(false); }
   };
 

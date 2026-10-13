@@ -56,8 +56,7 @@ from app.services.dialogue import DialogueGenerationError, QuestionSpec, get_dia
 from app.services.dialogue import emotion, reactions
 from app.services.session_fsm import InvalidTransition, transition
 from app.services.idprinter_bridge import BridgeError, CardSnapshot, IDPrinterBridge
-from app.services.workplace import WORKPLACE_SLUG, CONTINUOUS_MODE, act_bridge_line, continuous_fallback_line
-from app.services.dialogue import stats as dialogue_stats
+from app.services.workplace import WORKPLACE_SLUG, CONTINUOUS_MODE
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -182,8 +181,7 @@ def create_session(
     # 개인정보 처리 동의 게이트 (PIPA — 수집 전 동의). 정상 흐름은 항상 동의 후 호출된다.
     if not body.consent.agreed:
         raise HTTPException(status_code=400, detail="개인정보 처리에 대한 동의가 필요합니다")
-    # Ollama·GPT-4o가 준비되지 않아도 체험은 시작한다. 개인화 요청이 실패하면
-    # DialogueProvider가 준비된 시나리오 질문으로 폴백하므로 전시 흐름이 멈추지 않는다.
+    # 준비된 첫 대사로 시작한다. 이후 AI 호출 실패 시 현재 턴을 유지한다.
 
     # NFC 시작 (S-B2B-NFC): 태그된 카드가 직무·시나리오를 결정한다.
     # 등록되지 않은 카드는 404 — 프론트가 수동 카드 선택 폴백을 띄운다.
@@ -288,6 +286,8 @@ def create_session(
             raise HTTPException(status_code=400, detail="선택한 장면이 시나리오에 없습니다")
         if mode not in selected_episode.modes:
             raise HTTPException(status_code=400, detail="선택한 장면은 현재 연습 시간에 사용할 수 없습니다")
+    if body.exhibition and (body.service_mode != "workplace" or scenario.slug != WORKPLACE_SLUG or selected_episode):
+        raise HTTPException(status_code=422, detail="전시 모드는 직장대화 전체 장면에서만 사용할 수 있습니다")
     stored_difficulty = _stored_difficulty(db, body.difficulty)
     # 회차 기록 (KPI '2차 수행률'·'1차→2차 개선') — 같은 참여자×시나리오×모드 기준
     prev_attempts = (
@@ -329,7 +329,7 @@ def create_session(
     db.flush()
 
     try:
-        interaction.initialize(session, scenario, _selected_episodes(session, scenario), body.service_mode)
+        interaction.initialize(session, scenario, _selected_episodes(session, scenario), body.service_mode, exhibition=body.exhibition)
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     provider = get_dialogue_provider()
@@ -520,7 +520,7 @@ def observe_turn(
         duration_ms=body.duration_ms, voice_text=body.stt_source == "webspeech" and not voice_analysis.enabled(session))
     if interaction.state(session).get("mode") == CONTINUOUS_MODE:
         episode = db.get(Episode, turn.episode_id)
-        context = context_scoring.classify(session.id, turn.id, turn.question_text, episode.situation if episode else "")
+        context = context_scoring.classify_turn(session, turn, episode.situation if episode else "")
         context_scoring.apply(result, context, body.nonverbal.model_dump() if body.nonverbal else None)
     snapshot = [r for r in judgments.results(session) if r.get("turn_id") != turn_id] + [result]
     # 읽기 전용. 팁 폴링이 답변 저장 트랜잭션의 JSON 상태를 덮어쓰지 않는다.
@@ -548,6 +548,11 @@ def submit_response(
 
     # 텍스트가 비어 있으면 오디오 업로드 시 서버 STT가 채운 텍스트를 유지
     incoming = body.text.strip()
+    candidate = incoming or turn.response_text or ''
+    if (interaction.state(session).get('mode') == CONTINUOUS_MODE
+            and (candidate.casefold() in {'null', 'undefined'}
+                 or response_judgment.transcript_status(candidate) == 'uncertain')):
+        raise HTTPException(status_code=422, detail='답변을 인식하지 못했어요. 다시 말해 주세요.')
     if incoming:
         turn.response_text = incoming
         turn.stt_source = body.stt_source
@@ -630,7 +635,9 @@ def submit_response(
         # 고정 질문과 목표가 연결된 흐름에서만 누락 감점을 허용한다.
         current_goal_id = None if flow_before.get("mode") == CONTINUOUS_MODE else current_item.get("id")
         requested = [current_goal_id] if goals and current_goal_id and turn.question_type != "confirmation" else []
-        semantic, met, status = response_judgment.analyze(turn, turns, goals, requested)
+        history_for_judgment = ([t for t in turns if t.episode_id == turn.episode_id and t.character_id == turn.character_id]
+                               if flow_before.get("exhibition") else turns)
+        semantic, met, status = response_judgment.analyze(turn, history_for_judgment, goals, requested)
         # 키워드 일치만으로 목표를 달성했다고 확정하지 않는다.
         judgment["events"] = [e for e in judgment["events"] if e["area"] != "response"] + semantic
         judgment["met_goals"] = met
@@ -640,7 +647,7 @@ def submit_response(
             judgment["measured"].append("response")
         judgment["semantic_status"] = status
     if flow_before.get("mode") == CONTINUOUS_MODE:
-        context = context_scoring.classify(session.id, turn.id, turn.question_text, episode.situation if episode else "")
+        context = context_scoring.classify_turn(session, turn, episode.situation if episode else "", turn.response_text or "")
         context_scoring.apply(judgment, context, turn.nonverbal_metrics)
     selected_feedback = feedback.assign(session, judgment, turn.order)
     if selected_feedback:
@@ -682,7 +689,7 @@ def submit_response(
         already_confirmed = bool(identifiers.intersection(confirmed))
         if identifiers and (already_confirmed or turn.question_type != "confirmation"):
             session.rapport = {**(session.rapport or {}), "confirmed_facts": sorted(confirmed | identifiers)}
-        if identifiers and not already_confirmed and turn.question_type != "confirmation":
+        if identifiers and not already_confirmed and turn.question_type != "confirmation" and flow.get("mode") != CONTINUOUS_MODE:
             interaction.save(session, {**flow, "pending_confirmation": True})
             spec = QuestionSpec(episode_id=turn.episode_id, character_id=turn.character_id,
                 question_type="confirmation", question_text=feedback.confirmation_text(selected_feedback))
@@ -694,35 +701,8 @@ def submit_response(
                 turns,
             )
     except DialogueGenerationError as error:
-        if not flow or flow.get("finished"):
-            db.rollback()
-            raise HTTPException(status_code=503, detail=str(error)) from error
-        target = flow["items"][flow["index"]]
-        target_episode = db.get(Episode, target["episode_id"])
-        character_id = target.get("character_id") or (target_episode.character_id if target_episode else "")
-        if flow.get("mode") == CONTINUOUS_MODE:
-            character = next(
-                (row for row in (session.scenario.characters or []) if row.get("id") == character_id),
-                {},
-            )
-            carry = flow.get("carry") or flow.get("plan", {}).get("carry_seed") or ""
-            dialogue_stats.note_fallback()
-            if target.get("act_open") and carry:
-                question_text = act_bridge_line(character, carry, target)
-            else:
-                question_text = continuous_fallback_line(
-                    character, turns, target, case=flow.get("last_case"),
-                )
-        else:
-            question_text = target["text"]
-        spec = QuestionSpec(
-            episode_id=target_episode.id,
-            character_id=character_id,
-            question_type="main" if flow["mode"] in {"interview", "workplace", CONTINUOUS_MODE} else "ai_roleplay",
-            question_text=question_text,
-        )
-        judgment["dialogue_status"] = "fallback"
-        judgments.persist(session, judgment)
+        db.rollback()
+        raise HTTPException(status_code=503, detail=str(error)) from error
     signals_out.judgment = judgment
     if spec is None:
         db.commit()

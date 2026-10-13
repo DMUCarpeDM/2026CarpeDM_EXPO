@@ -1,10 +1,10 @@
 from random import Random
 from types import SimpleNamespace as NS
+import pytest
 
 from app.services import interaction
 from app.services.workplace import (
     CONTINUOUS_MODE,
-    continuous_fallback_line,
     flatten_plan_items,
     pick_workplace_episodes,
     total_turns,
@@ -177,63 +177,6 @@ def test_flatten_avoids_goal_probe_template():
     assert items[1]["fallback_pool"] == plan["acts"][0]["fallback_pool"]
 
 
-def test_continuous_fallback_does_not_quote_persona_user_or_goal():
-    character = {"catchphrases": ["그냥 좀", "신입인데"]}
-    turns = [NS(response_text="네 알겠습니다")]
-    item = {"goal": "방향을 확인한다", "label": "방향 확인"}
-    line = continuous_fallback_line(character, turns, item)
-    assert "그냥 좀" not in line
-    assert "네 알겠습니다" not in line
-    assert item["goal"] not in line
-    assert "에 대해 구체적으로" not in line
-
-
-def test_continuous_fallback_does_not_add_situations_from_pool():
-    character = {
-        "catchphrases": ["그냥 좀"],
-        "reactions": {"risky": ["지금 그 말투는 좀 아니지 않아요? 다시 말해봐요."]},
-    }
-    item = {
-        "goal": "방향",
-        "fallback_pool": [
-            "자료 한번 쭉 보고 알아서 파악해보세요.",
-            "부모님은 무슨 일 하세요? 애인은 있어요?",
-            "할 일 없으면 먼저 물어봐야죠.",
-        ],
-    }
-    line = continuous_fallback_line(
-        character,
-        [NS(response_text="ㅅㅂ", question_text="자료 한번 쭉 보고 알아서 파악해보세요.")],
-        item,
-        case="risky",
-    )
-    assert line not in item["fallback_pool"]
-    assert line != "자료 한번 쭉 보고 알아서 파악해보세요."
-
-
-def test_continuous_fallback_skips_used_openings_and_unverified_reactions():
-    """상황 근거 없는 리액션이나 이미 한 오프닝을 반복하지 않는다."""
-    character = {
-        "catchphrases": ["그냥 좀"],
-        "reactions": {"missing": ["아니 그래서, 이해한 게 뭐예요? 그냥 좀 말해봐요."]},
-    }
-    pool = [
-        "자료 한번 쭉 보고 알아서 파악해보세요. 신입이라고 하나하나 알려드릴 수는 없으니까.",
-        "부모님은 무슨 일 하세요? 애인은 있어요?",
-        "할 일 없으면 먼저 물어봐야죠.",
-    ]
-    turns = [
-        NS(question_text=pool[0], response_text="네"),
-        NS(question_text=pool[1], response_text="네"),
-        NS(question_text=pool[2], response_text="네"),
-    ]
-    line = continuous_fallback_line(
-        character, turns, {"goal": "방향", "fallback_pool": pool}, case="missing",
-    )
-    assert line not in pool
-    assert "용건" in line
-
-
 def test_build_fallback_plan_keeps_one_anchor_per_category():
     from app.services.workplace import build_fallback_plan
 
@@ -246,29 +189,6 @@ def test_build_fallback_plan_keeps_one_anchor_per_category():
     items = flatten_plan_items(plan)
     morning = [row for row in items if row["act_id"] == "morning"]
     assert all(len(row["fallback_pool"]) == 1 for row in morning)
-
-
-def test_continuous_fallback_does_not_assume_tone_from_case():
-    character = {
-        "catchphrases": ["그냥 좀"],
-        "reactions": {"risky": ["지금 그 말투는 좀 아니지 않아요? 다시 말해봐요."]},
-    }
-    line = continuous_fallback_line(
-        character, [NS(response_text="ㅅㅂ")], {"goal": "방향"}, case="risky",
-    )
-    assert "말투" not in line
-
-
-def test_act_bridge_line_does_not_claim_to_know_another_conversation():
-    from app.services.workplace import act_bridge_line
-
-    line = act_bridge_line(
-        {"catchphrases": ["그래서"]},
-        "자료를 먼저 확인하겠습니다",
-        {"text": "이거 오늘까지 해보세요."},
-    )
-    assert "자료를 먼저 확인" not in line
-    assert "이거 오늘까지" in line
 
 
 def test_flatten_marks_act_open_after_morning():

@@ -9,6 +9,8 @@ import "../styles/workplace-mirror-nfc.css";
 export function WorkplaceMirrorPreflight({ mode = 5, consented, starting, onNext, error, onPrepare, reviewScenes = null, reviewElapsed = null, reviewStartElapsed = 0 }) {
   const [elapsed, setElapsed] = useState(reviewElapsed ?? reviewStartElapsed);
   const [scenes, setScenes] = useState(reviewScenes);
+  const exhibition = Boolean(scenes?.[0]?.exhibition);
+  const overviewMs = exhibition ? 15000 : MIRROR_OVERVIEW_MS;
   const [preparationError, setPreparationError] = useState("");
   const [retry, setRetry] = useState(0);
   const preparation = useRef(null);
@@ -42,18 +44,18 @@ export function WorkplaceMirrorPreflight({ mode = 5, consented, starting, onNext
     const clock = createVisibleClock(performance.now(), !document.hidden);
     const tick = () => {
       setVisible(!document.hidden);
-      setElapsed(Math.min(MIRROR_OVERVIEW_MS, offset + clock.tick(performance.now(), !document.hidden)));
+      setElapsed(Math.min(overviewMs, offset + clock.tick(performance.now(), !document.hidden)));
     };
     const timer = setInterval(tick, 80);
     document.addEventListener("visibilitychange", tick);
     return () => { clearInterval(timer); document.removeEventListener("visibilitychange", tick); };
-  }, [consented, currentError, scenes, reviewElapsed, stopped]);
+  }, [consented, currentError, scenes, reviewElapsed, stopped, overviewMs]);
   useEffect(() => {
-    if (elapsed < MIRROR_OVERVIEW_MS || !consented || currentError || !scenes || starting || started.current || !visible || stopped) return;
+    if (elapsed < overviewMs || !consented || currentError || !scenes || starting || started.current || !visible || stopped) return;
     started.current = true;
     next.current?.();
-  }, [elapsed, consented, currentError, scenes, starting, visible, stopped]);
-  const phase = mirrorPhase(elapsed);
+  }, [elapsed, consented, currentError, scenes, starting, visible, stopped, overviewMs]);
+  const phase = exhibition ? { kind: elapsed >= overviewMs ? "complete" : "scene", scene: 0, progress: elapsed / overviewMs, remaining: Math.ceil((overviewMs - elapsed) / 1000) } : mirrorPhase(elapsed);
   const blocked = !consented || currentError;
   if (scenes && !blocked) return <WorkplaceMirrorOverview scenes={scenes} phase={phase} mode={mode} starting={starting} reduced={reduced} paused={stopped} onPause={reviewElapsed === null ? () => setPaused(value => !value) : undefined} onScene={index => setElapsed(index * MIRROR_SCENE_MS)} onStart={() => { if (!started.current) { started.current = true; next.current?.(); } }} />;
   return <section className="mirror-nfc-waiting mirror-city-surface" aria-busy={!currentError} aria-labelledby="mirror-preparation-title">

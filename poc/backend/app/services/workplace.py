@@ -1,6 +1,8 @@
 """직장대화 — 출근·업무·퇴근 3막. 연속 턴 예산은 mode(5=12턴, 10=20턴)."""
 import random
 import re
+import json
+from pathlib import Path
 
 from app.services.role_boundary import is_role_drift
 
@@ -143,6 +145,34 @@ def build_fallback_plan(scenario, episodes, mode: int, rng=None) -> dict:
     return {"version": PLAN_VERSION, "source": "fallback", "acts": acts, "carry_seed": ""}
 
 
+# One prepared situation is selected per session; all five replies stay in it.
+EXHIBITION_SCENES = json.loads((Path(__file__).parents[1] / "seed/workplace-exhibition.json").read_text(encoding="utf-8"))
+EXHIBITION_ORDERS = tuple(scene["order"] for scene in EXHIBITION_SCENES)
+
+
+def build_exhibition_plan(scenario, episodes, rng=None):
+    rng = rng or random
+    by_order = {ep.order: ep for ep in episodes}
+    if any(order not in by_order for order in EXHIBITION_ORDERS):
+        raise ValueError("전시용 시나리오가 준비되지 않았습니다.")
+    groups = (scenario.world_setting or {}).get("workplace_categories") or []
+    selected = rng.choice(EXHIBITION_SCENES)
+    ep = by_order[selected["order"]]
+    category = next(group for group in groups if selected["order"] in group.get("orders", []))
+    check = dict(selected["checklist"])
+    act = {
+        "id": f"scene-{selected['order']}", "label": category["label"],
+        "category_id": category["id"], "character_id": "park_senior",
+        "actor_persona": selected["actor_persona"],
+        "episode_id": ep.id, "title": selected["title"], "situation": selected["situation"],
+        "virtual_time": "", "tip": check["tip"], "checklist": [check],
+        "opening_line": selected["opening_line"], "fallback_pool": [selected["opening_line"]],
+        "beat_goals": list(selected["beat_goals"]),
+        "dialogue_intents": list(selected["dialogue_intents"]),
+    }
+    return {"version": "workplace-exhibition-v2", "source": "curated-random", "acts": [act], "carry_seed": ""}
+
+
 def _valid_keywords(keywords) -> list[str]:
     cleaned = []
     for kw in keywords or []:
@@ -174,38 +204,12 @@ def anchor_episode_for_act(act_id: str, character_id: str, episodes, categories=
     return next((ep for ep in episodes if ep.character_id == character_id), episodes[0])
 
 
-def _used_ai_questions(turns) -> set[str]:
-    """세션에서 이미 말한 AI 대사 — 폴백이 첫 오프닝을 다시 고르지 않게 한다."""
-    used: set[str] = set()
-    for turn in turns or []:
-        text = (getattr(turn, "question_text", None) or "").strip()
-        if text:
-            used.add(_SPACE.sub(" ", text))
-    return used
-
-
 def _last_user_reply(turns) -> str:
     for turn in reversed(list(turns or [])):
         text = (getattr(turn, "response_text", None) or "").strip()
         if text:
             return _SPACE.sub(" ", text)
     return ""
-
-
-def continuous_fallback_line(character: dict | None, turns, item: dict, case: str | None = None) -> str:
-    """생성 실패 시 현재 장면의 확정 대사만 사용한다."""
-    opening = _SPACE.sub(" ", str(item.get("text") or "")).strip()
-    if opening and len(opening) <= 180 and not is_role_drift(opening) and opening not in _used_ai_questions(turns):
-        return opening
-    return "지금 이야기하던 용건에 대해 다시 말씀해 주시겠어요?"
-
-
-def act_bridge_line(character: dict | None, carry: str, item: dict) -> str:
-    """새 상대는 다른 인물에게 한 말을 들었다고 주장하지 않는다."""
-    opening = (item.get("text") or item.get("opening_line") or "").strip()
-    if opening and not is_role_drift(opening):
-        return opening[:180]
-    return continuous_fallback_line(character, [], item)
 
 
 def validate_day_plan(plan: dict, character_ids: set[str], mode: int, episodes, categories=None) -> dict:
@@ -293,8 +297,8 @@ def validate_day_plan(plan: dict, character_ids: set[str], mode: int, episodes, 
 def flatten_plan_items(plan: dict) -> list[dict]:
     """BeatSheet를 interaction.items(한 칸 = 사용자 1턴)로 펼친다.
 
-    첫 비트만 오프닝 대사를 넣고, 이후는 시드로만 둔다(실제 대사는 LLM·continuous_fallback_line).
-    act_open=True인 비트는 막 전환 브리지 대상이다.
+    첫 비트는 준비된 오프닝이며, 이후 text는 AI에 전달할 장면 맥락이다.
+    후속 대사는 AI가 반환한 본문만 사용한다.
     """
     items = []
     for act_index, act in enumerate(plan["acts"]):
@@ -309,17 +313,19 @@ def flatten_plan_items(plan: dict) -> list[dict]:
             elif scene_pool:
                 text = scene_pool[i % len(scene_pool)]
             else:
-                text = "지금 어떻게 하실 건가요?"
+                text = ""
             items.append({
                 "id": f"{act['id']}:{i+1}",
                 "assessment_id": f"{act['id']}:{check.get('id') or 'goal'}",
                 "episode_id": act["episode_id"],
                 "text": text,
                 "goal": goal,
+                "dialogue_intent": (act.get('dialogue_intents') or [''] * len(goals))[i],
                 "act_id": act["id"],
                 "act_label": act["label"],
+                "actor_persona": act.get("actor_persona"),
                 "act_open": i == 0 and act_index > 0,
-                "category_id": act["id"],
+                "category_id": act.get("category_id", act["id"]),
                 "category_label": act["label"],
                 "title": act.get("title") or act["label"],
                 "situation": act.get("situation") or act.get("thread") or "",

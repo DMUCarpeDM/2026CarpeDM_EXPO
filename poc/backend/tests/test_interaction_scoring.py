@@ -60,7 +60,7 @@ def test_judge_failure_abstains(monkeypatch):
     def fail(*a, **kw):
         raise httpx.ReadTimeout("timeout")
     monkeypatch.setattr("app.services.response_judgment.httpx.post", fail)
-    assert analyze(NS(question_text="질문", response_text="답변"), [], [], []) == ([], [], "unavailable")
+    assert analyze(NS(id=1, order=1, question_text="질문", response_text="답변"), [], [], []) == ([], [], "unavailable")
 
 
 def test_training_report_uses_shared_score_and_purges_internal_quotes(monkeypatch):
@@ -88,7 +88,7 @@ def test_training_report_uses_shared_score_and_purges_internal_quotes(monkeypatc
     assert report["fit_scores"]["voice"]["score"] is None
     assert report["fit_scores"]["expression"]["score"] is None
     assert "유효한 얼굴 표본이 수집되지 않아" in report["fit_scores"]["expression"]["summary"]
-    assert report["deep_analysis"]["interaction"]["version"] == "interaction-score-v5"
+    assert report["deep_analysis"]["interaction"]["version"] == "interaction-score-v8"
     with SessionLocal() as db:
         session = db.get(RoleplaySession, sid)
         assert "judgments" not in session.rapport
@@ -156,7 +156,7 @@ def test_goal_judgment_rejects_blocked_truncated_and_invalid_gemini(monkeypatch)
     ]:
         monkeypatch.setattr("app.services.response_judgment.httpx.post", lambda url, **kw: httpx.Response(
             200, request=httpx.Request("POST", url), json=payload))
-        assert analyze(NS(id=1, question_text="질문", response_text="답변"), [], [], []) == ([], [], "unavailable")
+        assert analyze(NS(id=1, order=1, question_text="질문", response_text="답변"), [], [], []) == ([], [], "unavailable")
 
 
 def test_goal_judgment_missing_gemini_key_does_not_call_openai(monkeypatch):
@@ -206,9 +206,9 @@ def test_missing_goal_requires_grounded_explicit_request():
 
 def test_related_incomplete_answer_outscores_irrelevant_answer_in_every_context():
     from app.services.context_scoring import POLICIES
-    for multipliers in POLICIES.values():
+    for kind, multipliers in POLICIES.items():
         def score(rule):
-            return calculate([{'measured':['response'], 'context_policy':{'multipliers':multipliers},
+            return calculate([{'measured':['response'], 'context_policy':{'kind':kind,'status':'classified','multipliers':multipliers},
                 'events':[event(1,'response',rule,'negative',{'goal_id':'g'},'')]}])['scores']['response']
         assert score('missing_goal') > score('off_topic')
 

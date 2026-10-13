@@ -1,11 +1,11 @@
-"""설정된 로컬 Ollama 모델로 기존 대화·장면 검증 규칙을 유지한다."""
+"""설정된 로컬 Ollama 모델의 응답을 대화 흐름에 전달한다."""
 import logging
 
 import httpx
 
 from app.core.config import settings
 from app.services.dialogue.gemini_provider import GeminiDialogueProvider
-from app.services.dialogue.openai_provider import DialogueGenerationError
+from app.services.dialogue.openai_provider import DialogueGenerationError, _response_text
 
 logger = logging.getLogger(__name__)
 
@@ -46,12 +46,10 @@ class OllamaDialogueProvider(GeminiDialogueProvider):
             if response.status_code >= 400:
                 logger.warning("Ollama HTTP %s", response.status_code)
                 raise DialogueGenerationError(f"Ollama HTTP {response.status_code}")
-            content = ((response.json().get("message") or {}).get("content") or "").strip()
+            content = (response.json().get("message") or {}).get("content")
         except DialogueGenerationError:
             raise
         except (httpx.HTTPError, AttributeError, TypeError, ValueError) as error:
             logger.warning("Ollama 호출 실패: %s", type(error).__name__)
             raise DialogueGenerationError("Ollama 역할극 응답을 만들지 못했습니다") from error
-        if not content:
-            raise DialogueGenerationError("Ollama 응답이 비어 있습니다")
-        return content
+        return _response_text(content)

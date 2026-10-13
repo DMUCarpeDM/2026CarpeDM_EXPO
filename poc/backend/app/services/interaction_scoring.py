@@ -1,18 +1,26 @@
 """측정 근거의 가감점과 상한. 전시 검증용 초기 정책."""
 from app.services.judgments import event, number
 from app.services.contradictions import keys as conflict_keys
+from app.services.context_scoring import POLICIES, RULE_MULTIPLIERS
 
-VERSION = "interaction-score-v5"
+VERSION = "interaction-score-v8"
 OFF_TOPIC_FIRST = -1
 OFF_TOPIC_REPEAT = -2
+RESPONSE_TURN_BONUS_LIMIT = 2
 # 읽는 순서 4: 모델이 남긴 관찰 기록을 실제 점수로 바꾸는 곳입니다.
 # POINTS는 현재 적용되는 점수표입니다. 새 계획서의 시험용 숫자와 같다고 보면 안 됩니다.
 # 간투어·말 반복 가감점은 아직 이 점수표에 없습니다. 추후 관찰 품질 확인 후 연결할 부분입니다.
 NO_SCORE = "interaction-no-score"
 AREAS = ("response", "voice", "expression", "posture")
-POINTS = {"off_topic": OFF_TOPIC_FIRST, "context_smile": -1, "goal_met": 1, "relevant_answer": 1, "missing_goal": -.5,
+POINTS = {"off_topic": OFF_TOPIC_FIRST, "context_smile": -.5, "context_raised_voice": -1, "goal_met": 1, "relevant_answer": 1, "missing_goal": -.5,
     "head_down": -1, "side_lean": -1, "forward_lean": -1, "sway": -1, "hand_face": -1, "arms_crossed": -1,
     "fast_speech": -1, "slow_speech": -1, "long_pause": -1, "clear_pace": 1}
+# 여러 센서 신호가 겹쳐도 답변 내용보다 과도하게 감점하지 않는다.
+NONVERBAL_PENALTY_LIMITS = {
+    "posture": {"per_turn": 2, "session": 6},
+    "expression": {"per_turn": 1, "session": 3},
+    "voice": {"per_turn": 2, "session": 6},
+}
 
 
 def public_total(report):
@@ -47,10 +55,16 @@ def calculate(results):
     measured = {area for result in results for area in result.get("measured", [])}
     changes = {area: [] for area in AREAS}
     used, counts, facts, conflicts = set(), {}, set(), []
+    turn_penalties, area_penalties = {}, {}
+    goal_awarded_turns, response_bonuses = set(), {}
     conflict_turns = {e.get("turn_id") for r in results for e in r.get("events", [])
                       if e["rule"] == "contradiction" and e.get("scorable") is not False}
     for result in results:
-        for item in result.get("events", []):
+        context = result.get("context_policy") or {}
+        policy = POLICIES.get(context.get("kind"), POLICIES["neutral"]) if context.get("status") == "classified" else POLICIES["neutral"]
+        rule_policy = RULE_MULTIPLIERS.get(context.get("kind"), RULE_MULTIPLIERS['neutral']) if context.get("status") == "classified" else RULE_MULTIPLIERS['neutral']
+        # 목표 가점을 먼저 확인해 같은 답변의 일반 관련성 가점과 중복하지 않는다.
+        for item in sorted(result.get("events", []), key=lambda e: e['rule'] != 'goal_met'):
             if item.get("scorable") is False or item["id"] in used:
                 continue
             used.add(item["id"])
@@ -63,18 +77,36 @@ def calculate(results):
                 continue
             if rule not in POINTS or area not in measured or area not in changes:
                 continue
+            if rule in {"context_smile", "context_raised_voice"} and rule not in rule_policy:
+                continue
             if area == "response" and POINTS[rule] > 0 and item.get("turn_id") in conflict_turns:
+                continue
+            if rule == 'relevant_answer' and item.get('turn_id') in goal_awarded_turns:
                 continue
             key = (area, rule, item["evidence"].get("goal_id", ""))
             cap = len(results) if rule == "off_topic" else 1 if rule in {"goal_met", "missing_goal"} else 3
             if counts.get(key, 0) >= cap:
                 continue
             counts[key] = counts.get(key, 0) + 1
-            points = OFF_TOPIC_REPEAT if rule == "off_topic" and counts[key] > 1 else POINTS[rule]
-            multiplier = (result.get("context_policy") or {}).get("multipliers", {}).get(area, 1)
-            multiplier = max(.7, min(1.3, multiplier)) if number(multiplier) else 1
-            points = round(points * multiplier, 2)
-            changes[area].append({**item, "points": points})
+            base_points = OFF_TOPIC_REPEAT if rule == "off_topic" and counts[key] > 1 else POINTS[rule]
+            # 행동별 배율은 영역 배율을 대체한다. 2 × 1.1처럼 중복 증폭하지 않는다.
+            multiplier = rule_policy.get(rule, 1 if rule == "off_topic" else policy[area])
+            points = round(base_points * multiplier, 2)
+            if area == 'response' and points > 0:
+                turn_id = item.get('turn_id')
+                points = round(min(points, max(0, RESPONSE_TURN_BONUS_LIMIT - response_bonuses.get(turn_id, 0))), 2)
+                response_bonuses[turn_id] = round(response_bonuses.get(turn_id, 0) + points, 2)
+                if rule == 'goal_met' and points > 0:
+                    goal_awarded_turns.add(turn_id)
+            if points < 0 and area in NONVERBAL_PENALTY_LIMITS and (area != "voice" or rule == "context_raised_voice"):
+                limits = NONVERBAL_PENALTY_LIMITS[area]
+                turn_key = (area, item.get("turn_id"))
+                penalty = max(0, min(-points, limits["per_turn"] - turn_penalties.get(turn_key, 0),
+                                    limits["session"] - area_penalties.get(area, 0)))
+                points = -round(penalty, 2)
+                turn_penalties[turn_key] = round(turn_penalties.get(turn_key, 0) - points, 2)
+                area_penalties[area] = round(area_penalties.get(area, 0) - points, 2)
+            changes[area].append({**item, "base_points": base_points, "multiplier": multiplier, "points": points})
     scores = {}
     for area in AREAS:
         if area not in measured:
@@ -83,7 +115,7 @@ def calculate(results):
             continue
         plus = min(8, sum(max(0, e["points"]) for e in changes[area]))
         minus = min(15, sum(max(0, -e["points"]) for e in changes[area]))
-        scores[area] = max(0, min(100, 75 + plus - minus))
+        scores[area] = round(max(0, min(100, 75 + plus - minus)), 2)
     interview_results = [r["interview_result"] for r in results if r.get("interview_result")]
     if interview_results:
         from app.services.interview import score_events
@@ -109,7 +141,8 @@ def calculate(results):
     return {"version": VERSION, "scores": scores,
         "response_policy": ("interview-2026-09-16-v1" if interview_results else "cafe-orders-2026-09-16-v1" if cafe_results else VERSION),
         "response_limits": ({"base": 75, "per_question": {"fulfilled": 3, "insufficient": -2, "irrelevant_or_skip": -4}, "concept_bonus_per_job_question": 2, "range": [0, 100]}
-                            if interview_results else {"base": 75, "bonus": 6, "penalty": 15} if cafe_results else {"base": 75, "bonus": 8, "penalty": 15}),
-        "limits": {"base": 75, "bonus": 8, "penalty": 15, "repeats": 3, "contradiction": 3},
+                            if interview_results else {"base": 75, "bonus": 6, "penalty": 15} if cafe_results else {"base": 75, "bonus": 8, "penalty": 15, "per_turn_bonus": RESPONSE_TURN_BONUS_LIMIT}),
+        "limits": {"base": 75, "bonus": 8, "penalty": 15, "repeats": 3, "contradiction": 3,
+                   "nonverbal_penalty": NONVERBAL_PENALTY_LIMITS},
         "total": round(max(0, sum(values) / len(values)), 1) if values else None,
         "contradiction_deduction": deduction, "contradictions": conflicts, "changes": changes}

@@ -21,17 +21,14 @@ from app.services.dialogue.openai_provider import (
     _character_for,
     _episode_for,
     _actor_prompt,
-    _grounded_actor_line,
-    _valid_line,
-    _without_speaker_prefix,
+    _generate_actor_line,
+    _response_text,
 )
 from app.services.feedback import for_dialogue
 from app.services.interaction import state as interaction_state
 from app.services.workplace import (
     CONTINUOUS_MODE,
     PLAN_VERSION,
-    act_bridge_line,
-    continuous_fallback_line,
     total_turns,
     turn_budget,
     validate_day_plan,
@@ -94,27 +91,29 @@ def _gemini_headers() -> dict[str, str]:
     return {"x-goog-api-key": api_key}
 
 
-def _extract_text(payload: dict) -> str:
+def _extract_text(payload: dict, *, require_complete: bool = True) -> str:
     feedback = payload.get("promptFeedback") or {}
     block = feedback.get("blockReason")
-    if block:
+    if block and require_complete:
         raise DialogueGenerationError(f"Gemini 입력이 차단되었습니다 ({block})")
     candidates = payload.get("candidates") or []
     if not candidates:
         raise DialogueGenerationError("Gemini가 후보 응답을 반환하지 않았습니다")
     candidate = candidates[0] or {}
     finish = candidate.get("finishReason") or ""
-    # MAX_TOKENS는 문장 중간에서 끊긴 대사를 남긴다 — 폴백으로 넘긴다 (세션 43).
-    if finish == "MAX_TOKENS":
+    # 채점·계획 JSON은 완결된 응답만 읽는다. 상대역 대사는 받은 본문 그대로 전달한다.
+    if require_complete and finish == "MAX_TOKENS":
         raise DialogueGenerationError("Gemini 응답이 토큰 한도로 잘렸습니다")
-    if finish and finish not in {"STOP", "FINISH_REASON_UNSPECIFIED"}:
+    if require_complete and finish and finish not in {"STOP", "FINISH_REASON_UNSPECIFIED"}:
         raise DialogueGenerationError(f"Gemini 응답이 중단되었습니다 ({finish})")
     parts = ((candidate.get("content") or {}).get("parts")) or []
     texts = [part.get("text", "") for part in parts if isinstance(part, dict)]
-    text = "\n".join(t for t in texts if t).strip()
-    if not text:
-        raise DialogueGenerationError("Gemini 응답이 비어 있습니다")
-    return text
+    return _response_text("\n".join(t for t in texts if isinstance(t, str)))
+
+
+def _sampling_temperature(requested: float) -> float:
+    # Gemini 3은 낮은 temperature에서 반복 출력이 발생할 수 있어 기본값을 유지한다.
+    return 1.0 if settings.gemini_model.startswith("gemini-3") else requested
 
 
 def _call_gemini(system: str, user: str, *, max_tokens: int, temperature: float, json_mode: bool = False) -> str:
@@ -122,7 +121,7 @@ def _call_gemini(system: str, user: str, *, max_tokens: int, temperature: float,
         "system_instruction": {"parts": [{"text": system}]},
         "contents": [{"role": "user", "parts": [{"text": user}]}],
         "generationConfig": {
-            "temperature": temperature,
+            "temperature": _sampling_temperature(temperature),
             "maxOutputTokens": max_tokens,
         },
     }
@@ -138,7 +137,7 @@ def _call_gemini(system: str, user: str, *, max_tokens: int, temperature: float,
         if response.status_code >= 400:
             logger.warning("Gemini HTTP %s", response.status_code)
             raise DialogueGenerationError(f"Gemini HTTP {response.status_code}")
-        return _extract_text(response.json())
+        return _extract_text(response.json(), require_complete=json_mode)
     except DialogueGenerationError:
         raise
     except (AttributeError, httpx.HTTPError, IndexError, KeyError, TypeError, ValueError) as error:
@@ -275,18 +274,8 @@ class GeminiDialogueProvider:
         item = flow["items"][flow["index"]]
         episode = next((ep for ep in episodes if ep.id == item["episode_id"]), episodes[0])
         character = _character_for(scenario, item.get("character_id") or episode.character_id)
-        carry = flow.get("carry") or flow.get("plan", {}).get("carry_seed") or ""
-        case = flow.get("last_case")
-        try:
-            line = self._generate_continuous_line(session, scenario, character, turns, flow, item)
-            dialogue_stats.note_generated()
-        except DialogueGenerationError as error:
-            logger.warning("직장 연속 대사 폴백: %s", error)
-            dialogue_stats.note_fallback()
-            if item.get("act_open") and carry:
-                line = act_bridge_line(character, carry, item)
-            else:
-                line = continuous_fallback_line(character, turns, item, case=case)
+        line = self._generate_continuous_line(session, scenario, character, turns, flow, item)
+        dialogue_stats.note_generated()
         return QuestionSpec(
             episode_id=episode.id,
             question_type="main",
@@ -296,13 +285,7 @@ class GeminiDialogueProvider:
         )
 
     def _generate_continuous_line(self, session, scenario, character, turns, flow, item) -> str:
-        prompt = _actor_prompt(session, scenario, character, turns, item)
-        # thinking 모델이 예산을 먹어도 본문이 잘리지 않게 여유를 둔다(본문은 180자 검증).
-        line = self._complete(ACTOR_SYSTEM, prompt, max_tokens=512, temperature=0.45)
-        line = _without_speaker_prefix(re.sub(r"\s+", " ", line.strip().strip('"')), character.get("name", ""))
-        if not _valid_line(line):
-            raise DialogueGenerationError("Gemini가 사용할 수 없는 역할극 대사를 반환했습니다")
-        return _grounded_actor_line(line, scenario, character, turns, item, self._complete)
+        return _generate_actor_line(session, scenario, character, turns, item, self._complete)
 
     def _generate_line(
         self,
@@ -318,10 +301,7 @@ class GeminiDialogueProvider:
             "virtual_time": episode.virtual_time, "text": episode.initial_question,
         }, reaction_only=reaction_only)
         line = self._complete(ACTOR_SYSTEM, prompt, max_tokens=512, temperature=0.45)
-        line = _without_speaker_prefix(re.sub(r"\s+", " ", line.strip().strip('"')), character.get("name", ""))
-        if not _valid_line(line):
-            raise DialogueGenerationError("Gemini가 사용할 수 없는 역할극 대사를 반환했습니다")
-        return line
+        return _response_text(line)
 
 
 # flatten은 interaction에서 쓰도록 re-export

@@ -52,6 +52,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   const [draft, setDraft] = useState("");
   const [captureError, setCaptureError] = useState("");
   const [audioRecording, setAudioRecording] = useState(false);
+  const [recordingAttempt, setRecordingAttempt] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [paused, setPaused] = useState(false);
   const [recSeconds, setRecSeconds] = useState(0);
@@ -416,7 +417,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
     setAudioRecording(recorder.state === "recording");
     setCaptureError("");
     return () => { setAudioRecording(false); if (recorder.state !== "inactive") recorder.stop(); };
-  }, [mediaStream, turn, entryOverlayOpen, voice.textOnly]);
+  }, [mediaStream, turn, entryOverlayOpen, voice.textOnly, recordingAttempt]);
 
   useEffect(() => {
     if (!voice.enabled || !recorderRef.current || recorderRef.current.state === "inactive") return;
@@ -466,7 +467,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
       const audio = webm && webm.size > 0 ? await blobToWav(webm).catch(() => null) : null;
       stampsRef.current.set(`a-${turn.id}`, wallClock());
       pushFeed("답변 제출 — 응답·음성·비언어 지표 서버 분석");
-      await onSubmit({
+      const accepted = await onSubmit({
         text,
         audio,
         voiceInput: voice.enabled ? {
@@ -478,6 +479,11 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
         sttSource: getSttSource(),
         nonverbal: buildNonverbal(),
       });
+      if (accepted === false) {
+        // 인식/생성 실패는 같은 턴에서 새 음성을 받는다.
+        setRecordingAttempt(value => value + 1);
+        resumeBrowserRecognition();
+      }
       resetSttUsage();
       setDraft("");
       setInterim("");

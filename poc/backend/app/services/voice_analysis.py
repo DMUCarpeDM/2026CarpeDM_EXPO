@@ -10,7 +10,7 @@ from app.ai.stt import get_stt_provider
 _POOL = ThreadPoolExecutor(max_workers=1, thread_name_prefix="voice-turn")
 _SLOT = threading.BoundedSemaphore(1)
 LIVE_BUDGET_SEC = 2.0
-SCORE_VERSION = "interaction-score-v5"
+SCORE_VERSION = "interaction-score-v8"
 
 
 def enabled(session):
@@ -125,8 +125,12 @@ def live_turn(session, turn):
 
 def report_data(session):
     value = session.rapport or {}
+    context_scored = any('voice' in row.get('measured', []) and row.get('context_policy', {}).get('status') == 'classified'
+                         for row in value.get('judgments', {}).values())
     return {"engine_version": engine.VERSION, "criteria_version": engine.CRITERIA_VERSION,
-            "score_status": "criteria_pending", "measurement_fields": list(engine.CORE_FIELDS),
+            "score_status": "context_provisional" if context_scored else "criteria_pending",
+            "score_scope": "relative_volume" if context_scored else None,
+            "measurement_fields": list(engine.CORE_FIELDS),
             "reference_only": [],
             "turns": list(value.get("voice_measurements", {}).values()),
             "response_habits": value.get("response_habits", {})}

@@ -22,3 +22,14 @@ test("missing or incomplete session overview blocks generic fallback", () => {
   assert.throws(() => sessionOverview(null), /시나리오 요약/);
   assert.throws(() => sessionOverview({ interaction: { overview: [{ category_id: "morning" }] } }), /시나리오 요약/);
 });
+
+test("exhibition shows only the selected scenario with its detailed context", () => {
+  const rows = [{category_id: 'leaving', title: '퇴근 직전 들어온 추가 업무', situation: '퇴근을 앞두고 박선임이 예정에 없던 일을 오늘 처리해 달라고 합니다.'}];
+  const scenes = sessionOverview({interaction:{exhibition:true,overview:rows}});
+  assert.equal(scenes.length,1);
+  assert.deepEqual(scenes.map(s=>s.title),rows.map(s=>s.title));
+  assert.equal(scenes[0].situation,rows[0].situation);
+  assert.equal(scenes[0].name,'퇴근');
+  assert.equal(scenes[0].categoryId,'leaving');
+  assert.ok(scenes.every(s=>s.exhibition));
+});

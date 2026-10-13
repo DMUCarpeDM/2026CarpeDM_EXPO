@@ -81,7 +81,7 @@ def test_final_interview_conflict_gets_one_confirmation_without_extra_main_count
     assert payload["finished"] and payload["interaction"]["index"] == 6
 
 
-def test_dialogue_failure_uses_prepared_goal(monkeypatch):
+def test_dialogue_failure_returns_error_instead_of_prepared_goal(monkeypatch):
     from fastapi.testclient import TestClient
     from app.main import app
     from app.seed.run import seed
@@ -95,11 +95,13 @@ def test_dialogue_failure_uses_prepared_goal(monkeypatch):
     session = client.post('/api/sessions', json={"consent": {"agreed": True}}).json()
     response = client.post(f'/api/sessions/{session["id"]}/turns/{session["current_turn"]["id"]}/response',
         headers={"X-Session-Token": session["access_token"]}, json={"text": "답변"})
-    assert response.status_code == 200 and response.json()["next_turn"]["question_text"]
-    assert response.json()["turn_signals"]["judgment"]["dialogue_status"] == "fallback"
+    assert response.status_code == 503
+    assert "next_turn" not in response.json()
 
 
 def test_renamed_conflict_does_not_repeat_confirmation(monkeypatch):
+    monkeypatch.setattr('app.services.dialogue.openai_provider.OpenAIDialogueProvider._generate_line',
+                        lambda *a, **kw: "확인했습니다.")
     from fastapi.testclient import TestClient
     from app.main import app
     from app.seed.run import seed

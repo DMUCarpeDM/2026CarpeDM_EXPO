@@ -371,3 +371,13 @@ test("kiosk snapshot remains in create payload and retry uses the existing capab
   assert.equal(calls[1].options.method, "POST");
   assert.equal(calls[1].options.body, undefined);
 });
+
+test("exhibition flag is explicitly sent for short mirror sessions", async () => {
+  let payload;
+  globalThis.fetch = async (url, options) => {
+    payload = JSON.parse(options.body);
+    return new Response(JSON.stringify({id:1}), {status:200});
+  };
+  await createSession({exhibition:true,serviceMode:'workplace',mode:5,consent:true});
+  assert.equal(payload.exhibition,true);
+});

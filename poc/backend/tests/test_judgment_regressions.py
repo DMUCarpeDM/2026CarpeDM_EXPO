@@ -3,8 +3,6 @@ from types import SimpleNamespace as NS
 import pytest
 from app.services import response_judgment as judge, interaction_scoring as scoring, context_scoring as context
 from app.services.judgments import event, evaluate
-from app.services.dialogue.openai_provider import _grounded_actor_line, _valid_line
-from app.services.workplace import continuous_fallback_line
 
 
 def turn(text):
@@ -79,29 +77,6 @@ def test_failed_context_retries_after_short_cache(monkeypatch):
     context.classify.cache_clear()
 
 
-def test_three_sentence_actor_is_rejected():
-    assert not _valid_line('갑자기 무슨 점수예요? 팀장님에게 보고해야 해요. 자료는 다 봤어요?')
-    assert _valid_line('자료는 다 봤어요? 이해한 방향을 알려 주세요.')
-
-
-@pytest.mark.parametrize('answer', [ {'supported': False, 'quotes': []}, {'supported': True, 'quotes': ['없는 보고 일정']}, {}, None])
-def test_ungrounded_actor_or_failed_verifier_uses_current_scene(answer):
-    scene = {'text': '자료를 먼저 읽어 주세요.', 'situation': '자료 확인', 'episode_id': 1,
-             'fallback_pool': ['내일 팀장에게 보고해 주세요.']}
-    def complete(*args, **kwargs):
-        return json.dumps(answer)
-    out = _grounded_actor_line('팀장님에게 보고해야 해요.', NS(), {'id': 'a'}, [], scene, complete)
-    assert out == scene['text']
-    assert continuous_fallback_line({}, [], scene) == scene['text']
-
-
-def test_grounded_actor_keeps_valid_line():
-    scene = {'text': '자료를 먼저 읽어 주세요.', 'situation': '자료 확인'}
-    line = '자료를 읽고 이해한 내용을 알려 주시겠어요?'
-    assert _grounded_actor_line(line, NS(), {}, [], scene, lambda *a, **k: json.dumps({
-        'supported': True, 'quotes': ['자료를 먼저 읽어 주세요.']})) == line
-
-
 @pytest.mark.parametrize('text,expected', [('네, 알겠습니다.',75), ('그 저 어 지직 자료 음 음 끊 끊',None)])
 def test_real_judgment_guard_survives_submission_and_report(monkeypatch, ready_ollama, text, expected):
     from fastapi.testclient import TestClient
@@ -120,12 +95,13 @@ def test_real_judgment_guard_survives_submission_and_report(monkeypatch, ready_o
         'mean_outputs':dict.fromkeys(LABELS,.9)}
     response = client.post(f'/api/sessions/{sid}/turns/{created["current_turn"]["id"]}/response', headers=auth,
         json={'text':text,'stt_source':'webspeech','duration_ms':5000,'nonverbal':{'expression_model':model}})
-    assert response.status_code == 200, response.text
+    assert response.status_code == (422 if expected is None else 200), response.text
     assert client.post(f'/api/sessions/{sid}/finish', headers=auth).status_code in (200,202)
     report = client.get(f'/api/sessions/{sid}/report',headers=auth).json()
     assert report['fit_scores']['response']['score'] == expected
-    assert report['fit_scores']['expression']['score'] == 75
-    assert '맥락 가감점은 보류' in report['fit_scores']['expression']['summary']
+    assert report['fit_scores']['expression']['score'] == (None if expected is None else 75)
+    if expected is not None:
+        assert '맥락 가감점은 보류' in report['fit_scores']['expression']['summary']
     assert report['fit_scores']['voice']['score'] is None
     assert not report['strengths'] and not report['improvements']
     from pathlib import Path
@@ -133,18 +109,19 @@ def test_real_judgment_guard_survives_submission_and_report(monkeypatch, ready_o
     (target / ('api-ack.json' if expected else 'api-noise.json')).write_text(json.dumps(report,ensure_ascii=False,indent=2))
 
 
-def test_gemini_generation_verifies_invented_report_destination():
+def test_gemini_generation_does_not_run_a_second_judge_or_replace_the_reply():
     from app.services.dialogue.gemini_provider import GeminiDialogueProvider
     provider = GeminiDialogueProvider()
     calls = []
     def complete(system, user, **kwargs):
         calls.append((system, user))
-        return '팀장님에게 보고해 주세요.' if len(calls) == 1 else json.dumps({'supported':False,'quotes':[]})
+        assert not kwargs.get('json_mode')
+        return '팀장님에게 보고해 주세요.'
     provider._complete = complete
     scene = {'text':'자료를 먼저 읽어 주세요.','situation':'자료 확인','episode_id':1}
     line = provider._generate_continuous_line(NS(difficulty='basic'), NS(world_setting={}), {'id':'a'}, [], {}, scene)
-    assert line == scene['text'] and len(calls) == 2
-    assert '페르소나' not in calls[1][1]
+    assert line == '팀장님에게 보고해 주세요.'
+    assert len(calls) == 1
 
 
 @pytest.mark.parametrize('quote,awarded', [
@@ -159,3 +136,29 @@ def test_explicit_negative_goal_quote_never_awards(quote, awarded):
                                [{'id':'direction','label':'이해한 방향을 확인'}],[])
     assert bool(met) is awarded
     assert bool(events) is awarded
+
+
+@pytest.mark.parametrize('first_reply', [True, False])
+def test_judgment_receives_first_question_in_current_scene(monkeypatch, first_reply):
+    from app.services.dialogue import gemini_provider as provider
+    monkeypatch.setattr(judge.settings, 'gemini_api_backend', 'vertex')
+    monkeypatch.setattr(provider, '_gemini_headers', lambda: {})
+    monkeypatch.setattr(provider, '_gemini_url', lambda _: 'https://example.invalid/test')
+    current = NS(id=4, order=4, episode_id=2, character_id='senior',
+        question_text='언제까지 할 수 있어요?', response_text='오늘 세 시까지 전달하겠습니다.')
+    history = [NS(id=1, order=1, episode_id=1, character_id='senior', question_text='이전 장면 질문', response_text='답')]
+    if not first_reply:
+        history.append(NS(id=2, order=2, episode_id=2, character_id='senior',
+            question_text='자료를 언제까지 확인할 수 있어요?', response_text='내용을 먼저 확인하겠습니다.'))
+    def post(*args, **kwargs):
+        payload = json.loads(kwargs['json']['contents'][0]['parts'][0]['text'])
+        assert payload['initial_question'] == (current.question_text if first_reply else history[-1].question_text)
+        assert payload['question'] == current.question_text
+        assert [row['turn_id'] for row in payload['scene_history']] == ([] if first_reply else [2])
+        return NS(raise_for_status=lambda: None, json=lambda: {'candidates': [{'content': {'parts': [{'text': json.dumps({
+            'assessment_status': 'completed', 'assessed_quote': current.response_text,
+            'relevant_quote': current.response_text})}]}}]})
+    monkeypatch.setattr(judge.httpx, 'post', post)
+    events, _, status = judge.analyze(current, history, [], [])
+    assert status == 'completed'
+    assert events[0]['rule'] == 'relevant_answer'

@@ -207,6 +207,7 @@ class ConsentIn(BaseModel):
 
 
 class SessionCreateIn(BaseModel):
+    exhibition: bool = False
     service_mode: Literal["interview", "training", "workplace"] = "workplace"
     scenario_slug: str | None = None  # 없으면 기본(첫) 시나리오
     selected_episode_id: int | None = Field(default=None, gt=0)

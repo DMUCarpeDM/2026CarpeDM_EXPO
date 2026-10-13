@@ -1,6 +1,6 @@
 """시나리오 목표·주요 면접 질문 기준 진행. 상태는 rapport.interaction에 보존한다."""
 from app.ai.text_match import matched_checklist_ids
-from app.services.workplace import CONTINUOUS_MODE, build_fallback_plan, enrich_plan_fallback_pools, flatten_plan_items
+from app.services.workplace import CONTINUOUS_MODE, build_exhibition_plan, build_fallback_plan, enrich_plan_fallback_pools, flatten_plan_items
 
 VERSION = "interaction-v1"
 # 읽는 순서 3: 대화의 진행표입니다. 무엇을 확인했고 다음에 무엇을 물을지 기억합니다.
@@ -48,7 +48,7 @@ def _plan_workplace(session, scenario, episodes, rng):
     return build_fallback_plan(scenario, episodes, session.mode, rng)
 
 
-def initialize(session, scenario, episodes, service_mode, rng=None):
+def initialize(session, scenario, episodes, service_mode, rng=None, exhibition=False):
     policy = (scenario.world_setting or {}).get("interaction") or {}
     if service_mode == "workplace" and not (scenario.world_setting or {}).get("workplace_categories"):
         service_mode = "training"
@@ -64,7 +64,7 @@ def initialize(session, scenario, episodes, service_mode, rng=None):
         value = {"version": VERSION, "mode": service_mode, "items": items, "index": 0,
                  "attempts": {}, "met": [], "unmet": [], "unverified": [], "reason": None, "finished": False}
     elif service_mode == "workplace":
-        plan = _plan_workplace(session, scenario, episodes, rng)
+        plan = build_exhibition_plan(scenario, episodes, rng) if exhibition else _plan_workplace(session, scenario, episodes, rng)
         items = flatten_plan_items(plan)
         if not items:
             raise ValueError("직장대화 Day Plan에 비트가 없습니다.")
@@ -79,6 +79,7 @@ def initialize(session, scenario, episodes, service_mode, rng=None):
             "unverified": [],
             "reason": None,
             "finished": False,
+            "exhibition": exhibition,
             "plan": {"version": plan.get("version"), "source": plan.get("source"), "carry_seed": plan.get("carry_seed", "")},
             "carry": plan.get("carry_seed") or "",
         }
@@ -165,14 +166,17 @@ def current_briefing(value):
     if index >= len(items):
         return None
     item = items[index]
+    scenes = list(dict.fromkeys(row.get("act_id") for row in items))
+    step = scenes.index(item.get("act_id")) + 1 if value.get("exhibition") else index + 1
+    total = len(scenes) if value.get("exhibition") else len(items)
     return {
         "category_id": item.get("category_id", "") or item.get("act_id", ""),
         "category_label": item.get("category_label", "") or item.get("act_label", ""),
         "title": item.get("title", ""),
         "situation": item.get("situation", ""),
         "tip": item.get("tip", ""),
-        "step": index + 1,
-        "total": len(items),
+        "step": step,
+        "total": total,
         "goal": item.get("goal", ""),
     }
 
@@ -188,9 +192,10 @@ def public_state(session):
         seen = set()
         for item in value.get("items") or []:
             category = item.get("category_id") or item.get("act_id")
-            if category in seen:
+            key = item.get("act_id") if value.get("exhibition") else category
+            if key in seen:
                 continue
-            seen.add(category)
+            seen.add(key)
             overview.append({
                 "category_id": category,
                 **{key: item.get(key, "") for key in (
@@ -199,6 +204,7 @@ def public_state(session):
                 "opening_line": item.get("text", ""),
             })
         payload["overview"] = overview
+        payload["exhibition"] = bool(value.get("exhibition"))
     briefing = current_briefing(value)
     if briefing:
         payload["briefing"] = briefing
