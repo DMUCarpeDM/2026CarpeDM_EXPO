@@ -91,7 +91,7 @@ test("mirror readability, text fallback and completed-session return to NFC", { 
     assert.equal(await page.locator(".mirror-fit-grid article").count(), 4);
     await page.clock.install();
     await page.clock.fastForward(1500);
-    await page.getByRole("heading", { name: "사원증을 태그해 주세요.", exact: true }).waitFor();
+    await page.getByRole("region", { name: "미러팅 시연 안내", exact: true }).waitFor();
     assert.equal(await page.evaluate(() => localStorage.getItem("mirror-ting-active-session")), null);
     await capture(page, "completed-back-nfc");
     // A stale browser entry must not restore the ended visitor's conversation.

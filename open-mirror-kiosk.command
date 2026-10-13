@@ -8,4 +8,4 @@ if [[ ! -x "$CHROME" ]]; then
   exit 1
 fi
 # 기존 일반 Chrome 창과 분리해야 --kiosk가 적용된다.
-exec "$CHROME" --kiosk --no-first-run --user-data-dir="$HOME/Library/Application Support/MirrorTing-Kiosk" "$URL"
+exec "$CHROME" --kiosk --autoplay-policy=no-user-gesture-required --no-first-run --user-data-dir="$HOME/Library/Application Support/MirrorTing-Kiosk" "$URL"

@@ -221,9 +221,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
       }
       setNfcCard({ uid: card.uid, jobRole: card.job_role, scenarioSlug: card.scenario_slug, jobRoleLabel: card.job_role_label, issuedCount: card.issued_count });
       if (isMirrorDeployment() && !hasCurrentCardConsent(card)) {
-        setNfcCard(null);
-        setApiError("동의 후 발급한 카드를 태그하거나, 아래 아이콘을 눌러 체험을 시작해 주세요.");
-        setNfcError("동의 후 발급한 카드를 태그하거나, 위 아이콘을 눌러 체험을 시작해 주세요.");
+        startMirrorExperience();
         return;
       }
       setConsented(hasCurrentCardConsent(card));
@@ -232,6 +230,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
       navigate("preview");
     } catch (error) {
       if (epoch === epochRef.current) {
+        if (isMirrorDeployment()) { startMirrorExperience(); return; }
         setNfcCard(null);
         setNfcFallback(error.status === 404);
         setApiError(error.status === 404 ? "" : "사원증 서버 연결을 확인한 뒤 다시 태그해주세요.");
@@ -254,7 +253,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
     resetVisitor(true);
     if (card) setNfcCard({ ...card, jobRole: "office_admin", scenarioSlug: WORKPLACE_SCENARIO_SLUG });
     setDirectMirrorEntry(!card);
-    // The NFC screen discloses analysis; clicking its start button is the affirmative action.
+    // Clicking the welcome video or tapping a card starts the same preparation flow.
     setConsented(true);
     setPocScenarioSlug(WORKPLACE_SCENARIO_SLUG);
     navigate("preview");

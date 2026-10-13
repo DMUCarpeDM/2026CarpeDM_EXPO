@@ -70,5 +70,5 @@ if ($LASTEXITCODE -ne 0) {
 $chrome = @("$env:ProgramFiles\Google\Chrome\Application\chrome.exe", "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe", "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $chrome) { throw 'Google Chrome을 설치해 주세요.' }
 $profile = Join-Path $env:LOCALAPPDATA 'MirrorTing-Kiosk'
-Start-Process -FilePath $chrome -ArgumentList @('--kiosk', '--no-first-run', "--user-data-dir=`"$profile`"", 'http://localhost:5173/?mirror=1&service=workplace')
+Start-Process -FilePath $chrome -ArgumentList @('--kiosk', '--autoplay-policy=no-user-gesture-required', '--no-first-run', "--user-data-dir=`"$profile`"", 'http://localhost:5173/?mirror=1&service=workplace')
 Write-Host '전시 준비 완료 — 카메라·마이크 권한을 허용하세요. (B2B 웹앱: http://localhost:5174)'

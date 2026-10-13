@@ -30,6 +30,12 @@ export function BufferedCounterpartVideo({ source, name, paused, reducedMotion, 
     });
   }, [active, paused, reducedMotion, onError]);
 
+  // 이미 버퍼에 로드된 듣기 영상으로 돌아오면 loadeddata가 다시 발생하지 않는다.
+  useEffect(() => {
+    const next = pending.current;
+    if (next !== null && sources[next] === source) void reveal(next);
+  }, [sources, source]);
+
   const reveal = async (index) => {
     const video = videos.current[index];
     if (!video || sources[index] !== desired.current || video.readyState < 2) return;

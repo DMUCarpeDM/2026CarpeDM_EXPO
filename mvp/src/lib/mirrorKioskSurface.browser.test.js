@@ -9,7 +9,7 @@ test('mirror fills viewport with black even when backend is unavailable', { time
   const page=await browser.newPage();
   await page.route('**/api/**',route=>route.fulfill({status:503,contentType:'application/json',body:'{}'}));
   await page.goto(url+'?mirror=1&service=workplace&idle=0');
-  await page.locator('.mirror-nfc-waiting').waitFor();
+  await page.locator('.mirror-welcome').waitFor();
   for(const size of [{width:730,height:1000},{width:1920,height:1080},{width:1080,height:1920}]){
     await page.setViewportSize(size);
     const actual=await page.evaluate(()=>{

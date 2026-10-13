@@ -1,6 +1,8 @@
 """명시적으로 선택한 Iris 런타임에서 합성된 WAV를 읽는다."""
 
 import hashlib
+import io
+import wave
 import time
 from pathlib import Path
 
@@ -62,6 +64,23 @@ def iris_female_ready() -> bool:
     return ready
 
 
+def with_playback_tail(data: bytes) -> bytes:
+    """합성된 발화를 자르지 않고 재생 종료 전 600ms의 여유를 둔다."""
+    try:
+        with wave.open(io.BytesIO(data), "rb") as source:
+            params = source.getparams()
+            frames = source.readframes(source.getnframes())
+        output = io.BytesIO()
+        with wave.open(output, "wb") as target:
+            target.setparams(params)
+            target.writeframes(frames)
+            silent_sample = b"\x80" if params.sampwidth == 1 else b"\x00" * params.sampwidth
+            target.writeframes(silent_sample * params.nchannels * round(params.framerate * .6))
+        return output.getvalue()
+    except (wave.Error, EOFError) as error:
+        raise SpeechSynthesisError("아이리스 음성 파일 형식이 올바르지 않습니다") from error
+
+
 def synthesize_iris(text: str) -> bytes:
     """빈 voice_prompt_hash로 아이리스 프로필(톤 자동) 합성을 요청하고 wav를 읽는다."""
     spoken = text.strip()
@@ -69,7 +88,7 @@ def synthesize_iris(text: str) -> bytes:
         raise SpeechSynthesisError("읽을 문장이 없습니다")
     prepared = prepared_speech_path(spoken)
     if prepared.is_file():
-        return prepared.read_bytes()
+        return with_playback_tail(prepared.read_bytes())
     try:
         response = httpx.post(
             f"{settings.iris_voice_base_url.rstrip('/')}/v1/audio/speech",
@@ -92,4 +111,4 @@ def synthesize_iris(text: str) -> bytes:
         raise SpeechSynthesisError("아이리스 음성 파일을 읽을 수 없습니다") from error
     if not data:
         raise SpeechSynthesisError("아이리스 음성이 비어 있습니다")
-    return data
+    return with_playback_tail(data)
