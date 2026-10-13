@@ -2,20 +2,20 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { WorkplaceMirrorPreflight } from "../../components/WorkplaceMirrorPreflight";
 import pack from "../../../../../../poc/backend/app/seed/packs/workplace-conversation.json";
-import { MIRROR_SCENE_MS } from "../../lib/workplaceMirrorTimeline";
+import exhibition from "../../../../../../poc/backend/app/seed/workplace-exhibition.json";
 import { sessionOverview } from "../../lib/workplaceOverview";
+const params = new URLSearchParams(location.search);
+const categories = pack.world_setting.workplace_categories;
+const firstCategory = params.get("scene") || "morning";
+const category = categories.find(category => category.id === firstCategory) || categories[0];
+const selected = exhibition.find(scene => category.orders.includes(scene.order));
 const reviewScenes = sessionOverview({
   scenario: pack,
-  interaction: { overview: pack.world_setting.workplace_categories.map((category) => {
-    const episode = pack.episodes.find((item) => item.order === category.orders[0]);
-    return { ...episode, category_id: category.id, opening_line: episode.initial_question, goal: episode.question_intent };
-  }) },
+  interaction: { exhibition: true, overview: [{ ...selected, character_id: "park_senior", virtual_time: "", category_id: category.id, opening_line: selected.opening_line, goal: selected.checklist.label }] },
 });
 function Review() {
-  const params = new URLSearchParams(location.search);
-  const sceneElapsed = { morning: 3000, work: MIRROR_SCENE_MS + 3000, leaving: MIRROR_SCENE_MS * 2 + 3000 }[params.get("scene")] ?? 0;
-  const reviewElapsed = params.get("still") === "1" ? sceneElapsed : null;
+  const reviewElapsed = params.get("still") === "1" ? 2500 : null;
   // Review only: no NFC session or camera request is made in this harness.
-  return <main><WorkplaceMirrorPreflight reviewScenes={reviewScenes} reviewElapsed={reviewElapsed} reviewStartElapsed={sceneElapsed} consented={true} onNext={() => location.replace("../simulation/scene.html?scene=morning")} /></main>;
+  return <main><WorkplaceMirrorPreflight reviewScenes={reviewScenes} reviewElapsed={reviewElapsed} consented={true} onNext={() => location.replace(`../simulation/scene.html?scene=${reviewScenes[0].categoryId}`)} /></main>;
 }
 createRoot(document.getElementById("root")).render(<Review />);
