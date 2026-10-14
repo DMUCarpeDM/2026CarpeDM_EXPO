@@ -1,44 +1,24 @@
-import { AnimatePresence, motion } from "framer-motion";
 import { WorkplaceOverviewCard } from "./WorkplaceOverviewCard";
-import arrival from "../assets/arrival.png";
-import work from "../assets/work.png";
-import leaving from "../assets/leaving.png";
+import conversation from "../assets/overview-conversation.png";
 import "../styles/workplace-mirror-overview.css";
 import "../styles/workplace-mirror-city.css";
 
-const illustrations = [arrival, work, leaving];
-const descriptions = ["사무실 입구에서 선임과 대화하는 두 사람", "책상 앞에서 업무를 확인하는 두 사람", "사무실 출구에서 퇴근 전 대화하는 두 사람"];
-
-function DayProgress({ scenes, phase }) {
-  return <ol className="overview-steps" aria-label="오늘 만날 세 장면">
-    {scenes.map((scene, index) => <li key={scene.name} aria-current={index === phase.scene ? "step" : undefined} data-complete={index < phase.scene}>
-      <div className="overview-step-label"><span>0{index + 1}</span><strong>{scene.name}</strong></div>
-      <div className="overview-step-track"><i style={{ transform: `scaleX(${index < phase.scene ? 1 : index === phase.scene ? phase.progress : 0})` }} /></div>
-    </li>)}
-  </ol>;
-}
-
 // Session preparation, consent and automatic navigation stay in the preflight controller.
-export function WorkplaceMirrorOverview({ scenes, phase, starting, reduced, paused, onPause, onScene, onStart }) {
+export function WorkplaceMirrorOverview({ scenes, phase, progress, starting, paused, onPause, onScene, onStart }) {
   const scene = scenes[phase.scene];
-  const exhibition = Boolean(scenes[0]?.exhibition);
   const countdown = phase.kind === "countdown";
   const finishing = starting || phase.kind === "complete";
   return <section className="mirror-overview mirror-city-surface" aria-labelledby="overview-title" data-scene={phase.scene} data-starting={countdown || finishing} data-glass={new URLSearchParams(window.location.search).get("glass") === "bright" ? "bright" : "standard"}>
+    <div className="overview-top-progress" role="progressbar" aria-label="대화 시작까지 진행" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}>
+      <i style={{ transform: `scaleX(${progress})` }} />
+    </div>
     <div className="overview-content">
       <div className="overview-context">
-        <h1 id="overview-title">{exhibition ? "선배와 나누는 대화" : "회사에서 보내는 하루."}</h1>
-        <p className="overview-situation">{exhibition ? "대화할 상황을 확인해 보세요." : "출근부터 퇴근까지, 세 장면을 미리 살펴봐요."}</p>
-        <DayProgress scenes={scenes} phase={phase} />
+        <h1 id="overview-title">오늘의 대화</h1>
+        <p className="overview-intro">상황을 살펴보고, 평소처럼 대화해 보세요.</p>
       </div>
       <div className="overview-art" aria-hidden="true">
-        <AnimatePresence initial={false} mode="wait">
-          <motion.img key={phase.scene} src={illustrations[phase.scene]} alt={descriptions[phase.scene]}
-            initial={{ opacity: 0, transform: reduced ? "none" : "translateX(24px)" }}
-            animate={{ opacity: 1, transform: "translateX(0px)" }}
-            exit={{ opacity: 0, transform: reduced ? "none" : "translateX(-24px)", transition: { duration: reduced ? .06 : .08, ease: [.23, 1, .32, 1] } }}
-            transition={{ duration: reduced ? .12 : .2, ease: [.23, 1, .32, 1] }} />
-        </AnimatePresence>
+        <img src={conversation} alt="" />
       </div>
       <WorkplaceOverviewCard scene={scene} live="polite" />
     </div>

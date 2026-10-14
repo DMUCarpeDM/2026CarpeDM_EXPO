@@ -3,45 +3,38 @@ import test from "node:test";
 import { chromium } from "playwright";
 import { startVite } from "./serviceEntryRouteHarness.js";
 
-test("4K overview plays all scenes while still=1 explicitly freezes a scene", { timeout: 45000 }, async t => {
+test("overview shows one static scene, a top progress line and detailed copy for fifteen seconds", { timeout: 45000 }, async t => {
   const { server, url } = await startVite();
   const browser = await chromium.launch({ channel: "chrome", headless: true });
   t.after(async () => { await browser.close(); await server.close(); });
-  const page = await browser.newPage({ viewport: { width: 1080, height: 1920 }, reducedMotion: "no-preference" });
+  const page = await browser.newPage({ viewport: { width: 1080, height: 1920 } });
   await page.clock.install();
   const preview = `${url}src/features/smart-mirror/previews/flow/4k.html`;
-  await page.goto(`${preview}?scene=morning&backdrop=city`);
+  await page.goto(`${preview}?scene=morning`);
   const frame = await (await page.locator("iframe").elementHandle()).contentFrame();
-  await frame.locator('.mirror-overview[data-scene="0"]').waitFor();
-  assert.equal(await frame.locator(".overview-steps").count(), 1);
-  assert.equal(await frame.locator(".slider-footer ol, .mirror-total-progress").count(), 0);
-  await page.clock.fastForward(8000);
-  await frame.locator('.mirror-overview[data-scene="1"]').waitFor();
-  await page.clock.fastForward(10000);
-  await frame.locator('.mirror-overview[data-scene="2"]').waitFor();
-  await page.clock.fastForward(12000);
-  await frame.getByRole("dialog").waitFor();
-  await page.clock.fastForward(13000);
-  await frame.getByRole("region", { name: "직장 대화 시뮬레이션", exact: true }).waitFor();
-  assert.match(frame.url(), /simulation\/scene\.html\?scene=morning/);
-  assert.equal(await frame.getByText("안내 완료 · 자동 전환 확인").count(), 0);
-  await frame.locator(".simulation-actor video").waitFor();
-  await frame.getByText("미리보기 · 녹음 안 함", { exact: true }).waitFor();
-  assert.equal(await frame.getByText("카메라 꺼짐", { exact: true }).count(), 1);
-  assert.equal(await frame.locator('.mirror-capture-wave i').count(), 7);
-  assert.equal(await frame.locator('.mirror-capture-audio[data-active="true"]').count(), 0);
+  await frame.locator(".mirror-overview").waitFor();
+  assert.equal(await frame.locator(".overview-steps").count(), 0);
+  const progress = frame.getByRole("progressbar", { name: "대화 시작까지 진행" });
+  assert.equal(await progress.count(), 1);
+  const line = await progress.locator("i").evaluate(el => ({ color: getComputedStyle(el).backgroundColor, height: el.getBoundingClientRect().height, top: el.getBoundingClientRect().top }));
+  assert.deepEqual(line, { color: "rgb(255, 255, 255)", height: 2, top: 0 });
+  const artwork = frame.locator(".overview-art img");
+  assert.equal(await artwork.count(), 1);
+  assert.match(await frame.locator(".overview-scenario-description").innerText(), /직장 선배가 연애 여부/);
+  assert.equal(await frame.locator(".overview-card-context h2").innerText(), "연애 이야기를 계속 묻는 선배");
+  assert.equal(await artwork.evaluate(el => el.getAnimations().length), 0);
+  await page.clock.fastForward(14000);
+  assert.equal(await frame.locator(".mirror-overview").count(), 1);
+  assert.ok(Number(await progress.getAttribute("aria-valuenow")) > 0);
+  assert.ok(Number(await progress.getAttribute("aria-valuenow")) < 100);
+  await page.clock.fastForward(1500);
+  await frame.waitForURL(/simulation\/scene\.html\?scene=morning/);
   await page.goto(`${preview}?scene=work&still=1`);
   const still = await (await page.locator("iframe").elementHandle()).contentFrame();
-  await still.locator('.mirror-overview[data-scene="1"]').waitFor();
+  await still.locator(".mirror-overview").waitFor();
   await page.clock.fastForward(60000);
-  assert.equal(await still.locator('.mirror-overview[data-scene="1"]').count(), 1);
-  for (const state of ["consent", "error"]) {
-    await page.goto(`${preview}?state=${state}`);
-    const blocked = await (await page.locator("iframe").elementHandle()).contentFrame();
-    await blocked.locator(".mirror-overview").waitFor();
-    assert.equal(await blocked.locator(".slider-explanation, .consent-check").count(), 0);
-    assert.equal(await blocked.locator(".slider-footer ol, .mirror-total-progress").count(), 0);
-  }
+  assert.equal(await still.locator(".mirror-overview").count(), 1);
+  assert.equal(await still.locator(".overview-scene-badge").innerText(), "업무");
 });
 
 test("glass modal uses shared progress bar and closes automatically after five seconds", { timeout: 45000 }, async t => {

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { useReducedMotion } from "framer-motion";
 import { WorkplaceMirrorOverview } from "./WorkplaceMirrorOverview";
 import { sessionOverview } from "../lib/workplaceOverview";
 import { createVisibleClock, mirrorPhase, MIRROR_OVERVIEW_MS, MIRROR_SCENE_MS } from "../lib/workplaceMirrorTimeline";
@@ -33,7 +32,6 @@ export function WorkplaceMirrorPreflight({ mode = 5, consented, starting, onNext
   const started = useRef(false);
   const next = useRef(onNext);
   next.current = onNext;
-  const reduced = useReducedMotion();
   const [paused, setPaused] = useState(false);
   const stopped = paused;
   const currentElapsed = useRef(elapsed);
@@ -57,7 +55,7 @@ export function WorkplaceMirrorPreflight({ mode = 5, consented, starting, onNext
   }, [elapsed, consented, currentError, scenes, starting, visible, stopped, overviewMs]);
   const phase = exhibition ? { kind: elapsed >= overviewMs ? "complete" : "scene", scene: 0, progress: elapsed / overviewMs, remaining: Math.ceil((overviewMs - elapsed) / 1000) } : mirrorPhase(elapsed);
   const blocked = !consented || currentError;
-  if (scenes && !blocked) return <WorkplaceMirrorOverview scenes={scenes} phase={phase} mode={mode} starting={starting} reduced={reduced} paused={stopped} onPause={reviewElapsed === null ? () => setPaused(value => !value) : undefined} onScene={index => setElapsed(index * MIRROR_SCENE_MS)} onStart={() => { if (!started.current) { started.current = true; next.current?.(); } }} />;
+  if (scenes && !blocked) return <WorkplaceMirrorOverview scenes={exhibition ? scenes.slice(0, 1) : scenes} phase={phase} progress={elapsed / overviewMs} mode={mode} starting={starting} paused={stopped} onPause={reviewElapsed === null ? () => setPaused(value => !value) : undefined} onScene={index => setElapsed(index * MIRROR_SCENE_MS)} onStart={() => { if (!started.current) { started.current = true; next.current?.(); } }} />;
   return <section className="mirror-nfc-waiting mirror-city-surface" aria-busy={!currentError} aria-labelledby="mirror-preparation-title">
     <header className="overview-masthead"><strong>Mirror-Ting</strong></header>
     <div className="mirror-nfc-content">

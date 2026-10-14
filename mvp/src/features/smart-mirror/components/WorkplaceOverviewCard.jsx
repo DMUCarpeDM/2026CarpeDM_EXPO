@@ -26,7 +26,8 @@ export function WorkplaceOverviewCard({ scene, children, labelledBy = "overview-
     <div className="overview-card-content" aria-live={live} aria-atomic={live === "off" ? undefined : true}>
       {children || <><div className="overview-card-context">
         <p className="overview-scene-meta"><span className="overview-scene-badge">{scene.name}</span><time>{scene.time}</time></p>
-        <h2 id="overview-situation-title">{scene.situation}</h2>
+        <h2 id="overview-situation-title">{scene.exhibition ? scene.title : scene.situation}</h2>
+        {scene.exhibition && <p className="overview-scenario-description">{scene.situation}</p>}
       </div>
       <div className="overview-card-details">
         <dl className="overview-partner"><div><dt>대화 상대</dt><dd>{scene.person}</dd></div></dl>
