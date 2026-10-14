@@ -29,7 +29,7 @@ test("expression output collection is visible without inventing a score", () => 
   const report = mirrorReport({fit_scores:{expression:{score:null,summary:"검증 전 참고값"}},speech_stats:{expression_analysis:{samples:3,status:"unvalidated"}}});
   assert.equal(report.fits[2].score,null);
   assert.equal(report.fits[2].status,"표정 기록 확인 중");
-  assert.equal(report.fits[2].text,"검증 전 참고값");
+  assert.equal(report.fits[2].text,"표정 기록은 모았지만 아직 점수로 평가하지 않았어요.");
 });
 
 
