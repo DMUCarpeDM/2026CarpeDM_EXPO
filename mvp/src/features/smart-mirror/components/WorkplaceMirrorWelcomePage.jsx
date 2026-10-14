@@ -1,20 +1,21 @@
-import { useEffect, useRef, useState } from "react";
-import { CounterpartVideo } from "../../../components/practice/CounterpartVideo";
-import welcomeAudio from "../assets/welcome-iris.wav";
+import { useEffect, useRef } from "react";
+import welcomeVideo from "../assets/welcome-vertex.mp4";
 import "../styles/workplace-mirror-nfc.css";
 import "../styles/workplace-mirror-welcome.css";
 
 export function WorkplaceMirrorWelcomePage({ onStart }) {
-  const audioRef = useRef(null);
+  const videoRef = useRef(null);
   const startedRef = useRef(false);
-  const [speaking, setSpeaking] = useState(false);
   useEffect(() => {
-    const audio = audioRef.current;
+    const audio = videoRef.current;
     let disposed = false;
     const play = () => {
       if (startedRef.current || !audio.paused || document.hidden) return;
+      audio.muted = false;
       audio.currentTime = 0;
-      audio.play().catch(() => { if (!disposed) setSpeaking(false); });
+      audio.play().catch(() => {
+        if (!disposed) { audio.muted = true; void audio.play().catch(() => {}); }
+      });
     };
     play();
     // Repeat every 10 seconds from entry; never interrupt an ongoing utterance.
@@ -29,12 +30,11 @@ export function WorkplaceMirrorWelcomePage({ onStart }) {
   const start = () => {
     if (startedRef.current) return;
     startedRef.current = true;
-    audioRef.current?.pause();
+    videoRef.current?.pause();
     onStart();
   };
   return <section className="mirror-welcome" aria-label="미러팅 시연 안내">
-    <CounterpartVideo characterId="park_senior" category="morning" name="시연 안내 인물" state={speaking ? "speaking" : "listening"} />
-    <audio ref={audioRef} src={welcomeAudio} preload="auto" onPlaying={() => setSpeaking(true)} onEnded={() => setSpeaking(false)} onError={() => setSpeaking(false)} />
+    <video ref={videoRef} className="mirror-welcome-video" src={welcomeVideo} playsInline preload="auto" aria-label="시연 안내 영상" />
     <button className="mirror-welcome-start" type="button" onClick={start} aria-label="화면을 눌러 시연 시작" aria-describedby="mirror-welcome-disclosure" />
     <span className="screen-reader-note" id="mirror-welcome-disclosure">화면을 누르거나 NFC를 태그하면 카메라·음성 분석과 결과 처리에 동의하고 체험 준비로 이동합니다.</span>
   </section>;

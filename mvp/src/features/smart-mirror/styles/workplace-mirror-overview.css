@@ -1,7 +1,7 @@
 .mirror-overview {
   --u: min(1dvh, 1.77778vw);
-  --ink: #f5f7fc;
-  --muted: #c6cdd8;
+  --ink: #fff;
+  --muted: #e5eaf2;
   --surface: #070b1205;
   --divider: #ffffff24;
   box-sizing: border-box;

@@ -57,7 +57,7 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
   const dy = (ch - vh * scale) / 2;
   const px = (p) => [p.x * vw * scale + dx, p.y * vh * scale + dy];
 
-  // 상체 포즈는 어두운 외곽선과 진한 파란 선으로 밝은 영상에서도 구분한다.
+  // 상체·손·얼굴은 같은 초록색 연결선과 도트 색상을 사용한다.
   if (poseLm) {
     ctx.lineCap = "round";
     for (const [a, b] of POSE_LINKS) {
@@ -67,11 +67,8 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
       ctx.beginPath();
       ctx.moveTo(...px(pa));
       ctx.lineTo(...px(pb));
-      ctx.strokeStyle = "rgba(9, 25, 43, 0.9)";
-      ctx.lineWidth = 6;
-      ctx.stroke();
-      ctx.strokeStyle = "#60a5fa";
-      ctx.lineWidth = 3.8;
+      ctx.strokeStyle = "rgba(94, 234, 148, 0.35)";
+      ctx.lineWidth = 0.8;
       ctx.stroke();
     }
     const sl = poseLm[11];
@@ -82,15 +79,10 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
       ctx.beginPath();
       ctx.moveTo(lx, ly);
       ctx.quadraticCurveTo((lx + rx) / 2, Math.max(ly, ry) + Math.abs(rx - lx) * 0.22, rx, ry);
-      ctx.strokeStyle = "rgba(9, 25, 43, 0.9)";
-      ctx.lineWidth = 6;
+      ctx.strokeStyle = "rgba(94, 234, 148, 0.35)";
+      ctx.lineWidth = 0.8;
       ctx.stroke();
-      ctx.strokeStyle = "#60a5fa";
-      ctx.lineWidth = 3.8;
-      ctx.stroke();
-      ctx.fillStyle = "#93c5fd";
-      ctx.strokeStyle = "#09192b";
-      ctx.lineWidth = 2;
+      ctx.fillStyle = "rgba(134, 245, 182, 0.95)";
       for (const index of new Set(POSE_LINKS.flat())) {
         const point = poseLm[index];
         if (!point || (point.visibility ?? 1) < 0.4) continue;
@@ -98,15 +90,14 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
         ctx.beginPath();
         ctx.arc(x, y, 5.5, 0, Math.PI * 2);
         ctx.fill();
-        ctx.stroke();
       }
     }
   }
 
   // 손 관절 21점과 연결선 — 손동작은 자세 분석에 쓰되, 하체 포즈는 표시하지 않는다.
   for (const hand of handLm) {
-    ctx.strokeStyle = "rgba(94, 234, 212, 1)";
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(94, 234, 148, 0.35)";
+    ctx.lineWidth = 0.8;
     ctx.lineCap = "round";
     for (const [a, b] of HAND_LINKS) {
       const pa = hand[a];
@@ -117,7 +108,7 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
       ctx.lineTo(...px(pb));
       ctx.stroke();
     }
-    ctx.fillStyle = "#effffc";
+    ctx.fillStyle = "rgba(134, 245, 182, 0.95)";
     for (const point of hand) {
       ctx.beginPath();
       ctx.arc(...px(point), 4, 0, Math.PI * 2);
@@ -125,20 +116,10 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
     }
   }
 
-  // 얼굴 메시 (초록) + 얼굴 영역 코너 브래킷
+  // 얼굴 메시 (초록)
   if (faceLm) {
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-    for (const p of faceLm) {
-      if (p.x < minX) minX = p.x;
-      if (p.y < minY) minY = p.y;
-      if (p.x > maxX) maxX = p.x;
-      if (p.y > maxY) maxY = p.y;
-    }
     ctx.strokeStyle = "rgba(94, 234, 148, 0.35)";
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1.1;
     for (const [a, b] of FACE_LINKS) {
       const pa = faceLm[a];
       const pb = faceLm[b];
@@ -150,37 +131,16 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
     }
     ctx.fillStyle = "rgba(134, 245, 182, 0.95)";
     ctx.shadowColor = "rgba(94, 234, 148, 0.8)";
-    ctx.shadowBlur = 4;
+    ctx.shadowBlur = 2;
     for (const idx of FACE_DOTS) {
       const p = faceLm[idx];
       if (!p) continue;
       const [x, y] = px(p);
       ctx.beginPath();
-      ctx.arc(x, y, 2.2, 0, Math.PI * 2);
+      ctx.arc(x, y, 1.3, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.shadowBlur = 0;
 
-    // 코너 브래킷 — 얼굴 바운딩 박스에서 약간 여유를 두고 그린다
-    const pad = 0.06;
-    const [bx1, by1] = px({ x: minX - pad, y: minY - pad * 1.4 });
-    const [bx2, by2] = px({ x: maxX + pad, y: maxY + pad * 0.8 });
-    const arm = Math.min(26, (bx2 - bx1) * 0.18);
-    ctx.strokeStyle = "rgba(94, 234, 148, 0.85)";
-    ctx.lineWidth = 2.5;
-    ctx.shadowColor = "rgba(94, 234, 148, 0.5)";
-    ctx.shadowBlur = 6;
-    const corners = [
-      [bx1, by1, arm, 0, 0, arm], [bx2, by1, -arm, 0, 0, arm],
-      [bx1, by2, arm, 0, 0, -arm], [bx2, by2, -arm, 0, 0, -arm],
-    ];
-    for (const [x, y, ax, ay, bxo, byo] of corners) {
-      ctx.beginPath();
-      ctx.moveTo(x + ax, y + ay);
-      ctx.lineTo(x, y);
-      ctx.lineTo(x + bxo, y + byo);
-      ctx.stroke();
-    }
-    ctx.shadowBlur = 0;
   }
 }

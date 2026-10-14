@@ -143,11 +143,11 @@ test("mirror continues with a real microphone stream when camera is unavailable"
 });
 
 
-test("mirror entry shows only video and prepared Iris audio before any NFC tag", { timeout: 45000 }, async t => {
+test("mirror entry shows only the Vertex video with embedded audio before any NFC tag", { timeout: 45000 }, async t => {
   const { page, creates } = await open(t, { tap: false });
   assert.equal(await page.locator(".mirror-deployment .mirror-welcome").count(), 1);
   assert.equal(await page.locator(".mode-home-page").count(), 0);
-  assert.equal(await page.locator(".mirror-welcome audio").count(), 1);
+  assert.equal(await page.locator(".mirror-welcome video.mirror-welcome-video").count(), 1);
   assert.equal(await page.locator(".mirror-city-surface, .mirror-nfc-symbol, .overview-summary-card").count(), 0);
   assert.equal(await page.locator(".mirror-welcome-start").textContent(), "");
   assert.equal(await page.getByRole("checkbox").count(), 0);
