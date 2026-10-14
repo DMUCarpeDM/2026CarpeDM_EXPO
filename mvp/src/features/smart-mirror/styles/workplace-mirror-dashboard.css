@@ -60,3 +60,16 @@
 .mirror-dashboard .voice-report h2 { font-size: max(1rem, calc(1.55 * var(--u))); font-weight: 500; }
 .mirror-dashboard .voice-report small { color: var(--muted); }
 .mirror-dashboard .voice-report svg { color: var(--ink); }
+
+/* Analysis progress follows server milestones; the sheen only signals activity. */
+.mirror-analysis-caption { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.mirror-analysis-percent { flex: none; font-size: max(1.75rem, calc(3 * var(--u))); font-variant-numeric: tabular-nums; font-weight: 500; }
+.mirror-analysis-percent small { margin-left: 4px; font-size: .55em; color: var(--muted); }
+.mirror-dashboard .mirror-analysis-track { height: 4px; border: 0; border-radius: 0; background: #ffffff26; box-shadow: none; }
+.mirror-dashboard .mirror-analysis-fill { position: relative; width: 100%; height: 100%; border-radius: 0; background: #f5f7fc; box-shadow: none; transform-origin: left; transition: none; }
+.mirror-analysis-track::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, #ffffff65, transparent); transform: translateX(-100%); animation: mirror-analysis-sheen 2.4s ease-in-out infinite; }
+@keyframes mirror-analysis-sheen { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) {
+  .mirror-dashboard .mirror-analysis-fill { transition: none; }
+  .mirror-analysis-track::after { animation: none; display: none; }
+}

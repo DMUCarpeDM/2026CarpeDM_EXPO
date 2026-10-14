@@ -66,6 +66,7 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
     let lastPush = 0;
     let lastVideoTime = -1;
     let inferAvg = 0;
+    let frameErrorReported = false;
     // 개인 기준(캘리브레이션) 상태
     let base = null; // 자세 기준값
     let calib = emptyCalib();
@@ -221,11 +222,13 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
                 setLive(next);
               }
             }
-          } catch {
-            // 프레임 단위 추론 실패는 조용히 건너뛴다 (다음 프레임에서 회복)
+          } catch (error) {
+            if (!frameErrorReported) console.warn("[pose-tracking] inference failed", error);
+            frameErrorReported = true;
           }
         }, SAMPLE_MS);
-      } catch {
+      } catch (error) {
+        if (!cancelled) console.warn("[pose-tracking] initialization failed", error);
         if (!cancelled) setLive((prev) => ({ ...prev, status: "failed" }));
       }
     })();

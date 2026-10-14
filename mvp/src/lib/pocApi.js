@@ -71,7 +71,7 @@ export function getHealth() {
   return request("/health");
 }
 
-export async function synthesizeSpeech(text, voice = "female", signal) {
+export async function synthesizeSpeech(text, voice = "female", signal, streaming = false) {
   const response = await fetch(`${API_BASE}/tts`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -81,7 +81,7 @@ export async function synthesizeSpeech(text, voice = "female", signal) {
   if (!response.ok) {
     throw new PocApiError("AI 음성을 만들 수 없어요.", response.status);
   }
-  return response.blob();
+  return streaming ? response : response.blob();
 }
 
 const SESSION_DIFFICULTIES = new Set(["basic", "pressure", "ultra_pressure"]);

@@ -23,7 +23,7 @@ export function useVoiceCalibration(session, stream, required = false) {
     const timer = setInterval(check, 1000);
     return () => { clearInterval(timer); track?.removeEventListener("ended", check); };
   }, [enabled, stream]);
-  const valid = calibrationAllowsPractice(calibration) && sameCapture(calibration.capture, capture);
+  const valid = calibrationAllowsPractice(calibration) && (calibration?.source === "standard" || sameCapture(calibration.capture, capture));
   useEffect(() => {
     if (enabled && calibration && !valid) {
       setCalibration(null);

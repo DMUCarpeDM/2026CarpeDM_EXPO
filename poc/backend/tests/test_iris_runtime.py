@@ -33,6 +33,7 @@ def test_runtime_preserves_external_server(monkeypatch):
 
 
 def test_runtime_spawns_real_mode_and_stops_owned_process(monkeypatch, tmp_path):
+    monkeypatch.setattr(settings, "tts_provider", "iris")
     monkeypatch.setattr(settings, 'iris_autostart', True)
     monkeypatch.setattr(settings, 'iris_voice_base_url', 'http://127.0.0.1:18765')
     monkeypatch.setattr(settings, 'iris_runtime_dir', tmp_path)

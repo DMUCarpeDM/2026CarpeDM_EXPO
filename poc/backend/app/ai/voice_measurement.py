@@ -301,7 +301,9 @@ def _analyze(path, *, session_id=None, turn_id=None, calibration=None, capture=N
         result["quality_flags"].append("clipping")
     try:
         rms = _rms(samples, sr, segments, config)
-        if not calibration or calibration.get("status") != "measured":
+        if calibration and calibration.get("source") == "standard":
+            result["volume"] = missing("personal_reference_unavailable", rms=rms, reference_only=True)
+        elif not calibration or calibration.get("status") != "measured":
             result["volume"] = missing("calibration_required")
         elif not capture_matches(calibration.get("capture"), capture):
             result["volume"] = missing("capture_changed", status="uncertain")

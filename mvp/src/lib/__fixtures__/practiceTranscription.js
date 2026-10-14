@@ -57,7 +57,11 @@ function Harness() {
     control.update = (patch) => setOptions((previous) => ({ ...previous, ...patch }));
     control.type = (text) => { speech.clearAutoSubmit(); setDraft(text); speech.setInterim(""); };
   });
-  return createElement("output", null, draft);
+  return createElement("div", null,
+    createElement("output", null, JSON.stringify({ draft, mode: speech.sttMode, listening: speech.listening, error: speech.recognitionError, starts: control.recognitions.length })),
+    createElement("button", { onClick: () => control.recognitions.at(-1).onerror?.({ error: "network" }) }, "Network error"),
+    createElement("button", { onClick: speech.retryBrowserRecognition }, "Retry"),
+    createElement("button", { onClick: () => control.recognitions.at(-1).result("복구 후 답변") }, "Recognize answer"));
 }
 const root = createRoot(document.getElementById("root"));
 control.unmount = () => root.unmount();

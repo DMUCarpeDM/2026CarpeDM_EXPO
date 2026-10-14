@@ -36,3 +36,35 @@ def synthesize_elevenlabs(text: str) -> bytes:
     if not response.content:
         raise SpeechSynthesisError("ElevenLabs가 빈 음성 데이터를 반환했습니다")
     return response.content
+
+
+async def stream_elevenlabs(text: str):
+    """Yield 24 kHz mono signed PCM as soon as v4 Turbo produces it."""
+    import asyncio
+    import base64
+    import json
+    from urllib.parse import urlencode
+    from websockets.asyncio.client import connect
+
+    if not elevenlabs_ready():
+        raise SpeechSynthesisError("ElevenLabs API 키와 Voice ID가 필요합니다")
+    query = urlencode({"model_id": settings.elevenlabs_model, "output_format": "pcm_24000", "language_code": "ko"})
+    try:
+        async with connect(
+            f"wss://api.elevenlabs.io/v1/text-to-dialogue/stream-input?{query}",
+            additional_headers={"xi-api-key": settings.elevenlabs_api_key.get_secret_value()},
+            open_timeout=settings.elevenlabs_timeout_sec,
+        ) as socket:
+            await socket.send(json.dumps({"voices": [settings.elevenlabs_voice_id]}))
+            await socket.send(json.dumps({"inputs": [{"text": text.strip(), "voice_id": settings.elevenlabs_voice_id}]}))
+            await socket.send(json.dumps({"close_socket": True}))
+            while True:
+                message = json.loads(await asyncio.wait_for(socket.recv(), settings.elevenlabs_timeout_sec))
+                if message.get("error"):
+                    raise SpeechSynthesisError("ElevenLabs 스트리밍 오류")
+                if message.get("audio"):
+                    yield base64.b64decode(message["audio"], validate=True)
+                if message.get("is_final"):
+                    return
+    except Exception as error:
+        raise SpeechSynthesisError("ElevenLabs 음성 스트림을 완료하지 못했습니다") from error

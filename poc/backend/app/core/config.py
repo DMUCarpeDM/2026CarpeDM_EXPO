@@ -72,16 +72,16 @@ class Settings(BaseSettings):
     gemini_api_key: SecretStr = SecretStr("")
     gemini_api_backend: Literal["developer", "vertex"] = "developer"
     gemini_vertex_project: str = ""
-    gemini_model: str = "gemini-3.6-flash"
+    gemini_model: str = "gemini-3.5-flash"
     gemini_base_url: str = "https://generativelanguage.googleapis.com"
     gemini_timeout_sec: float = 20.0
-    # 이전 .env 로딩 호환용 필드. 현재 TTS API는 ElevenLabs를 호출하지 않는다.
+    # ElevenLabs 스트리밍 음성 설정.
     elevenlabs_api_key: SecretStr = SecretStr("")
     elevenlabs_voice_id: str = ""
-    elevenlabs_model: str = "eleven_multilingual_v2"
+    elevenlabs_model: str = "eleven_v4_turbo"
     elevenlabs_timeout_sec: float = 20.0
-    # 여성 음성은 Iris를 사용한다. 미준비·실패 시 브라우저 음성으로 전환한다.
-    tts_provider: Literal["elevenlabs", "iris"] = "iris"
+    # 서버 음성 제공자. 미준비·실패 시 브라우저 음성으로 전환한다.
+    tts_provider: Literal["elevenlabs", "iris"] = "elevenlabs"
     iris_voice_base_url: str = "http://127.0.0.1:18765"
     iris_voice_timeout_sec: float = 180.0
     iris_audio_dir: Path = Path.home() / ".iris-light" / "audio"

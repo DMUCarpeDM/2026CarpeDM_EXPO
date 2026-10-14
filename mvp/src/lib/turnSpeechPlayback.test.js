@@ -2,9 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { startTurnSpeech } from "./turnSpeechPlayback.js";
 
-test("question labels never request or play speech", t => {
+test("empty text never requests or plays speech", t => {
   const fetch = t.mock.method(globalThis, "fetch", () => { throw new Error("Unexpected TTS request"); });
-  for (const text of ["질문", "질문 2", "질문.", " "]) {
+  for (const text of ["", " ", "\n"]) {
     let finished = 0;
     const stop = startTurnSpeech({ text, serverTtsReady: true,
       onSpeakingChange: value => assert.equal(value, false), onFinish: () => finished++ });
@@ -63,9 +63,9 @@ function playbackEnvironment(t) {
       timers.clear();
       callbacks.forEach((callback) => callback());
     },
-    start(serverTtsReady = false) {
+    start(serverTtsReady = false, text = "안녕하세요.") {
       const stop = startTurnSpeech({
-        text: "안녕하세요.", serverTtsReady,
+        text, serverTtsReady,
         onSpeakingChange: (value) => speaking.push(value),
         onFinish: () => { finished++; },
         onNote: (note) => notes.push(note),
@@ -78,6 +78,14 @@ function playbackEnvironment(t) {
 }
 
 const flushAsync = () => new Promise((resolve) => setImmediate(resolve));
+
+test("AI text resembling a question label is still spoken", (t) => {
+  const env = playbackEnvironment(t);
+  env.start(false, "질문 2");
+  env.flushTimers();
+  assert.equal(env.utterances[0].text, "질문 2");
+  assert.equal(env.finished, 0);
+});
 
 test("browser speech uses Korean voice and signals completion", (t) => {
   const env = playbackEnvironment(t);

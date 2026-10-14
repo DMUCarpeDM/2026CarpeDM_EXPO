@@ -1,7 +1,7 @@
 .mirror-scene-simulation { --u: min(1dvh, 1.77778vw); --ink: #f5f7fc; --muted: #e0e5ef; --surface: #070b1205; --divider: #ffffff24; position: relative; isolation: isolate; width: 100%; height: 100dvh; margin: auto; overflow: hidden; background: #000; color: var(--ink); font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', Arial, sans-serif; }
 .mirror-scene-simulation * { box-sizing: border-box; }
 .mirror-scene-simulation::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, #000b, #0003 24%, transparent 42%, #0001 67%, #0008); pointer-events: none; }
-.simulation-card-slot { position: absolute; left: 5%; top: 30%; width: 54%; max-height: 56%; overflow-y: auto; text-shadow: 0 2px 12px #000d; }
+.simulation-card-slot { position: absolute; left: 5%; top: 30%; width: 54%; max-height: 56%; overflow: visible; text-shadow: 0 2px 12px #000d; }
 
 .simulation-actor { position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
 .simulation-card-slot { z-index: 1; }
@@ -26,7 +26,7 @@
 
 .simulation-answer button { min-height: 44px; cursor: pointer; }
 @media (max-width: 700px), (max-height: 700px) {
-  .mirror-scene-simulation { width: 100%; overflow-y: auto; }
+  .mirror-scene-simulation { width: 100%; }
   .simulation-card-slot { top: 28%; width: 59%; }
   .simulation-answer textarea { min-height: 96px; }
 }
@@ -49,3 +49,5 @@
 
 /* 영상 비율을 유지하면서 디스플레이를 채우고 남는 가장자리를 자른다. */
 .simulation-actor video.counterpart-video { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center top; mask-image: none; }
+
+@media (max-height: 700px) { .simulation-dialogue-text { font-size: clamp(20px, 4.5dvh, 38px); line-height: 1.5; } }

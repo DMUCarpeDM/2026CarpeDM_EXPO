@@ -116,17 +116,34 @@ describe("practice transcription lifecycle", { concurrency: false }, () => {
     assert.equal(await page.evaluate(() => stt.recognitions.length), count);
   });
 
-  test("Chrome failure switches to typing without calling server STT", { timeout: 30_000 }, async (t) => {
+  test("permission failure stops recognition without calling server STT", { timeout: 30_000 }, async (t) => {
     const page = await open(t);
     await page.evaluate(() => {
       stt.recognitions.at(-1).result("음성 답변");
-      stt.recognitions.at(-1).onerror({ error: "network" });
+      stt.recognitions.at(-1).onerror({ error: "not-allowed" });
     });
     await page.waitForFunction(() => stt.current.sttMode === "off" && !stt.current.listening);
     await page.clock.runFor(6400);
     assert.equal(await page.evaluate(() => stt.requests.length), 0);
     assert.deepEqual(await page.evaluate(() => stt.submissions), []);
     assert.equal(await page.evaluate(() => stt.current.draft), "음성 답변");
+  });
+
+  test("network errors retry three times, then allow manual recovery", { timeout: 30_000 }, async (t) => {
+    const page = await open(t);
+    for (const delay of [1000, 2000, 4000]) {
+      const count = await page.evaluate(() => stt.recognitions.length);
+      await page.evaluate(() => stt.recognitions.at(-1).onerror({ error: "network" }));
+      await page.clock.runFor(delay);
+      await page.waitForFunction(count => stt.recognitions.length > count && stt.current.listening, count);
+    }
+    await page.evaluate(() => stt.recognitions.at(-1).onerror({ error: "network" }));
+    await page.waitForFunction(() => stt.current.sttMode === "off");
+    await page.evaluate(() => stt.current.retryBrowserRecognition());
+    await page.waitForFunction(() => stt.current.listening);
+    await page.evaluate(() => stt.recognitions.at(-1).result("복구 후 답변"));
+    await page.clock.runFor(3000);
+    assert.deepEqual(await page.evaluate(() => stt.submissions), ["복구 후 답변"]);
   });
 
   test("without speech support, typed text remains available without auto submission", { timeout: 30_000 }, async (t) => {

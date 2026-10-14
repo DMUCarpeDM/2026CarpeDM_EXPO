@@ -307,7 +307,7 @@ def create_session(
         # 영수증 QR 클레임 토큰 (S-B2B-CLAIM) — 계정 귀속 전용 능력 토큰.
         # access_token(데이터 열람권)과 분리해 QR 노출 반경을 귀속 행위로 한정한다.
         claim_token=secrets.token_urlsafe(24),
-        rapport={"voice_engine_version": voice_measurement.VERSION},
+        rapport=voice_analysis.standard_session_state(),
         mode=mode,
         difficulty=stored_difficulty,
         attempt_no=prev_attempts + 1,

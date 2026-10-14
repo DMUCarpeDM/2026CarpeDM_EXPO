@@ -16,7 +16,7 @@ class IrisRuntime:
         self.process = None
 
     def start(self):
-        if not settings.iris_autostart:
+        if settings.tts_provider != "iris" or not settings.iris_autostart:
             return
         # 다른 PC/포트의 서버 설정은 사용자가 관리한다.
         if settings.iris_voice_base_url.rstrip('/') != 'http://127.0.0.1:18765':

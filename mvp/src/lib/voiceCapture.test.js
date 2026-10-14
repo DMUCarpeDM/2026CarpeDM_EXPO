@@ -19,3 +19,7 @@ test("noise tolerance does not bypass a changed microphone", () => {
   assert.equal(sameCapture(capture, { ...capture }), true);
   assert.equal(sameCapture(capture, { ...capture, device_id: "other" }), false);
 });
+
+test('standard baseline permits entry without personal recording', () => {
+  assert.equal(calibrationAllowsPractice({ status: 'standard', source: 'standard', can_proceed: true }), true);
+});

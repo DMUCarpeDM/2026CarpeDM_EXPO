@@ -65,3 +65,21 @@ test("all four axes preserve measured, provisional and withheld states", () => {
   assert.deepEqual(report.fits.map(f => f.status), ["측정 완료", "점수 보류", "참고 지표", "측정 완료"]);
   assert.equal(report.voiceAnalysis.engine_version, "voice-measure-v2");
 });
+
+test("context summary uses observed areas without inventing unmeasured voice suitability", () => {
+  const report = mirrorReport({speech_stats:{context_assessments:[{context:{kind:'serious',status:'classified'},areas:{response:{status:'observed'},voice:{status:'unmeasured'}}}]}});
+  assert.match(report.fits.find(f=>f.key==='Response-Fit').contextSummary,/갈등·오류 대응/);
+  assert.equal(report.fits.find(f=>f.key==='Voice-Fit').contextSummary,'');
+});
+
+test("context volume score is visible only as an explicitly provisional measurement", () => {
+  const input = { fit_scores: { voice: { score: 73, provisional: true } }, speech_stats: { voice_analysis: { score_status: "context_provisional", score_scope: "relative_volume" } } };
+  assert.equal(mirrorReport(input).fits[1].score, 73);
+  assert.equal(mirrorReport(input).fits[1].status, "참고 지표");
+  input.fit_scores.voice.provisional = false;
+  assert.equal(mirrorReport(input).fits[1].score, null);
+  assert.equal(mirrorReport(input).fits[1].status, "점수 보류");
+  input.fit_scores.voice = { score: null, provisional: true };
+  assert.equal(mirrorReport(input).fits[1].score, null);
+  assert.equal(mirrorReport(input).fits[1].status, "점수 보류");
+});

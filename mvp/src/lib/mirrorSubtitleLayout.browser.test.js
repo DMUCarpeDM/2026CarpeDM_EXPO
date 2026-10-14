@@ -59,7 +59,7 @@ test("mirror subtitles leave room for the live camera and bottom-right capture p
     await page.locator(".simulation-actor video:not([aria-hidden='true'])").evaluate(async video => { video.currentTime = 2; await video.play(); });
     await page.waitForTimeout(400);
     assert.equal(await page.locator(".simulation-dialogue-text > span").first().getAttribute("data-focus"), "active");
-    assert.equal(await page.locator(".simulation-dialogue-text > span").nth(1).getAttribute("data-focus"), "upcoming");
+    assert.equal(await page.locator(".simulation-dialogue-text > span").count(), 1);
     await page.evaluate(() => window.__subtitleUtterance.onboundary({ charIndex: 3 }));
     assert.equal(await page.locator(".simulation-dialogue-text > span").first().getAttribute("data-tracking"), "true");
     assert.ok(Number(await page.locator(".simulation-dialogue-text > span").first().evaluate(el => el.style.getPropertyValue("--speech-progress"))) > 0);
@@ -70,7 +70,7 @@ test("mirror subtitles leave room for the live camera and bottom-right capture p
         sentences: document.querySelectorAll(".simulation-dialogue-text > span").length };
     });
     assert.equal(metrics.glassCards, 0);
-    assert.ok(metrics.sentences >= 2);
+    assert.equal(metrics.sentences, 1);
     assert.ok(metrics.caption.right < metrics.user.left);
     assert.ok(metrics.user.bottom < metrics.pill.top);
     assert.ok(metrics.pill.bottom < metrics.frame.bottom);
@@ -78,10 +78,10 @@ test("mirror subtitles leave room for the live camera and bottom-right capture p
     await page.screenshot({ path: `${out}/${viewport.width}.png` });
     await page.locator(".simulation-actor video:not([aria-hidden='true'])").evaluate(video => video.pause());
     await page.evaluate(() => window.__subtitleUtterance.onboundary({charIndex: window.__subtitleUtterance.text.indexOf(".") + 1}));
-    assert.equal(await page.locator(".simulation-dialogue-text > span").first().getAttribute("data-focus"), "past");
-    assert.equal(await page.locator(".simulation-dialogue-text > span").nth(1).getAttribute("data-focus"), "active");
-    assert.equal(await page.locator(".simulation-dialogue-text > span").first().getAttribute("data-tracking"), "false");
-    assert.equal(await page.locator(".simulation-dialogue-text > span").nth(1).getAttribute("data-tracking"), "true");
+    assert.equal(await page.locator(".simulation-dialogue-text > span").first().getAttribute("data-focus"), "active");
+    assert.equal(await page.locator(".simulation-dialogue-text > span").count(), 1);
+    assert.equal(await page.locator(".simulation-dialogue-text > span").first().getAttribute("data-tracking"), "true");
+    assert.equal(await page.locator(".simulation-card-slot").evaluate(el => getComputedStyle(el).overflowY), "visible");
     await page.clock.runFor(300);
     await page.screenshot({ path: `${out}/${viewport.width}-second-sentence.png` });
     if (viewport.width === 390) assert.equal(await page.locator(".simulation-dialogue-text").evaluate(el => getComputedStyle(el).transform), "none");

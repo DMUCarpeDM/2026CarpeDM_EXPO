@@ -122,7 +122,7 @@ def run_analysis(session_id: int) -> None:
         #    텍스트 입력 턴은 duration이 타이핑 시간이라 말속도 추정이 무의미하므로 측정 제외.
         _set_progress(db, session, "voice", 45)
         voice_scores: list[tuple[float, float]] = []
-        for t in turns:
+        for index, t in enumerate(turns):
             if voice_analysis.enabled(session):
                 _, stt_log = voice_analysis.finish_turn(session, t, include_stt_log=True)
                 if stt_log:
@@ -132,6 +132,7 @@ def run_analysis(session_id: int) -> None:
                         status_code=stt_log["status_code"],
                         error_message=stt_log["error_message"],
                     ))
+                _set_progress(db, session, "voice", 45 + round(20 * (index + 1) / len(turns)))
                 continue
             # 턴 단위 격리: 병리적 오디오 한 건의 DSP 예외가 리포트 전체를 날리지 않게
             try:

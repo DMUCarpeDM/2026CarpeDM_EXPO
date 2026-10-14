@@ -1,20 +1,94 @@
 """Versioned voice measurements stored independently from non-null legacy score rows."""
 import copy
+import hashlib
+import json
+from pathlib import Path
+from collections import OrderedDict
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 import threading
 
 from app.ai import paralinguistics, voice_measurement as engine
 from app.ai.stt import get_stt_provider
+from app.core.config import settings
 
 _POOL = ThreadPoolExecutor(max_workers=1, thread_name_prefix="voice-turn")
 _SLOT = threading.BoundedSemaphore(1)
 LIVE_BUDGET_SEC = 2.0
 SCORE_VERSION = "interaction-score-v8"
+# Retain timed-out work without letting worker threads mutate SQLAlchemy objects.
+_PENDING = OrderedDict()
+_PENDING_LOCK = threading.Lock()
+_PENDING_TTL = 1800
+_PENDING_LIMIT = 128
+
+
+def _fingerprint(turn, baseline, source):
+    try:
+        with Path(turn.audio_path).open("rb") as audio:
+            digest = hashlib.file_digest(audio, "sha256").hexdigest()
+    except (OSError, TypeError):
+        return None
+    config = [digest, baseline, source, engine.VERSION, engine.CRITERIA_VERSION,
+              settings.stt_whisper_model, settings.stt_filler_prompt]
+    return hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest()
+
+
+def _pending(key, future=None):
+    with _PENDING_LOCK:
+        now = time.monotonic()
+        for old_key, (at, _) in list(_PENDING.items()):
+            if now - at > _PENDING_TTL:
+                del _PENDING[old_key]
+        if future is not None:
+            _PENDING[key] = (now, future)
+            while len(_PENDING) > _PENDING_LIMIT:
+                _PENDING.popitem(last=False)
+        return _PENDING.get(key, (None, None))[1]
+
+
+def _forget(key):
+    with _PENDING_LOCK:
+        _PENDING.pop(key, None)
+
+
+def _cached(session, turn, fingerprint):
+    value = session.rapport or {}
+    if fingerprint and value.get("voice_cache_keys", {}).get(str(turn.id)) == fingerprint:
+        return value.get("voice_measurements", {}).get(str(turn.id))
+    return None
+
+
+def _save_result(session, turn, result, fingerprint):
+    measurement, habits = result[:2]
+    log = result[2] if len(result) > 2 else None
+    store_measurement(session, turn.id, measurement)
+    value = session.rapport or {}
+    response_habits = dict(value.get("response_habits", {}))
+    response_habits.pop(str(turn.id), None)
+    if habits is not None:
+        response_habits[str(turn.id)] = habits
+    keys = dict(value.get("voice_cache_keys", {}))
+    keys.pop(str(turn.id), None)
+    # Retry unavailable/failed STT later; never turn an incomplete result into a cache hit.
+    if fingerprint and log and log["status_code"] == 200 and measurement.get("analysis_status") != "error":
+        keys[str(turn.id)] = fingerprint
+    session.rapport = {**value, "response_habits": response_habits, "voice_cache_keys": keys}
+    return measurement, log
+
 
 
 def enabled(session):
     return (session.rapport or {}).get("voice_engine_version") == engine.VERSION
+
+
+def standard_session_state():
+    # 공통 분석 설정이며 개인 기준 발화를 측정한 것으로 취급하지 않는다.
+    baseline = {"id": "standard-v1", "status": "standard", "can_proceed": True,
+                "source": "standard", "reference_rms": None,
+                "engine_version": engine.VERSION, "criteria_version": engine.CRITERIA_VERSION}
+    return {"voice_engine_version": engine.VERSION, "voice_calibration_id": baseline["id"],
+            "voice_calibrations": {baseline["id"]: baseline}}
 
 
 def public_state(session):
@@ -23,7 +97,7 @@ def public_state(session):
     value = session.rapport or {}
     baseline = value.get("voice_calibrations", {}).get(value.get("voice_calibration_id"))
     return {"engine_version": engine.VERSION, "calibration": baseline,
-            "calibration_required": True, "criteria_version": engine.CRITERIA_VERSION}
+            "calibration_required": not bool(baseline and baseline.get("source") == "standard"), "criteria_version": engine.CRITERIA_VERSION}
 
 
 def _input(session, turn):
@@ -82,44 +156,60 @@ def _measure(path, session_id, turn_id, baseline, source, references):
 
 def finish_turn(session, turn, *, include_stt_log=False):
     baseline, source = _input(session, turn)
-    stt_log = None
-    if not turn.audio_path:
-        measurement, habits = engine.empty_result(session.id, turn.id), None
-    else:
-        try:
-            # 9/11 계획: 제품 분석은 크기·속도·멈춤만 계산한다.
-            result = _measure(turn.audio_path, session.id, turn.id, baseline, source, False)
-            if len(result) == 2:  # 기존 테스트/확장 구현의 (measurement, habits) 계약 유지
-                measurement, habits = result
-            else:
-                measurement, habits, stt_log = result
-        except Exception:
-            # One failed recording must not prevent the remaining turns/report.
-            measurement, habits = engine.empty_result(session.id, turn.id, "analysis_failed"), None
-    store_measurement(session, turn.id, measurement)
-    response_habits = dict(session.rapport.get("response_habits", {}))
-    response_habits.pop(str(turn.id), None)
-    if habits is not None:
-        response_habits[str(turn.id)] = habits
-    session.rapport = {**session.rapport, "response_habits": response_habits}
+    fingerprint = _fingerprint(turn, baseline, source)
+    cached = _cached(session, turn, fingerprint)
+    if cached is not None:
+        return (cached, None) if include_stt_log else cached
+    key = (session.id, turn.id, fingerprint)
+    future = _pending(key) if fingerprint else None
+    try:
+        if not turn.audio_path:
+            result = engine.empty_result(session.id, turn.id), None, None
+        else:
+            result = future.result() if future else _measure(
+                turn.audio_path, session.id, turn.id, baseline, source, False)
+            if future and (len(result) < 3 or not result[2] or result[2]["status_code"] != 200):
+                result = _measure(turn.audio_path, session.id, turn.id, baseline, source, False)
+    except Exception:
+        result = engine.empty_result(session.id, turn.id, "analysis_failed"), None, None
+    finally:
+        _forget(key)
+    if fingerprint != _fingerprint(turn, baseline, source):
+        fingerprint = None
+    measurement, stt_log = _save_result(session, turn, result, fingerprint)
     return (measurement, stt_log) if include_stt_log else measurement
 
 
 def live_turn(session, turn):
-    """No queue build-up; a timed-out worker never writes ORM/session state."""
-    if not turn.audio_path or not _SLOT.acquire(blocking=False):
-        return engine.empty_result(session.id, turn.id, "analysis_pending")
+    """Bound the live wait; retain completed and in-flight work for the report."""
     baseline, source = _input(session, turn)
-    future = _POOL.submit(_measure, turn.audio_path, session.id, turn.id,
-                          copy.deepcopy(baseline), copy.deepcopy(source), False)
-    future.add_done_callback(lambda _: _SLOT.release())
+    fingerprint = _fingerprint(turn, baseline, source)
+    cached = _cached(session, turn, fingerprint)
+    if cached is not None:
+        return cached
+    key = (session.id, turn.id, fingerprint)
+    future = _pending(key) if fingerprint else None
+    if future and not future.done():
+        return engine.empty_result(session.id, turn.id, "analysis_pending")
+    if future is None:
+        if not turn.audio_path or not _SLOT.acquire(blocking=False):
+            return engine.empty_result(session.id, turn.id, "analysis_pending")
+        future = _POOL.submit(_measure, turn.audio_path, session.id, turn.id,
+                              copy.deepcopy(baseline), copy.deepcopy(source), False)
+        if fingerprint:
+            _pending(key, future)
+        future.add_done_callback(lambda _: _SLOT.release())
     try:
         result = future.result(timeout=LIVE_BUDGET_SEC)
-        result = result[0] if isinstance(result, tuple) else result
-        return result
+        if fingerprint != _fingerprint(turn, baseline, source):
+            fingerprint = None
+        measurement, _ = _save_result(session, turn, result, fingerprint)
+        _forget(key)
+        return measurement
     except TimeoutError:
         return engine.empty_result(session.id, turn.id, "analysis_timeout")
     except Exception:
+        _forget(key)
         return engine.empty_result(session.id, turn.id, "analysis_failed")
 
 
@@ -137,7 +227,12 @@ def report_data(session):
 
 
 def strip_verbatim(session):
+    with _PENDING_LOCK:
+        for key in list(_PENDING):
+            if key[0] == session.id:
+                del _PENDING[key]
     value = copy.deepcopy(session.rapport or {})
+    value.pop("voice_cache_keys", None)
     for result in value.get("voice_measurements", {}).values():
         result.get("speed", {}).pop("transcript", None)
         for pause in result.get("pauses", {}).get("segments", []):

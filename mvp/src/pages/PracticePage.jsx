@@ -1,4 +1,3 @@
-import { MirrorScenarioBriefing } from "../features/smart-mirror/components/MirrorScenarioBriefing";
 import { WorkplaceMirrorSceneSimulation } from "../features/smart-mirror/components/WorkplaceMirrorSceneSimulation";
 import React, { useEffect, useRef, useState } from "react";
 import { ChevronRight } from "reicon-react/icons/ChevronRight";
@@ -97,8 +96,8 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   useEffect(() => {
     if (workplace && turn?.episode_id) setSceneBriefingOpen(true);
   }, [workplace, turn?.episode_id]);
-  // 직장대화만 카테고리 시작 때 상황 안내를 띄운다. 다른 모드는 바로 조작한다.
-  const sceneOverlayOpen = !voice.open && workplace && sceneBriefingOpen && Boolean(sceneBriefing);
+  // 미러는 마이크 확인 후 상황 안내 팝업 없이 바로 대화를 이어간다.
+  const sceneOverlayOpen = !mirror && !voice.open && workplace && sceneBriefingOpen && Boolean(sceneBriefing);
   const entryOverlayOpen = voice.open || sceneOverlayOpen;
   useEffect(() => {
     if (!sceneOverlayOpen || (mirror && workplace)) return undefined;
@@ -187,7 +186,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
     return startTurnSpeech({
       text,
       voice: femaleVoice ? "female" : "male",
-      serverTtsReady: femaleVoice && aiHealth?.tts_female === "iris",
+      serverTtsReady: femaleVoice && ["iris", "elevenlabs"].includes(aiHealth?.tts_female),
       onSpeakingChange: (speaking) => {
         aiSpeechActiveRef.current = speaking;
         if (speaking) stopBrowserRecognition();
@@ -213,16 +212,13 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   const pushFeed = (text) => setFeed((prev) => [...prev.slice(-4), { id: (feedIdRef.current += 1), time: wallClock(), text }]);
   const {
     listening, interim, setInterim, micEnabled, setMicEnabled, sttMode,
-    clearAutoSubmit, stopBrowserRecognition, resumeBrowserRecognition, getSttSource, resetSttUsage,
+    clearAutoSubmit, stopBrowserRecognition, resumeBrowserRecognition, retryBrowserRecognition, recognitionError, getSttSource, resetSttUsage,
   } = usePracticeTranscription({
     draft, setDraft, mediaStream, turn, busy, paused: paused || voice.textOnly, aiSpeaking, aiSpeechActiveRef, entryOverlayOpen,
     pushFeed, onAutoSubmit: () => submitDraftRef.current?.(),
   });
-  const [liveAssessment, setLiveAssessment] = useState(null);
-  useEffect(() => { setLiveAssessment(null); }, [turn?.id]);
   const liveTip = useLiveCoaching({ session, turnId: turn?.id,
     active: (mirror || (listening && !aiSpeaking)) && !busy && !paused && !entryOverlayOpen,
-    onObservation: setLiveAssessment,
     sample: () => ({ text: `${draft} ${interim}`.trim().slice(0, 4000), sttSource: "webspeech",
       durationMs: Math.max(0, Math.round(performance.now() - recordingStartedAtRef.current)),
       nonverbal: track.peekTurnStats?.() || null }),
@@ -480,7 +476,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
         nonverbal: buildNonverbal(),
       });
       if (accepted === false) {
-        // 인식/생성 실패는 같은 턴에서 새 음성을 받는다.
+        // 인식/생성 실패는 같은 턴에서 새 음성을 받는다. 이전 녹음은 재사용하지 않는다.
         setRecordingAttempt(value => value + 1);
         resumeBrowserRecognition();
       }
@@ -498,15 +494,13 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   };
 
   if (mirror && workplace) return <>
-    <WorkplaceMirrorSceneSimulation speechPlayback={speechPlayback} dialogue={turnSpeech || "다음 대화를 준비하고 있어요."} userPreview={<div className="simulation-user-preview" aria-label="내 카메라와 실시간 추적"><video ref={analysisVideoRef} autoPlay muted playsInline aria-label="내 카메라" /><canvas ref={overlayRef} aria-hidden="true" />{!hasCamera && <span>카메라 꺼짐</span>}</div>} category={sceneBriefing?.category_id} characterId={character?.id} name={characterName} videoState={teamLeadVideoState} paused={paused || entryOverlayOpen} dialogueHidden={entryOverlayOpen} onReactionComplete={() => setTeamLeadReaction("")} waveRef={waveRef} captureStatus={{ recording: audioRecording && hasMicrophone && !captureError, audioError: Boolean(captureError), cameraReady: hasCamera && track.status === "ready", cameraStarting: hasCamera && track.status === "loading", cameraError: track.status === "failed" }}>
-      {!entryOverlayOpen && inputStatus.title === "직접 입력" && <p className="simulation-dialogue-status" role="status">음성 인식에 실패했어요. 다시 실행해 주세요.</p>}
-      {liveAssessment?.live_score?.total != null && <p className="simulation-dialogue-status" role="status">참고 점수 {liveAssessment.live_score.total} · {{ serious: "심각한 대화", technical: "업무 설명", supportive: "지원 대화", casual: "일상 대화", neutral: "기본 기준" }[liveAssessment.context_policy?.kind] || "기본 기준"} · 검증 전</p>}
+    <WorkplaceMirrorSceneSimulation speechPlayback={speechPlayback} dialogue={turnSpeech || "다음 대화를 준비하고 있어요."} userPreview={<div className="simulation-user-preview" data-pose-status={track.status} data-pose-tracked={track.poseTracked} data-pose-calibrating={track.calibrating} aria-label="내 카메라와 실시간 추적"><video ref={analysisVideoRef} autoPlay muted playsInline aria-label="내 카메라" /><canvas ref={overlayRef} aria-hidden="true" />{!hasCamera && <span>카메라 꺼짐</span>}</div>} category={sceneBriefing?.category_id} characterId={character?.id} name={characterName} videoState={teamLeadVideoState} paused={paused || entryOverlayOpen} dialogueHidden={entryOverlayOpen} onReactionComplete={() => setTeamLeadReaction("")} waveRef={waveRef} captureStatus={{ recording: audioRecording && hasMicrophone && !captureError, audioError: Boolean(captureError), cameraReady: hasCamera && track.status === "ready", cameraStarting: hasCamera && track.status === "loading", cameraError: track.status === "failed" }}>
+      {!entryOverlayOpen && inputStatus.title === "직접 입력" && <p className="simulation-dialogue-status" role="status">{recognitionError === "unsupported" ? "Chrome에서 음성 인식을 실행해 주세요." : <span role="button" tabIndex={0} onClick={retryBrowserRecognition} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); retryBrowserRecognition(); } }}>음성 인식을 다시 실행해 주세요.</span>}</p>}
       {!entryOverlayOpen && inputValue && <div className="simulation-answer"><p>{inputValue}</p></div>}
       {liveTip && <p className="simulation-dialogue-status" role="status"><strong>대화 팁 · </strong>{liveTip.message}</p>}
 
       {(error || captureError || mediaError) && <p className="simulation-dialogue-status" role="alert">{error || captureError || mediaError}</p>}
     </WorkplaceMirrorSceneSimulation>
-    {sceneOverlayOpen && <MirrorScenarioBriefing key={turn?.episode_id} briefing={sceneBriefing} onClose={() => setSceneBriefingOpen(false)} />}
     {voice.open && <MicrophoneCheck mirror automatic session={session} stream={mediaStream} onRequestMedia={onRequestMedia} onReady={voice.onReady} onTextOnly={voice.onTextOnly} />}
   </>;
 

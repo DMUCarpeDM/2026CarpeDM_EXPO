@@ -207,3 +207,24 @@ def test_noisy_calibration_is_retained_for_entry_without_trusted_reference(monke
         assert baseline["can_proceed"] is True
         assert baseline["status"] == "uncertain"
         assert baseline["reference_rms"] is None
+
+
+def test_new_session_uses_standard_baseline_without_recording(ready_ollama):
+    data, _ = start(TestClient(app))
+    with SessionLocal() as db:
+        state = voice_analysis.public_state(db.get(RoleplaySession, data['id']))
+        assert state['calibration_required'] is False
+        assert state['calibration']['can_proceed'] is True
+        assert state['calibration']['source'] == 'standard'
+        assert state['calibration']['reference_rms'] is None
+
+
+def test_standard_baseline_does_not_invent_personal_volume(tmp_path, monkeypatch):
+    path = tmp_path / 'speech.wav'
+    path.write_bytes(wav())
+    monkeypatch.setattr(engine, 'speech_segments', lambda *args: [(0., 2.)])
+    baseline = voice_analysis.standard_session_state()['voice_calibrations']['standard-v1']
+    result = engine.analyze(str(path), calibration=baseline, references=False)
+    assert result['volume']['reason'] == 'personal_reference_unavailable'
+    assert result['volume']['relative_db'] is None
+    assert result['pauses']['status'] == 'measured'

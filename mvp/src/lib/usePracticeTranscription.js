@@ -16,6 +16,8 @@ export function usePracticeTranscription({
   const [interim, setInterim] = useState("");
   const [micEnabled, setMicEnabled] = useState(true);
   const [webSpeechFailed, setWebSpeechFailed] = useState(false);
+  const [recognitionError, setRecognitionError] = useState(null);
+  const networkRetriesRef = useRef(0);
   const recognitionRef = useRef(null);
   const sttActiveRef = useRef(false);
   const sttUsedRef = useRef(false); // 이번 턴 답변에 음성 인식이 쓰였는지 (stt_source 판별)
@@ -45,6 +47,8 @@ export function usePracticeTranscription({
   useEffect(() => {
     const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!shouldListen || aiSpeechActiveRef?.current) return undefined;
+    let retryTimer;
+    let retryPending = false;
     const recognition = new SpeechRecognitionImpl();
     recognition.lang = "ko-KR";
     recognition.continuous = true;
@@ -52,6 +56,8 @@ export function usePracticeTranscription({
     const isCurrent = () => allowedRef.current && !aiSpeechActiveRef?.current && sttActiveRef.current && recognitionRef.current === recognition;
     recognition.onresult = (event) => {
       if (!isCurrent()) return;
+      networkRetriesRef.current = 0;
+      setRecognitionError(null);
       let interimText = "";
       let receivedFinal = false;
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
@@ -71,7 +77,7 @@ export function usePracticeTranscription({
     };
     recognition.onstart = () => { if (isCurrent()) setListening(true); };
     recognition.onend = () => {
-      if (!isCurrent()) return;
+      if (!isCurrent() || retryPending) return;
       setListening(false);
       setInterim("");
       // 침묵으로 인식이 끊기면 다시 듣는다 (턴이 살아있는 동안)
@@ -79,18 +85,31 @@ export function usePracticeTranscription({
     };
     recognition.onerror = (event) => {
       if (!isCurrent()) return;
-      // 인식 실패 시 직접 입력으로 전환한다. 녹음은 최종 간투어 분석에 사용한다.
+      console.warn("[speech-recognition]", event.error);
+      if (event.error === "network" && networkRetriesRef.current < 3) {
+        retryPending = true;
+        setListening(false);
+        clearAutoSubmit();
+        const delay = 1000 * 2 ** networkRetriesRef.current++;
+        retryTimer = window.setTimeout(() => {
+          if (isCurrent()) setRecognitionEpoch(epoch => epoch + 1);
+        }, delay);
+        return;
+      }
       if (["not-allowed", "service-not-allowed", "network", "audio-capture"].includes(event.error)) {
         sttActiveRef.current = false;
         clearAutoSubmit();
+        setListening(false);
+        setRecognitionError(event.error);
         setWebSpeechFailed(true);
-        pushFeed("Chrome 음성 인식을 사용할 수 없어 직접 입력으로 전환했어요.");
+        pushFeed("음성 인식이 중단됐어요. 다시 실행해 주세요.");
       }
     };
     recognitionRef.current = recognition;
     sttActiveRef.current = true;
     try { recognition.start(); } catch { /* 중복 시작 무시 */ }
     return () => {
+      window.clearTimeout(retryTimer);
       sttActiveRef.current = false;
       recognition.onresult = recognition.onstart = recognition.onend = recognition.onerror = null;
       if (recognitionRef.current === recognition) recognitionRef.current = null;
@@ -113,12 +132,12 @@ export function usePracticeTranscription({
     setInterim("");
   };
   const resumeBrowserRecognition = () => setRecognitionEpoch(epoch => epoch + 1);
-  const retryBrowserRecognition = () => { setWebSpeechFailed(false); setMicEnabled(true); setRecognitionEpoch(epoch => epoch + 1); };
+  const retryBrowserRecognition = () => { networkRetriesRef.current = 0; setRecognitionError(null); setWebSpeechFailed(false); setMicEnabled(true); setRecognitionEpoch(epoch => epoch + 1); };
   const getSttSource = () => sttUsedRef.current ? "webspeech" : "text";
   const resetSttUsage = () => { sttUsedRef.current = false; };
 
   return {
-    listening, interim, setInterim, micEnabled, setMicEnabled, sttMode,
+    listening, interim, setInterim, micEnabled, setMicEnabled, sttMode, recognitionError: sttSupported ? recognitionError : "unsupported",
     clearAutoSubmit, stopBrowserRecognition, resumeBrowserRecognition, retryBrowserRecognition, getSttSource, resetSttUsage,
   };
 }

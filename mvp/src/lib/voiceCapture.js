@@ -20,6 +20,7 @@ export function sameCapture(baseline, current) {
 }
 
 export const voiceReason = (reason) => ({
+  personal_reference_unavailable: "공통 설정으로 분석했어요. 개인 기준 성량 비교는 생략해요.",
   calibration_required: "마이크 확인이 필요해요.",
   capture_changed: "마이크 연결이나 설정이 바뀌었어요. 다시 확인해 주세요.",
   automatic_gain_unverified: "마이크 자동 음량 조절을 끄거나 다른 마이크를 선택해 주세요.",
@@ -41,7 +42,7 @@ export const voiceReason = (reason) => ({
 
 // Noisy speech can start practice without becoming a trusted volume reference.
 export function calibrationAllowsPractice(calibration) {
-  return calibration?.status === "measured" || Boolean(calibration?.can_proceed
+  return calibration?.status === "standard" || calibration?.status === "measured" || Boolean(calibration?.can_proceed
     && calibration.status === "uncertain"
     && ["background_noise", "speech_in_noise_sample"].includes(calibration.reason));
 }

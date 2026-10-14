@@ -1,9 +1,9 @@
+import { playPcmSpeechStream } from "./pcmSpeechStream.js";
 import { synthesizeSpeech } from "./pocApi.js";
 
 // 반환한 정리 함수는 질문 변경·일시정지·화면 이탈 시 호출한다.
 export function startTurnSpeech({ text, voice = "female", serverTtsReady, onSpeakingChange, onFinish, onNote, onProgress }) {
-  // UI/테스트의 질문 라벨은 실제 상대 대사가 아니다.
-  if (!text?.trim() || /^질문(?:\s*\d+)?[.!?]?$/u.test(text.trim())) {
+  if (!text?.trim()) {
     onSpeakingChange(false);
     onProgress?.({ text, status: "ended", charIndex: text?.length || 0 });
     onFinish();
@@ -85,8 +85,20 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, onSpea
     }
   };
   const playServerSpeech = async () => {
+    let streamStarted = false;
     try {
-      const blob = await synthesizeSpeech(text, voice, speechRequest.signal);
+      const response = await synthesizeSpeech(text, voice, speechRequest.signal, true);
+      if (cancelled) return;
+      if (response.headers?.get("content-type")?.includes("audio/pcm")) {
+        await playPcmSpeechStream(response, {
+          signal: speechRequest.signal, textLength: text.length,
+          onStart: () => { streamStarted = true; onSpeakingChange(true); report("playing"); onNote("AI 음성 스트리밍 재생 시작"); },
+          onProgress: index => report("playing", index),
+        });
+        finishSpeaking();
+        return;
+      }
+      const blob = await response.blob();
       if (cancelled) return;
       audioUrl = URL.createObjectURL(blob);
       audio = new Audio(audioUrl);
@@ -118,6 +130,11 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, onSpea
       await audio.play();
     } catch {
       if (!cancelled) {
+        if (streamStarted) {
+          onNote("음성 연결이 끊겼어요. 남은 내용은 자막으로 확인해 주세요.");
+          finishSpeaking();
+          return;
+        }
         onNote("AI 음성 연결이 안 돼 브라우저 음성으로 전환해요");
         startBrowserSpeech();
       }

@@ -24,75 +24,22 @@ async function open(t, query, options = {}) {
   return page;
 }
 
-test("reduced motion preserves mirror autoplay, explicit pause and resume", { timeout: 30000 }, async t => {
-  const page = await open(t, "src/features/smart-mirror/previews/flow/index.html?backdrop=city", { reducedMotion: "reduce" });
-  await page.locator('.mirror-overview[data-scene="0"]').waitFor();
-  await page.clock.fastForward(11000);
-  await page.locator('.mirror-overview[data-scene="1"]').waitFor();
-  await page.getByRole("button", { name: "자동 안내 일시정지" }).click();
-  await page.clock.fastForward(30000);
-  assert.equal(await page.locator('.mirror-overview[data-scene="1"]').count(), 1);
-  await page.getByRole("button", { name: "자동 안내 재개" }).click();
-  await page.clock.fastForward(10000);
-  await page.locator('.mirror-overview[data-scene="2"]').waitFor();
-  const matrix = await page.locator(".overview-art img").last().evaluate(el => getComputedStyle(el).transform);
-  assert.ok(matrix === "none" || matrix === "matrix(1, 0, 0, 1, 0, 0)", "reduced scene changes do not translate the illustration");
-});
-
-test("4K glass modal uses a short entrance and an opacity-only reduced alternative", { timeout: 30000 }, async t => {
-  for (const reducedMotion of ["no-preference", "reduce"]) {
-    const page = await open(t, "src/features/smart-mirror/previews/simulation/4k.html?scene=work&modal=preview", { reducedMotion });
-    const frame = await (await page.locator("iframe").elementHandle()).contentFrame();
-    const card = frame.getByRole("dialog").locator(".overview-summary-card");
-    await card.waitFor();
-    const motion = await card.evaluate(el => ({
-      name: getComputedStyle(el).animationName,
-      duration: getComputedStyle(el).animationDuration,
-      frames: el.getAnimations().flatMap(animation => animation.effect.getKeyframes()),
-    }));
-    assert.equal(motion.name, reducedMotion === "reduce" ? "mirror-modal-fade" : "mirror-modal-enter");
-    assert.equal(motion.duration, reducedMotion === "reduce" ? "0.15s" : "0.22s");
-    if (reducedMotion === "reduce") assert.equal(motion.frames.some(frame => "transform" in frame), false);
-    assert.equal(await frame.locator(".simulation-dialogue").count(), 0);
-    assert.equal(await frame.locator(".mirror-briefing-tip").count(), 0);
-    const countdown = await frame.locator(".mirror-countdown-track i").evaluate(element => {
-      const animation = element.getAnimations()[0];
-      if (!animation) return null;
-      animation.pause();
-      animation.currentTime = 2500;
-      return { duration: animation.effect.getTiming().duration, easing: animation.effect.getTiming().easing, transform: getComputedStyle(element).transform };
-    });
-    if (reducedMotion === "reduce") assert.equal(countdown, null);
-    else {
-      assert.equal(countdown.duration, 5000);
-      assert.equal(countdown.easing, "linear");
-      assert.equal(countdown.transform, "matrix(0.5, 0, 0, 1, 0, 0)");
-    }
-  }
-});
-
-test("overview transitions never overlap character scenes and settle after rapid navigation", { timeout: 30000 }, async t => {
-  // Real frames verify the exit/enter boundary; timer-driven tests use the virtual clock.
-  const page = await open(t, "src/features/smart-mirror/previews/flow/index.html?backdrop=city", { reducedMotion: "no-preference", controlClock: false });
+test("overview remains static while paused and resumes the short countdown", { timeout: 30000 }, async t => {
+  const page = await open(t, "src/features/smart-mirror/previews/flow/index.html", { reducedMotion: "reduce" });
   await page.locator(".mirror-overview").waitFor();
   await page.getByRole("button", { name: "자동 안내 일시정지" }).click();
-  await page.getByRole("button", { name: "다음 장면", exact: true }).click();
-  for (let i = 0; i < 10; i += 1) {
-    await page.waitForTimeout(30);
-    assert.equal(await page.locator(".overview-art img").count(), 1, "outgoing and incoming people never render together");
-  }
-  await page.getByRole("button", { name: "다음 장면", exact: true }).click();
-  await page.getByRole("button", { name: "이전 장면", exact: true }).click();
-  await page.waitForTimeout(120);
-  await page.waitForFunction(() => {
-    const image = document.querySelector(".overview-art img");
-    return image?.alt === "책상 앞에서 업무를 확인하는 두 사람" && getComputedStyle(image).opacity === "1";
-  });
-  assert.equal(await page.locator(".overview-art img").count(), 1);
-  assert.equal(await page.locator(".overview-art img").getAttribute("alt"), "책상 앞에서 업무를 확인하는 두 사람");
-  assert.equal(await page.locator(".overview-art img").evaluate(el => getComputedStyle(el).opacity), "1");
+  const progress = page.getByRole("progressbar", { name: "대화 시작까지 진행" });
+  const pausedValue = await progress.getAttribute("aria-valuenow");
+  await page.clock.fastForward(30000);
+  assert.equal(await progress.getAttribute("aria-valuenow"), pausedValue);
+  assert.equal(await page.locator(".mirror-overview").count(), 1);
+  assert.equal(await page.locator(".overview-steps").count(), 0);
+  assert.equal(await page.locator(".overview-art img").evaluate(el => el.getAnimations().length), 0);
+  await page.getByRole("button", { name: "자동 안내 재개" }).click();
+  await page.clock.fastForward(5100);
+  await page.getByRole("region", { name: "직장 대화 시뮬레이션", exact: true }).waitFor();
+  assert.equal(await page.getByRole("dialog").count(), 0);
 });
-
 test("keyboard kiosk changes are immediate and repeated changes leave one stage", { timeout: 30000 }, async t => {
   const page = await open(t, "?service=workplace&kiosk=issue", { reducedMotion: "no-preference" });
   await page.locator('.kiosk-issue-screen[data-stage="select"]').waitFor();

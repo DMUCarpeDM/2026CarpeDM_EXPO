@@ -173,19 +173,16 @@ test("welcome video starts an actual session without a test query or separate co
 });
 
 
-test("mirror session shows a separate situation popup before recording starts", { timeout: 45000 }, async t => {
+test("mirror session skips situation popups and immediately starts dialogue", { timeout: 45000 }, async t => {
   const { page } = await open(t, { external: false, briefing: true });
   await page.clock.fastForward(34000);
-  await page.getByRole("dialog", { name: "출근 대화 미리보기" }).waitFor();
-  assert.equal(await page.locator(".simulation-card-slot").count(), 0);
-  assert.equal(await page.locator('.mirror-capture-audio[data-active="true"]').count(), 0);
-  await page.clock.fastForward(13000);
-  await page.getByRole("dialog", { name: "출근 대화 미리보기" }).waitFor({ state: "hidden" });
+  await page.getByRole("region", { name: "직장 대화 시뮬레이션", exact: true }).waitFor();
+  assert.equal(await page.getByRole("dialog").count(), 0);
   await page.getByText("음성 녹음 중", { exact: true }).waitFor();
   assert.equal(await page.locator(".simulation-card-slot").count(), 1);
 });
 
-test("4K mirror microphone popup uses glass, records automatically, and hides dialogue behind both popups", { timeout: 45000 }, async t => {
+test("4K mirror microphone popup uses glass, records automatically, and hides dialogue until calibration finishes", { timeout: 45000 }, async t => {
   const { page, calibrations } = await open(t, { external: false, briefing: true, voice: true });
   await page.setViewportSize({ width: 2160, height: 3840 });
   const errors = [];
@@ -221,10 +218,7 @@ test("4K mirror microphone popup uses glass, records automatically, and hides di
   const recordings = await page.evaluate(() => window.__recordings.slice(0, 2));
   assert.equal(Math.round(recordings[0].stop - recordings[0].start), 2000);
   assert.equal(Math.round(recordings[1].stop - recordings[1].start), 4000);
-  await page.getByRole("dialog", { name: "출근 대화 미리보기" }).waitFor();
-  assert.equal(await page.locator(".simulation-card-slot").count(), 0);
-  await page.clock.runFor(5100);
-  await page.getByRole("dialog").waitFor({ state: "hidden" });
+  assert.equal(await page.getByRole("dialog").count(), 0);
   assert.equal(await page.locator(".simulation-card-slot").count(), 1);
   await page.getByText("음성 녹음 중", { exact: true }).waitFor();
   assert.deepEqual(errors, []);
@@ -248,9 +242,7 @@ test("mirror microphone waits past 10 seconds until calibration succeeds", { tim
   assert.equal(await page.locator(".simulation-card-slot").count(), 0);
   await finishCalibration();
   await popup.waitFor({ state: "hidden" });
-  await page.getByRole("dialog", { name: "출근 대화 미리보기" }).waitFor();
-  await page.clock.runFor(5100);
-  await page.getByRole("dialog").waitFor({ state: "hidden" });
+  assert.equal(await page.getByRole("dialog").count(), 0);
   assert.equal(await page.getByText("목소리 기준 미확인 · 음성 입력은 계속돼요.", { exact: true }).count(), 0);
   await page.getByText("음성 녹음 중", { exact: true }).waitFor();
   assert.equal(await page.locator(".simulation-card-slot").count(), 1);

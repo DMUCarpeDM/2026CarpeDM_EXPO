@@ -37,33 +37,15 @@ test("overview shows one static scene, a top progress line and detailed copy for
   assert.equal(await still.locator(".overview-scene-badge").innerText(), "업무");
 });
 
-test("glass modal uses shared progress bar and closes automatically after five seconds", { timeout: 45000 }, async t => {
+test("all three simulation categories start without a briefing or countdown", { timeout: 45000 }, async t => {
   const { server, url } = await startVite();
   const browser = await chromium.launch({ channel: "chrome", headless: true });
   t.after(async () => { await browser.close(); await server.close(); });
-  const page = await browser.newPage({ viewport: { width: 1080, height: 1920 }, reducedMotion: "reduce" });
-  await page.clock.install();
+  const page = await browser.newPage({ viewport: { width: 1080, height: 1920 } });
   for (const scene of ["morning", "work", "leaving"]) {
-    await page.goto(`${url}src/features/smart-mirror/previews/simulation/4k.html?scene=${scene}&modal=preview`);
-    const frame = await (await page.locator("iframe").elementHandle()).contentFrame();
-    const dialog = frame.getByRole("dialog");
-    await dialog.waitFor();
-    await page.clock.fastForward(2000);
-    assert.equal(await dialog.isVisible(), true);
-    const progress = dialog.getByRole("progressbar");
-    assert.equal(await progress.getAttribute("aria-valuemax"), "5");
-    assert.equal(await progress.getAttribute("aria-valuenow"), "2");
-    assert.equal(await dialog.locator(".overview-summary-card").count(), 1);
-    assert.equal(await dialog.getAttribute("aria-describedby"), "mirror-briefing-description");
-    const style = await dialog.locator(".overview-summary-card").evaluate(el => ({ blur: getComputedStyle(el).backdropFilter, animation: getComputedStyle(el).animationName }));
-    assert.match(style.blur, /blur\(8px\)/);
-    assert.equal(style.animation, "mirror-modal-fade");
-    await page.keyboard.press("Escape");
-    assert.equal(await dialog.isVisible(), true);
-    await page.clock.fastForward(2000);
-    assert.equal(await dialog.isVisible(), true);
-    await page.clock.fastForward(1500);
-    await dialog.waitFor({ state: "hidden" });
-    await frame.getByRole("region", { name: "직장 대화 시뮬레이션", exact: true }).waitFor();
+    await page.goto(`${url}src/features/smart-mirror/previews/simulation/scene.html?scene=${scene}`);
+    await page.getByRole("region", { name: "직장 대화 시뮬레이션", exact: true }).waitFor();
+    assert.equal(await page.locator("dialog, .mirror-countdown-track").count(), 0);
+    assert.equal(await page.locator(".simulation-card-slot").count(), 1);
   }
 });

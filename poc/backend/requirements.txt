@@ -31,3 +31,6 @@ google-auth[requests]>=2.0,<3
 
 # Windows exhibition NFC readers use PC/SC instead of browser Web NFC.
 pyscard==2.3.1; sys_platform == "win32"
+
+# Eleven v4 Turbo dialogue streaming
+websockets>=14,<17

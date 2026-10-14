@@ -35,6 +35,7 @@ def test_elevenlabs_tts_returns_mp3_bytes_when_configured(monkeypatch):
 
 
 def test_tts_endpoint_without_voice_uses_iris(monkeypatch):
+    monkeypatch.setattr(settings, "tts_provider", "iris")
     monkeypatch.setattr("app.api.tts.synthesize_iris", lambda _text: b"RIFFiris")
 
     response = TestClient(app).post("/api/tts", json={"text": "안녕하세요."})
@@ -45,6 +46,7 @@ def test_tts_endpoint_without_voice_uses_iris(monkeypatch):
 
 
 def test_female_tts_uses_iris_without_elevenlabs(monkeypatch):
+    monkeypatch.setattr(settings, "tts_provider", "iris")
     monkeypatch.setattr("app.api.tts.synthesize_iris", lambda _text: b"RIFFiris")
 
     def unexpected_elevenlabs(_text):
