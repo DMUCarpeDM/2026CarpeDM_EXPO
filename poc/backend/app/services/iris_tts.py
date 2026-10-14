@@ -4,6 +4,7 @@ import hashlib
 import io
 import wave
 import time
+from functools import lru_cache
 from pathlib import Path
 
 import httpx
@@ -82,6 +83,33 @@ def with_playback_tail(data: bytes) -> bytes:
 
 
 def synthesize_iris(text: str) -> bytes:
+    return _synthesize_cached(text.strip())
+
+
+async def stream_iris(text: str):
+    """Yield each sentence as 24-kHz PCM before waiting for the next sentence."""
+    import math
+    import re
+    import numpy as np
+    from scipy.signal import resample_poly
+    from fastapi.concurrency import run_in_threadpool
+    sentences = re.findall(r'.+?(?:[.!?。！？]+(?=\s|$)|$)', text.strip())
+    for sentence in sentences:
+        data = await run_in_threadpool(synthesize_iris, sentence.strip())
+        with wave.open(io.BytesIO(data), 'rb') as audio:
+            rate, channels, width = audio.getframerate(), audio.getnchannels(), audio.getsampwidth()
+            if width != 2:
+                raise SpeechSynthesisError('Iris PCM 형식이 올바르지 않습니다')
+            samples = np.frombuffer(audio.readframes(audio.getnframes()), dtype='<i2').astype(np.float64)
+        samples = samples.reshape(-1, channels).mean(axis=1)
+        if rate != 24000:
+            divisor = math.gcd(rate, 24000)
+            samples = resample_poly(samples, 24000 // divisor, rate // divisor)
+        yield np.clip(np.rint(samples), -32768, 32767).astype('<i2').tobytes()
+
+
+@lru_cache(maxsize=128)
+def _synthesize_cached(text: str) -> bytes:
     """빈 voice_prompt_hash로 아이리스 프로필(톤 자동) 합성을 요청하고 wav를 읽는다."""
     spoken = text.strip()
     if not spoken:

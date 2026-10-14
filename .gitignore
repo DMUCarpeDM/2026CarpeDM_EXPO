@@ -1,4 +1,7 @@
 .DS_Store
+.local-setup/
+poc/backend/.venv/
+mvp/vite-dev*.log
 .env
 poc/backend/.env
 poc/backend/models/response_e5_v1/

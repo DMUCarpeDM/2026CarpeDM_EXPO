@@ -116,9 +116,21 @@ def _measure(path, session_id, turn_id, baseline, source, references):
     # 보정은 상대 크기에만 필요하다. 속도·멈춤·참고값의 독립 측정은 유지한다.
     # Reject corrupt/oversized decoded audio before STT can spend time on it.
     try:
-        engine.load_audio(path)
+        samples, rate, _ = engine.load_audio(path)
     except Exception:
         return engine.analyze(path, session_id=session_id, turn_id=turn_id, references=False), None, None
+    segments = engine._subtract(engine.speech_segments(samples, rate), source.get("excluded_intervals", ()))
+    if not segments:
+        result = engine.analyze(path, session_id=session_id, turn_id=turn_id,
+            calibration=baseline, capture=source.get("capture"), excluded=source.get("excluded_intervals", ()), references=False)
+        return result, None, {"status_code": 200, "latency_ms": 0, "error_message": "", "skipped": "no_user_speech"}
+    # Preserve small pauses and filler sounds, but exclude AI audio and long silence.
+    regions = []
+    for start, end in segments:
+        if regions and start - regions[-1][1] <= 1.0:
+            regions[-1][1] = end
+        else:
+            regions.append([start, end])
     words = None
     stt_log = None
     try:
@@ -126,7 +138,7 @@ def _measure(path, session_id, turn_id, baseline, source, references):
         if provider:
             started = time.perf_counter()
             try:
-                words = provider.transcribe_words(path)
+                words = provider.transcribe_regions(path, regions) if hasattr(provider, "transcribe_regions") else provider.transcribe_words(path)
                 stt_log = {
                     "latency_ms": round((time.perf_counter() - started) * 1000),
                     "status_code": 200,

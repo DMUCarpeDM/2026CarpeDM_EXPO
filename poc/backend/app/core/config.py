@@ -38,8 +38,7 @@ class Settings(BaseSettings):
     # Chrome은 실시간 자막, Whisper는 녹음 후 간투어 전사에만 사용한다.
     stt_whisper_model: str = "./whisper-models/small"
     stt_filler_prompt: str = (
-        "말한 그대로 받아쓴 대화입니다. 간투어와 반복도 포함합니다. "
-        "어, 저는 음, 이번 일을 해 봤는데요. 어, 어, 잠시 생각해 볼게요."
+        "한국어 일상 대화입니다. 실제로 들린 말만 받아쓰며, 들리지 않은 내용은 추가하지 않습니다."
     )
 
     # 기존 OpenAI 설정을 유지하며 Gemini는 명시적으로 선택한다.

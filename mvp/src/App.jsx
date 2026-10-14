@@ -1,3 +1,4 @@
+import { RAW_MIC_SETTINGS, preferredUsbMicrophone, microphoneConstraints } from "./lib/microphoneInput";
 import { isMirrorDeployment } from "./features/smart-mirror/lib/workplaceMirrorTimeline";
 import { useEffect, useRef, useState } from "react";
 import { counterpartProfiles, difficulties, getRoleScenarioOptions } from "./data/setupCatalog";
@@ -83,7 +84,9 @@ export default function App() {
       return mediaStream;
     }
     const savedMic = localStorage.getItem("mirror-ting-mic-device");
-    const audioConstraint = { autoGainControl: false, noiseSuppression: false, echoCancellation: true, ...(savedMic ? { deviceId: { ideal: savedMic } } : {}) };
+    const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+    const preferred = preferredUsbMicrophone(devices);
+    const audioConstraint = microphoneConstraints(preferred, savedMic);
     let stream = null;
     let lastError = null;
     try {
@@ -96,6 +99,14 @@ export default function App() {
       try { parts.push(await navigator.mediaDevices.getUserMedia({ audio: audioConstraint })); } catch (audioError) { if (!parts.length) lastError = audioError; }
       const tracks = parts.flatMap((part) => part.getTracks());
       if (tracks.length) stream = new MediaStream(tracks);
+    }
+    if (alive(stream, "getAudioTracks") && epoch === visitorEpochRef.current) {
+      const usb = preferred || preferredUsbMicrophone(await navigator.mediaDevices.enumerateDevices().catch(() => []));
+      if (usb && stream.getAudioTracks()[0].getSettings().deviceId !== usb.deviceId) {
+        const selected = await navigator.mediaDevices.getUserMedia({ audio: microphoneConstraints(usb) });
+        stream.getAudioTracks().forEach(track => { track.stop(); stream.removeTrack(track); });
+        selected.getAudioTracks().forEach(track => stream.addTrack(track));
+      }
     }
     const camera = alive(stream, "getVideoTracks");
     const microphone = alive(stream, "getAudioTracks");
@@ -204,7 +215,7 @@ export default function App() {
 
   const switchMicDevice = async (deviceId) => {
     const epoch = visitorEpochRef.current;
-    const fresh = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: deviceId }, autoGainControl: false, noiseSuppression: false, echoCancellation: true } });
+    const fresh = await navigator.mediaDevices.getUserMedia({ audio: { ...RAW_MIC_SETTINGS, deviceId: { exact: deviceId } } });
     if (epoch !== visitorEpochRef.current) {
       fresh.getTracks().forEach((track) => track.stop());
       throw new DOMException("방문자가 변경되었습니다", "AbortError");

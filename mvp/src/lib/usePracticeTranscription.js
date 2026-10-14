@@ -50,6 +50,8 @@ export function usePracticeTranscription({
     let retryTimer;
     let retryPending = false;
     const recognition = new SpeechRecognitionImpl();
+    const audioTrack = mediaStream?.getAudioTracks?.().find(track => track.readyState === "live");
+    const startRecognition = () => audioTrack ? recognition.start(audioTrack) : recognition.start();
     recognition.lang = "ko-KR";
     recognition.continuous = true;
     recognition.interimResults = true;
@@ -81,7 +83,7 @@ export function usePracticeTranscription({
       setListening(false);
       setInterim("");
       // 침묵으로 인식이 끊기면 다시 듣는다 (턴이 살아있는 동안)
-      if (isCurrent()) { try { recognition.start(); } catch { /* 이미 시작됨 */ } }
+      if (isCurrent()) { try { startRecognition(); } catch { /* 이미 시작됨 */ } }
     };
     recognition.onerror = (event) => {
       if (!isCurrent()) return;
@@ -107,7 +109,7 @@ export function usePracticeTranscription({
     };
     recognitionRef.current = recognition;
     sttActiveRef.current = true;
-    try { recognition.start(); } catch { /* 중복 시작 무시 */ }
+    try { startRecognition(); } catch { /* 중복 시작 무시 */ }
     return () => {
       window.clearTimeout(retryTimer);
       sttActiveRef.current = false;

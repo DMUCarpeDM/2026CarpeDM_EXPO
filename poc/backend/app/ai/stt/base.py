@@ -53,6 +53,7 @@ class WhisperProvider:
         self._model = WhisperModel(
             str(local_dir) if local_dir else str(configured),
             device="cpu", compute_type="int8",
+            cpu_threads=4, num_workers=1,
         )
 
     def transcribe_words(self, audio_path: str) -> list[dict]:
@@ -63,9 +64,12 @@ class WhisperProvider:
         # 짧은 간투어를 자르지 않도록 발화 구간별 VAD는 적용하지 않는다.
         if not audio.size or np.max(np.abs(audio)) < 1e-5:
             return []
+        return self._transcribe_audio(audio)
+
+    def _transcribe_audio(self, audio):
         segments, _info = self._model.transcribe(
             audio, language="ko", word_timestamps=True,
-            beam_size=5, condition_on_previous_text=False,
+            beam_size=3, temperature=0, condition_on_previous_text=False,
             initial_prompt=settings.stt_filler_prompt,
         )
         return [
@@ -74,6 +78,20 @@ class WhisperProvider:
             for seg in segments for w in (seg.words or [])
             if w.word.strip()
         ]
+
+    def transcribe_regions(self, audio_path: str, regions) -> list[dict]:
+        """Decode only user-speech windows, keeping original recording timestamps."""
+        from faster_whisper.audio import decode_audio
+        audio = decode_audio(audio_path, sampling_rate=16000)
+        words = []
+        for start, end in regions:
+            left, right = max(0, round(start * 16000)), min(len(audio), round(end * 16000))
+            if right <= left:
+                continue
+            for word in self._transcribe_audio(audio[left:right]):
+                words.append({**word, "start": word["start"] + left / 16000,
+                              "end": word["end"] + left / 16000})
+        return words
 
 
 @lru_cache(maxsize=1)
