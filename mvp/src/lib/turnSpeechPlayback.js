@@ -2,7 +2,7 @@ import { playPcmSpeechStream } from "./pcmSpeechStream.js";
 import { synthesizeSpeech } from "./pocApi.js";
 
 // 반환한 정리 함수는 질문 변경·일시정지·화면 이탈 시 호출한다.
-export function startTurnSpeech({ text, voice = "female", serverTtsReady, onSpeakingChange, onFinish, onNote, onProgress }) {
+export function startTurnSpeech({ text, voice = "female", serverTtsReady, preparedAudioUrl, onSpeakingChange, onFinish, onNote, onProgress }) {
   if (!text?.trim()) {
     onSpeakingChange(false);
     onProgress?.({ text, status: "ended", charIndex: text?.length || 0 });
@@ -87,9 +87,9 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, onSpea
   const playServerSpeech = async () => {
     let streamStarted = false;
     try {
-      const response = await synthesizeSpeech(text, voice, speechRequest.signal, true);
+      const response = preparedAudioUrl ? null : await synthesizeSpeech(text, voice, speechRequest.signal, true);
       if (cancelled) return;
-      if (response.headers?.get("content-type")?.includes("audio/pcm")) {
+      if (response?.headers?.get("content-type")?.includes("audio/pcm")) {
         await playPcmSpeechStream(response, {
           signal: speechRequest.signal, textLength: text.length,
           onStart: () => { streamStarted = true; onSpeakingChange(true); report("playing"); onNote("AI 음성 스트리밍 재생 시작"); },
@@ -98,10 +98,12 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, onSpea
         finishSpeaking();
         return;
       }
-      const blob = await response.blob();
-      if (cancelled) return;
-      audioUrl = URL.createObjectURL(blob);
-      audio = new Audio(audioUrl);
+      if (response) {
+        const blob = await response.blob();
+        if (cancelled) return;
+        audioUrl = URL.createObjectURL(blob);
+      }
+      audio = new Audio(preparedAudioUrl || audioUrl);
       let playbackStarted = false;
       const updateProgress = () => {
         if (!playbackStarted) return;
@@ -144,7 +146,7 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, onSpea
   onSpeakingChange(true);
   report("waiting");
   synth?.cancel();
-  if (serverTtsReady) {
+  if (preparedAudioUrl || serverTtsReady) {
     void playServerSpeech();
   } else {
     startBrowserSpeech();

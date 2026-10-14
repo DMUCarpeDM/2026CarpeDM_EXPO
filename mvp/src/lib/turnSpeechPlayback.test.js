@@ -63,9 +63,9 @@ function playbackEnvironment(t) {
       timers.clear();
       callbacks.forEach((callback) => callback());
     },
-    start(serverTtsReady = false, text = "안녕하세요.") {
+    start(serverTtsReady = false, text = "안녕하세요.", preparedAudioUrl) {
       const stop = startTurnSpeech({
-        text, serverTtsReady,
+        text, serverTtsReady, preparedAudioUrl,
         onSpeakingChange: (value) => speaking.push(value),
         onFinish: () => { finished++; },
         onNote: (note) => notes.push(note),
@@ -199,4 +199,21 @@ test("cancelling aborts a pending Iris request without browser fallback", async 
   assert.equal(signal.aborted, true);
   assert.equal(env.utterances.length, 0);
   assert.equal(env.finished, 0);
+});
+
+test("prepared opening plays file without live TTS and follows playback clock", async (t) => {
+  const env = playbackEnvironment(t);
+  const fetch = t.mock.method(globalThis, "fetch", () => { throw new Error("Unexpected live TTS"); });
+  const stop = env.start(true, "첫 질문입니다.", "/audio/workplace-openings/scenario-2.mp3");
+  await flushAsync();
+  assert.equal(fetch.mock.callCount(), 0);
+  const audio = env.audioPlayers[0];
+  assert.equal(audio.url, "/audio/workplace-openings/scenario-2.mp3");
+  audio.duration = 4; audio.currentTime = 2; audio.onplaying();
+  assert.equal(env.progress.at(-1).charIndex, 4);
+  audio.onended();
+  assert.equal(env.finished, 1);
+  assert.equal(env.utterances.length, 0);
+  stop();
+  assert.equal(audio.pause.mock.callCount(), 1);
 });

@@ -16,6 +16,7 @@ import { useVoiceCalibration } from "../lib/useVoiceCalibration";
 import { captureSettings, sameCapture } from "../lib/voiceCapture";
 import { MicrophoneCheck } from "../components/practice/MicrophoneCheck";
 import { blobToWav } from "../lib/audioWav";
+import preparedWorkplaceSpeech from "../lib/preparedWorkplaceSpeech.json";
 import { startTurnSpeech } from "../lib/turnSpeechPlayback";
 import { usePracticeTranscription } from "../lib/usePracticeTranscription";
 import { useLiveCoaching } from "../lib/useLiveCoaching";
@@ -179,25 +180,33 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
     ttsNotesRef.current.add(msg);
     pushFeed(msg);
   };
+  const completedSpeechRef = useRef(null);
+  const speechHealthRef = useRef(aiHealth?.tts_female);
+  speechHealthRef.current = aiHealth?.tts_female;
   useEffect(() => {
     const text = turnSpeech;
+    const speechKey = `${turn?.id}:${text}`;
+    if (completedSpeechRef.current === speechKey) return undefined;
     if (!text || paused || entryOverlayOpen) return undefined;
     const femaleVoice = (mirror && workplace) || character?.voice_gender === "female";
     return startTurnSpeech({
       text,
+      preparedAudioUrl: mirror && workplace && history.length === 0
+        ? preparedWorkplaceSpeech.find((item) => item.text === text)?.url
+        : undefined,
       voice: femaleVoice ? "female" : "male",
-      serverTtsReady: femaleVoice && ["iris", "elevenlabs"].includes(aiHealth?.tts_female),
+      serverTtsReady: femaleVoice && ["iris", "elevenlabs"].includes(speechHealthRef.current),
       onSpeakingChange: (speaking) => {
         aiSpeechActiveRef.current = speaking;
         if (speaking) stopBrowserRecognition();
         else resumeBrowserRecognition();
         setAiSpeaking(speaking);
       },
-      onFinish: () => {}, // 질문은 음성 재생 종료 후에도 입력 패널에 유지한다.
+      onFinish: () => { completedSpeechRef.current = speechKey; }, // 완료된 같은 대사를 다시 재생하지 않는다.
       onProgress: mirror && workplace ? setSpeechPlayback : undefined,
       onNote: ttsNoteOnce,
     });
-  }, [turn?.id, turnSpeech, paused, entryOverlayOpen, character?.voice_gender, aiHealth?.tts_female, mirror, workplace]);
+  }, [turn?.id, turnSpeech, paused, entryOverlayOpen, character?.voice_gender, mirror, workplace, history.length]);
 
   useEffect(() => {
     // 브리핑이 닫히는 순간 그동안 쌓인 비언어 표본을 버려 집계 창을 정렬한다
