@@ -56,7 +56,7 @@ async function open(t, { external = true, agreed = true, media = true, tap = tru
     if (path === "/api/sessions" && req.method() === "POST") {
       creates.push(req.postDataJSON());
       body = { id: 22, access_token: "test-only-capability", kiosk_link_status: "linked", mode: 5,
-        ...(voice ? { voice_analysis: { engine_version: "voice-measure-v2", calibration: null } } : {}),
+        voice_analysis: { engine_version: "voice-measure-v2", calibration_required: voice, calibration: voice ? null : { id: "standard-v1", status: "standard", source: "standard", can_proceed: true, reference_rms: null } },
         scenario: { slug: "workplace-conversation", title: "테스트", characters: [] },
         interaction: { ...(briefing ? { mode: "workplace_continuous", briefing: { category_id: "morning", category_label: "출근", title: "출근 테스트 상황", situation: "업무 자료를 확인하는 상황", tip: "질문 정리", step: 1, total: 3 } } : {}), overview: ["morning", "work", "leaving"].map(category_id => ({ category_id, virtual_time: "09:00", situation: "테스트 상황", goal: "테스트 연습 목표" })) }, current_turn: { id: 221, question_text: "질문" } };
     }
@@ -173,11 +173,12 @@ test("welcome video starts an actual session without a test query or separate co
 });
 
 
-test("mirror session skips situation popups and immediately starts dialogue", { timeout: 45000 }, async t => {
-  const { page } = await open(t, { external: false, briefing: true });
+test("standard baseline skips calibration and situation popups and starts dialogue", { timeout: 45000 }, async t => {
+  const { page, calibrations } = await open(t, { external: false, briefing: true });
   await page.clock.fastForward(34000);
   await page.getByRole("region", { name: "직장 대화 시뮬레이션", exact: true }).waitFor();
   assert.equal(await page.getByRole("dialog").count(), 0);
+  assert.equal(calibrations.length, 0);
   await page.getByText("음성 녹음 중", { exact: true }).waitFor();
   assert.equal(await page.locator(".simulation-card-slot").count(), 1);
 });
@@ -292,4 +293,46 @@ test("mirror microphone failure stays blocked and offers retry", { timeout: 4500
   await page.clock.runFor(4000);
   await popup.waitFor({ state: "hidden" });
   assert.equal(calibrations.length, 2);
+});
+
+test("standard mirror completes five answers and displays the final dashboard", { timeout: 60000 }, async t => {
+  const { page, calibrations } = await open(t, { external: false, briefing: true });
+  const answers = [];
+  let finishes = 0;
+  await page.evaluate(() => {
+    window.SpeechRecognition = class { start() { window.__recognition = this; this.onstart?.(); } abort() {} };
+    Object.defineProperty(speechSynthesis, "speak", { value: utterance => { utterance.onstart?.(); setTimeout(() => utterance.onend?.(), 10); } });
+  });
+  await page.route("**/api/sessions/22/**", async route => {
+    const path = new URL(route.request().url()).pathname;
+    let body = {};
+    if (path.endsWith("/response")) {
+      answers.push(route.request().postDataJSON().text);
+      body = { finished: answers.length === 5, next_turn: answers.length < 5 ? { id: 221 + answers.length, question_text: `추가 질문 ${answers.length}` } : null };
+    } else if (path.endsWith("/finish")) { finishes++; body = { status: "analyzing", stage: "queued", pct: 0 }; }
+    else if (path.endsWith("/progress")) body = { status: "completed", stage: "done", pct: 100 };
+    else if (path.endsWith("/report")) body = { total_score: 76, fit_scores: { response: { score: 76 } }, strengths: ["의사를 분명히 전달했어요."], improvements: ["가능한 대안을 덧붙여 보세요."], speech_stats: { turns: 5 } };
+    else return route.fallback();
+    await route.fulfill({ contentType: "application/json", body: JSON.stringify(body) });
+  });
+  await page.clock.fastForward(34000);
+  await page.clock.resume();
+  await page.locator(".simulation-card-slot").waitFor();
+  assert.equal(await page.getByRole("dialog").count(), 0);
+  for (let i = 0; i < 5; i++) {
+    await page.waitForFunction(() => Boolean(window.__recognition?.onresult));
+    await page.evaluate(i => {
+      const result = [{ transcript: `개인적인 사정이라 어렵습니다. 제 의사를 존중해 주세요 ${i}` }]; result.isFinal = true;
+      window.__recognition.onresult({ resultIndex: 0, results: [result] });
+    }, i);
+    if (i < 4) await page.waitForFunction(i => document.querySelector("#mirror-dialogue-title")?.textContent.includes(`추가 질문 ${i + 1}`), i);
+  }
+  await page.getByRole("heading", { name: "대화를 돌아보는 시간." }).waitFor();
+  assert.equal(answers.length, 5);
+  assert.equal(finishes, 1);
+  assert.equal(calibrations.length, 0);
+  await page.getByText("답변 5개 분석", { exact: false }).waitFor();
+  await page.getByText("의사를 분명히 전달했어요.").waitFor();
+  await page.getByText("가능한 대안을 덧붙여 보세요.").waitFor();
+  assert.equal(await page.locator(".mirror-fit-grid article").count(), 4);
 });
