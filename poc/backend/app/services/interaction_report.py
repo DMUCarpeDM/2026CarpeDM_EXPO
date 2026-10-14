@@ -10,14 +10,14 @@ def _fit_summary(session, area, score):
     if area == "voice" and voice_analysis.enabled(session):
         if score is not None:
             return "대화 맥락과 기준 음성 대비 성량 변화만 반영한 검증 전 참고 점수입니다. 음높이나 감정을 판단한 결과는 아닙니다."
-        return "측정값과 측정 불가 사유는 목소리 기록에서 확인할 수 있습니다. 평가 기준 검증 전에는 점수를 계산하지 않습니다."
+        return "말속도와 쉬어 간 구간은 아래에서 확인할 수 있어요. 목소리는 아직 점수로 평가하지 않아요."
     if area == "expression" and score is not None:
         from app.services.expression_measurement import summarize
         return summarize(session)["note"]
     if area == "expression" and score is None:
         from app.services.expression_measurement import summary_text
         return summary_text(session)
-    return "판단할 측정 자료가 부족합니다." if score is None else "75점에서 확인된 근거에 따라 가감했습니다."
+    return "이번에는 분석에 필요한 기록을 충분히 모으지 못했어요." if score is None else "대화에서 확인된 답변과 행동을 바탕으로 계산했어요."
 
 
 def prepare(db, session):
@@ -65,13 +65,20 @@ def prepare(db, session):
     return scoring.calculate(values), rows
 
 
+def feedback_items(events):
+    positive = list(dict.fromkeys(e["message"] for e in events if e["outcome"] == "positive"))[:3]
+    negative = list(dict.fromkeys(e["message"] for e in events if e["outcome"] == "negative"))[:3]
+    if positive and not negative:
+        negative = ["이번 기록에서는 뚜렷한 개선할 행동을 찾지 못했어요. 다음 연습에서는 같은 뜻을 더 짧고 분명하게 표현하는 방법도 시도해 보세요. 이 제안은 감점 사유가 아니에요."]
+    return positive, negative
+
+
 def build(db, session, outcome, raw_rows, analysis_ms):
     # 화면에 전달할 장점·개선점·근거를 묶습니다. 간투어와 반복을 추가할 때는
     # 횟수만 넣지 말고 음성 구간, 가감점 이유, 측정 불가 여부도 함께 전달해야 합니다.
     from app.services.report import _build_speech_stats
     events = [event for items in outcome["changes"].values() for event in items] + outcome["contradictions"]
-    positive = list(dict.fromkeys(e["message"] for e in events if e["outcome"] == "positive"))[:3]
-    negative = list(dict.fromkeys(e["message"] for e in events if e["outcome"] == "negative"))[:3]
+    positive, negative = feedback_items(events)
     turns = {t.id: t for t in session.turns}
     evidence = [{"turn_id": e["turn_id"], "turn_order": turns[e["turn_id"]].order,
         "fit_type": e["area"], "quote": e["evidence"].get("quote", ""),

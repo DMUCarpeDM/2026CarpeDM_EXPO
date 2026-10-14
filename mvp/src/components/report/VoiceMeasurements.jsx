@@ -23,22 +23,22 @@ export function VoiceMeasurements({ data }) {
   // 이전 보고서의 참고값은 보존하고, 새 분석은 요청한 측정 항목만 표시한다.
   const showReferences = !data.measurement_fields || data.measurement_fields.includes("pitch");
   return <section className="voice-report" aria-labelledby="voice-report-title">
-    <h2 id="voice-report-title">목소리 측정 기록</h2>
-    <p>{hasVoiceMeasurements(data) ? "확인된 측정값과 항목별 측정 상태를 표시해요." : "이번 연습에서는 목소리 측정값을 확인하지 못했어요."} {data.score_status === "context_provisional" ? "대화 상황과 기준 음성 대비 성량 변화만 참고 점수에 반영했어요. 속도·멈춤과 음높이는 감점하지 않아요." : "평가 기준을 검증하는 단계라 음성 점수와 감점에는 반영하지 않아요."}</p>
+    <h2 id="voice-report-title">내 말하기 돌아보기</h2>
+    <p>{hasVoiceMeasurements(data) ? "녹음에서 확인한 말속도와 쉬어 간 구간을 정리했어요." : "이번 연습에서는 목소리 측정값을 확인하지 못했어요."} {data.score_status === "context_provisional" ? "대화 상황에 따라 평소보다 목소리가 얼마나 커졌는지만 참고했어요. 말속도와 멈춤, 음높이는 감점하지 않아요." : "이 기록은 말하기를 돌아보기 위한 자료이며 점수에는 반영하지 않아요."}</p>
     {(data.turns || []).map((turn, index) => <details key={turn.turn_id}>
-      <summary>{index + 1}번째 답변의 측정값</summary>
+      <summary>{index + 1}번째 답변 살펴보기</summary>
       <dl>
-        <dt>기준 대비 크기</dt><dd>{value(turn.volume, "relative_db", "dB")}<br /><small>같은 마이크에서 평소 목소리와 비교한 녹음 크기예요.</small></dd>
-        <dt>말하기 속도</dt><dd>{value(turn.speed, "syllables_per_second", "음절/초")}</dd>
-        <dt>말 사이 멈춤</dt><dd>{turn.pauses?.status === "measured" ? `${turn.pauses.count}개 구간` : voiceReason(turn.pauses?.reason)}
-          {(turn.pauses?.segments || []).map((pause) => <p key={pause.id}>{pause.start.toFixed(1)}~{pause.end.toFixed(1)}초 · {pause.duration_sec.toFixed(1)}초 멈춤</p>)}
+        <dt>목소리 크기</dt><dd>{value(turn.volume, "relative_db", "dB")}<br /><small>개인 기준 녹음이 있을 때만 평소보다 얼마나 크게 말했는지 비교해요.</small></dd>
+        <dt>말하기 속도</dt><dd>{turn.speed?.status === "measured" && Number.isFinite(turn.speed.syllables_per_second) ? `1초에 한글 약 ${turn.speed.syllables_per_second.toFixed(1)}글자를 말했어요.` : voiceReason(turn.speed?.reason)}<br /><small>말소리가 있는 구간 기준이에요. 이 숫자만으로 빠르거나 느리다고 판단하지 않아요.</small></dd>
+        <dt>말 사이 멈춤</dt><dd>{turn.pauses?.status === "measured" ? `말하다 잠깐 쉰 구간이 ${turn.pauses.count}번 있었어요.` : voiceReason(turn.pauses?.reason)}
+          {(turn.pauses?.segments || []).map((pause) => <p key={pause.id}>답변 시작 {pause.start.toFixed(1)}초 뒤에 약 {pause.duration_sec.toFixed(1)}초 쉬었어요.</p>)}
           <small>자연스러운 쉼이 포함돼요. 불필요한 멈춤이라는 뜻은 아니에요.</small></dd>
-        {showReferences && <><dt>높낮이 참고값</dt><dd>{value(turn.pitch, "median_hz", "Hz (중앙값)")}
-          {turn.pitch?.status === "measured" && <p>10~90백분위: {turn.pitch.p10_hz.toFixed(1)}~{turn.pitch.p90_hz.toFixed(1)}Hz</p>}
+        {showReferences && <><dt>목소리 높낮이</dt><dd>{value(turn.pitch, "median_hz", "Hz (중앙값)")}
+          {turn.pitch?.status === "measured" && <p>대부분의 목소리가 나타난 높이 범위: {turn.pitch.p10_hz.toFixed(1)}~{turn.pitch.p90_hz.toFixed(1)}Hz</p>}
           <PitchChart pitch={turn.pitch} duration={turn.duration_sec} /></dd>
-        <dt>발성 불규칙성</dt><dd>{turn.voice_irregularity?.status === "measured"
+        <dt>목소리의 미세한 변화</dt><dd><p>소리의 주기와 크기가 조금씩 달라진 기록이에요. 긴장이나 자신감을 뜻하지 않아요.</p><details><summary>자세한 측정 수치 보기</summary>{turn.voice_irregularity?.status === "measured"
           ? turn.voice_irregularity.segments.map((s, i) => <p key={i}>{s.start.toFixed(1)}~{s.end.toFixed(1)}초 · jitter {s.jitter_local_pct.toFixed(2)}%, shimmer {s.shimmer_local_pct.toFixed(2)}%</p>)
-          : voiceReason(turn.voice_irregularity?.reason)}<small>발성 주기의 참고 수치예요. 긴장이나 자신감을 판단하지 않아요.</small></dd></>}
+          : voiceReason(turn.voice_irregularity?.reason)}</details></dd></>}
       </dl>
     </details>)}
     {!data.turns?.length && <p>확인할 녹음이 없어요. 음성은 감점하지 않아요.</p>}

@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from app.services.judgments import event
 
-@pytest.mark.parametrize('kind,expected,strength,improvement',[('good',76,True,False),('mixed',75.5,True,True),('off_topic',74,False,True),('empty',75,False,False),('uncertain',None,False,False),('unavailable',None,False,False)])
+@pytest.mark.parametrize('kind,expected,strength,improvement',[('good',76,True,True),('mixed',75.5,True,True),('off_topic',74,False,True),('empty',75,False,False),('uncertain',None,False,False),('unavailable',None,False,False)])
 def test_workplace_report_score_and_feedback(monkeypatch,ready_ollama,kind,expected,strength,improvement):
     from fastapi.testclient import TestClient
     from app.main import app
