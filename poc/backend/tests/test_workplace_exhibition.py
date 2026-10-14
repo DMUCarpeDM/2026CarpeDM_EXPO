@@ -32,6 +32,7 @@ def test_one_of_four_prepared_scenarios_has_five_continuous_beats():
         configured = next(scene for scene in EXHIBITION_SCENES if scene['order'] == episode_id)
         assert all(item["label"] == configured["checklist"]["label"] for item in items)
         assert all(item["actor_persona"] == configured["actor_persona"] for item in items)
+        assert all(item["actor_brief"] == configured["actor_brief"] for item in items)
         assert [item['goal'] for item in items] == configured['beat_goals']
         assert all(item['situation'] == configured['situation'] for item in items)
         assert items == flatten_plan_items(build_exhibition_plan(scenario, episodes, Random(seed)))
@@ -151,5 +152,44 @@ def test_exhibition_actor_keeps_initial_purpose_and_every_reply_through_last_que
             assert selected['actor_persona'] in prompt
             assert selected['opening_line'] in prompt
             assert all(turn.question_text in prompt and turn.response_text in prompt for turn in turns)
-            assert item['dialogue_intent'] in prompt
+            assert selected['actor_brief']['objective'] in prompt
+            assert selected['actor_brief']['motivation'] in prompt
+            assert item['dialogue_intent'] not in prompt
             assert selected['checklist']['tip'] not in prompt
+
+
+def test_actor_brief_excludes_user_briefing_and_preserves_speakers_without_inference():
+    from app.services.dialogue.openai_provider import _actor_prompt
+    scenario, episodes = fixture()
+    item = flatten_plan_items(build_exhibition_plan(scenario, episodes, Random(4)))[1]
+    item['situation'] = '후배만 아는 비밀 약속과 사용자 연습 안내'
+    item['goal'] = '평가 전용 목표'
+    item['dialogue_intent'] = '이번 턴에만 강제하는 대본'
+    turns = [
+        NS(character_id='park_senior', episode_id=item['episode_id'],
+           question_text='저축을 묻지 않겠다는 말이군요.', response_text='묻지 않는 게 아니라 말하지 않겠다는 뜻이에요.'),
+        NS(character_id='other', episode_id=item['episode_id'],
+           question_text='다른 인물의 질문', response_text='다른 인물에게만 밝힌 내용'),
+    ]
+    prompt = _actor_prompt(NS(difficulty='basic'), scenario, {'id':'park_senior'}, turns, item)
+    assert item['situation'] not in prompt
+    assert item['goal'] not in prompt
+    assert item['dialogue_intent'] not in prompt
+    assert '다른 인물에게만 밝힌 내용' not in prompt
+    assert json.dumps({'speaker':'박선임', 'text':turns[0].question_text}, ensure_ascii=False) in prompt
+    assert json.dumps({'speaker':'후배', 'text':turns[0].response_text}, ensure_ascii=False) in prompt
+    assert prompt.count(turns[0].response_text) == 1
+    assert all(fact in prompt for fact in item['actor_brief']['unknown_facts'])
+
+
+def test_existing_exhibition_session_without_brief_still_has_persona_and_history():
+    from app.services.dialogue.openai_provider import _actor_prompt
+    scenario, episodes = fixture()
+    item = flatten_plan_items(build_exhibition_plan(scenario, episodes, Random(4)))[1]
+    item.pop('actor_brief')
+    turns = [NS(character_id='park_senior', episode_id=item['episode_id'],
+                question_text=item['text'], response_text='예전 세션에서 하던 답변')]
+    prompt = _actor_prompt(NS(difficulty='basic'), scenario, {'id':'park_senior'}, turns, item)
+    assert item['actor_persona'] in prompt
+    assert item['text'] in prompt
+    assert turns[0].response_text in prompt
