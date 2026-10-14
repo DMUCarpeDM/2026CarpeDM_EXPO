@@ -132,3 +132,24 @@ def test_exhibition_persona_reaches_actor_even_at_basic_difficulty():
         assert item['actor_persona'] in prompt
         assert '성미가 급하고 화가 많으며' in prompt
         assert character['personality'] not in prompt
+
+
+def test_exhibition_actor_keeps_initial_purpose_and_every_reply_through_last_question():
+    from app.services.dialogue.openai_provider import _actor_prompt
+    scenario, episodes = fixture()
+    for selected in EXHIBITION_SCENES:
+        class Pick:
+            def choice(self, rows):
+                return next(row for row in rows if row['order'] == selected['order'])
+        items = flatten_plan_items(build_exhibition_plan(scenario, episodes, Pick()))
+        turns = []
+        for index, item in enumerate(items[1:], 1):
+            turns.append(NS(character_id='park_senior', episode_id=item['episode_id'],
+                question_text=selected['opening_line'] if index == 1 else f'후속 질문 {index - 1}',
+                response_text=f'사용자가 실제로 밝힌 내용 {index}'))
+            prompt = _actor_prompt(NS(difficulty='basic'), scenario, {'id':'park_senior'}, turns, item)
+            assert selected['actor_persona'] in prompt
+            assert selected['opening_line'] in prompt
+            assert all(turn.question_text in prompt and turn.response_text in prompt for turn in turns)
+            assert item['dialogue_intent'] in prompt
+            assert selected['checklist']['tip'] not in prompt
