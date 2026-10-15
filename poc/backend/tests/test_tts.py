@@ -34,52 +34,57 @@ def test_elevenlabs_tts_returns_mp3_bytes_when_configured(monkeypatch):
     assert captured["json"]["model_id"] == settings.elevenlabs_model
 
 
-def test_tts_endpoint_without_voice_uses_iris(monkeypatch):
-    monkeypatch.setattr(settings, "tts_provider", "iris")
-    monkeypatch.setattr("app.api.tts.synthesize_iris", lambda _text: b"RIFFiris")
-
-    response = TestClient(app).post("/api/tts", json={"text": "안녕하세요."})
-
-    assert response.status_code == 200
-    assert response.headers["content-type"] == "audio/wav"
-    assert response.content == b"RIFFiris"
-
-
-def test_female_tts_uses_iris_without_elevenlabs(monkeypatch):
-    monkeypatch.setattr(settings, "tts_provider", "iris")
-    monkeypatch.setattr("app.api.tts.synthesize_iris", lambda _text: b"RIFFiris")
-
-    def unexpected_elevenlabs(_text):
-        raise AssertionError("Iris voice must not call ElevenLabs")
-
-    monkeypatch.setattr("app.services.tts.synthesize_elevenlabs", unexpected_elevenlabs)
+def test_elevenlabs_stream_identifies_its_provider(monkeypatch):
+    monkeypatch.setattr(settings, "tts_provider", "elevenlabs")
+    async def fake_stream(_text):
+        yield b"pcm-bytes"
+    monkeypatch.setattr("app.api.tts.stream_elevenlabs", fake_stream)
     response = TestClient(app).post("/api/tts", json={"text": "안녕하세요.", "voice": "female"})
-
     assert response.status_code == 200
-    assert response.headers["content-type"] == "audio/wav"
-    assert response.content == b"RIFFiris"
+    assert response.headers["x-tts-provider"] == "elevenlabs"
+    assert response.content == b"pcm-bytes"
 
 
-def test_female_tts_unavailable_does_not_use_elevenlabs(monkeypatch):
+def test_subscription_error_is_distinct_from_generic_tts_failure(monkeypatch):
     from app.services.tts import SpeechSynthesisError
+    async def unavailable(_text):
+        raise SpeechSynthesisError("blocked", code="payment_required")
+        yield
+    monkeypatch.setattr("app.api.tts.stream_elevenlabs", unavailable)
+    response = TestClient(app).post("/api/tts", json={"text": "안녕하세요."})
+    assert response.status_code == 402
+    assert "Free" in response.json()["detail"]
 
-    def unavailable(_text):
-        raise SpeechSynthesisError("Iris offline")
 
-    def unexpected_elevenlabs(_text):
-        raise AssertionError("Iris fallback must use browser speech")
-
-    monkeypatch.setattr("app.api.tts.synthesize_iris", unavailable)
-    monkeypatch.setattr("app.services.tts.synthesize_elevenlabs", unexpected_elevenlabs)
-    response = TestClient(app).post("/api/tts", json={"text": "안녕하세요.", "voice": "female"})
+def test_unknown_stream_error_remains_unavailable(monkeypatch):
+    from app.services.tts import SpeechSynthesisError
+    async def unavailable(_text):
+        raise SpeechSynthesisError("offline")
+        yield
+    monkeypatch.setattr("app.api.tts.stream_elevenlabs", unavailable)
+    response = TestClient(app).post("/api/tts", json={"text": "안녕하세요."})
     assert response.status_code == 503
 
 
-def test_male_tts_uses_browser_without_server_synthesis(monkeypatch):
-    def unexpected_synthesis(_text):
-        raise AssertionError("Male voice must use browser speech")
-
-    monkeypatch.setattr("app.api.tts.synthesize_iris", unexpected_synthesis)
-    monkeypatch.setattr("app.services.tts.synthesize_elevenlabs", unexpected_synthesis)
-    response = TestClient(app).post("/api/tts", json={"text": "안녕하세요.", "voice": "male"})
-    assert response.status_code == 503
+def test_stream_preserves_upstream_payment_error(monkeypatch):
+    import asyncio, json
+    from app.services.tts import stream_elevenlabs, SpeechSynthesisError
+    class Socket:
+        async def send(self, _message): pass
+        async def recv(self): return json.dumps({"error": "payment_required", "message": "Free users cannot use library voices"})
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): pass
+    monkeypatch.setattr(settings, "elevenlabs_api_key", SecretStr("test-key"))
+    monkeypatch.setattr(settings, "elevenlabs_voice_id", "test-voice")
+    monkeypatch.setattr("websockets.asyncio.client.connect", lambda *args, **kwargs: Socket())
+    async def check():
+        stream = stream_elevenlabs("테스트")
+        try:
+            await anext(stream)
+        except SpeechSynthesisError as error:
+            assert error.code == "payment_required"
+        else:
+            raise AssertionError("expected provider error")
+        finally:
+            await stream.aclose()
+    asyncio.run(check())

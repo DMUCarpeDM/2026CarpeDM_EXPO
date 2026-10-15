@@ -18,11 +18,8 @@ export function WorkplaceMirrorWelcomePage({ onStart }) {
       });
     };
     play();
-    // Repeat every 10 seconds from entry; never interrupt an ongoing utterance.
-    const repeat = setInterval(play, 10_000);
     return () => {
       disposed = true;
-      clearInterval(repeat);
       audio.pause();
       audio.currentTime = 0;
     };

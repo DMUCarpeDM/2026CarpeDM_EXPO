@@ -2,7 +2,7 @@ import { playPcmSpeechStream } from "./pcmSpeechStream.js";
 import { synthesizeSpeech } from "./pocApi.js";
 
 // 반환한 정리 함수는 질문 변경·일시정지·화면 이탈 시 호출한다.
-export function startTurnSpeech({ text, voice = "female", serverTtsReady, preparedAudioUrl, onSpeakingChange, onFinish, onNote, onProgress }) {
+export function startTurnSpeech({ text, voice = "female", serverTtsReady, preparedAudioUrl, allowBrowserFallback = true, expectedServerProvider, onSpeakingChange, onFinish, onNote, onProgress }) {
   if (!text?.trim()) {
     onSpeakingChange(false);
     onProgress?.({ text, status: "ended", charIndex: text?.length || 0 });
@@ -28,6 +28,11 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, prepar
       onSpeakingChange(false);
       onFinish();
     }
+  };
+  const speechUnavailable = () => {
+    onNote("선택한 AI 음성을 재생할 수 없어요. 대사는 자막으로 확인해 주세요.");
+    finishSpeaking();
+    report("unavailable");
   };
   const speakWithBrowser = () => {
     if (cancelled || browserSpeechStarted) return;
@@ -72,6 +77,10 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, prepar
     synth.speak(utter);
   };
   const startBrowserSpeech = () => {
+    if (!allowBrowserFallback) {
+      speechUnavailable();
+      return;
+    }
     if (!synth) {
       speakWithBrowser();
       return;
@@ -89,6 +98,9 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, prepar
     try {
       const response = preparedAudioUrl ? null : await synthesizeSpeech(text, voice, speechRequest.signal, true);
       if (cancelled) return;
+      if (response && expectedServerProvider && response.headers?.get("x-tts-provider") !== expectedServerProvider) {
+        throw new Error("Unexpected speech provider");
+      }
       if (response?.headers?.get("content-type")?.includes("audio/pcm")) {
         await playPcmSpeechStream(response, {
           signal: speechRequest.signal, textLength: text.length,
@@ -107,7 +119,7 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, prepar
       let playbackStarted = false;
       const updateProgress = () => {
         if (!playbackStarted) return;
-        // Iris returns audio without alignment metadata. Follow its playback clock,
+        // Prepared audio has no alignment metadata. Follow its playback clock,
         // estimating sentence boundaries from each sentence's character share.
         const ratio = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.currentTime / audio.duration : 0;
         report("playing", Math.min(text.length - 1, Math.floor(ratio * text.length)));
@@ -125,7 +137,7 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, prepar
         if (!cancelled) {
           audio.ontimeupdate = audio.onplaying = null;
           report("waiting");
-          onNote("AI 음성 재생에 실패해 브라우저 음성으로 전환해요");
+          if (allowBrowserFallback) onNote("AI 음성 재생에 실패해 브라우저 음성으로 전환해요");
           startBrowserSpeech();
         }
       };
@@ -137,7 +149,7 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, prepar
           finishSpeaking();
           return;
         }
-        onNote("AI 음성 연결이 안 돼 브라우저 음성으로 전환해요");
+        if (allowBrowserFallback) onNote("AI 음성 연결이 안 돼 브라우저 음성으로 전환해요");
         startBrowserSpeech();
       }
     }

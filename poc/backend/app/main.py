@@ -200,14 +200,7 @@ async def lifespan(app: FastAPI):
     from app.services.nfc_bridge import start_bridge
 
     start_bridge()  # NFC 리더 폴링 (S-B2B-NFC) — pyscard/리더 없으면 자동 휴면
-    from app.services.iris_runtime import IrisRuntime
-
-    iris = IrisRuntime()
-    iris.start()
-    try:
-        yield
-    finally:
-        iris.stop()
+    yield
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
@@ -265,7 +258,6 @@ def health():
     from app.ai.text_match import kiwi_available
     from app.core.database import engine
     from app.services.dialogue.availability import dialogue_ready
-    from app.services.iris_tts import iris_female_ready
 
     from app.services.dialogue import stats as dialogue_stats
 
@@ -285,7 +277,7 @@ def health():
 
     dialogue_fallback = dialogue_stats.snapshot()
     from app.services.tts import elevenlabs_ready
-    female_tts_ready = elevenlabs_ready() if settings.tts_provider == "elevenlabs" else iris_female_ready()
+    female_tts_ready = elevenlabs_ready()
     tts_ready = female_tts_ready
 
     # 조용한 폴백 강등의 종합 — 당일 아침 점검에서 이 목록이 비어 있어야 완전체다

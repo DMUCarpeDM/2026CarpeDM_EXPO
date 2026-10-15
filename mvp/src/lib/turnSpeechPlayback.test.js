@@ -63,9 +63,9 @@ function playbackEnvironment(t) {
       timers.clear();
       callbacks.forEach((callback) => callback());
     },
-    start(serverTtsReady = false, text = "안녕하세요.", preparedAudioUrl) {
+    start(serverTtsReady = false, text = "안녕하세요.", preparedAudioUrl, options = {}) {
       const stop = startTurnSpeech({
-        text, serverTtsReady, preparedAudioUrl,
+        text, serverTtsReady, preparedAudioUrl, ...options,
         onSpeakingChange: (value) => speaking.push(value),
         onFinish: () => { finished++; },
         onNote: (note) => notes.push(note),
@@ -185,7 +185,7 @@ test("cancelling browser speech clears its pending start timer", (t) => {
   assert.equal(env.utterances.length, 0);
 });
 
-test("cancelling aborts a pending Iris request without browser fallback", async (t) => {
+test("cancelling aborts a pending server request without browser fallback", async (t) => {
   const env = playbackEnvironment(t);
   let signal;
   t.mock.method(globalThis, "fetch", (_url, options) => {
@@ -216,4 +216,32 @@ test("prepared opening plays file without live TTS and follows playback clock", 
   assert.equal(env.utterances.length, 0);
   stop();
   assert.equal(audio.pause.mock.callCount(), 1);
+});
+
+test("mirror server failure never switches to browser speech", async t => {
+  const env = playbackEnvironment(t);
+  t.mock.method(globalThis, "fetch", async () => new Response("unavailable", { status: 503 }));
+  env.start(true, "후속 질문입니다.", undefined, { allowBrowserFallback: false, expectedServerProvider: "elevenlabs" });
+  await flushAsync(); env.flushTimers();
+  assert.equal(env.utterances.length, 0);
+  assert.equal(env.finished, 1);
+  assert.equal(env.progress.at(-1).status, "unavailable");
+});
+
+test("mirror rejects unexpected provider audio instead of changing voice", async t => {
+  const env = playbackEnvironment(t);
+  t.mock.method(globalThis, "fetch", async () => new Response("wav", { headers: { "Content-Type": "audio/wav", "X-TTS-Provider": "unexpected" } }));
+  env.start(true, "후속 질문입니다.", undefined, { allowBrowserFallback: false, expectedServerProvider: "elevenlabs" });
+  await flushAsync(); env.flushTimers();
+  assert.equal(env.audioPlayers.length, 0);
+  assert.equal(env.utterances.length, 0);
+  assert.equal(env.finished, 1);
+});
+
+test("broken prepared opening never falls back to another voice", async t => {
+  const env = playbackEnvironment(t);
+  env.start(true, "첫 질문입니다.", "/opening.mp3", { allowBrowserFallback: false, expectedServerProvider: "elevenlabs" });
+  await flushAsync(); env.audioPlayers[0].onerror(); env.flushTimers();
+  assert.equal(env.utterances.length, 0);
+  assert.equal(env.finished, 1);
 });

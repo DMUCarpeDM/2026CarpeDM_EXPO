@@ -64,7 +64,7 @@ export function BufferedCounterpartVideo({ source, name, paused, reducedMotion, 
       playsInline
       aria-hidden={index !== active}
       aria-label={index === active ? `${name}의 반응 영상` : undefined}
-      style={{ position: "absolute", inset: 0, display: "block", width: "100%", height: "100%", opacity: index === active ? 1 : 0, transition: reducedMotion ? "none" : "opacity 180ms ease-out" }}
+      style={{ position: "absolute", inset: 0, display: "block", width: "100%", height: "100%", opacity: index === active ? 1 : 0, visibility: index === active ? "visible" : "hidden", transition: "none" }}
       onLoadedData={() => { void reveal(index); }}
       onCanPlay={() => { if (pending.current === index) void reveal(index); }}
       onEnded={() => { if (index === activeRef.current && clip === desired.current) onEnded?.(); }}

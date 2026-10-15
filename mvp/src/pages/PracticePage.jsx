@@ -195,7 +195,9 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
         ? preparedWorkplaceSpeech.find((item) => item.text === text)?.url
         : undefined,
       voice: femaleVoice ? "female" : "male",
-      serverTtsReady: femaleVoice && ["iris", "elevenlabs"].includes(speechHealthRef.current),
+      allowBrowserFallback: !(mirror && workplace),
+      expectedServerProvider: mirror && workplace ? "elevenlabs" : undefined,
+      serverTtsReady: (mirror && workplace) || (femaleVoice && speechHealthRef.current === "elevenlabs"),
       onSpeakingChange: (speaking) => {
         aiSpeechActiveRef.current = speaking;
         if (speaking) stopBrowserRecognition();

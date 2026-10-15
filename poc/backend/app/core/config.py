@@ -80,13 +80,8 @@ class Settings(BaseSettings):
     elevenlabs_voice_id: str = ""
     elevenlabs_model: str = "eleven_v4_turbo"
     elevenlabs_timeout_sec: float = 20.0
-    # 서버 음성 제공자. 미준비·실패 시 브라우저 음성으로 전환한다.
-    tts_provider: Literal["elevenlabs", "iris"] = "elevenlabs"
-    iris_voice_base_url: str = "http://127.0.0.1:18765"
-    iris_voice_timeout_sec: float = 180.0
-    iris_audio_dir: Path = Path.home() / ".iris-light" / "audio"
-    iris_autostart: bool = True
-    iris_runtime_dir: Path = Path(__file__).resolve().parents[4] / "iris-runtime"
+    # 서버 음성 제공자는 ElevenLabs만 사용한다.
+    tts_provider: Literal["elevenlabs"] = "elevenlabs"
 
     # 의미 매칭 (마스터리 ②): Response-Fit 데이터로 fine-tuning한 로컬 E5로
     # 패러프레이즈 커버리지를 인식한다. 모델 파일이 없으면 키워드 매칭만 사용한다.
