@@ -12,7 +12,7 @@ def fixture():
     return NS(world_setting=pack['world_setting']), [NS(id=e['order'], **e) for e in pack['episodes']]
 
 
-def test_one_of_four_prepared_scenarios_has_five_continuous_beats():
+def test_only_enabled_prepared_scenario_has_three_continuous_beats():
     scenario, episodes = fixture()
     assert EXHIBITION_ORDERS == (2, 13, 15, 5)
     assert len(EXHIBITION_SCENES) == 4
@@ -21,9 +21,9 @@ def test_one_of_four_prepared_scenarios_has_five_continuous_beats():
         plan = build_exhibition_plan(scenario, episodes, Random(seed))
         items = flatten_plan_items(plan)
         assert len(plan['acts']) == 1
-        assert len(items) == 5
+        assert len(items) == 3
         assert items[0]["text"] in [s["opening_line"] for s in EXHIBITION_SCENES]
-        assert len({item['id'] for item in items}) == 5
+        assert len({item['id'] for item in items}) == 3
         assert len({item['episode_id'] for item in items}) == 1
         assert len({item['assessment_id'] for item in items}) == 1
         assert not any(item['act_open'] for item in items)
@@ -36,26 +36,26 @@ def test_one_of_four_prepared_scenarios_has_five_continuous_beats():
         assert [item['goal'] for item in items] == configured['beat_goals']
         assert all(item['situation'] == configured['situation'] for item in items)
         assert items == flatten_plan_items(build_exhibition_plan(scenario, episodes, Random(seed)))
-    assert selected_orders == set(EXHIBITION_ORDERS)
+    assert selected_orders == {15}
 
 
-def test_exhibition_skips_planning_and_keeps_one_scenario_until_fifth_answer(monkeypatch):
+def test_exhibition_skips_planning_and_keeps_one_scenario_until_third_answer(monkeypatch):
     scenario, episodes = fixture()
     session = NS(rapport={}, mode=5)
     monkeypatch.setattr(interaction, '_plan_workplace', lambda *a: (_ for _ in ()).throw(AssertionError('slow planner called')))
     flow = interaction.initialize(session, scenario, episodes, 'workplace', Random(4), exhibition=True)
     overview = interaction.public_state(session)['overview']
     assert len(overview) == 1
-    assert interaction.public_state(session)['total'] == 5
-    for index in range(5):
+    assert interaction.public_state(session)['total'] == 3
+    for index in range(3):
         assert interaction.public_state(session)['overview'] == overview
         assert interaction.current_briefing(flow)['step'] == 1
         assert interaction.current_briefing(flow)['total'] == 1
         flow = interaction.advance(session, NS(question_type='main', response_text='확인하겠습니다.'), [], {})
-        assert flow['finished'] is (index == 4)
+        assert flow['finished'] is (index == 2)
 
 
-def test_exhibition_api_finishes_in_five_answers_and_retains_scenario_history(monkeypatch):
+def test_exhibition_api_finishes_in_three_answers_and_retains_scenario_history(monkeypatch):
     from fastapi.testclient import TestClient
     from app.main import app
     from app.seed.run import seed
@@ -89,7 +89,7 @@ def test_exhibition_api_finishes_in_five_answers_and_retains_scenario_history(mo
     data=response.json(); sid=data['id']; auth={'X-Session-Token':data['access_token']}
     overview=data['interaction']['overview']; assert len(overview)==1
     turn=data['current_turn']
-    for index in range(5):
+    for index in range(3):
         seen.append(turn['episode_id'])
         resumed=client.get(f'/api/sessions/{sid}',headers=auth).json()
         assert resumed['interaction']['overview']==overview
@@ -97,18 +97,18 @@ def test_exhibition_api_finishes_in_five_answers_and_retains_scenario_history(mo
             json={'text':'내용을 확인한 뒤 가능한 일정과 필요한 자료를 말씀드리겠습니다.','duration_ms':5000})
         assert response.status_code==200,response.text
         result=response.json()
-        assert result['finished'] is (index==4)
-        if index < 4: turn=result['next_turn']
+        assert result['finished'] is (index==2)
+        if index < 2: turn=result['next_turn']
     assert len(set(seen))==1
-    assert generated == [1, 2, 3, 4]
+    assert generated == [1, 2]
     assert history_sizes == []  # Scoring runs after dialogue, using saved turn context.
     with SessionLocal() as db:
         session=db.get(RoleplaySession,sid)
-        assert len(session.turns)==5
+        assert len(session.turns)==3
         from app.services.deferred_workplace import complete
         for t in sorted(session.turns, key=lambda row: row.order):
             complete(db, session, t)
-        assert history_sizes == [0, 1, 2, 3, 4]
+        assert history_sizes == [0, 1, 2]
 
 
 def test_context_uses_selected_scene_instead_of_original_episode(monkeypatch):
@@ -135,14 +135,14 @@ def test_exhibition_persona_reaches_actor_even_at_basic_difficulty():
         item = flatten_plan_items(build_exhibition_plan(scenario, episodes, Random(seed)))[0]
         prompt = _actor_prompt(NS(difficulty='basic'), scenario, character, [], item)
         assert item['actor_persona'] in prompt
-        assert '성미가 급하고 화가 많으며' in prompt
+        assert '반존대' in prompt
         assert character['personality'] not in prompt
 
 
 def test_exhibition_actor_keeps_initial_purpose_and_every_reply_through_last_question():
     from app.services.dialogue.openai_provider import _actor_prompt
     scenario, episodes = fixture()
-    for selected in EXHIBITION_SCENES:
+    for selected in [scene for scene in EXHIBITION_SCENES if scene.get("enabled", True)]:
         class Pick:
             def choice(self, rows):
                 return next(row for row in rows if row['order'] == selected['order'])

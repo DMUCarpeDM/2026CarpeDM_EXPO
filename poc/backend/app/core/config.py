@@ -136,7 +136,7 @@ class Settings(BaseSettings):
     tremor_shimmer_floor: float = 8.0  # %
     tremor_penalty_cap: float = 18.0
 
-    model_config = {"env_prefix": "MIRROR_TING_", "env_file": ".env"}
+    model_config = {"env_prefix": "MIRROR_TING_", "env_file": ".env", "extra": "ignore"}
 
 
 settings = Settings()

@@ -11,9 +11,9 @@ def test_savings_scene_is_fixed_for_every_seed_and_every_reply():
         plan = build_exhibition_plan(scenario, episodes, Random(seed), fixed_order=15)
         items = flatten_plan_items(plan)
         assert plan['source'] == 'curated-fixed'
-        assert len(items) == 5
+        assert len(items) == 3
         assert {item['episode_id'] for item in items} == {15}
-        assert items[0]['text'] == '월급 받으면 주로 어디에 써요? 저축은 제대로 하고 있어요?'
+        assert items[0]['text'] == '월급 받으면 어디에 좀 써요? 난 저축부터 해야 한다고 보는데.'
 
 def test_fixed_scene_also_applies_outside_kiosk(monkeypatch):
     monkeypatch.setattr(settings, 'workplace_fixed_scene_order', 15)
@@ -29,3 +29,22 @@ def test_workplace_pack_uses_only_female_characters():
     from app.seed.packs import load_pack_files
     pack = next(pack for pack in load_pack_files() if pack['slug'] == 'workplace-conversation')
     assert all(character.get('voice_gender') == 'female' for character in pack['characters'])
+
+
+def test_disabled_scenarios_cannot_be_forced_back_into_exhibition():
+    import pytest
+    scenario, episodes = fixture()
+    for order in (2, 13, 5):
+        with pytest.raises(ValueError, match='비활성화'):
+            build_exhibition_plan(scenario, episodes, fixed_order=order)
+
+
+def test_no_enabled_scene_reports_configuration_error(monkeypatch):
+    import pytest
+    import app.services.workplace as workplace
+    monkeypatch.setattr(workplace, 'EXHIBITION_SCENES', [
+        {**scene, 'enabled': False} for scene in workplace.EXHIBITION_SCENES
+    ])
+    scenario, episodes = fixture()
+    with pytest.raises(ValueError, match='활성화된'):
+        build_exhibition_plan(scenario, episodes)
