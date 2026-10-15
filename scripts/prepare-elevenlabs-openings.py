@@ -13,14 +13,14 @@ from app.core.config import settings
 async def main():
     if settings.elevenlabs_voice_id != 'uyVNoMrnUku1dZyVEXwD' or settings.elevenlabs_model != 'eleven_v4_turbo':
         raise RuntimeError('Set the backend to Anna Kim / eleven_v4_turbo before preparing recordings')
-    scenes = json.loads((ROOT / 'poc/backend/app/seed/workplace-exhibition.json').read_text(encoding='utf-8'))
+    pack = json.loads((ROOT / 'poc/backend/app/seed/packs/workplace-conversation.json').read_text(encoding='utf-8'))
     destination = ROOT / 'mvp/public/audio/workplace-openings/anna-kim-v4-turbo'
     destination.mkdir(parents=True, exist_ok=True)
     semaphore = asyncio.Semaphore(2)
     async with httpx.AsyncClient(timeout=90) as client:
         async def prepare(episode):
-            text = episode['opening_line'].strip()
-            name = f"exhibition-{episode['order']}.wav"
+            text = episode['initial_question'].strip()
+            name = f"scenario-{episode['order']}.wav"
             output = destination / name
             async with semaphore:
                 response = await client.post('http://127.0.0.1:8001/api/tts', json={'text': text, 'voice': 'female'})
@@ -35,7 +35,7 @@ async def main():
                 print(f"Prepared {name}: {len(response.content)} bytes", flush=True)
             return {'text': text, 'url': f'/audio/workplace-openings/anna-kim-v4-turbo/{name}',
                     'provider': 'elevenlabs', 'voice_id': 'uyVNoMrnUku1dZyVEXwD', 'model_id': 'eleven_v4_turbo'}
-        rows = await asyncio.gather(*(prepare(episode) for episode in scenes))
+        rows = await asyncio.gather(*(prepare(episode) for episode in pack['episodes']))
     manifest = ROOT / 'mvp/src/lib/preparedWorkplaceSpeech.json'
     manifest.write_text(json.dumps(rows, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     print(f'Prepared {len(rows)} openings', flush=True)
