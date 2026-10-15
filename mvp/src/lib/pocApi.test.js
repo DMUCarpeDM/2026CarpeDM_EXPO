@@ -416,3 +416,36 @@ test("final workplace turn flushes deferred audio before starting its report", a
   finishUpload();await finishing;
   assert.ok(calls[2].endsWith("/finish"));
 });
+
+
+test("workplace WAV encoding starts only after playback release, and final reports still await it", async () => {
+  const calls = [];
+  let conversions = 0;
+  let resolveAudio, retained = false;
+  const audioReady = new Promise(resolve => { resolveAudio = resolve; });
+  void audioReady.then(() => { retained = true; });
+  globalThis.fetch = async url => {
+    calls.push(url);
+    return new Response(JSON.stringify({ next_turn: { id: 2 } }));
+  };
+  const session = { id: 24, access_token: "lazy-wav", interaction: { mode: "workplace_continuous" } };
+  await submitResponse(session, 1, {
+    text: "저는 오늘 참석하겠습니다.",
+    audioReady,
+    prepareAudio: async () => {
+      conversions++;
+      const audio = new Blob(["audio"], { type: "audio/wav" });
+      resolveAudio(audio);
+      return audio;
+    },
+  });
+  assert.equal(conversions, 0);
+  assert.equal(retained, false);
+  assert.equal(calls.length, 1);
+  releaseDeferredAudio(session);
+  await finishSession(session);
+  assert.equal(conversions, 1);
+  assert.equal(retained, true);
+  assert.ok(calls[1].endsWith("/audio"));
+  assert.ok(calls[2].endsWith("/finish"));
+});

@@ -150,7 +150,7 @@ export function releaseDeferredAudio(session) {
 export async function submitResponse(session, turnId, input) {
   const uploadAudio = async () => {
     try {
-      const audio = input.audio || await input.audioReady;
+      const audio = input.audio || await (input.prepareAudio ? input.prepareAudio() : input.audioReady);
       if (!audio || audio.size === 0) return;
       const form = new FormData();
       form.append("voice_input", JSON.stringify(input.voiceInput || {}));
@@ -176,7 +176,7 @@ export async function submitResponse(session, turnId, input) {
     }),
   });
   const deferredWorkplace = session.interaction?.mode === "workplace_continuous";
-  if (!deferredWorkplace && session.voice_analysis?.engine_version && (input.audio || input.audioReady)) {
+  if (!deferredWorkplace && session.voice_analysis?.engine_version && (input.audio || input.audioReady || input.prepareAudio)) {
     // 다음 대사 전 측정용 녹음을 먼저 전달하되 업로드 대기는 제한한다.
     await uploadAudio();
     return postResponse();

@@ -135,7 +135,7 @@ def test_exhibition_persona_reaches_actor_even_at_basic_difficulty():
         item = flatten_plan_items(build_exhibition_plan(scenario, episodes, Random(seed)))[0]
         prompt = _actor_prompt(NS(difficulty='basic'), scenario, character, [], item)
         assert item['actor_persona'] in prompt
-        assert '압박하거나 화내거나 비꼬지 않는다' in prompt
+        assert '첫 거절에는 요구 범위를 줄이거나' in prompt
         assert '준비된 일반 후속 질문' in prompt
         for question in item['actor_brief']['prepared_questions']:
             assert question in prompt
@@ -207,3 +207,26 @@ def test_scripted_scenes_exclude_legacy_pressure_lines():
     for scene in EXHIBITION_SCENES:
         assert not scene.get('pressure_questions')
         assert all('서운' not in text and '눈치' not in text for text in scene['prepared_questions'])
+
+
+def test_kiosk_randomizes_prepared_scenes_even_with_a_local_fixed_override(monkeypatch):
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "workplace_fixed_scene_order", 15)
+    scenario, episodes = fixture()
+    selected = set()
+    for seed in range(30):
+        session = NS(rapport={}, mode=5)
+        flow = interaction.initialize(session, scenario, episodes, "workplace", Random(seed), exhibition=True)
+        selected.add(flow["items"][0]["episode_id"])
+        assert len(flow["items"]) == 3
+    assert selected == {1, 15}
+
+
+def test_exhibition_prompt_reasks_once_and_stops_at_repeated_refusal():
+    from app.services.dialogue.openai_provider import EXHIBITION_ACTOR_SYSTEM_PROMPT
+    assert "한 번만 재요구" in EXHIBITION_ACTOR_SYSTEM_PROMPT
+    assert "사용자가 다시 거절" in EXHIBITION_ACTOR_SYSTEM_PROMPT
+    assert "개인 일정이나 거절 이유를 캐묻지 않는다" in EXHIBITION_ACTOR_SYSTEM_PROMPT
+    for scene in EXHIBITION_SCENES:
+        assert "첫" in scene["actor_brief"]["objective"]
+        assert "재차 거절" in scene["actor_brief"]["objective"]

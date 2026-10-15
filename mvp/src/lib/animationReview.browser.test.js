@@ -83,3 +83,16 @@ test("touch devices do not lift choice cards on synthetic hover", { timeout: 300
   const transform = await card.evaluate(el => getComputedStyle(el).transform);
   assert.equal(transform, "none");
 });
+
+
+test("single exhibition overview stays visible for twenty seconds", { timeout: 30000 }, async t => {
+  const page = await open(t, "src/features/smart-mirror/previews/flow/index.html", { reducedMotion: "reduce" });
+  await page.locator(".mirror-overview").waitFor();
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100));
+  await page.clock.runFor(15000);
+  assert.equal(await page.locator(".mirror-overview").count(), 1);
+  await page.clock.runFor(4000);
+  assert.equal(await page.locator(".mirror-overview").count(), 1);
+  await page.clock.runFor(1200);
+  await page.getByRole("region", { name: "직장 대화 시뮬레이션", exact: true }).waitFor();
+});

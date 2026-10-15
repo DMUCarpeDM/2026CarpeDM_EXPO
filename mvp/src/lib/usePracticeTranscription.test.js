@@ -65,6 +65,78 @@ describe("practice transcription lifecycle", { concurrency: false }, () => {
     assert.equal(JSON.stringify(timings).includes("실제 확정 답변"), false);
   });
 
+  test("manual simulation accumulates final and interim speech until Enter, even without speechend", async (t) => {
+    const page = await open(t, "?manual");
+    await page.evaluate(() => stt.recognitions.at(-1).result("제 소비는"));
+    await page.waitForFunction(() => stt.current.draft === "제 소비는");
+    await page.evaluate(() => stt.recognitions.at(-1).result("제가 정할게요", false));
+    await page.waitForFunction(() => stt.current.interim === "제가 정할게요");
+    await page.clock.runFor(10_000);
+    assert.deepEqual(await page.evaluate(() => stt.submissions), []);
+    await page.locator("#practice-answer").focus();
+    await page.keyboard.press("Shift+Enter");
+    await page.evaluate(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", isComposing: true })));
+    await page.evaluate(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", repeat: true })));
+    assert.deepEqual(await page.evaluate(() => stt.submissions), []);
+    await page.keyboard.press("Enter");
+    assert.deepEqual(await page.evaluate(() => stt.submissions), ["제 소비는 제가 정할게요"]);
+    assert.equal(await page.evaluate(() => stt.sources), "webspeech");
+    assert.equal(await page.evaluate(() => stt.recognitions.at(-1).aborts), 1);
+  });
+
+  test("manual Enter works from the mirror background but respects pause, AI speech and controls", async (t) => {
+    const page = await open(t, "?manual");
+    await page.evaluate(() => stt.type("수동 답변"));
+    await page.waitForFunction(() => stt.current.draft === "수동 답변");
+    await page.getByRole("button", { name: "Retry", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    assert.deepEqual(await page.evaluate(() => stt.submissions), []);
+    for (const key of ["paused", "busy", "aiSpeaking"]) {
+      await page.evaluate(key => stt.update({ [key]: true }), key);
+      await page.waitForFunction(() => !stt.current.listening);
+      await page.evaluate(() => document.activeElement.blur());
+      await page.keyboard.press("Enter");
+      assert.deepEqual(await page.evaluate(() => stt.submissions), []);
+      await page.evaluate(key => stt.update({ [key]: false }), key);
+      await page.waitForFunction(() => stt.current.listening);
+    }
+    await page.keyboard.press("Enter");
+    assert.deepEqual(await page.evaluate(() => stt.submissions), ["수동 답변"]);
+  });
+
+  test("single-shot recognition ends once, preserves the answer for Enter and resumes after AI speech", async (t) => {
+    const page = await open(t, "?manual");
+    assert.equal(await page.evaluate(() => stt.recognitions.at(-1).continuous), false);
+    await page.evaluate(() => {
+      const recognition = stt.recognitions.at(-1);
+      recognition.result("한 번 인식한 답변");
+      recognition.onend();
+    });
+    await page.waitForFunction(() => !stt.current.listening && stt.current.draft === "한 번 인식한 답변");
+    await page.clock.runFor(5000);
+    assert.deepEqual(await page.evaluate(() => stt.submissions), []);
+    assert.equal(await page.evaluate(() => stt.recognitions.length), 1);
+    assert.equal(await page.evaluate(() => stt.recognitions[0].starts), 1);
+    await page.keyboard.press("Enter");
+    assert.deepEqual(await page.evaluate(() => stt.submissions), ["한 번 인식한 답변"]);
+    await page.evaluate(() => stt.playback(true));
+    await page.evaluate(() => stt.playback(false));
+    await page.waitForFunction(() => stt.current.listening && stt.recognitions.length === 2);
+    assert.equal(await page.evaluate(() => stt.recognitions.at(-1).continuous), false);
+  });
+
+  test("AI completion requests recognition immediately and measures engine startup separately", async (t) => {
+    const page = await open(t, "?manual");
+    await page.evaluate(() => stt.playback(true));
+    await page.waitForFunction(() => !stt.current.listening);
+    await page.evaluate(() => stt.playback(false));
+    // No clock advance: restart must not require a two- or three-second timer.
+    await page.waitForFunction(() => stt.current.listening && stt.recognitions.length === 2);
+    const timing = await page.evaluate(() => window.__mirrorSpeechTimings.filter(row => row.event === "listening").at(-1));
+    assert.ok(timing.resumeToStartMs >= 0 && timing.resumeToStartMs < 100);
+    assert.equal(timing.browserStartupMs, 0);
+  });
+
   test("pause, AI speech, mic toggle, turn changes and unmount stop recognition", { timeout: 30_000 }, async (t) => {
     const page = await open(t);
     for (const key of ["paused", "aiSpeaking", "busy"]) {
