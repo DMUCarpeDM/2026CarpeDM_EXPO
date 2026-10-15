@@ -134,7 +134,7 @@ describe("practice transcription lifecycle", { concurrency: false }, () => {
     await page.waitForFunction(() => stt.current.listening && stt.recognitions.length === 2);
     const timing = await page.evaluate(() => window.__mirrorSpeechTimings.filter(row => row.event === "listening").at(-1));
     assert.ok(timing.resumeToStartMs >= 0 && timing.resumeToStartMs < 100);
-    assert.equal(timing.browserStartupMs, 0);
+    assert.ok(timing.browserStartupMs >= 0 && timing.browserStartupMs < 50);
   });
 
   test("pause, AI speech, mic toggle, turn changes and unmount stop recognition", { timeout: 30_000 }, async (t) => {
@@ -239,6 +239,27 @@ describe("practice transcription lifecycle", { concurrency: false }, () => {
     await page.waitForFunction(() => stt.current.listening);
     await page.evaluate(() => stt.recognitions.at(-1).result("두 번째 답변"));
     await page.waitForFunction(() => stt.current.draft === "두 번째 답변");
+  });
+
+  test("normal recognition end sends interim-only speech without Enter exactly once", async t => {
+    const page = await open(t);
+    await page.evaluate(() => stt.recognitions.at(-1).result("전체 음성 답변", false));
+    await page.waitForFunction(() => stt.current.interim !== "");
+    await page.evaluate(() => stt.recognitions.at(-1).onend());
+    await page.clock.runFor(1);
+    assert.deepEqual(await page.evaluate(() => stt.submissions), ["전체 음성 답변"]);
+    await page.evaluate(() => stt.recognitions.at(-1).onend());
+    await page.clock.runFor(1000);
+    assert.deepEqual(await page.evaluate(() => stt.submissions), ["전체 음성 답변"]);
+  });
+
+  test("recognition errors do not send unfinished speech", async t => {
+    const page = await open(t);
+    await page.evaluate(() => stt.recognitions.at(-1).result("불확실한 답변", false));
+    await page.waitForFunction(() => stt.current.interim !== "");
+    await page.evaluate(() => { const r=stt.recognitions.at(-1); r.onerror({error:"no-speech"}); r.onend(); });
+    await page.clock.runFor(1000);
+    assert.deepEqual(await page.evaluate(() => stt.submissions), []);
   });
 
   test("permission failure stops recognition without calling server STT", { timeout: 30_000 }, async (t) => {

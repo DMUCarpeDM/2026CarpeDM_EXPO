@@ -21,7 +21,6 @@ import preparedWorkplaceSpeech from "../lib/preparedWorkplaceSpeech.json";
 import { startTurnSpeech } from "../lib/turnSpeechPlayback";
 import { practiceSpeechOptions } from "../lib/practiceSpeechOptions";
 import { usePracticeTranscription } from "../lib/usePracticeTranscription";
-import { usePracticeSubmitKey } from "../lib/usePracticeSubmitKey.js";
 import { useLiveCoaching } from "../lib/useLiveCoaching";
 import { PersonaFace } from "../components/ui/PersonaFace";
 import { composeTurnSpeech } from "../lib/turnSpeech";
@@ -225,7 +224,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
     clearAutoSubmit, stopBrowserRecognition, resumeBrowserRecognition, retryBrowserRecognition, recognitionError, getSttSource, resetSttUsage,
   } = usePracticeTranscription({
     draft, setDraft, mediaStream, turn, busy, paused: paused || voice.textOnly, aiSpeaking, aiSpeechActiveRef, entryOverlayOpen,
-    pushFeed, autoSubmit: false,
+    pushFeed, autoSubmit: true, onAutoSubmit: () => submitDraftRef.current?.(),
   });
   const liveTip = useLiveCoaching({ session, turnId: turn?.id,
     active: !workplace && (mirror || (listening && !aiSpeaking)) && !busy && !paused && !entryOverlayOpen,
@@ -510,10 +509,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
     finally { submittingRef.current = false; }
   };
   submitDraftRef.current = submitDraft;
-  usePracticeSubmitKey({
-    enabled: Boolean(turn && inputValue.trim() && !busy && !paused && !aiSpeaking && !entryOverlayOpen && !confirmEnd),
-    onSubmit: () => submitDraftRef.current?.(),
-  });
+
 
   const toggleCameraFullscreen = () => {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -523,7 +519,10 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   if (mirror && workplace) return <>
     <WorkplaceMirrorSceneSimulation speechPlayback={speechPlayback} dialogue={turnSpeech || "다음 대화를 준비하고 있어요."} userPreview={<div className="simulation-user-preview" data-pose-status={track.status} data-pose-tracked={track.poseTracked} data-pose-calibrating={track.calibrating} aria-label="내 카메라와 실시간 추적"><video ref={analysisVideoRef} autoPlay muted playsInline aria-label="내 카메라" /><canvas ref={overlayRef} aria-hidden="true" />{!hasCamera && <span>카메라 꺼짐</span>}</div>} category={sceneBriefing?.category_id} characterId={character?.id} name={characterName} videoState={teamLeadVideoState} paused={paused || entryOverlayOpen} dialogueHidden={entryOverlayOpen} onReactionComplete={() => setTeamLeadReaction("")} waveRef={waveRef} captureStatus={{ recording: audioRecording && hasMicrophone && !captureError, audioError: Boolean(captureError), cameraReady: hasCamera && track.status === "ready", cameraStarting: hasCamera && track.status === "loading", cameraError: track.status === "failed" }}>
       {!entryOverlayOpen && inputStatus.title === "직접 입력" && <p className="simulation-dialogue-status" role="status">{recognitionError === "unsupported" ? "Chrome에서 음성 인식을 실행해 주세요." : <span role="button" tabIndex={0} onClick={retryBrowserRecognition} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); retryBrowserRecognition(); } }}>음성 인식을 다시 실행해 주세요.</span>}</p>}
-      {!entryOverlayOpen && inputValue && <div className="simulation-answer"><p>{inputValue}</p></div>}
+      {!entryOverlayOpen && (inputValue || history.some(item => item.response_text)) && <div className="simulation-answer">
+        {history.filter(item => item.response_text).map(item => <p key={item.id} data-past="true">{item.response_text}</p>)}
+        {inputValue && <p>{inputValue}</p>}
+      </div>}
       {liveTip && <p className="simulation-dialogue-status" role="status"><strong>대화 팁 · </strong>{liveTip.message}</p>}
 
       {(error || captureError || mediaError) && <p className="simulation-dialogue-status" role="alert">{error || captureError || mediaError}</p>}
