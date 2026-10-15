@@ -29,11 +29,22 @@ export async function playPcmSpeechStream(response, { signal, onStart, onProgres
     index = Math.max(index, Math.min(textLength - 1, Math.floor(estimate)));
     onProgress(index);
   }, 80);
+  const readChunk = async () => {
+    let timeout;
+    try {
+      return await Promise.race([
+        reader.read(),
+        new Promise((_, reject) => {
+          timeout = window.setTimeout(() => reject(new Error("Speech stream stalled")), 10_000);
+        }),
+      ]);
+    } finally { window.clearTimeout(timeout); }
+  };
   try {
     if (signal.aborted) throw new DOMException("Cancelled", "AbortError");
     await context.resume();
     while (true) {
-      const { value, done } = await reader.read();
+      const { value, done } = await readChunk();
       if (signal.aborted) throw new DOMException("Cancelled", "AbortError");
       if (done) break;
       const bytes = new Uint8Array(pending.length + value.length);

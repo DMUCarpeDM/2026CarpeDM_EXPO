@@ -18,6 +18,7 @@ import { MicrophoneCheck } from "../components/practice/MicrophoneCheck";
 import { blobToWav } from "../lib/audioWav";
 import preparedWorkplaceSpeech from "../lib/preparedWorkplaceSpeech.json";
 import { startTurnSpeech } from "../lib/turnSpeechPlayback";
+import { practiceSpeechOptions } from "../lib/practiceSpeechOptions";
 import { usePracticeTranscription } from "../lib/usePracticeTranscription";
 import { useLiveCoaching } from "../lib/useLiveCoaching";
 import { PersonaFace } from "../components/ui/PersonaFace";
@@ -181,23 +182,14 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
     pushFeed(msg);
   };
   const completedSpeechRef = useRef(null);
-  const speechHealthRef = useRef(aiHealth?.tts_female);
-  speechHealthRef.current = aiHealth?.tts_female;
   useEffect(() => {
     const text = turnSpeech;
     const speechKey = `${turn?.id}:${text}`;
     if (completedSpeechRef.current === speechKey) return undefined;
     if (!text || paused || entryOverlayOpen) return undefined;
-    const femaleVoice = (mirror && workplace) || character?.voice_gender === "female";
     return startTurnSpeech({
       text,
-      preparedAudioUrl: mirror && workplace && history.length === 0
-        ? preparedWorkplaceSpeech.find((item) => item.text === text)?.url
-        : undefined,
-      voice: femaleVoice ? "female" : "male",
-      allowBrowserFallback: !(mirror && workplace),
-      expectedServerProvider: mirror && workplace ? "elevenlabs" : undefined,
-      serverTtsReady: (mirror && workplace) || (femaleVoice && speechHealthRef.current === "elevenlabs"),
+      ...practiceSpeechOptions(text, workplace ? preparedWorkplaceSpeech : []),
       onSpeakingChange: (speaking) => {
         aiSpeechActiveRef.current = speaking;
         if (speaking) stopBrowserRecognition();

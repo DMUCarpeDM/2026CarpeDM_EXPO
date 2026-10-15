@@ -9,6 +9,12 @@ export function WorkplaceMirrorWelcomePage({ onStart }) {
   useEffect(() => {
     const audio = videoRef.current;
     let disposed = false;
+    const muteOnM = (event) => {
+      if (event.key?.toLowerCase() !== "m" || event.ctrlKey || event.altKey || event.metaKey) return;
+      if (event.target?.closest?.("input, textarea, select, [contenteditable='true']")) return;
+      audio.muted = true;
+    };
+    window.addEventListener("keydown", muteOnM);
     const play = () => {
       if (startedRef.current || !audio.paused || document.hidden) return;
       audio.muted = false;
@@ -20,6 +26,7 @@ export function WorkplaceMirrorWelcomePage({ onStart }) {
     play();
     return () => {
       disposed = true;
+      window.removeEventListener("keydown", muteOnM);
       audio.pause();
       audio.currentTime = 0;
     };
