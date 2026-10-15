@@ -181,7 +181,6 @@ def test_health_tracks_gemini_goal_judge_instead_of_openai_key(monkeypatch):
     monkeypatch.setattr('app.ai.text_match.kiwi_available', lambda: False)
     monkeypatch.setattr('app.services.dialogue.availability.dialogue_ready', lambda: True)
     monkeypatch.setattr('app.services.tts.elevenlabs_ready', lambda: False)
-    monkeypatch.setattr('app.services.iris_tts.iris_female_ready', lambda: False)
     for gemini, openai, missing in [('', 'test', True), ('test', '', False)]:
         monkeypatch.setattr(settings, 'gemini_api_key', SecretStr(gemini))
         monkeypatch.setattr(settings, 'openai_api_key', SecretStr(openai))

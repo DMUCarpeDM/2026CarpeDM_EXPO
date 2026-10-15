@@ -17,7 +17,7 @@ test("resolveApiBase keeps exhibition traffic on the local PC", () => {
   assert.equal(resolveApiBase("/api"), "/api");
 });
 
-test("synthesizeSpeech sends the AI line and Iris voice route", async () => {
+test("synthesizeSpeech sends the AI line and server voice route", async () => {
   const calls = [];
   globalThis.fetch = async (url, options) => {
     calls.push({ url, options });

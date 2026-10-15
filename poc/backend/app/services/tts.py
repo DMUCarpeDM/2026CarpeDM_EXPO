@@ -8,6 +8,10 @@ from app.core.config import settings
 class SpeechSynthesisError(RuntimeError):
     """외부 음성 생성 서비스를 사용할 수 없을 때 발생한다."""
 
+    def __init__(self, message, *, code=None):
+        super().__init__(message)
+        self.code = code
+
 
 def elevenlabs_ready() -> bool:
     """서버에서 ElevenLabs 음성 생성에 필요한 값이 모두 설정됐는지 확인한다."""
@@ -61,10 +65,12 @@ async def stream_elevenlabs(text: str):
             while True:
                 message = json.loads(await asyncio.wait_for(socket.recv(), settings.elevenlabs_timeout_sec))
                 if message.get("error"):
-                    raise SpeechSynthesisError("ElevenLabs 스트리밍 오류")
+                    raise SpeechSynthesisError("ElevenLabs 스트리밍 오류", code=message["error"])
                 if message.get("audio"):
                     yield base64.b64decode(message["audio"], validate=True)
                 if message.get("is_final"):
                     return
+    except SpeechSynthesisError:
+        raise
     except Exception as error:
         raise SpeechSynthesisError("ElevenLabs 음성 스트림을 완료하지 못했습니다") from error

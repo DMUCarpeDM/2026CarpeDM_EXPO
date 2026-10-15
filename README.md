@@ -101,7 +101,7 @@ npm run dev -- --host 127.0.0.1 --port 5175 --strictPort
 - 간투어는 누락·오인식 가능성이 있는 추정치입니다. 점수에 반영하지 않으며, 분석할 수 없으면 0회로 표시하지 않습니다.
 - 디지털 무음은 Whisper 전사 전에 제외합니다. 이 처리가 모든 잡음이나 환각을 막는 것은 아닙니다.
 
-역할극 대화는 `MIRROR_TING_DIALOGUE_PROVIDER`로 OpenAI·Gemini·Ollama 중 선택합니다. 답변의 목표 달성·모순 근거는 Gemini로 판단합니다. 여성 캐릭터는 준비된 Iris TTS를 사용하고, 남성 캐릭터·Iris 미준비·합성 실패 시 브라우저 TTS로 전환합니다. AI 발화 중 Chrome 음성 인식은 일시 중지합니다. Chrome STT와 외부 API를 사용하는 체험에는 인터넷이 필요합니다.
+역할극 대화는 `MIRROR_TING_DIALOGUE_PROVIDER`로 OpenAI·Gemini·Ollama 중 선택합니다. 답변의 목표 달성·모순 근거는 Gemini로 판단합니다. 스마트미러 첫 대사는 준비된 MP3, 후속 대사는 ElevenLabs 스트리밍 음성을 사용합니다. 실패 시 다른 목소리로 전환하지 않고 자막으로 표시합니다. AI 발화 중 Chrome 음성 인식은 일시 중지합니다. Chrome STT와 외부 API를 사용하는 체험에는 인터넷이 필요합니다.
 
 ## 직장 대화 연속 체험
 
@@ -157,5 +157,5 @@ API 키·녹음·DB·모델 가중치는 Git에 올리지 않습니다. 현재 D
 ## 유지보수
 
 - [현재 영상 구성](docs/service-media.md)
-- [Iris TTS 설정](docs/smart-mirror-tts-integration-2026-10-10.md)
+- ElevenLabs 설정: `poc/backend/.env.example`의 음성 설정 항목
 - [프로젝트 정리 기록](docs/maintenance/cleanup-2026-10-11.md)

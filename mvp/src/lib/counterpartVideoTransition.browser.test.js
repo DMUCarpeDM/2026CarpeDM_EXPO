@@ -37,11 +37,13 @@ test("workplace keeps its current frame while the next clip loads and pauses bot
   await requestStarted;
   assert.match(await visible.getAttribute("src"), /speaking-base\.mp4/);
   assert.equal(await visible.evaluate(v => getComputedStyle(v).opacity), "1");
+  assert.equal(await page.locator(".counterpart-video-transition video").evaluateAll(videos => videos.filter(v => getComputedStyle(v).visibility !== "hidden" && Number(getComputedStyle(v).opacity) > 0).length), 1);
   assert.ok(await visible.evaluate(v => v.readyState >= 2 && !v.paused));
   release();
   await page.waitForFunction(() => document.querySelector('video[aria-hidden="false"]')?.currentSrc.includes('listening.mp4'));
   await page.waitForTimeout(250);
   assert.equal(await visible.evaluate(v => getComputedStyle(v).opacity), "1");
+  assert.equal(await page.locator(".counterpart-video-transition video").evaluateAll(videos => videos.filter(v => getComputedStyle(v).visibility !== "hidden" && Number(getComputedStyle(v).opacity) > 0).length), 1);
   assert.ok(await visible.evaluate(v => v.currentTime > 0 && !v.paused));
   assert.equal(await page.locator("video").count(), 2);
   await page.getByRole("button", { name: "말하기", exact: true }).click();
