@@ -4,10 +4,11 @@ import { AUTO_SUBMIT_DELAY_MS, shouldScheduleAutoSubmit } from "./sttAutoSubmit.
 // 받아쓰기와 자동 제출 예약을 관리한다. 답변 초안과 실제 제출은 페이지가 소유한다.
 export function usePracticeTranscription({
   setDraft, mediaStream, turn, busy, paused, aiSpeaking, aiSpeechActiveRef, entryOverlayOpen,
-  pushFeed, onAutoSubmit,
+  pushFeed, onAutoSubmit, autoSubmit = true,
 }) {
   const autoSubmitTimerRef = useRef(null);
   const speechTimingRef = useRef(null);
+  const resumeRequestedAtRef = useRef(null);
   const submitAfterCommitRef = useRef(false);
   const autoSubmitCallbackRef = useRef(onAutoSubmit);
   autoSubmitCallbackRef.current = onAutoSubmit;
@@ -56,23 +57,28 @@ export function usePracticeTranscription({
   }, [paused, busy, aiSpeaking]);
 
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!shouldListen || aiSpeechActiveRef?.current) return undefined;
     let retryTimer;
     let retryPending = false;
     const recognition = new SpeechRecognitionImpl();
     recognition.lang = "ko-KR";
-    recognition.continuous = true;
+    recognition.continuous = false;
     recognition.interimResults = true;
     const isCurrent = () => allowedRef.current && !aiSpeechActiveRef?.current && sttActiveRef.current && recognitionRef.current === recognition;
     let speechEndAt = null;
     let finalAt = null;
+    let startRequestedAt = null;
     const recordTiming = (event) => {
       if (!isCurrent()) return;
       const now = performance.now();
       const timing = {
         turnId: turn.id, event, atMs: now,
+        resumeRequestedAtMs: resumeRequestedAtRef.current,
+        startRequestedAtMs: startRequestedAt,
+        resumeToStartMs: startRequestedAt !== null && resumeRequestedAtRef.current !== null ? Math.round(startRequestedAt - resumeRequestedAtRef.current) : null,
+        browserStartupMs: event === "listening" && startRequestedAt !== null ? Math.round(now - startRequestedAt) : null,
         speechEndAtMs: speechEndAt, finalAtMs: finalAt,
         endToFinalMs: speechEndAt !== null && finalAt !== null ? Math.round(finalAt - speechEndAt) : null,
         finalToSubmitMs: event === "auto-submit" && finalAt !== null ? Math.round(now - finalAt) : null,
@@ -106,6 +112,7 @@ export function usePracticeTranscription({
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
         const transcript = event.results[i][0].transcript.trim();
         if (!transcript) continue;
+        sttUsedRef.current = true;
         if (event.results[i].isFinal) {
           receivedFinal = true;
           sttUsedRef.current = true;
@@ -119,16 +126,19 @@ export function usePracticeTranscription({
         finalAt = performance.now();
         recordTiming("final");
       }
-      if (shouldScheduleAutoSubmit({ receivedFinal, interimText })) scheduleAutoSubmit();
+      if (autoSubmit && shouldScheduleAutoSubmit({ receivedFinal, interimText })) scheduleAutoSubmit();
       else if (interimText) clearAutoSubmit();
     };
-    recognition.onstart = () => { if (isCurrent()) setListening(true); };
+    recognition.onstart = () => {
+      if (!isCurrent()) return;
+      recordTiming("listening");
+      setListening(true);
+    };
     recognition.onend = () => {
       if (!isCurrent() || retryPending) return;
       setListening(false);
       setInterim("");
-      // 침묵으로 인식이 끊기면 다시 듣는다 (턴이 살아있는 동안)
-      if (isCurrent()) { try { recognition.start(); } catch { /* 이미 시작됨 */ } }
+      // 단발 인식은 여기서 종료한다. 다음 AI 발화가 끝나거나 사용자가 재시도하면 다시 듣는다.
     };
     recognition.onerror = (event) => {
       if (!isCurrent()) return;
@@ -154,6 +164,8 @@ export function usePracticeTranscription({
     };
     recognitionRef.current = recognition;
     sttActiveRef.current = true;
+    startRequestedAt = performance.now();
+    recordTiming("start-request");
     try { recognition.start(); } catch { /* 중복 시작 무시 */ }
     return () => {
       clearAutoSubmit();
@@ -167,7 +179,7 @@ export function usePracticeTranscription({
       setListening(false);
       setInterim("");
     };
-  }, [sttMode, micEnabled, mediaStream, turn?.id, busy, paused, aiSpeaking, turn, entryOverlayOpen, recognitionEpoch]);
+  }, [sttMode, micEnabled, mediaStream, turn?.id, busy, paused, aiSpeaking, turn, entryOverlayOpen, recognitionEpoch, autoSubmit]);
 
   const stopBrowserRecognition = () => {
     sttActiveRef.current = false;
@@ -183,7 +195,10 @@ export function usePracticeTranscription({
     setListening(false);
     setInterim("");
   };
-  const resumeBrowserRecognition = () => setRecognitionEpoch(epoch => epoch + 1);
+  const resumeBrowserRecognition = () => {
+    resumeRequestedAtRef.current = performance.now();
+    setRecognitionEpoch(epoch => epoch + 1);
+  };
   const retryBrowserRecognition = () => { networkRetriesRef.current = 0; setRecognitionError(null); setWebSpeechFailed(false); setMicEnabled(true); setRecognitionEpoch(epoch => epoch + 1); };
   const getSttSource = () => sttUsedRef.current ? "webspeech" : "text";
   const resetSttUsage = () => { sttUsedRef.current = false; };

@@ -65,7 +65,7 @@ def initialize(session, scenario, episodes, service_mode, rng=None, exhibition=F
                  "attempts": {}, "met": [], "unmet": [], "unverified": [], "reason": None, "finished": False}
     elif service_mode == "workplace":
         from app.core.config import settings
-        fixed_order = settings.workplace_fixed_scene_order
+        fixed_order = 0 if exhibition else settings.workplace_fixed_scene_order
         exhibition = exhibition or bool(fixed_order)
         plan = build_exhibition_plan(scenario, episodes, rng, fixed_order=fixed_order) if exhibition else _plan_workplace(session, scenario, episodes, rng)
         items = flatten_plan_items(plan)

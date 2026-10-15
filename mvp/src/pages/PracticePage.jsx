@@ -1,6 +1,6 @@
 import { releaseDeferredAudio } from "../lib/pocApi.js";
 import { WorkplaceMirrorSceneSimulation } from "../features/smart-mirror/components/WorkplaceMirrorSceneSimulation";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronRight } from "reicon-react/icons/ChevronRight";
 import { Expand } from "reicon-react/icons/Expand";
 import { Mic } from "reicon-react/icons/Mic";
@@ -21,6 +21,7 @@ import preparedWorkplaceSpeech from "../lib/preparedWorkplaceSpeech.json";
 import { startTurnSpeech } from "../lib/turnSpeechPlayback";
 import { practiceSpeechOptions } from "../lib/practiceSpeechOptions";
 import { usePracticeTranscription } from "../lib/usePracticeTranscription";
+import { usePracticeSubmitKey } from "../lib/usePracticeSubmitKey.js";
 import { useLiveCoaching } from "../lib/useLiveCoaching";
 import { PersonaFace } from "../components/ui/PersonaFace";
 import { composeTurnSpeech } from "../lib/turnSpeech";
@@ -71,6 +72,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   const recordingStartedAtRef = useRef(0);
   const stampsRef = useRef(new Map());
   const submitDraftRef = useRef(null);
+  const submittingRef = useRef(false);
   const entryMediaRequestedRef = useRef(false);
   const character = scenario?.characters?.find((item) => item.id === turn?.character_id) || scenario?.characters?.[0];
   const characterName = character?.name || "AI 상대";
@@ -184,7 +186,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   };
   const completedSpeechRef = useRef(null);
   useEffect(() => () => releaseDeferredAudio(session), [session?.id]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const text = turnSpeech;
     const speechKey = `${turn?.id}:${text}`;
     if (completedSpeechRef.current === speechKey) return undefined;
@@ -223,7 +225,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
     clearAutoSubmit, stopBrowserRecognition, resumeBrowserRecognition, retryBrowserRecognition, recognitionError, getSttSource, resetSttUsage,
   } = usePracticeTranscription({
     draft, setDraft, mediaStream, turn, busy, paused: paused || voice.textOnly, aiSpeaking, aiSpeechActiveRef, entryOverlayOpen,
-    pushFeed, onAutoSubmit: () => submitDraftRef.current?.(),
+    pushFeed, autoSubmit: false,
   });
   const liveTip = useLiveCoaching({ session, turnId: turn?.id,
     active: !workplace && (mirror || (listening && !aiSpeaking)) && !busy && !paused && !entryOverlayOpen,
@@ -461,7 +463,8 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
 
   const submitDraft = async () => {
     const text = inputValue.trim();
-    if (!text || busy || paused || !turn || entryOverlayOpen) return;
+    if (!text || busy || paused || aiSpeaking || aiSpeechActiveRef.current || !turn || entryOverlayOpen || submittingRef.current) return;
+    submittingRef.current = true;
     try {
       clearAutoSubmit();
       stopBrowserRecognition();
@@ -469,15 +472,22 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
       const endSeconds = Math.max(0, (performance.now() - recordingStartedAtRef.current) / 1000);
       if (excludeStartRef.current !== null && endSeconds > excludeStartRef.current) exclusionsRef.current.push([excludeStartRef.current, endSeconds]);
       excludeStartRef.current = null;
-      const audioReady = (async () => {
-        const webm = voice.textOnly ? null : await stopTurnRecorder().catch(() => null);
-        return webm && webm.size > 0 ? blobToWav(webm).catch(() => null) : null;
-      })();
+      const recordingReady = voice.textOnly ? Promise.resolve(null) : stopTurnRecorder().catch(() => null);
+      // 녹음은 즉시 끝내고 WAV 변환은 업로드 시점(AI 재생 시작 후)에 실행한다.
+      let resolveAudio;
+      const audioReady = new Promise(resolve => { resolveAudio = resolve; });
+      const prepareAudio = async () => {
+        const webm = await recordingReady;
+        const audio = webm && webm.size > 0 ? await blobToWav(webm).catch(() => null) : null;
+        resolveAudio(audio);
+        return audio;
+      };
       stampsRef.current.set(`a-${turn.id}`, wallClock());
       pushFeed("답변 제출 — 응답·음성·비언어 지표 서버 분석");
       const accepted = await onSubmit({
         text,
         audioReady,
+        prepareAudio,
         voiceInput: voice.enabled ? {
           calibration_id: voice.calibration?.id || null,
           capture: sameCapture(turnCaptureRef.current, captureSettings(mediaStream)) ? turnCaptureRef.current : null,
@@ -497,8 +507,13 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
       setInterim("");
       setCaptureError("");
     } catch (err) { setCaptureError(err.message); }
+    finally { submittingRef.current = false; }
   };
   submitDraftRef.current = submitDraft;
+  usePracticeSubmitKey({
+    enabled: Boolean(turn && inputValue.trim() && !busy && !paused && !aiSpeaking && !entryOverlayOpen && !confirmEnd),
+    onSubmit: () => submitDraftRef.current?.(),
+  });
 
   const toggleCameraFullscreen = () => {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});

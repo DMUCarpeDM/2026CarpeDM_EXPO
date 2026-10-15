@@ -1,6 +1,7 @@
 import { createElement, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { usePracticeTranscription } from "../usePracticeTranscription.js";
+import { usePracticeSubmitKey } from "../usePracticeSubmitKey.js";
 
 const control = window.stt = { recognitions: [], recorders: [], submissions: [], notes: [], voiced: true, requests: [] };
 class Recognition {
@@ -41,10 +42,18 @@ function Harness() {
   const aiSpeechActiveRef = useRef(false);
   const [options, setOptions] = useState({ turn: { id: 1 }, paused: false, busy: false, aiSpeaking: false });
   const speech = usePracticeTranscription({
-    ...options, draft, setDraft, mediaStream: stream, entryOverlayOpen: false, aiSpeechActiveRef,
+    ...options, autoSubmit: !new URLSearchParams(location.search).has("manual"), draft, setDraft, mediaStream: stream, entryOverlayOpen: false, aiSpeechActiveRef,
     aiHealth: { server_stt: !new URLSearchParams(location.search).has("unsupported") },
     onTranscribe: transcribe, pushFeed: (note) => control.notes.push(note),
     onAutoSubmit: () => control.submissions.push(draft),
+  });
+  usePracticeSubmitKey({
+    enabled: new URLSearchParams(location.search).has("manual") && !options.busy && !options.paused && !options.aiSpeaking && Boolean(`${draft} ${speech.interim}`.trim()),
+    onSubmit: () => {
+      control.submissions.push(`${draft} ${speech.interim}`.trim());
+      control.sources = speech.getSttSource();
+      speech.stopBrowserRecognition();
+    },
   });
   useEffect(() => {
     control.current = { ...speech, draft };
@@ -58,6 +67,7 @@ function Harness() {
     control.type = (text) => { speech.clearAutoSubmit(); setDraft(text); speech.setInterim(""); };
   });
   return createElement("div", null,
+    createElement("textarea", { id: "practice-answer" }),
     createElement("output", null, JSON.stringify({ draft, mode: speech.sttMode, listening: speech.listening, error: speech.recognitionError, starts: control.recognitions.length })),
     createElement("button", { onClick: () => control.recognitions.at(-1).onerror?.({ error: "network" }) }, "Network error"),
     createElement("button", { onClick: speech.retryBrowserRecognition }, "Retry"),
