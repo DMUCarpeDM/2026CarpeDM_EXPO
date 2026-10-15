@@ -118,18 +118,28 @@ def _measure(path, session_id, turn_id, baseline, source, references):
     # 보정은 상대 크기에만 필요하다. 속도·멈춤·참고값의 독립 측정은 유지한다.
     # Reject corrupt/oversized decoded audio before STT can spend time on it.
     try:
-        samples, rate, _ = engine.load_audio(path)
+        decoded_audio = engine.load_audio(path)
+        samples, rate, _ = decoded_audio
     except Exception:
         return engine.analyze(path, session_id=session_id, turn_id=turn_id, references=False), None, None
-    segments = engine._subtract(engine.speech_segments(samples, rate), source.get("excluded_intervals", ()))
+    excluded = source.get("excluded_intervals", ())
+    try:
+        detected_segments = engine.speech_segments(samples, rate)
+    except Exception:
+        return engine.analyze(path, session_id=session_id, turn_id=turn_id,
+            calibration=baseline, capture=source.get("capture"), excluded=excluded,
+            decoded_audio=decoded_audio, references=False), None, None
+    segments = engine._subtract(detected_segments, excluded)
     if not segments:
         result = engine.analyze(path, session_id=session_id, turn_id=turn_id,
-            calibration=baseline, capture=source.get("capture"), excluded=source.get("excluded_intervals", ()), references=False)
+            calibration=baseline, capture=source.get("capture"), excluded=excluded, references=False,
+            decoded_audio=decoded_audio, detected_segments=detected_segments)
         return result, None, {"status_code": 200, "latency_ms": 0, "error_message": "", "skipped": "no_user_speech"}
     # Preserve small pauses and filler sounds, but exclude AI audio and long silence.
     regions = []
     for start, end in segments:
-        if regions and start - regions[-1][1] <= 1.0:
+        if (regions and start - regions[-1][1] <= 1.0
+                and not engine._overlaps(regions[-1][1], start, excluded)):
             regions[-1][1] = end
         else:
             regions.append([start, end])
@@ -156,7 +166,8 @@ def _measure(path, session_id, turn_id, baseline, source, references):
         stt_log = {"latency_ms": 0, "status_code": 500, "error_message": str(exc)[:1000]}
     measurement = engine.analyze(path, session_id=session_id, turn_id=turn_id,
         calibration=baseline, capture=source.get("capture"), words=words,
-        excluded=source.get("excluded_intervals", ()), references=references)
+        excluded=excluded, references=references,
+        decoded_audio=decoded_audio, detected_segments=detected_segments)
     habits = None
     if words is not None:
         excluded = source.get("excluded_intervals", ())
@@ -234,7 +245,8 @@ def report_data(session):
     context_scored = any('voice' in row.get('measured', []) and row.get('context_policy', {}).get('status') == 'classified'
                          for row in value.get('judgments', {}).values())
     return {"engine_version": engine.VERSION, "criteria_version": engine.CRITERIA_VERSION,
-            "score_status": "context_provisional" if context_scored else "criteria_pending",
+            "score_status": "context_provisional" if context_scored else "measurement_provisional" if any(
+                'voice' in row.get('measured', []) for row in value.get('judgments', {}).values()) else "criteria_pending",
             "score_scope": "relative_volume" if context_scored else None,
             "measurement_fields": list(engine.CORE_FIELDS),
             "reference_only": [],

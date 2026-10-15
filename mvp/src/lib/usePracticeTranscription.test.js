@@ -301,4 +301,43 @@ describe("practice transcription lifecycle", { concurrency: false }, () => {
     assert.equal(await page.evaluate(() => stt.current.getSttSource()), "text");
     assert.deepEqual(await page.evaluate(() => stt.submissions), []);
   });
+
+  test("mic disable, entry overlay and turn change cancel pending answers", { timeout: 30_000 }, async (t) => {
+    const page = await open(t);
+    await page.evaluate(() => { stt.recognitions.at(-1).result("이전 답변"); stt.current.setMicEnabled(false); });
+    await page.waitForFunction(() => !stt.current.listening);
+    await page.clock.runFor(3000);
+    assert.deepEqual(await page.evaluate(() => stt.submissions), []);
+    await page.evaluate(() => stt.current.setMicEnabled(true));
+    await page.waitForFunction(() => stt.current.listening);
+    await page.evaluate(() => { stt.recognitions.at(-1).result("이전 턴"); stt.update({ turn: { id: 2 } }); });
+    await page.clock.runFor(3000);
+    assert.deepEqual(await page.evaluate(() => stt.submissions), []);
+    await page.evaluate(() => { stt.recognitions.at(-1).result("안내 전 답변"); stt.update({ entryOverlayOpen: true }); });
+    await page.waitForFunction(() => !stt.current.listening);
+    await page.clock.runFor(3000);
+    assert.deepEqual(await page.evaluate(() => stt.submissions), []);
+  });
+
+  test("unsupported audio track falls back to default microphone and resumes on request", { timeout: 30_000 }, async (t) => {
+    const page = await open(t, "?trackUnsupported");
+    await page.waitForFunction(() => stt.current.listening);
+    assert.equal(await page.evaluate(() => stt.recognitions.at(-1).starts), 2);
+    await page.evaluate(() => stt.recognitions.at(-1).onend());
+    assert.equal(await page.evaluate(() => stt.recognitions.at(-1).starts), 2);
+    await page.evaluate(() => stt.current.resumeBrowserRecognition());
+    await page.waitForFunction(() => stt.recognitions.length === 2 && stt.current.listening);
+    assert.equal(await page.evaluate(() => stt.recognitions.at(-1).starts), 2);
+    await page.evaluate(() => stt.recognitions.at(-1).result("기본 마이크 답변"));
+    await page.clock.runFor(3000);
+    assert.deepEqual(await page.evaluate(() => stt.submissions), ["기본 마이크 답변"]);
+  });
+
+  test("synchronous microphone failure exposes recovery instead of waiting forever", { timeout: 30_000 }, async (t) => {
+    const page = await open(t, "?startFailure");
+    await page.waitForFunction(() => stt.current.sttMode === "off");
+    assert.equal(await page.evaluate(() => stt.current.recognitionError), "not-allowed");
+    assert.equal(await page.evaluate(() => stt.current.listening), false);
+    assert.equal(await page.evaluate(() => stt.notes.length), 1);
+  });
 });

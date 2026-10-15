@@ -6,7 +6,15 @@ import { usePracticeSubmitKey } from "../usePracticeSubmitKey.js";
 const control = window.stt = { recognitions: [], recorders: [], submissions: [], notes: [], voiced: true, requests: [] };
 class Recognition {
   constructor() { this.starts = 0; this.stops = 0; control.recognitions.push(this); }
-  start() { this.starts++; if (control.failStart) throw new DOMException("Engine busy", "InvalidStateError"); this.onstart?.(); }
+  start(track) {
+    this.starts++;
+    this.track = track;
+    if (control.failStart) throw new DOMException("Engine busy", "InvalidStateError");
+    const params = new URLSearchParams(location.search);
+    if (track && params.has("trackUnsupported")) throw new DOMException("Track input unavailable", "NotSupportedError");
+    if (params.has("startFailure")) throw new DOMException("Microphone unavailable", "NotAllowedError");
+    this.onstart?.();
+  }
   stop() { this.stops++; this.onend?.(); }
   abort() { this.aborts = (this.aborts || 0) + 1; this.stop(); }
   result(text, isFinal = true) {
@@ -42,7 +50,7 @@ function Harness() {
   const aiSpeechActiveRef = useRef(false);
   const [options, setOptions] = useState({ turn: { id: 1 }, paused: false, busy: false, aiSpeaking: false });
   const speech = usePracticeTranscription({
-    ...options, autoSubmit: !new URLSearchParams(location.search).has("manual"), draft, setDraft, mediaStream: stream, entryOverlayOpen: false, aiSpeechActiveRef,
+    entryOverlayOpen: false, ...options, autoSubmit: !new URLSearchParams(location.search).has("manual"), draft, setDraft, mediaStream: stream, aiSpeechActiveRef,
     aiHealth: { server_stt: !new URLSearchParams(location.search).has("unsupported") },
     onTranscribe: transcribe, pushFeed: (note) => control.notes.push(note),
     onAutoSubmit: () => control.submissions.push(draft),

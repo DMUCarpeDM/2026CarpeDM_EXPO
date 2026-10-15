@@ -40,7 +40,7 @@ export function ServiceEntryShell({
   const {
     active, menuOpen, selectedServiceModeId, counterpartProfile, difficulty,
     session, turn, turnHistory, turnSignals, report, history, selectedEpisodeId,
-    nfcFallback, nfcCard, consented, apiError,
+    nfcFallback, nfcCard, consented, apiError, nfcError,
   } = entry.state;
   const { setMenuOpen, setDifficulty, setNfcFallback, setNfcCard, setConsented, setPocScenarioSlug } = entry.setters;
   const { navigate, go, chooseServiceMode, chooseCounterpartProfile, chooseScenario, startFromJobRole, startMirrorExperience, returnToStart } = entry.actions;
@@ -93,13 +93,15 @@ export function ServiceEntryShell({
     {!mirror && <MobileMenuSheet open={menuOpen} active={navigationView} onClose={() => setMenuOpen(false)} onNavigate={navigate} practiceMode={active === "practice"} />}
     <main className="screen-frame" id="main-content" ref={contentRef} tabIndex={-1}>
       {!(mirror && active === "home") && <DemoNotice />}
-      {session?.kiosk_link_status === "pending" && <div className="preview-error" role="status">사원증 결과 연결을 기다리고 있어요. <button type="button" disabled={linkRetrying} onClick={retryCardLink}>{linkRetrying ? "연결 확인 중" : "사원증 연결 다시 시도"}</button></div>}
-      {session?.kiosk_link_status === "conflict" && <p className="preview-error" role="alert">사원증이 재발급되어 이 결과를 연결할 수 없어요. 운영자에게 문의하고 다음 체험에서는 다시 태그해주세요.</p>}
+      {session?.kiosk_link_status === "pending" && <div className={mirror ? "mirror-card-notice" : "preview-error"} role="status">사원증 결과 연결을 기다리고 있어요. <button type="button" disabled={linkRetrying} onClick={retryCardLink}>{linkRetrying ? "연결 확인 중" : "사원증 연결 다시 시도"}</button></div>}
+      {session?.kiosk_link_status === "conflict" && <p className={mirror ? "mirror-card-notice" : "preview-error"} role="alert">사원증이 재발급되어 이 결과를 연결할 수 없어요. 운영자에게 문의하고 다음 체험에서는 다시 태그해주세요.</p>}
+      {mirror && active === "result" && report && session?.kiosk_link_status === "linked" && <p className="mirror-card-notice" role="status">리포트가 준비됐어요. 출력 키오스크에서 같은 사원증을 태그해 주세요.</p>}
+      {mirror && active === "result" && report && session?.kiosk_link_status === "not_requested" && <p className="mirror-card-notice" role="status">사원증 없이 시작한 체험이에요. 리포트를 출력하려면 사원증을 태그해 새 체험을 시작해 주세요.</p>}
       {active === "home" && !mirror && apiError && <p className="preview-error" role="alert">{apiError}</p>}
       {active === "usage" && <UsagePage onPractice={() => navigate("home")} />}
       {active === "intro" && <SiteIntroPage onPractice={() => navigate("home")} />}
       {active === "records" && <ResultsHistoryPage onResultBack={() => navigate("home")} onPractice={() => navigate("home")} report={report} history={history} onIssueCode={issueCode} selectedDifficulty={difficulty} progress={analysisProgress} error={apiError} />}
-      {active === "home" && (mirror ? <WorkplaceMirrorWelcomePage onStart={startMirrorExperience} /> : <HomePage serviceMode={serviceMode} onNext={() => navigate(startView)} onModeSelect={() => navigate("service")} />)}
+      {active === "home" && (mirror ? <WorkplaceMirrorWelcomePage onStart={startMirrorExperience} nfcError={nfcError} /> : <HomePage serviceMode={serviceMode} onNext={() => navigate(startView)} onModeSelect={() => navigate("service")} />)}
       {active === "role" && <RoleSelectPage serviceMode={serviceMode} counterpartProfile={counterpartProfile} onCounterpart={chooseCounterpartProfile} onPrev={() => window.history.back()} onNext={() => navigate("scenario")} />}
       {active === "scenario" && <ScenarioSelectPage serviceMode={serviceMode} counterpartProfile={counterpartProfile} scenarios={apiScenarios} status={scenarioStatus} onRetry={retryScenarios} selectedEpisodeId={selectedEpisodeId} onScenario={chooseScenario} onPrev={() => go(-1)} onNext={() => navigate("difficulty")} />}
       {active === "difficulty" && <DifficultyPage serviceMode={serviceMode} counterpartProfile={counterpartProfile} scenario={previewScenario} selectedEpisode={previewEpisode} difficulty={difficulty} onDifficulty={setDifficulty} onPrev={() => go(-1)} onNext={() => navigate("preview")} />}

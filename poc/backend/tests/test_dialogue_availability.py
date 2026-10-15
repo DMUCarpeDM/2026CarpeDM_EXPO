@@ -1,4 +1,4 @@
-"""대화 엔진 가용성 — 새 목표 기반 세션은 생성 오류에도 준비된 질문으로 이어간다."""
+"""대화 엔진 가용성 — 생성 오류 시 같은 턴을 보존하고 재시도한다."""
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -28,7 +28,7 @@ def test_create_session_starts_with_existing_episode_line():
 
 
 def test_session_reports_dialogue_outage_after_the_first_answer(monkeypatch):
-    """답변을 보존하고 폴백 상태와 준비된 목표 질문을 내려준다."""
+    """실패한 제출은 진행도에 반영하지 않고 같은 턴에서 다시 시도한다."""
     def boom(*_args, **_kwargs):
         raise DialogueGenerationError("대화 모델 연결을 확인해 주세요")
 
@@ -46,8 +46,7 @@ def test_session_reports_dialogue_outage_after_the_first_answer(monkeypatch):
         },
         headers={"X-Session-Token": data["access_token"]},
     )
-    assert result.status_code == 200
-    assert result.json()["turn_signals"]["judgment"]["dialogue_status"] == "fallback"
-    assert result.json()["next_turn"]["question_text"]
+    assert result.status_code == 503
     resumed = client.get(f"/api/sessions/{data['id']}", headers={"X-Session-Token": data["access_token"]}).json()
-    assert len(resumed["history"]) == 1
+    assert resumed["history"] == []
+    assert resumed["current_turn"]["id"] == data["current_turn"]["id"]

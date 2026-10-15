@@ -3,8 +3,9 @@ import test from "node:test";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
 import { startVite } from "./serviceEntryRouteHarness.js";
+import { speechSubtitleSegments } from "./speechSubtitleSegments.js";
 
-test("mirror subtitles leave room for the live camera and bottom-right capture pill", { timeout: 90000 }, async t => {
+test("mirror subtitles leave room for the top-right capture status and live camera", { timeout: 90000 }, async t => {
   const { server, url } = await startVite();
   const browser = await chromium.launch({ channel: "chrome", headless: true });
   t.after(async () => { await browser.close(); await server.close(); });
@@ -16,7 +17,12 @@ test("mirror subtitles leave room for the live camera and bottom-right capture p
     localStorage.clear();
     localStorage.setItem("mirror-ting-active-session", JSON.stringify({ id: 71, access_token: "layout-fixture" }));
     window.SpeechRecognition = class { start() { this.onstart?.(); } abort() {} };
-    Object.defineProperty(speechSynthesis, "speak", { value: utterance => { window.__subtitleUtterance = utterance; } });
+    window.Audio = class {
+      duration = 8; currentTime = 0; paused = true;
+      constructor() { window.__subtitleAudio = this; }
+      async play() { this.paused = false; }
+      pause() { this.paused = true; }
+    };
     navigator.mediaDevices.getUserMedia = async () => {
       if (window.__layoutStream) return window.__layoutStream;
       const img = new Image(); img.src = "data:image/png;base64," + image; await img.decode();
@@ -34,9 +40,12 @@ test("mirror subtitles leave room for the live camera and bottom-right capture p
   const errors = []; page.on("pageerror", error => errors.push(error.message));
   await page.route("**/api/**", route => {
     const path = new URL(route.request().url()).pathname;
-    const data = path.endsWith("/scenarios") ? [pack] : path.endsWith("/health") ? { dialogue_ready: false, tts_ready: false }
+    if (path.endsWith("/tts")) return route.fulfill({ contentType: "audio/wav", headers: { "x-tts-provider": "elevenlabs" }, body: Buffer.from("fixture-audio") });
+    const data = path.endsWith("/scenarios") ? [pack] : path.endsWith("/health") ? { dialogue_ready: false, tts_ready: true }
       : path.endsWith("/sessions/71") ? { id: 71, mode: 5, status: "in_progress", scenario: pack,
-        current_turn: { id: 711, order: 1, character_id: episode.character_id, question_text: episode.initial_question }, history: [] } : {};
+        voice_analysis: { engine_version: "voice-measure-v2", calibration: { source: "standard", status: "standard", can_proceed: true } },
+        current_turn: { id: 711, order: 2, character_id: episode.character_id, question_text: episode.initial_question },
+        history: [{ id: 710, question_text: "이전 질문", response_text: "이전 답변" }] } : {};
     return route.fulfill({ contentType: "application/json", body: JSON.stringify(data) });
   });
   const out = "../.omo/evidence/selected-simulation-layout";
@@ -47,9 +56,10 @@ test("mirror subtitles leave room for the live camera and bottom-right capture p
     await page.emulateMedia({ reducedMotion: viewport.width === 390 ? "reduce" : "no-preference" });
     await page.goto(url + "?mirror=1&service=workplace");
     await page.locator(".simulation-dialogue-text").waitFor();
-    await page.waitForFunction(() => Boolean(window.__subtitleUtterance));
-    assert.equal(await page.locator(".simulation-dialogue-text").getAttribute("data-visible"), "false");
-    await page.evaluate(() => { window.__subtitleUtterance.onstart(); window.__subtitleUtterance.onboundary({charIndex: 0}); });
+    await page.waitForFunction(() => Boolean(window.__subtitleAudio?.onplaying));
+    const sentenceCount = speechSubtitleSegments(episode.initial_question).length;
+    assert.equal(await page.locator(".simulation-dialogue-text").getAttribute("data-visible"), "true");
+    await page.evaluate(() => { window.__subtitleAudio.onplay(); window.__subtitleAudio.onplaying(); });
     await page.waitForFunction(() => document.querySelector(".simulation-user-preview video")?.videoWidth > 0);
     await page.waitForFunction(() => [...document.querySelectorAll(".simulation-actor video")].every(video => video.readyState >= 2));
     await page.waitForFunction(() => {
@@ -59,10 +69,8 @@ test("mirror subtitles leave room for the live camera and bottom-right capture p
     await page.locator(".simulation-actor video:not([aria-hidden='true'])").evaluate(async video => { video.currentTime = 2; await video.play(); });
     await page.waitForTimeout(400);
     assert.equal(await page.locator(".simulation-dialogue-text > span").first().getAttribute("data-focus"), "active");
-    assert.equal(await page.locator(".simulation-dialogue-text > span").count(), 1);
-    await page.evaluate(() => window.__subtitleUtterance.onboundary({ charIndex: 3 }));
-    assert.equal(await page.locator(".simulation-dialogue-text > span").first().getAttribute("data-tracking"), "true");
-    assert.ok(Number(await page.locator(".simulation-dialogue-text > span").first().evaluate(el => el.style.getPropertyValue("--speech-progress"))) > 0);
+    assert.equal(await page.locator(".simulation-dialogue-text > span").count(), sentenceCount);
+    await page.evaluate(() => { window.__subtitleAudio.currentTime = 4; window.__subtitleAudio.ontimeupdate(); });
     const metrics = await page.evaluate(() => {
       const box = selector => { const r = document.querySelector(selector).getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; };
       return { caption: box(".simulation-card-slot"), user: box(".simulation-user-preview"), pill: box(".mirror-capture-status"), frame: box(".mirror-scene-simulation"),
@@ -70,24 +78,23 @@ test("mirror subtitles leave room for the live camera and bottom-right capture p
         sentences: document.querySelectorAll(".simulation-dialogue-text > span").length };
     });
     assert.equal(metrics.glassCards, 0);
-    assert.equal(metrics.sentences, 1);
-    assert.ok(metrics.caption.right < metrics.user.left);
-    assert.ok(metrics.user.bottom < metrics.pill.top);
-    assert.ok(metrics.pill.bottom < metrics.frame.bottom);
+    assert.equal(metrics.sentences, sentenceCount);
+    assert.ok(metrics.caption.right <= metrics.user.left || metrics.caption.top >= metrics.user.bottom || metrics.caption.bottom <= metrics.user.top);
+    assert.ok(metrics.pill.bottom < metrics.user.top);
+    assert.ok(metrics.user.bottom < metrics.frame.bottom);
     observations.push({ viewport, ...metrics });
     await page.screenshot({ path: `${out}/${viewport.width}.png` });
     await page.locator(".simulation-actor video:not([aria-hidden='true'])").evaluate(video => video.pause());
-    await page.evaluate(() => window.__subtitleUtterance.onboundary({charIndex: window.__subtitleUtterance.text.indexOf(".") + 1}));
-    assert.equal(await page.locator(".simulation-dialogue-text > span").first().getAttribute("data-focus"), "active");
-    assert.equal(await page.locator(".simulation-dialogue-text > span").count(), 1);
-    assert.equal(await page.locator(".simulation-dialogue-text > span").first().getAttribute("data-tracking"), "true");
-    assert.equal(await page.locator(".simulation-card-slot").evaluate(el => getComputedStyle(el).overflowY), "visible");
+    assert.equal(await page.locator(".simulation-dialogue-text > span").count(), sentenceCount);
+    assert.equal(await page.locator(".simulation-card-slot").evaluate(el => getComputedStyle(el).overflowY), "auto");
     await page.clock.runFor(300);
     await page.screenshot({ path: `${out}/${viewport.width}-second-sentence.png` });
     if (viewport.width === 390) assert.equal(await page.locator(".simulation-dialogue-text").evaluate(el => getComputedStyle(el).transform), "none");
-    await page.evaluate(() => window.__subtitleUtterance.onend());
+    await page.evaluate(() => window.__subtitleAudio.onended());
     await page.clock.runFor(400);
-    await page.waitForFunction(() => Number(getComputedStyle(document.querySelector(".simulation-dialogue-text")).opacity) === 0);
+    assert.equal(await page.locator(".simulation-dialogue-text").getAttribute("data-visible"), "true");
+    assert.equal(await page.locator(".simulation-dialogue-text > span[data-focus='past']").count(), sentenceCount);
+    assert.equal(await page.locator(".simulation-dialogue-text").evaluate(el => Number(getComputedStyle(el).opacity)), 1);
   }
   assert.deepEqual(errors, []);
   await writeFile(`${out}/verification.json`, JSON.stringify({ observations, camera: "synthetic local portrait fixture", errors }, null, 2));

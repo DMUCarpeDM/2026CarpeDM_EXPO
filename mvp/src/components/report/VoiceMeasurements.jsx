@@ -24,7 +24,7 @@ export function VoiceMeasurements({ data }) {
   const showReferences = !data.measurement_fields || data.measurement_fields.includes("pitch");
   return <section className="voice-report" aria-labelledby="voice-report-title">
     <h2 id="voice-report-title">내 말하기 돌아보기</h2>
-    <p>{hasVoiceMeasurements(data) ? "녹음에서 확인한 말속도와 쉬어 간 구간을 정리했어요." : "이번 연습에서는 목소리 측정값을 확인하지 못했어요."} {data.score_status === "context_provisional" ? "대화 상황에 따라 평소보다 목소리가 얼마나 커졌는지만 참고했어요. 말속도와 멈춤, 음높이는 감점하지 않아요." : "이 기록은 말하기를 돌아보기 위한 자료이며 점수에는 반영하지 않아요."}</p>
+    <p>{hasVoiceMeasurements(data) ? "녹음에서 확인한 말속도와 쉬어 간 구간을 정리했어요." : "이번 연습에서는 목소리 측정값을 확인하지 못했어요."} {["context_provisional", "measurement_provisional"].includes(data.score_status) ? "측정된 말속도를 연습용 참고 점수에 반영했어요. 쉼만 측정된 경우 기준점으로 표시하며, 개인 기준 음성이 있을 때만 성량을 비교해요." : "이 기록은 말하기를 돌아보기 위한 자료이며 점수에는 반영하지 않아요."}</p>
     {(data.turns || []).map((turn, index) => <details key={turn.turn_id}>
       <summary>{index + 1}번째 답변 살펴보기</summary>
       <dl>

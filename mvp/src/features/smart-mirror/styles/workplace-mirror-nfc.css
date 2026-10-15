@@ -1,4 +1,8 @@
 body:has(.mirror-deployment) { margin: 0; background: #000; }
+.mirror-deployment .mirror-card-notice { position: fixed; z-index: 100; bottom: 2.5dvh; left: 50%; transform: translateX(-50%); box-sizing: border-box; width: min(90vw, 680px); padding: 18px 24px; border: 1px solid #ffffff42; border-radius: 18px; background: #10151ff2; color: #f5f7fc; font: 500 clamp(16px, 2dvh, 26px)/1.6 'Noto Sans KR', sans-serif; box-shadow: 0 8px 36px #0008; }
+.mirror-card-notice p { margin: 0; }
+.mirror-card-notice p + p { margin-top: 8px; color: #c6cdd8; font-size: .85em; }
+.mirror-card-notice button { margin-top: 10px; padding: 10px 18px; border: 1px solid #ffffff70; border-radius: 10px; background: #ffffff18; color: inherit; font: inherit; cursor: pointer; }
 .app-shell.mirror-deployment { width: 100%; max-width: none; margin: 0; padding: 0; background: #000; color: #f5f7fc; min-height: 100dvh; }
 .mirror-deployment .screen-frame { width: 100%; max-width: none; margin: 0; padding: 0; }
 

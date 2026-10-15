@@ -5,7 +5,7 @@ import {makeTurnAcc, finalizeTurnMetrics} from "./nonverbalMetrics.js";
 
 test("face crop rejects missing, tiny and clipped faces", () => {
   assert.equal(faceCrop(null, 1000, 1000), null);
-  assert.equal(faceCrop([{x:0,y:0}, {x:.2,y:.2}],1000,1000), null);
+  assert.equal(faceCrop([{x:-.1,y:0}, {x:.2,y:.2}],1000,1000), null);
   assert.equal(faceCrop([{x:.5,y:.5}, {x:.51,y:.51}],1000,1000), null);
   assert.deepEqual(faceCrop([{x:.3,y:.3}, {x:.7,y:.7}],1000,1000), {x:260,y:260,size:480});
 });
@@ -50,4 +50,11 @@ test("fully visible edge faces survive padding and retain expression payload wit
   const payload=JSON.parse(JSON.stringify(finalizeTurnMetrics(acc)));
   assert.equal(payload.expression_model.samples,4);
   assert.equal(payload.frames,0);
+});
+
+test("a complete face near the image edge keeps its sample when only padding overflows", () => {
+  const crop=faceCrop([{x:.01,y:.2},{x:.3,y:.6}],640,480);
+  assert.ok(crop);
+  assert.equal(crop.x,0);
+  assert.ok(crop.y>=0 && crop.x+crop.size<=640 && crop.y+crop.size<=480);
 });

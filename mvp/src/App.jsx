@@ -1,4 +1,5 @@
 import { RAW_MIC_SETTINGS, preferredUsbMicrophone, microphoneConstraints } from "./lib/microphoneInput";
+import { enumerateCaptureDevices, requestCapture } from "./lib/mediaRequest";
 import { isMirrorDeployment } from "./features/smart-mirror/lib/workplaceMirrorTimeline";
 import { useEffect, useRef, useState } from "react";
 import { counterpartProfiles, difficulties, getRoleScenarioOptions } from "./data/setupCatalog";
@@ -63,6 +64,7 @@ export default function App() {
   const mirrorPreparationContext = useRef({ key: "", revision: 0 });
   const retainedSessionIdRef = useRef("");
   const visitorEpochRef = useRef(0);
+  const mediaRequestRef = useRef(null);
 
   const resetVisitorMedia = () => {
     mediaStream?.getTracks().forEach((track) => track.stop());
@@ -72,7 +74,7 @@ export default function App() {
     turnAudioReferencesRef.current = []; retainedSessionIdRef.current = "";
   };
 
-  const requestExerciseMedia = async () => {
+  const connectExerciseMedia = async () => {
     const epoch = visitorEpochRef.current;
     if (!navigator.mediaDevices?.getUserMedia) {
       setPermissionState({ camera: "denied", microphone: "denied" });
@@ -85,28 +87,37 @@ export default function App() {
     }
     const savedMic = localStorage.getItem("mirror-ting-mic-device");
     const videoConstraint = { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30, max: 30 } };
-    const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+    console.info("[media] enumerate devices");
+    const devices = await enumerateCaptureDevices(navigator.mediaDevices);
+    console.info("[media] available inputs", JSON.stringify(devices.filter(device => device.kind.endsWith("input")).map(device => ({ kind: device.kind, label: device.label || "unlabeled" }))));
     const preferred = preferredUsbMicrophone(devices);
     const audioConstraint = microphoneConstraints(preferred, savedMic);
     let stream = null;
     let lastError = null;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraint, audio: audioConstraint });
+      console.info("[media] connect camera and microphone");
+      stream = await requestCapture(navigator.mediaDevices, { video: videoConstraint, audio: audioConstraint });
     } catch (error) {
       if (epoch !== visitorEpochRef.current) throw new DOMException("방문자가 변경되었습니다", "AbortError");
       lastError = error;
       const parts = [];
-      try { parts.push(await navigator.mediaDevices.getUserMedia({ video: videoConstraint })); } catch (videoError) { lastError = videoError; }
-      try { parts.push(await navigator.mediaDevices.getUserMedia({ audio: audioConstraint })); } catch (audioError) { if (!parts.length) lastError = audioError; }
+      console.warn("[media] combined capture failed; trying devices separately", error.name);
+      await Promise.all([
+        requestCapture(navigator.mediaDevices, { video: videoConstraint }).then(part => { console.info("[media] camera connected"); parts.push(part); }, videoError => { console.warn("[media] camera failed", videoError.name, videoError.message); lastError = videoError; }),
+        requestCapture(navigator.mediaDevices, { audio: audioConstraint }).then(part => { console.info("[media] microphone connected"); parts.push(part); }, audioError => { console.warn("[media] microphone failed", audioError.name, audioError.message); lastError = audioError; }),
+      ]);
       const tracks = parts.flatMap((part) => part.getTracks());
       if (tracks.length) stream = new MediaStream(tracks);
     }
     if (alive(stream, "getAudioTracks") && epoch === visitorEpochRef.current) {
-      const usb = preferred || preferredUsbMicrophone(await navigator.mediaDevices.enumerateDevices().catch(() => []));
+      const usb = preferred || preferredUsbMicrophone(await enumerateCaptureDevices(navigator.mediaDevices));
       if (usb && stream.getAudioTracks()[0].getSettings().deviceId !== usb.deviceId) {
-        const selected = await navigator.mediaDevices.getUserMedia({ audio: microphoneConstraints(usb) });
-        stream.getAudioTracks().forEach(track => { track.stop(); stream.removeTrack(track); });
-        selected.getAudioTracks().forEach(track => stream.addTrack(track));
+        try {
+          console.info("[media] select preferred microphone");
+          const selected = await requestCapture(navigator.mediaDevices, { audio: microphoneConstraints(usb) }, 4000);
+          stream.getAudioTracks().forEach(track => { track.stop(); stream.removeTrack(track); });
+          selected.getAudioTracks().forEach(track => stream.addTrack(track));
+        } catch (error) { console.warn("[media] keeping working microphone", error.name); }
       }
     }
     const camera = alive(stream, "getVideoTracks");
@@ -119,7 +130,18 @@ export default function App() {
     if (!camera && !microphone) throw new Error(mediaErrorMessage(lastError));
     if (mediaStream && mediaStream !== stream) mediaStream.getTracks().forEach((track) => track.stop());
     setMediaStream(stream);
+    console.info("[media] capture ready", { camera, microphone });
     return stream;
+  };
+
+  const requestExerciseMedia = () => {
+    if (mediaRequestRef.current) return mediaRequestRef.current;
+    const pending = connectExerciseMedia();
+    mediaRequestRef.current = pending;
+    pending.finally(() => {
+      if (mediaRequestRef.current === pending) mediaRequestRef.current = null;
+    }).catch(() => {});
+    return pending;
   };
 
   const entry = useServiceEntryRoute({ kioskIssueMode: KIOSK_ISSUE_MODE, requestExerciseMedia, visitorEpochRef, onVisitorReset: resetVisitorMedia });

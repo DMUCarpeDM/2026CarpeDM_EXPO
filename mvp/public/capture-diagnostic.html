@@ -1,0 +1,28 @@
+<!doctype html><html lang="ko"><meta charset="utf-8"><title>실제 장치 연결 진단</title>
+<style>body{font:18px sans-serif;padding:24px;max-width:900px;margin:auto}button{padding:12px;margin:8px}video{width:480px;max-width:100%}pre{white-space:pre-wrap}</style>
+<h1>실제 카메라·마이크 연결 진단</h1>
+<p>가상 입력 없이 현재 크롬의 실제 장치를 각각 연결합니다.</p>
+<button id="camera">카메라만 연결</button><button id="microphone">마이크만 연결</button>
+<button id="stop">장치 해제</button><p id="status" role="status">연결 전</p>
+<video id="preview" autoplay playsinline muted></video><pre id="devices"></pre><pre id="events"></pre>
+<script type="module">
+import {enumerateCaptureDevices,requestCapture} from '/src/lib/mediaRequest.js';
+const status=document.querySelector('#status'),events=document.querySelector('#events');
+const streams=[];
+const log=value=>{events.textContent+=`${new Date().toLocaleTimeString()} ${value}\n`;};
+const devices=await enumerateCaptureDevices(navigator.mediaDevices);
+document.querySelector('#devices').textContent=JSON.stringify(devices.filter(d=>d.kind.endsWith('input')).map(d=>({kind:d.kind,label:d.label||'(이름 미공개)'})),null,2);
+async function connect(kind){
+ status.textContent=`${kind==='video'?'카메라':'마이크'} 연결 중`;
+ try{
+  const stream=await requestCapture(navigator.mediaDevices,{[kind]:true});streams.push(stream);
+  log(JSON.stringify(stream.getTracks().map(t=>({kind:t.kind,label:t.label,state:t.readyState}))));
+  status.textContent=`${kind==='video'?'카메라':'마이크'} 연결 완료`;
+  if(kind==='video')document.querySelector('#preview').srcObject=stream;
+ }catch(e){status.textContent=`${kind==='video'?'카메라':'마이크'} 연결 실패: ${e.name} · ${e.message}`;log(status.textContent);}
+}
+document.querySelector('#camera').onclick=()=>connect('video');
+document.querySelector('#microphone').onclick=()=>connect('audio');
+document.querySelector('#stop').onclick=()=>{streams.splice(0).forEach(s=>s.getTracks().forEach(t=>t.stop()));status.textContent='장치 해제 완료';};
+window.addEventListener('pagehide',()=>streams.forEach(s=>s.getTracks().forEach(t=>t.stop())));
+</script></html>

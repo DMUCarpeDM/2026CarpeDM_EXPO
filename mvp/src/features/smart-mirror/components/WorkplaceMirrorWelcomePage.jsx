@@ -3,7 +3,7 @@ import welcomeVideo from "../assets/welcome-vertex.mp4";
 import "../styles/workplace-mirror-nfc.css";
 import "../styles/workplace-mirror-welcome.css";
 
-export function WorkplaceMirrorWelcomePage({ onStart }) {
+export function WorkplaceMirrorWelcomePage({ onStart, nfcError }) {
   const videoRef = useRef(null);
   const startedRef = useRef(false);
   useEffect(() => {
@@ -41,5 +41,6 @@ export function WorkplaceMirrorWelcomePage({ onStart }) {
     <video ref={videoRef} className="mirror-welcome-video" src={welcomeVideo} loop playsInline preload="auto" aria-label="시연 안내 영상" />
     <button className="mirror-welcome-start" type="button" onClick={start} aria-label="화면을 눌러 시연 시작" aria-describedby="mirror-welcome-disclosure" />
     <span className="screen-reader-note" id="mirror-welcome-disclosure">화면을 누르거나 NFC를 태그하면 카메라·음성 분석과 결과 처리에 동의하고 체험 준비로 이동합니다.</span>
+    {nfcError && <div className="mirror-card-notice" role="alert"><p>{nfcError}</p><p>화면을 눌러 사원증 없이 체험할 수 있어요. 이 경우 키오스크 리포트 출력은 연결되지 않아요.</p></div>}
   </section>;
 }

@@ -1,6 +1,8 @@
 # 미러팅 전시 시작 스크립트 (Windows) — 더블클릭 또는 pwsh로 실행
 # Ollama → 분석 서버(8001) → MVP 프론트(5173) 순서로 띄우고 브라우저를 연다.
 # 사전 준비(최초 1회)는 WINDOWS-SETUP.md 참조.
+param([switch]$PrinterLink)
+
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 
@@ -10,6 +12,7 @@ $backend = Join-Path $root 'poc\backend'
 $mvp = Join-Path $root 'mvp'
 $env:PATH = "C:\Program Files\nodejs;$env:PATH"
 $env:PYTHONUTF8 = '1'
+$backendHost = if ($PrinterLink) { '0.0.0.0' } else { '127.0.0.1' }
 
 function Wait-Url([string]$url, [int]$tries = 30) {
     foreach ($i in 1..$tries) {
@@ -36,12 +39,15 @@ if ($LASTEXITCODE -ne 0) {
 if ($LASTEXITCODE -ne 0) {
     Write-Host '[2/3] 분석 서버 시작... (로그: poc\backend\backend-dev.log)'
     Start-Process -FilePath (Join-Path $backend '.venv\Scripts\python.exe') `
-        -ArgumentList '-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8001' `
+        -ArgumentList '-m','uvicorn','app.main:app','--host',$backendHost,'--port','8001','--no-access-log','--no-proxy-headers' `
         -WorkingDirectory $backend -WindowStyle Hidden `
         -RedirectStandardError (Join-Path $backend 'backend-dev.log') `
         -RedirectStandardOutput (Join-Path $backend 'backend-dev.out.log')
     if (-not (Wait-Url 'http://127.0.0.1:8001/api/health')) { throw '분석 서버가 응답하지 않습니다' }
-} else { Write-Host '[2/3] 분석 서버 이미 실행 중' }
+} else {
+    Write-Host '[2/3] 분석 서버 이미 실행 중'
+    if ($PrinterLink) { Write-Warning '기존 서버가 127.0.0.1에만 바인딩되어 있으면 종료 후 -PrinterLink로 다시 시작하세요.' }
+}
 
 # 3) MVP 프론트엔드 (Vite :5173)
 & "$env:SystemRoot\System32\curl.exe" -s --max-time 3 http://localhost:5173 | Out-Null

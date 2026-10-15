@@ -83,3 +83,9 @@ test("context volume score is visible only as an explicitly provisional measurem
   assert.equal(mirrorReport(input).fits[1].score, null);
   assert.equal(mirrorReport(input).fits[1].status, "점수 없이 기록만 제공");
 });
+
+test("standard voice measurements expose the backend provisional score", () => {
+  const report = mirrorReport({fit_scores:{voice:{score:76,provisional:true}},speech_stats:{voice_analysis:{score_status:"measurement_provisional"}}});
+  assert.equal(report.fits[1].score,76);
+  assert.equal(report.fits[1].status,"참고용 결과");
+});

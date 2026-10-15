@@ -1,14 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,writeFile,rm} from 'node:fs/promises';
-import {resolve,basename} from 'node:path';
+import {resolve,basename,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {chromium} from 'playwright';
 import {startVite} from './serviceEntryRouteHarness.js';
 
 test('recognition final dispatches text within one second and TTS precedes analysis upload', {timeout:45000}, async t=>{
  const root=fileURLToPath(new URL('../..',import.meta.url));
- const folder=await mkdtemp(resolve(root,'.fast-submission-'));t.after(()=>rm(folder,{recursive:true,force:true}));
+ const folder=await mkdtemp(resolve(root,'.fast-submission-'));t.after(()=>{
+  assert.equal(dirname(resolve(folder)),resolve(root));
+  assert.ok(basename(folder).startsWith('.fast-submission-'));
+  return rm(folder,{recursive:true,force:true});
+ });
  await writeFile(resolve(folder,'index.html'),`<div id="root"></div><script type="module">
  import React,{useRef,useState,useEffect} from 'react';import{createRoot}from'react-dom/client';
  import{usePracticeTranscription}from'/src/lib/usePracticeTranscription.js';
@@ -36,6 +40,11 @@ test('recognition final dispatches text within one second and TTS precedes analy
  await page.route('**/api/**',route=>{const path=new URL(route.request().url()).pathname;
   return route.fulfill(path.endsWith('/tts')?{contentType:'audio/wav',headers:{'X-TTS-Provider':'elevenlabs'},body:'fixture wav'}:{contentType:'application/json',body:JSON.stringify({next_turn:{id:2}})});});
  await page.goto(url+basename(folder)+'/index.html');await page.waitForFunction(()=>window.rec?.onresult);
+ await page.evaluate(()=>window.rec.onresult({resultIndex:0,results:[{0:{transcript:'아직 말하는 중'},isFinal:false}]}));
+ await page.waitForTimeout(350);
+ await page.evaluate(()=>window.rec.onresult({resultIndex:0,results:[{0:{transcript:'추가로 말씀드리면'},isFinal:false}]}));
+ await page.waitForTimeout(500);
+ assert.equal(await page.evaluate(()=>window.events.length),0);
  await page.evaluate(()=>window.final());
  await page.waitForFunction(()=>window.events.some(e=>e.event==='playing'));
  const result=await page.evaluate(()=>({input:window.inputAt-window.finalAt,submit:window.events.find(e=>e.event==='response').at-window.finalAt,events:window.events.map(e=>e.event)}));

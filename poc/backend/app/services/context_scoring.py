@@ -154,6 +154,26 @@ def apply_voice(result, context):
         return
     result['events'] = [e for e in result['events'] if e['rule'] != 'context_raised_voice']
     result['measured'] = [area for area in result['measured'] if area != 'voice']
+    # Personal calibration is required for relative volume, not pace/pause scoring.
+    speed, pauses = voice.get('speed') or {}, voice.get('pauses') or {}
+    valid = ((voice.get('volume') or {}).get('reason') == 'personal_reference_unavailable'
+             and voice.get('turn_id') == result['turn_id']
+             and number(voice.get('duration_sec')) and voice['duration_sec'] >= MIN_VOICE_SECONDS
+             and not set(voice.get('quality_flags', [])).intersection({'clipping', 'no_speech', 'analysis_failed', 'vad_unavailable'}))
+    result['events'] = [e for e in result['events'] if e.get('evidence', {}).get('source') != 'voice-pace-v1']
+    rate = speed.get('syllables_per_second')
+    pace = valid and speed.get('status') == 'measured' and number(rate) and rate > 0
+    pause = (valid and pauses.get('status') == 'measured' and number(pauses.get('count'))
+             and pauses['count'] >= 0)
+    if pace or pause:
+        result['measured'].append('voice')
+    if pace:
+        rule = 'fast_speech' if rate > 7 else 'slow_speech' if rate < 2.5 else 'clear_pace'
+        result['events'].append(event(result['turn_id'], 'voice', rule,
+            'positive' if rule == 'clear_pace' else 'negative',
+            {'source': 'voice-pace-v1', 'speech_rate_sps': rate, 'range': [2.5, 7], 'provisional': True},
+            {'fast_speech': '말하는 속도를 조금 낮춰 보세요.', 'slow_speech': '짧은 문장으로 핵심을 이어 말해 보세요.',
+             'clear_pace': '측정된 말속도가 연습 기준 안에 있습니다.'}[rule]))
     volume = voice.get('volume') or {}
     if (context.get('status') != 'classified'
             or 'context_raised_voice' not in RULE_MULTIPLIERS.get(context.get('kind'), {})
@@ -163,7 +183,7 @@ def apply_voice(result, context):
             or volume['speech_seconds'] < MIN_VOICE_SECONDS or volume['noise_seconds'] < MIN_NOISE_SECONDS
             or volume['snr_db'] < MIN_SNR_DB):
         return
-    result['measured'].append('voice')
+    result['measured'] = list(dict.fromkeys([*result['measured'], 'voice']))
     if volume['relative_db'] >= RAISED_VOICE_DB:
         result['events'].append(event(result['turn_id'], 'voice', 'context_raised_voice', 'negative', {
             'source': 'experimental-context-volume-v1', 'provisional': True,

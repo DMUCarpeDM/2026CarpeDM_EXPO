@@ -12,7 +12,6 @@ if not source:
 sys.path.insert(0, str(Path(source).resolve()))
 import httpx
 from fastapi.testclient import TestClient
-from PIL import Image
 from pydantic import SecretStr
 import backend.app as printer
 from backend.reports import fetch_mirrorting_report
@@ -25,9 +24,21 @@ from app.services import nfc_bridge
 from app.services.idprinter_bridge import IDPrinterBridge
 
 
-def test_real_apps_link_report_retry_and_reissued_card(monkeypatch, tmp_path):
+def test_real_apps_link_report_retry_and_reissued_card(monkeypatch, tmp_path, ready_ollama):
     monkeypatch.setattr(settings, "openai_api_key", SecretStr(""))
     monkeypatch.setattr(settings, "gemini_api_key", SecretStr(""))
+    # 전시 대화의 main 턴 계약을 유지하면서 외부 AI 호출만 대체한다.
+    from app.services import interaction
+    from app.services.dialogue.base import QuestionSpec
+    from app.services.dialogue.openai_provider import OpenAIDialogueProvider
+
+    def next_main(_self, session, _scenario, _episodes, _turns):
+        flow = interaction.state(session)
+        item = flow["items"][flow["index"]]
+        return QuestionSpec(episode_id=item["episode_id"], question_type="main",
+                            question_text=item["text"], character_id=item["character_id"])
+
+    monkeypatch.setattr(OpenAIDialogueProvider, "next_question", next_main)
     seed()
     store = KioskStore(tmp_path / "printer.sqlite3")
     store.init()
@@ -59,7 +70,7 @@ def test_real_apps_link_report_retry_and_reissued_card(monkeypatch, tmp_path):
             return response.json()["sessionId"]
         kid = register("integration-visitor-a")
         assert mirror.post("/api/nfc/resolve", json={"uid": "04AABBCC"}).json()["kiosk_session_id"] == kid
-        created = mirror.post("/api/sessions", json={"mode": 5, "service_mode": "workplace", "job_role": "office_admin", "scenario_slug": "workplace-conversation", "nfc_uid": "04AABBCC", "kiosk_session_id": kid, "consent": {"agreed": True, "storage_policy": "none"}})
+        created = mirror.post("/api/sessions", json={"exhibition": True, "mode": 5, "service_mode": "workplace", "job_role": "office_admin", "scenario_slug": "workplace-conversation", "nfc_uid": "04AABBCC", "kiosk_session_id": kid, "consent": {"agreed": True, "storage_policy": "none"}})
         assert created.status_code == 200, created.text
         session = created.json()
         assert session["kiosk_link_status"] == "pending"
@@ -88,13 +99,14 @@ def test_real_apps_link_report_retry_and_reissued_card(monkeypatch, tmp_path):
         assert payload["totalScore"] is None
         assert session["access_token"] not in report.text and token not in report.text
         calls = []
-        monkeypatch.setattr(printer, "render_report", lambda *_a, **_k: Image.new("1", (576, 100)))
-        monkeypatch.setattr(printer, "print_badge", lambda _: calls.append(True) or {"backend": "screen"})
+        monkeypatch.setattr(printer, "print_badge", lambda image: calls.append(image) or {"backend": "screen"})
         body = {"operationId": "integration-report-preview", "sessionId": kid, "reportId": str(sid)}
         preview = kiosk.post("/api/reports/print", json=body)
         assert preview.status_code == 200 and preview.json()["status"] == "preview"
         assert kiosk.post("/api/reports/print", json={**body, "operationId": "integration-repeat-preview"}).json()["printJobId"] == body["operationId"]
         assert len(calls) == 1
+        assert calls[0].mode == "1" and calls[0].width == 576
+        calls[0].save(tmp_path / "linked-report.png")
         assert register("integration-visitor-b") != kid
         assert mirror.post(f"/api/sessions/{sid}/kiosk-link", headers=headers).json()["status"] == "conflict"
         old = kiosk.get(f"/api/reports/{kid}")

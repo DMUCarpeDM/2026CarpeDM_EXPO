@@ -115,7 +115,9 @@ def resolve_card(body: NfcResolveIn, db: Session = Depends(get_db)):
                 snapshot = bridge.resolve(body.uid)
         except BridgeError as error:
             status = 404 if error.code == "KIOSK_CARD_NOT_FOUND" else 503
-            raise HTTPException(status_code=status, detail="사원증을 확인하지 못했어요") from error
+            message = ("출력 키오스크에서 먼저 사원증을 발급받아 주세요."
+                       if status == 404 else "사원증 서버 연결을 확인한 뒤 다시 태그해주세요.")
+            raise HTTPException(status_code=status, detail=message) from error
         return NfcResolveOut(
             uid=snapshot.uid, job_role="", scenario_slug="", job_role_label="",
             kiosk_session_id=snapshot.kiosk_session_id, requires_role_selection=True,
@@ -137,6 +139,28 @@ def resolve_card(body: NfcResolveIn, db: Session = Depends(get_db)):
         scenario_slug=slug,
         job_role_label=JOB_ROLE_LABELS.get(card.job_role, card.job_role),
     )
+
+
+@router.get("/status")
+def nfc_status(_admin: User | None = Depends(require_admin)):
+    """운영 점검용 상태. 카드 UID와 서버 간 비밀은 포함하지 않는다."""
+    url = settings.idprinter_base_url.strip()
+    token = settings.idprinter_bridge_token.get_secret_value()
+    configured = bool(url and token)
+    valid = False
+    if configured and len(token) >= 32:
+        try:
+            with IDPrinterBridge(url, token):
+                valid = True
+        except BridgeError:
+            pass
+    return {
+        **nfc_bridge.bridge_status(),
+        "enabled": settings.nfc_bridge_enabled,
+        "roles": settings.nfc_reader_roles.split(","),
+        "idprinter": {"configured": configured, "valid": valid,
+                      "mode": "external" if url or token else "standalone"},
+    }
 
 
 @router.get("/tap", response_model=NfcTapOut)

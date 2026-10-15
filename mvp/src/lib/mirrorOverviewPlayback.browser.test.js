@@ -3,7 +3,7 @@ import test from "node:test";
 import { chromium } from "playwright";
 import { startVite } from "./serviceEntryRouteHarness.js";
 
-test("overview shows one static scene, a top progress line and detailed copy for fifteen seconds", { timeout: 45000 }, async t => {
+test("overview shows the enabled exhibition scene and a top progress line for twenty seconds", { timeout: 45000 }, async t => {
   const { server, url } = await startVite();
   const browser = await chromium.launch({ channel: "chrome", headless: true });
   t.after(async () => { await browser.close(); await server.close(); });
@@ -20,21 +20,21 @@ test("overview shows one static scene, a top progress line and detailed copy for
   assert.deepEqual(line, { color: "rgb(255, 255, 255)", height: 2, top: 0 });
   const artwork = frame.locator(".overview-art img");
   assert.equal(await artwork.count(), 1);
-  assert.match(await frame.locator(".overview-scenario-description").innerText(), /직장 선배가 연애 여부/);
-  assert.equal(await frame.locator(".overview-card-context h2").innerText(), "연애 이야기를 계속 묻는 선배");
+  assert.match(await frame.locator(".overview-scenario-description").innerText(), /첫 출근한 신입 사원/);
+  assert.equal(await frame.locator(".overview-card-context h2").innerText(), "출근 첫인사와 자기소개");
   assert.equal(await artwork.evaluate(el => el.getAnimations().length), 0);
-  await page.clock.fastForward(14000);
+  await page.clock.fastForward(19000);
   assert.equal(await frame.locator(".mirror-overview").count(), 1);
   assert.ok(Number(await progress.getAttribute("aria-valuenow")) > 0);
   assert.ok(Number(await progress.getAttribute("aria-valuenow")) < 100);
   await page.clock.fastForward(1500);
   await frame.waitForURL(/simulation\/scene\.html\?scene=morning/);
-  await page.goto(`${preview}?scene=work&still=1`);
+  await page.goto(`${preview}?scene=leaving&still=1`);
   const still = await (await page.locator("iframe").elementHandle()).contentFrame();
   await still.locator(".mirror-overview").waitFor();
   await page.clock.fastForward(60000);
   assert.equal(await still.locator(".mirror-overview").count(), 1);
-  assert.equal(await still.locator(".overview-scene-badge").innerText(), "업무");
+  assert.equal(await still.locator(".overview-scene-badge").innerText(), "퇴근");
 });
 
 test("all three simulation categories start without a briefing or countdown", { timeout: 45000 }, async t => {

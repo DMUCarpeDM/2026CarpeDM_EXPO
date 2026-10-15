@@ -104,7 +104,7 @@ test("the unified report reuses app navigation and shared components", () => {
   assert.match(styles, /--report-blue:\s*var\(--color-apple-blue\)/);
   assert.deepEqual([...CHROMELESS_VIEWS], ["service"], "only the service selector omits shared navigation chrome");
   assert.match(functionBody("PracticePage"), /practice-contextbar/, "PracticePage keeps only its live context controls");
-  assert.match(functionBody("PracticePage"), /startTurnSpeech\([\s\S]*onFinish: \(\) => \{\}/, "PracticePage keeps the question visible after TTS finishes");
+  assert.match(functionBody("PracticePage"), /completedSpeechRef\.current === speechKey/, "PracticePage does not replay a completed question");
   assert.match(sourceBundle, /utter\.onend = finishSpeaking/);
   assert.match(sourceBundle, /audio\.onended = finishSpeaking/);
 

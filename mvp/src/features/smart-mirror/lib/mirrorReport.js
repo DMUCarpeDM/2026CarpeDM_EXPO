@@ -27,7 +27,7 @@ function voiceSummary(data) {
 
 export function mirrorReport(report) {
   const stats = report.speech_stats || {};
-  const contextVoice = stats.voice_analysis?.score_status === "context_provisional";
+  const contextVoice = ["context_provisional", "measurement_provisional"].includes(stats.voice_analysis?.score_status);
   const coaching = report.coaching?.find(item => item?.suggestion);
   const rewrite = report.rebuild?.items?.find(item => item?.sentence || item?.after || item?.text);
   const strengths = (report.strengths || []).filter(item => typeof item === "string" && item.trim());
@@ -39,7 +39,7 @@ export function mirrorReport(report) {
     total: mirrorScore(report.total_score),
     fits: reportFits(report).map(fit => ({
       ...fit,
-      text: fit.key === "Voice-Fit" && stats.voice_analysis ? voiceSummary(stats.voice_analysis) : fit.key === "Expression-Fit" && !fit.measured ? (stats.expression_analysis?.samples > 0 ? "표정 기록은 모았지만 아직 점수로 평가하지 않았어요." : "얼굴이 충분히 보이는 기록이 없어 이번에는 표정을 평가하지 않았어요.") : fit.key === "Posture-Fit" && !fit.measured ? "몸의 움직임을 확인할 기록이 부족해 이번에는 자세를 평가하지 않았어요." : fit.key === "Expression-Fit" && /기준점|75점/.test(fit.text) ? "확인된 얼굴 기록을 바탕으로 살펴봤어요. 표정 결과는 참고용이에요." : fit.key === "Response-Fit" && /75점에서.*가감/.test(fit.text) ? "질문에 맞게 답했는지, 자신의 의사를 분명히 전달했는지 살펴봤어요. 구체적인 내용은 아래 잘한 점과 개선점을 확인해 주세요." : fit.text,
+      text: fit.key === "Voice-Fit" && stats.voice_analysis ? (fit.measured && contextVoice ? fit.text : voiceSummary(stats.voice_analysis)) : fit.key === "Expression-Fit" && !fit.measured ? (stats.expression_analysis?.samples > 0 ? "표정 기록은 모았지만 아직 점수로 평가하지 않았어요." : "얼굴이 충분히 보이는 기록이 없어 이번에는 표정을 평가하지 않았어요.") : fit.key === "Posture-Fit" && !fit.measured ? "몸의 움직임을 확인할 기록이 부족해 이번에는 자세를 평가하지 않았어요." : fit.key === "Expression-Fit" && /기준점|75점/.test(fit.text) ? "확인된 얼굴 기록을 바탕으로 살펴봤어요. 표정 결과는 참고용이에요." : fit.key === "Response-Fit" && /75점에서.*가감/.test(fit.text) ? "질문에 맞게 답했는지, 자신의 의사를 분명히 전달했는지 살펴봤어요. 구체적인 내용은 아래 잘한 점과 개선점을 확인해 주세요." : fit.text,
       contextSummary: contextSummary(stats.context_assessments || [], fit.key),
       score: fit.measured && !(fit.key === "Voice-Fit" && stats.voice_analysis && !(contextVoice && fit.provisional)) ? mirrorScore(fit.score) : null,
       status: fit.key === "Expression-Fit" && !fit.measured && stats.expression_analysis?.samples > 0 ? "표정 기록 확인 중" : fit.key === "Voice-Fit" && stats.voice_analysis && !(contextVoice && fit.provisional && fit.measured) ? "점수 없이 기록만 제공" : fit.measured ? fit.provisional ? "참고용 결과" : "측정 완료" : "기록 부족",

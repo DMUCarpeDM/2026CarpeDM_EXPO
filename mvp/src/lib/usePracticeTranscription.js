@@ -52,9 +52,11 @@ export function usePracticeTranscription({
     }, AUTO_SUBMIT_DELAY_MS);
   });
   useEffect(() => () => clearAutoSubmit(), []);
-  useEffect(() => {
-    if (paused || busy || aiSpeaking) clearAutoSubmit();
-  }, [paused, busy, aiSpeaking]);
+  // 턴 전환 시 0ms 제출보다 먼저 이전 예약을 해제한다.
+  useLayoutEffect(() => {
+    if (!shouldListen) clearAutoSubmit();
+    return clearAutoSubmit;
+  }, [shouldListen, turn?.id]);
 
 
   useLayoutEffect(() => {
@@ -66,7 +68,6 @@ export function usePracticeTranscription({
     let recognitionFailed = false;
     const recognition = new SpeechRecognitionImpl();
     const audioTrack = mediaStream?.getAudioTracks?.().find(track => track.readyState === "live");
-    const startRecognition = () => audioTrack ? recognition.start(audioTrack) : recognition.start();
     recognition.lang = "ko-KR";
     recognition.continuous = false;
     recognition.interimResults = true;
@@ -106,6 +107,31 @@ export function usePracticeTranscription({
       if (!isCurrent()) return;
       speechEndAt = performance.now();
       recordTiming("speech-end");
+    };
+    const failRecognition = (error) => {
+      sttActiveRef.current = false;
+      clearAutoSubmit();
+      setListening(false);
+      setRecognitionError(error);
+      setWebSpeechFailed(true);
+      pushFeed("음성 인식이 중단됐어요. 다시 실행해 주세요.");
+    };
+    let useAudioTrack = Boolean(audioTrack);
+    const startRecognition = () => {
+      try {
+        if (useAudioTrack) {
+          try { recognition.start(audioTrack); }
+          catch (error) {
+            // 트랙 입력을 지원하지 않는 Chrome에서는 기본 마이크로 복구한다.
+            if (!["TypeError", "NotSupportedError"].includes(error.name)) throw error;
+            useAudioTrack = false;
+            recognition.start();
+          }
+        } else recognition.start();
+      } catch (error) {
+        recordTiming(`start-error:${error.name || "unknown"}`);
+        failRecognition(error.name === "NotAllowedError" ? "not-allowed" : "audio-capture");
+      }
     };
     recognition.onresult = (event) => {
       if (!isCurrent()) return;
@@ -169,26 +195,14 @@ export function usePracticeTranscription({
         return;
       }
       if (["not-allowed", "service-not-allowed", "network", "audio-capture"].includes(event.error)) {
-        sttActiveRef.current = false;
-        clearAutoSubmit();
-        setListening(false);
-        setRecognitionError(event.error);
-        setWebSpeechFailed(true);
-        pushFeed("음성 인식이 중단됐어요. 다시 실행해 주세요.");
+        failRecognition(event.error);
       }
     };
     recognitionRef.current = recognition;
     sttActiveRef.current = true;
     startRequestedAt = performance.now();
     recordTiming("start-request");
-    try { startRecognition(); } catch (error) {
-      recordTiming(`start-error:${error.name || "unknown"}`);
-      sttActiveRef.current = false;
-      setListening(false);
-      setRecognitionError("audio-capture");
-      setWebSpeechFailed(true);
-      pushFeed("음성 인식을 시작하지 못했어요. 다시 실행해 주세요.");
-    }
+    startRecognition();
     return () => {
       clearAutoSubmit();
       window.clearTimeout(retryTimer);

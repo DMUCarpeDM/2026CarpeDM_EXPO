@@ -230,11 +230,18 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
       navigate("preview");
     } catch (error) {
       if (epoch === epochRef.current) {
-        if (isMirrorDeployment()) { startMirrorExperience(); return; }
+        // 미러의 NFC는 미발급 카드도 시작 버튼처럼 쓴다. 조회가 안 된
+        // UID/이전 방문자의 사원증은 새 익명 체험에 전달하지 않는다.
+        if (isMirrorDeployment()) {
+          startMirrorExperience();
+          return;
+        }
         setNfcCard(null);
-        setNfcFallback(error.status === 404);
+        setNfcFallback(!isMirrorDeployment() && error.status === 404);
         setApiError(error.status === 404 ? "" : "사원증 서버 연결을 확인한 뒤 다시 태그해주세요.");
-        setNfcError(error.status === 404 ? "등록되지 않은 카드예요. 위 아이콘으로 체험을 시작할 수 있어요." : "사원증 서버 연결을 확인하거나 위 아이콘으로 체험을 시작해 주세요.");
+        setNfcError(error.status === 404
+          ? "출력 키오스크에서 먼저 사원증을 발급받고 다시 태그해주세요."
+          : "사원증 서버에 연결하지 못했어요. 운영자에게 연결을 확인한 뒤 카드를 다시 태그해 주세요.");
       }
     } finally {
       if (epoch === epochRef.current) nfcResolvingRef.current = false;
@@ -249,10 +256,8 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
 
   const startMirrorExperience = () => {
     if (!isMirrorDeployment()) return;
-    const card = nfcCard?.kioskSessionId ? nfcCard : null;
     resetVisitor(true);
-    if (card) setNfcCard({ ...card, jobRole: "office_admin", scenarioSlug: WORKPLACE_SCENARIO_SLUG });
-    setDirectMirrorEntry(!card);
+    setDirectMirrorEntry(true);
     // Clicking the welcome video or tapping a card starts the same preparation flow.
     setConsented(true);
     setPocScenarioSlug(WORKPLACE_SCENARIO_SLUG);

@@ -75,7 +75,7 @@ export async function synthesizeSpeech(text, voice = "female", signal, streaming
   const response = await fetch(`${API_BASE}/tts`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, voice, ...(streaming ? { stream: true } : {}) }),
+    body: JSON.stringify({ text, voice }),
     signal,
   });
   if (!response.ok) {

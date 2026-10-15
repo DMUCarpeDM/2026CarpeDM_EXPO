@@ -15,7 +15,7 @@ async function open(t, { external = true, agreed = true, media = true, tap = tru
     localStorage.setItem("mirror-ting-client-key", "prior-test-only-key");
     window.__restoreTestMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
     if (!media) navigator.mediaDevices.getUserMedia = async () => { throw new DOMException("test: devices unavailable", "NotAllowedError"); };
-    if (media === "audio") navigator.mediaDevices.getUserMedia = async constraints => {
+    if (media === "audio" || voice) navigator.mediaDevices.getUserMedia = async constraints => {
       if (constraints.video) throw new DOMException("test: camera unavailable", "NotFoundError");
       return window.__restoreTestMedia(constraints);
     };

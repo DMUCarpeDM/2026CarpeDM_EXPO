@@ -23,11 +23,13 @@ export function useExpressionTracking(mediaStream, videoRef, turnAccRef, faceLan
       try {
         const [vision, ort] = await Promise.all([import("@mediapipe/tasks-vision"), import("onnxruntime-web/wasm")]);
         ort.env.wasm.numThreads = 1;
-        ort.env.wasm.proxy = true;
+        // Vite rewrites the proxy worker module URL; run the single-thread WASM locally.
+        ort.env.wasm.proxy = false;
         ort.env.wasm.wasmPaths = {wasm: "/onnxruntime/ort-wasm-simd-threaded.wasm"};
         const [wasm, faceModel] = await Promise.all([resolveWasmUrl(), resolveModel("face")]);
         face = await vision.FaceLandmarker.createFromOptions(await vision.FilesetResolver.forVisionTasks(wasm), {
           baseOptions: {modelAssetPath: faceModel}, runningMode: "VIDEO", numFaces: 2, outputFaceBlendshapes: false,
+          minFaceDetectionConfidence: .4, minFacePresenceConfidence: .4, minTrackingConfidence: .4,
         });
         if (cancelled) { await dispose(); return; }
         session = await ort.InferenceSession.create("/models/expression_resnet18_v1/model.onnx", {executionProviders: ["wasm"]});

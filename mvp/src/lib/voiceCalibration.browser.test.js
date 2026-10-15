@@ -99,10 +99,11 @@ test("voice report displays raw and reference values without a fabricated voice 
     return route.fulfill({ contentType: "application/json", body: JSON.stringify(body) });
   });
   await page.goto(url);
-  await page.getByText("1번째 답변의 측정값", { exact: true }).click();
+  await page.getByText("1번째 답변 살펴보기", { exact: true }).click();
   const section = page.locator(".voice-report");
+  await section.getByText("자세한 측정 수치 보기", { exact: true }).click();
   assert.match(await section.innerText(), /-6.02dB/);
-  assert.match(await section.innerText(), /4.60음절/);
+  assert.match(await section.innerText(), /1초에 한글 약 4.6글자/);
   assert.match(await section.innerText(), /jitter 0.10%/);
   assert.equal(await section.locator("circle").count(), 3);
   await page.getByText("측정 기록 제공 · 점수 보류", { exact: true }).waitFor();
@@ -119,7 +120,7 @@ test("voice report displays raw and reference values without a fabricated voice 
   }];
   await page.reload();
   await page.getByText("목소리 미측정 · 점수 보류", { exact: true }).waitFor();
-  await page.getByText("1번째 답변의 측정값", { exact: true }).click();
+  await page.getByText("1번째 답변 살펴보기", { exact: true }).click();
   assert.match(await section.innerText(), /목소리 측정값을 확인하지 못했어요/);
   assert.match(await section.innerText(), /마이크 연결이나 설정이 바뀌었어요/);
   assert.match(await section.innerText(), /받아쓰기 품질이 충분하지 않아요/);

@@ -6,7 +6,7 @@ from app.models import RoleplaySession
 from app.services import context_scoring, deferred_workplace, judgments, response_judgment, voice_analysis
 
 
-def test_workplace_generates_all_five_turns_without_waiting_for_scoring(monkeypatch, ready_ollama):
+def test_workplace_generates_all_three_turns_without_waiting_for_scoring(monkeypatch, ready_ollama):
     seed()
     from app.services.dialogue.base import QuestionSpec
     monkeypatch.setattr('app.services.dialogue.openai_provider.OpenAIDialogueProvider.next_question',
@@ -22,14 +22,14 @@ def test_workplace_generates_all_five_turns_without_waiting_for_scoring(monkeypa
         'mode':5,'difficulty':'basic','exhibition':True,'consent':{'agreed':True,'storage_policy':'none'}})
     assert created.status_code == 200, created.text
     data = created.json(); auth={'X-Session-Token':data['access_token']}; turn=data['current_turn']
-    for index in range(5):
+    for index in range(3):
         response=client.post(f"/api/sessions/{data['id']}/turns/{turn['id']}/response",headers=auth,
             json={'text':'개인적인 내용은 공개하지 않겠습니다.','stt_source':'webspeech','duration_ms':5000})
         assert response.status_code == 200,response.text
         out=response.json()
         assert out['turn_signals']['judgment']['analysis_status']=='pending'
-        assert out['finished'] is (index==4)
-        if index<4:turn=out['next_turn']
+        assert out['finished'] is (index==2)
+        if index<2:turn=out['next_turn']
     seen=[]
     def evaluate(current, history, goals, requested):
         assert all(t.order<=current.order for t in history)
@@ -45,9 +45,9 @@ def test_workplace_generates_all_five_turns_without_waiting_for_scoring(monkeypa
             deferred_workplace.complete(db,session,t)
             deferred_workplace.complete(db,session,t)
         results=judgments.results(session)
-        assert len(results)==5
+        assert len(results)==3
         assert all(r['analysis_status']=='completed' and 'response' in r['measured'] for r in results)
-        assert seen==[1,2,3,4,5]
+        assert seen==[1,2,3]
         db.commit()
     finished=client.post(f"/api/sessions/{data['id']}/finish",headers=auth)
     assert finished.status_code==202,finished.text
@@ -55,7 +55,7 @@ def test_workplace_generates_all_five_turns_without_waiting_for_scoring(monkeypa
     assert report.status_code==200,report.text
     assert report.json()['fit_scores']['response']['score'] is not None
     assert report.json()['strengths']
-    assert seen==[1,2,3,4,5]
+    assert seen==[1,2,3]
 
 
 def test_nonblocking_voice_queue_retains_measurement_for_report(monkeypatch,tmp_path):

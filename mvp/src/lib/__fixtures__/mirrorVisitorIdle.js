@@ -22,8 +22,17 @@ const stream = { getVideoTracks: () => [{ readyState: "live" }], getAudioTracks:
 function Harness() {
   const [enabled, setEnabled] = useState(true);
   const pausedRef = useRef(false);
-  const videoRef = useRef({ readyState: 2, videoWidth: 0, videoHeight: 0,
-    get currentTime() { return control.frozen ? 0 : performance.now() / 1000; } });
+  const videoRef = useRef(null);
+  if (!videoRef.current) {
+    // 중앙 크롭도 실제 CanvasImageSource를 사용하도록 카메라 프레임을 대체한다.
+    const frame = document.createElement("canvas");
+    frame.width = 640; frame.height = 480;
+    Object.defineProperties(frame, {
+      readyState: { value: 2 }, videoWidth: { value: 640 }, videoHeight: { value: 480 },
+      currentTime: { get: () => control.frozen ? 0 : performance.now() / 1000 },
+    });
+    videoRef.current = frame;
+  }
   const canvasRef = useRef(null);
   const track = useFaceTracking(stream, videoRef, canvasRef, true);
   const markActivity = useMirrorVisitorIdle({ enabled, mediaStream: stream, lastPersonAtRef: track.lastPersonAtRef, pausedRef,

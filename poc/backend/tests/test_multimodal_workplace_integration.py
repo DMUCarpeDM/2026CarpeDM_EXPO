@@ -7,12 +7,15 @@ from app.core.config import settings
 from app.main import app
 from app.seed.run import seed
 from app.services.expression_measurement import LABELS
+from app.services.dialogue.openai_provider import OpenAIDialogueProvider
 
 
 def test_twelve_turn_day_preserves_model_outputs_and_reports_honest_scores(monkeypatch):
     monkeypatch.setattr(settings, 'dialogue_provider', 'openai')
     monkeypatch.setattr(settings, 'openai_api_key', SecretStr(''))
     monkeypatch.setattr(settings, 'gemini_api_key', SecretStr(''))
+    monkeypatch.setattr(OpenAIDialogueProvider, '_generate_continuous_line',
+        lambda *_: '확인한 자료와 다음 일정을 설명해 주세요.')
     monkeypatch.setattr('app.services.response_judgment.analyze', lambda *_: ([], [], 'unavailable'))
     seed()
     client = TestClient(app)

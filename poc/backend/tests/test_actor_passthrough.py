@@ -183,7 +183,7 @@ def test_api_error_keeps_turn_and_score_without_authored_recovery(api_session, m
 def test_contradiction_keeps_scoring_but_does_not_inject_fixed_question(api_session, monkeypatch):
     from app.core.database import SessionLocal
     from app.models import RoleplaySession
-    from app.services import judgments, response_judgment
+    from app.services import deferred_workplace, judgments, response_judgment
     client, data, auth = api_session
     # 기존 전시 외 연속 세션도 고정 모순 질문으로 AI 호출을 건너뛰지 않는다.
     with SessionLocal() as db:
@@ -204,7 +204,12 @@ def test_contradiction_keeps_scoring_but_does_not_inject_fixed_question(api_sess
     result = response.json()
     assert result['next_turn']['question_text'] == line
     assert result['next_turn']['question_type'] == 'main'
-    assert any(e['rule'] == 'contradiction' for e in result['turn_signals']['judgment']['events'])
+    assert result['turn_signals']['judgment']['analysis_status'] == 'pending'
+    with SessionLocal() as db:
+        session = db.get(RoleplaySession, data['id'])
+        turn = next(t for t in session.turns if t.id == data['current_turn']['id'])
+        deferred_workplace.complete(db, session, turn)
+        assert any(e['rule'] == 'contradiction' for row in judgments.results(session) for e in row['events'])
 
 
 

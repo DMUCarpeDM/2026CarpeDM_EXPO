@@ -273,12 +273,13 @@ def reference_metrics(samples, sr, segments, config=DEFAULT):
 
 
 def _analyze(path, *, session_id=None, turn_id=None, calibration=None, capture=None,
-            words=None, excluded=(), config=DEFAULT, references=True):
+            words=None, excluded=(), config=DEFAULT, references=True,
+            decoded_audio=None, detected_segments=None):
     result = empty_result(session_id, turn_id)
     result["measurement_fields"] = list(FIELDS if references else CORE_FIELDS)
     result.update(calibration_id=(calibration or {}).get("id"), config=asdict(config), quality_flags=[])
     try:
-        samples, sr, channels = load_audio(path, config)
+        samples, sr, channels = decoded_audio if decoded_audio is not None else load_audio(path, config)
     except Exception as exc:
         result["quality_flags"] = [str(exc) if isinstance(exc, ValueError) else "audio_decode_failed"]
         result.update({name: missing(result["quality_flags"][0]) for name in FIELDS})
@@ -288,7 +289,7 @@ def _analyze(path, *, session_id=None, turn_id=None, calibration=None, capture=N
     result.update(duration_sec=duration, sample_rate=sr, channels=channels,
                   excluded_intervals=[list(row) for row in excluded])
     try:
-        segments = _subtract(speech_segments(samples, sr, config), excluded)
+        segments = _subtract(speech_segments(samples, sr, config) if detected_segments is None else detected_segments, excluded)
     except Exception:
         result.update({name: missing("vad_unavailable") for name in FIELDS}, quality_flags=["vad_unavailable"])
         return result

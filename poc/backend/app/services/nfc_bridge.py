@@ -12,6 +12,7 @@ Windows 브라우저에는 Web NFC가 없으므로 백엔드가 PC/SC로 리더�
 """
 import threading
 import time
+import re
 
 _lock = threading.Lock()
 # reader_role → {"uid", "at", "seq"} — seq는 전역 단조 증가 (프론트 폴링 커서).
@@ -73,6 +74,11 @@ def bridge_status() -> dict:
         return dict(_status)
 
 
+def contactless_readers(readers: list) -> list:
+    """ACR1252의 SAM 슬롯은 사원증 태그 리더가 아니므로 역할 배정에서 제외한다."""
+    return [reader for reader in readers if not re.search(r"\bSAM\b", str(reader), re.IGNORECASE)]
+
+
 def _set_status(**kwargs) -> None:
     with _lock:
         _status.update(kwargs)
@@ -91,7 +97,7 @@ def _poll_loop(role_by_index: list[str]) -> None:
     last_uid: dict[str, tuple[str, float]] = {}  # role → (uid, at) 디바운스
     while True:
         try:
-            readers = pcsc_readers()
+            readers = contactless_readers(pcsc_readers())
         except Exception as exc:  # PC/SC 서비스 중지 등
             _set_status(readers=[], error=f"PC/SC 접근 불가: {exc}")
             time.sleep(2.0)
@@ -99,15 +105,25 @@ def _poll_loop(role_by_index: list[str]) -> None:
         _set_status(readers=[str(r) for r in readers], error="")
         for index, reader in enumerate(readers[: len(role_by_index)]):
             role = role_by_index[index]
+            conn = None
             try:
                 conn = reader.createConnection()
                 conn.connect()
                 data, sw1, sw2 = conn.transmit(_GET_UID_APDU)
-                conn.disconnect()
-            except (NoCardException, CardConnectionException):
+            except NoCardException:
+                # 카드를 뗐다가 즉시 다시 태그해도 새 이벤트여야 한다.
+                last_uid.pop(role, None)
                 continue  # 카드 없음 — 정상
+            except CardConnectionException:
+                continue  # 일시적인 통신 장애는 새 태그로 취급하지 않는다
             except Exception:
                 continue  # 일시적 리더 오류 — 다음 폴링에서 재시도
+            finally:
+                if conn is not None:
+                    try:
+                        conn.disconnect()
+                    except Exception:
+                        pass
             if (sw1, sw2) != (0x90, 0x00) or not data:
                 continue
             uid = "".join(f"{b:02X}" for b in data)

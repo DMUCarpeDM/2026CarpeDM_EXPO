@@ -78,6 +78,8 @@ Ollama → 분석 서버(8001) → MVP(5173) 순서로 뜨고 브라우저가 �
 
 ## B2B/NFC 확장 (2026-07-31 — 기획 목표 A~G 반영)
 
+**외부 IDPrinter에서 사원증과 리포트를 출력하는 2기기 구성은 [NFC·리포트 출력 연결 안내](docs/nfc-idprinter-integration.md)를 우선한다.** 미러의 로컬 발급 화면과 별도이며, `start-exhibition.ps1 -PrinterLink`로 프린터가 결과를 조회할 수 있도록 실행한다.
+
 - **NFC 리더 (ACR122U ×2, 결정 기록: `docs/plan/b2b/hardware-nfc-decision.md`)**
   - Windows는 표준 CCID 드라이버로 자동 인식된다(별도 설치 불요). 안 잡히면
     ACS 공식 드라이버 설치.
