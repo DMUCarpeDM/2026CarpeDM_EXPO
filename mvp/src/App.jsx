@@ -83,16 +83,17 @@ export default function App() {
       return mediaStream;
     }
     const savedMic = localStorage.getItem("mirror-ting-mic-device");
+    const videoConstraint = { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30, max: 30 } };
     const audioConstraint = { autoGainControl: false, noiseSuppression: false, echoCancellation: true, ...(savedMic ? { deviceId: { ideal: savedMic } } : {}) };
     let stream = null;
     let lastError = null;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: audioConstraint });
+      stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraint, audio: audioConstraint });
     } catch (error) {
       if (epoch !== visitorEpochRef.current) throw new DOMException("방문자가 변경되었습니다", "AbortError");
       lastError = error;
       const parts = [];
-      try { parts.push(await navigator.mediaDevices.getUserMedia({ video: true })); } catch (videoError) { lastError = videoError; }
+      try { parts.push(await navigator.mediaDevices.getUserMedia({ video: videoConstraint })); } catch (videoError) { lastError = videoError; }
       try { parts.push(await navigator.mediaDevices.getUserMedia({ audio: audioConstraint })); } catch (audioError) { if (!parts.length) lastError = audioError; }
       const tracks = parts.flatMap((part) => part.getTracks());
       if (tracks.length) stream = new MediaStream(tracks);

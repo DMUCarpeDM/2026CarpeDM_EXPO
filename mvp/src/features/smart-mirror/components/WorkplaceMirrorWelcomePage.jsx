@@ -38,7 +38,7 @@ export function WorkplaceMirrorWelcomePage({ onStart }) {
     onStart();
   };
   return <section className="mirror-welcome" aria-label="미러팅 시연 안내">
-    <video ref={videoRef} className="mirror-welcome-video" src={welcomeVideo} playsInline preload="auto" aria-label="시연 안내 영상" />
+    <video ref={videoRef} className="mirror-welcome-video" src={welcomeVideo} loop playsInline preload="auto" aria-label="시연 안내 영상" />
     <button className="mirror-welcome-start" type="button" onClick={start} aria-label="화면을 눌러 시연 시작" aria-describedby="mirror-welcome-disclosure" />
     <span className="screen-reader-note" id="mirror-welcome-disclosure">화면을 누르거나 NFC를 태그하면 카메라·음성 분석과 결과 처리에 동의하고 체험 준비로 이동합니다.</span>
   </section>;

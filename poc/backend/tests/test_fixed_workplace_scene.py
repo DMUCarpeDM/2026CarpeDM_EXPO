@@ -23,3 +23,9 @@ def test_fixed_scene_also_applies_outside_kiosk(monkeypatch):
     flow = interaction.state(session)
     assert flow['exhibition'] is True
     assert {item['episode_id'] for item in flow['items']} == {15}
+
+
+def test_workplace_pack_uses_only_female_characters():
+    from app.seed.packs import load_pack_files
+    pack = next(pack for pack in load_pack_files() if pack['slug'] == 'workplace-conversation')
+    assert all(character.get('voice_gender') == 'female' for character in pack['characters'])
