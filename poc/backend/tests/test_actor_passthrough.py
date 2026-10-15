@@ -130,7 +130,7 @@ def api_session(monkeypatch):
     return client, data, {'X-Session-Token': data['access_token']}
 
 
-def test_api_returns_and_stores_model_text_for_all_five_turns(api_session, monkeypatch):
+def test_api_returns_and_stores_model_text_for_all_three_turns(api_session, monkeypatch):
     from app.core.database import SessionLocal
     from app.models import Turn
     client, data, auth = api_session
@@ -142,18 +142,18 @@ def test_api_returns_and_stores_model_text_for_all_five_turns(api_session, monke
         assert not kwargs.get('json_mode')
         return line
     monkeypatch.setattr(GeminiDialogueProvider, '_complete', complete)
-    for index in range(5):
+    for index in range(3):
         response = client.post(f"/api/sessions/{data['id']}/turns/{turn['id']}/response", headers=auth,
             json={'text': '자료를 먼저 확인하고 모르는 내용을 정리해서 말씀드리겠습니다.'})
         assert response.status_code == 200, response.text
         result = response.json()
-        assert result['finished'] is (index == 4)
+        assert result['finished'] is (index == 2)
         if not result['finished']:
             turn = result['next_turn']
             assert turn['question_text'] == line
             with SessionLocal() as db:
                 assert db.get(Turn, turn['id']).question_text == line
-    assert len(calls) == 4  # 첫 대사는 준비된 시작 질문, 마지막 답변 뒤에는 종료
+    assert len(calls) == 2  # 첫 대사는 준비된 시작 질문, 마지막 답변 뒤에는 종료
 
 
 @pytest.mark.parametrize('result', [None, '', 'timeout'])
