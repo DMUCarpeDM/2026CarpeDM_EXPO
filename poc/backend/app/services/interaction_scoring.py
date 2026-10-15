@@ -3,7 +3,10 @@ from app.services.judgments import event, number
 from app.services.contradictions import keys as conflict_keys
 from app.services.context_scoring import POLICIES, RULE_MULTIPLIERS
 
-VERSION = "interaction-score-v8"
+VERSION = "interaction-score-v10"
+WORKPLACE_SCORE_SCALE = 2
+WORKPLACE_SCORE_MIN = 55
+WORKPLACE_SCORE_MAX = 89
 OFF_TOPIC_FIRST = -1
 OFF_TOPIC_REPEAT = -2
 RESPONSE_TURN_BONUS_LIMIT = 2
@@ -137,12 +140,22 @@ def calculate(results):
     conflicts = [{**item, "points": -1 if index < deduction else 0} for index, item in enumerate(conflicts)]
     if deduction:
         scores["response"] = max(0, scores["response"] - deduction)
+    # 직장 시연의 판정은 유지하고 점수 차이만 확대한다. 근거 점수도 같은 단위로 반환한다.
+    workplace_scale = WORKPLACE_SCORE_SCALE if not interview_results and not cafe_results else 1
+    if workplace_scale != 1:
+        scores = {area: round(max(WORKPLACE_SCORE_MIN, min(WORKPLACE_SCORE_MAX, 75 + (score - 75) * workplace_scale)), 2)
+                  if score is not None else None for area, score in scores.items()}
+        changes = {area: [{**item, "points": round(item["points"] * workplace_scale, 2),
+                           "score_scale": workplace_scale} for item in items] for area, items in changes.items()}
+        conflicts = [{**item, "points": item["points"] * workplace_scale} for item in conflicts]
+        deduction *= workplace_scale
     values = [s for s in scores.values() if s is not None]
     return {"version": VERSION, "scores": scores,
         "response_policy": ("interview-2026-09-16-v1" if interview_results else "cafe-orders-2026-09-16-v1" if cafe_results else VERSION),
         "response_limits": ({"base": 75, "per_question": {"fulfilled": 3, "insufficient": -2, "irrelevant_or_skip": -4}, "concept_bonus_per_job_question": 2, "range": [0, 100]}
-                            if interview_results else {"base": 75, "bonus": 6, "penalty": 15} if cafe_results else {"base": 75, "bonus": 8, "penalty": 15, "per_turn_bonus": RESPONSE_TURN_BONUS_LIMIT}),
-        "limits": {"base": 75, "bonus": 8, "penalty": 15, "repeats": 3, "contradiction": 3,
+                            if interview_results else {"base": 75, "bonus": 6, "penalty": 15} if cafe_results else {"base": 75, "bonus": 8 * workplace_scale, "penalty": 15 * workplace_scale, "per_turn_bonus": RESPONSE_TURN_BONUS_LIMIT * workplace_scale}),
+        "limits": {"base": 75, "bonus": 8 * workplace_scale, "penalty": 15 * workplace_scale, "repeats": 3, "contradiction": 3 * workplace_scale,
+                   "score_scale": workplace_scale,
                    "nonverbal_penalty": NONVERBAL_PENALTY_LIMITS},
         "total": round(max(0, sum(values) / len(values)), 1) if values else None,
         "contradiction_deduction": deduction, "contradictions": conflicts, "changes": changes}

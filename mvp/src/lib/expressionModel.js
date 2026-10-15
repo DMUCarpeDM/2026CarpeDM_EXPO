@@ -13,10 +13,12 @@ export function faceCrop(landmarks, width, height) {
   const left = Math.min(...xs), top = Math.min(...ys);
   const w = Math.max(...xs) - left, h = Math.max(...ys) - top;
   if (w < 32 || h < 32) return null;
-  const size = Math.max(w, h) * 1.2;
-  const x = left + w / 2 - size / 2, y = top + h / 2 - size / 2;
-  // Do not invent a face from partial/off-screen geometry.
-  if (x < 0 || y < 0 || x + size > width || y + size > height) return null;
+  // Reject genuinely clipped faces, but keep fully visible faces whose padding crosses an edge.
+  if (left <= 0 || top <= 0 || left + w >= width || top + h >= height) return null;
+  const size = Math.min(Math.max(w, h) * 1.2, width, height);
+  if (size < Math.max(w, h)) return null;
+  const x = Math.max(0, Math.min(width - size, left + w / 2 - size / 2));
+  const y = Math.max(0, Math.min(height - size, top + h / 2 - size / 2));
   return {x, y, size};
 }
 

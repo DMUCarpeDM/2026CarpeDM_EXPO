@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from app.services.judgments import event
 
-@pytest.mark.parametrize('kind,expected,strength,improvement',[('good',76,True,True),('mixed',75.5,True,True),('off_topic',74,False,True),('empty',75,False,False),('uncertain',None,False,False),('unavailable',None,False,False)])
+@pytest.mark.parametrize('kind,expected,strength,improvement',[('good',77,True,True),('mixed',76,True,True),('off_topic',73,False,True),('empty',75,False,False),('uncertain',None,False,False),('unavailable',None,False,False)])
 def test_workplace_report_score_and_feedback(monkeypatch,ready_ollama,kind,expected,strength,improvement):
     from fastapi.testclient import TestClient
     from app.main import app
@@ -37,6 +37,8 @@ def test_workplace_report_score_and_feedback(monkeypatch,ready_ollama,kind,expec
     assert bool(data['strengths'])==strength
     assert bool(data['improvements'])==improvement
     assert data['total_score']==expected
+    assert data['fit_scores']['voice']['score_unavailable_reason'] == 'personal_voice_reference_missing'
+    assert data['fit_scores']['posture']['score_unavailable_reason'] == 'camera_observations_missing'
     target=Path('.omo/evidence/scoring-review');target.mkdir(parents=True,exist_ok=True)
     (target/f'report-{kind}.json').write_text(json.dumps({k:data.get(k) for k in ['total_score','fit_scores','strengths','improvements','headline','coaching','rebuild','evidence_segments']},ensure_ascii=False,indent=2))
 
@@ -83,7 +85,7 @@ def test_four_axes_survive_submission_finish_and_report(monkeypatch, ready_ollam
     assert client.post(f'/api/sessions/{sid}/finish',headers=auth).status_code in (200,202)
     report = client.get(f'/api/sessions/{sid}/report',headers=auth).json()
     assert {key:value['score'] for key,value in report['fit_scores'].items()} == {
-        'response':76,'voice':None,'expression':74,'posture':74}
+        'response':77,'voice':None,'expression':73,'posture':73}
     assert report['fit_scores']['expression']['provisional'] is True
     assert report['speech_stats']['voice_analysis']['score_status'] == 'criteria_pending'
     voice_turn=report['speech_stats']['voice_analysis']['turns'][0]
@@ -94,7 +96,7 @@ def test_four_axes_survive_submission_finish_and_report(monkeypatch, ready_ollam
     assert report['speech_stats']['measurement']['audio_sec']==2
     assert report['speech_stats']['avg_speech_rate']==3.5
     assert voice_turn['pitch']['median_hz'] is None
-    assert report['total_score'] == 74.7
+    assert report['total_score'] == 74.3
     assert report['strengths'] and len(report['improvements']) == 2
     target=Path('.omo/evidence/scoring-review/report-four-axes.json')
     target.write_text(json.dumps(report,ensure_ascii=False,indent=2))

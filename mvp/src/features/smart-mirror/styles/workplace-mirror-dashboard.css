@@ -73,3 +73,6 @@
   .mirror-dashboard .mirror-analysis-fill { transition: none; }
   .mirror-analysis-track::after { animation: none; display: none; }
 }
+
+.mirror-fit-result { font-weight: 600; color: var(--ink); }
+.mirror-fit-explanation { line-height: 1.65; }

@@ -13,7 +13,7 @@ def _fit_summary(session, area, score):
         return "말속도와 쉬어 간 구간은 아래에서 확인할 수 있어요. 목소리는 아직 점수로 평가하지 않아요."
     if area == "expression" and score is not None:
         from app.services.expression_measurement import summarize
-        return summarize(session)["note"]
+        return "확인된 얼굴 기록과 대화 상황을 함께 살펴봤어요. 표정 결과는 참고용이며 감정이나 태도를 확정하지 않아요."
     if area == "expression" and score is None:
         from app.services.expression_measurement import summary_text
         return summary_text(session)
@@ -92,6 +92,7 @@ def build(db, session, outcome, raw_rows, analysis_ms):
         engine_version=(voice_analysis.SCORE_VERSION if voice_analysis.enabled(session) else scoring.VERSION) if available else scoring.NO_SCORE,
         fit_scores={area: {"score": score, "label": LABELS[area],
             "summary": _fit_summary(session, area, score),
+            **({"score_unavailable_reason": "personal_voice_reference_missing" if area == "voice" and voice_analysis.enabled(session) and (voice_analysis.public_state(session).get("calibration") or {}).get("source") == "standard" else "voice_criteria_pending" if area == "voice" else "camera_observations_missing" if area in ("expression", "posture") else "response_evidence_missing"} if score is None else {}),
             **({"provisional": True, "note": "맥락·표정 모델 기반의 검증 전 참고 점수"} if area == "expression" and score is not None else {}),
             **({"provisional": True, "note": "맥락·상대 성량 기반의 검증 전 참고 점수"} if area == "voice" and score is not None and voice_analysis.enabled(session) else {})}
             for area, score in outcome["scores"].items()},

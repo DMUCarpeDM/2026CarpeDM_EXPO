@@ -14,8 +14,8 @@ def fixture():
 
 def test_only_enabled_prepared_scenario_has_three_continuous_beats():
     scenario, episodes = fixture()
-    assert EXHIBITION_ORDERS == (2, 13, 15, 5)
-    assert len(EXHIBITION_SCENES) == 4
+    assert EXHIBITION_ORDERS == (1, 15)
+    assert len(EXHIBITION_SCENES) == 2
     selected_orders = set()
     for seed in range(30):
         plan = build_exhibition_plan(scenario, episodes, Random(seed))
@@ -36,7 +36,7 @@ def test_only_enabled_prepared_scenario_has_three_continuous_beats():
         assert [item['goal'] for item in items] == configured['beat_goals']
         assert all(item['situation'] == configured['situation'] for item in items)
         assert items == flatten_plan_items(build_exhibition_plan(scenario, episodes, Random(seed)))
-    assert selected_orders == {15}
+    assert selected_orders == {1, 15}
 
 
 def test_exhibition_skips_planning_and_keeps_one_scenario_until_third_answer(monkeypatch):
@@ -135,7 +135,10 @@ def test_exhibition_persona_reaches_actor_even_at_basic_difficulty():
         item = flatten_plan_items(build_exhibition_plan(scenario, episodes, Random(seed)))[0]
         prompt = _actor_prompt(NS(difficulty='basic'), scenario, character, [], item)
         assert item['actor_persona'] in prompt
-        assert '반존대' in prompt
+        assert '압박하거나 화내거나 비꼬지 않는다' in prompt
+        assert '준비된 일반 후속 질문' in prompt
+        for question in item['actor_brief']['prepared_questions']:
+            assert question in prompt
         assert character['personality'] not in prompt
 
 
@@ -197,3 +200,10 @@ def test_existing_exhibition_session_without_brief_still_has_persona_and_history
     assert item['actor_persona'] in prompt
     assert item['text'] in prompt
     assert turns[0].response_text in prompt
+
+
+def test_scripted_scenes_exclude_legacy_pressure_lines():
+    assert {scene['legacy_scenario_number'] for scene in EXHIBITION_SCENES} == {1, 5}
+    for scene in EXHIBITION_SCENES:
+        assert not scene.get('pressure_questions')
+        assert all('서운' not in text and '눈치' not in text for text in scene['prepared_questions'])

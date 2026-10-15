@@ -15,7 +15,7 @@ from app.core.config import settings
 _POOL = ThreadPoolExecutor(max_workers=1, thread_name_prefix="voice-turn")
 _SLOT = threading.BoundedSemaphore(1)
 LIVE_BUDGET_SEC = 2.0
-SCORE_VERSION = "interaction-score-v8"
+SCORE_VERSION = "interaction-score-v10"
 # Retain timed-out work without letting worker threads mutate SQLAlchemy objects.
 _PENDING = OrderedDict()
 _PENDING_LOCK = threading.Lock()

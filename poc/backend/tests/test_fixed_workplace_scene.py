@@ -5,7 +5,7 @@ from app.services import interaction
 from app.services.workplace import build_exhibition_plan, flatten_plan_items
 from app.core.config import settings
 
-def test_savings_scene_is_fixed_for_every_seed_and_every_reply():
+def test_dinner_scene_can_be_selected_for_every_seed_and_every_reply():
     scenario, episodes = fixture()
     for seed in range(20):
         plan = build_exhibition_plan(scenario, episodes, Random(seed), fixed_order=15)
@@ -13,7 +13,7 @@ def test_savings_scene_is_fixed_for_every_seed_and_every_reply():
         assert plan['source'] == 'curated-fixed'
         assert len(items) == 3
         assert {item['episode_id'] for item in items} == {15}
-        assert items[0]['text'] == '월급 받으면 어디에 좀 써요? 난 저축부터 해야 한다고 보는데.'
+        assert items[0]['text'] == '오늘 고생했다고 팀장님이 회식 쏘신대요! 첫날인데 같이 갈 거죠? 부담되면 빠져도 된다고는 하셨어요.'
 
 def test_fixed_scene_also_applies_outside_kiosk(monkeypatch):
     monkeypatch.setattr(settings, 'workplace_fixed_scene_order', 15)
