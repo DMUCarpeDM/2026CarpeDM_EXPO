@@ -79,6 +79,8 @@ class Settings(BaseSettings):
     elevenlabs_api_key: SecretStr = SecretStr("")
     elevenlabs_voice_id: str = ""
     elevenlabs_model: str = "eleven_v4_turbo"
+    # Savings scene for the current demonstration; 0 restores random scenes.
+    workplace_fixed_scene_order: int = 15
     elevenlabs_timeout_sec: float = 20.0
     # 서버 음성 제공자는 ElevenLabs만 사용한다.
     tts_provider: Literal["elevenlabs"] = "elevenlabs"

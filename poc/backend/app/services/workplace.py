@@ -150,13 +150,18 @@ EXHIBITION_SCENES = json.loads((Path(__file__).parents[1] / "seed/workplace-exhi
 EXHIBITION_ORDERS = tuple(scene["order"] for scene in EXHIBITION_SCENES)
 
 
-def build_exhibition_plan(scenario, episodes, rng=None):
+def build_exhibition_plan(scenario, episodes, rng=None, *, fixed_order=0):
     rng = rng or random
     by_order = {ep.order: ep for ep in episodes}
     if any(order not in by_order for order in EXHIBITION_ORDERS):
         raise ValueError("전시용 시나리오가 준비되지 않았습니다.")
     groups = (scenario.world_setting or {}).get("workplace_categories") or []
-    selected = rng.choice(EXHIBITION_SCENES)
+    if fixed_order:
+        selected = next((scene for scene in EXHIBITION_SCENES if scene["order"] == fixed_order), None)
+        if selected is None:
+            raise ValueError("고정할 전시 시나리오를 찾을 수 없습니다.")
+    else:
+        selected = rng.choice(EXHIBITION_SCENES)
     ep = by_order[selected["order"]]
     category = next(group for group in groups if selected["order"] in group.get("orders", []))
     check = dict(selected["checklist"])
@@ -171,7 +176,7 @@ def build_exhibition_plan(scenario, episodes, rng=None):
         "beat_goals": list(selected["beat_goals"]),
         "dialogue_intents": list(selected["dialogue_intents"]),
     }
-    return {"version": "workplace-exhibition-v2", "source": "curated-random", "acts": [act], "carry_seed": ""}
+    return {"version": "workplace-exhibition-v2", "source": "curated-fixed" if fixed_order else "curated-random", "acts": [act], "carry_seed": ""}
 
 
 def _valid_keywords(keywords) -> list[str]:
