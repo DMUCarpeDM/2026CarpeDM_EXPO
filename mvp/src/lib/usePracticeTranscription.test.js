@@ -206,6 +206,41 @@ describe("practice transcription lifecycle", { concurrency: false }, () => {
     assert.equal(await page.evaluate(() => stt.recognitions.length), count);
   });
 
+  test("unfinalized captions survive recognition end and can be sent with Enter", async (t) => {
+    const page = await open(t, "?manual");
+    await page.evaluate(() => stt.recognitions.at(-1).result("아직 확정되지 않은 답변", false));
+    await page.waitForFunction(() => stt.current.interim !== "");
+    await page.evaluate(() => stt.recognitions.at(-1).onend());
+    await page.waitForFunction(() => !stt.current.listening);
+    assert.equal(await page.evaluate(() => stt.current.interim), "아직 확정되지 않은 답변");
+    await page.keyboard.press("Enter");
+    assert.deepEqual(await page.evaluate(() => stt.submissions), ["아직 확정되지 않은 답변"]);
+  });
+
+  test("refreshing the same turn object does not abort active recognition", async (t) => {
+    const page = await open(t, "?manual");
+    await page.evaluate(() => stt.recognitions.at(-1).result("말하는 중", false));
+    await page.waitForFunction(() => stt.current.interim !== "");
+    const count = await page.evaluate(() => stt.recognitions.length);
+    await page.evaluate(() => stt.update({ turn: { id: 1 } }));
+    await page.clock.runFor(100);
+    assert.equal(await page.evaluate(() => stt.recognitions.length), count);
+    assert.equal(await page.evaluate(() => stt.current.interim), "말하는 중");
+  });
+
+  test("failed recognition start reports an error and retry restores the next turn", async (t) => {
+    const page = await open(t, "?manual");
+    await page.evaluate(() => stt.playback(true));
+    await page.waitForFunction(() => !stt.current.listening);
+    await page.evaluate(() => { stt.failStart = true; stt.playback(false); });
+    await page.waitForFunction(() => stt.current.recognitionError === "audio-capture");
+    assert.equal(await page.evaluate(() => stt.current.listening), false);
+    await page.evaluate(() => { stt.failStart = false; stt.current.retryBrowserRecognition(); });
+    await page.waitForFunction(() => stt.current.listening);
+    await page.evaluate(() => stt.recognitions.at(-1).result("두 번째 답변"));
+    await page.waitForFunction(() => stt.current.draft === "두 번째 답변");
+  });
+
   test("permission failure stops recognition without calling server STT", { timeout: 30_000 }, async (t) => {
     const page = await open(t);
     await page.evaluate(() => {

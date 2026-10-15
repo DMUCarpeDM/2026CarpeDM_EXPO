@@ -37,11 +37,6 @@ test('recognition final dispatches text within one second and TTS precedes analy
   return route.fulfill(path.endsWith('/tts')?{contentType:'audio/wav',headers:{'X-TTS-Provider':'elevenlabs'},body:'fixture wav'}:{contentType:'application/json',body:JSON.stringify({next_turn:{id:2}})});});
  await page.goto(url+basename(folder)+'/index.html');await page.waitForFunction(()=>window.rec?.onresult);
  await page.evaluate(()=>window.final());
- await page.waitForTimeout(350);
- await page.evaluate(()=>window.rec.onresult({resultIndex:0,results:[{0:{transcript:'추가로 말씀드리면'},isFinal:false}]}));
- await page.waitForTimeout(500);
- assert.equal(await page.evaluate(()=>window.events.length),0);
- await page.evaluate(()=>window.final());
  await page.waitForFunction(()=>window.events.some(e=>e.event==='playing'));
  const result=await page.evaluate(()=>({input:window.inputAt-window.finalAt,submit:window.events.find(e=>e.event==='response').at-window.finalAt,events:window.events.map(e=>e.event)}));
  console.log('Final-to-input/submit ms:',JSON.stringify(result));

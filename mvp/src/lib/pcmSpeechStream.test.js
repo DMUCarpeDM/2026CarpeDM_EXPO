@@ -70,3 +70,27 @@ test('a stream stalled after first audio releases the microphone and audio resou
   assert.ok(env.nodes[0].stopped);
   assert.equal(env.closed(),1);
 });
+
+test('subtitle progress waits for duration and excludes gaps between PCM chunks', async t => {
+  const env = environment(t);
+  let tick, input, context;
+  const Base = window.AudioContext;
+  window.AudioContext = class extends Base { constructor() { super(); context = this; } };
+  window.setInterval = callback => { tick = callback; return 1; };
+  window.clearInterval = () => {};
+  const progress = [];
+  const body = new ReadableStream({ start(c) { input = c; } });
+  const playback = playPcmSpeechStream({ body }, { signal: new AbortController().signal, textLength: 100, onStart() {}, onProgress: index => progress.push(index) });
+  input.enqueue(new Uint8Array(48000));
+  await new Promise(r => setImmediate(r));
+  context.currentTime = 3;
+  tick();
+  assert.deepEqual(progress, []);
+  input.enqueue(new Uint8Array(48000)); input.close();
+  await new Promise(r => setImmediate(r));
+  context.currentTime = 3.52;
+  tick();
+  assert.equal(progress.at(-1), 75);
+  for (const node of env.nodes) node.onended();
+  await playback;
+});

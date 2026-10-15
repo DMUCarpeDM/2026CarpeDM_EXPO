@@ -165,16 +165,32 @@ export async function submitResponse(session, turnId, input) {
       // 오디오 분석은 부가 기능 — 업로드가 실패해도 텍스트 기반 분석으로 진행한다.
     }
   };
-  const postResponse = () => request(`/sessions/${session.id}/turns/${turnId}/response`, {
-    method: "POST",
-    token: session.access_token,
-    body: JSON.stringify({
-      text: input.text,
-      stt_source: input.sttSource || "text",
-      duration_ms: input.durationMs,
-      nonverbal: input.nonverbal || null,
-    }),
-  });
+  const postResponse = async () => {
+    const startedAt = performance.now();
+    const record = (event) => {
+      const timing = { turnId, event, atMs: performance.now(), elapsedMs: Math.round(performance.now() - startedAt) };
+      globalThis.__mirrorResponseTimings = [...(globalThis.__mirrorResponseTimings || []).slice(-99), timing];
+      console.info("[response-latency]", timing);
+    };
+    record("request-start");
+    try {
+      const result = await request(`/sessions/${session.id}/turns/${turnId}/response`, {
+        method: "POST",
+        token: session.access_token,
+        body: JSON.stringify({
+          text: input.text,
+          stt_source: input.sttSource || "text",
+          duration_ms: input.durationMs,
+          nonverbal: input.nonverbal || null,
+        }),
+      });
+      record("response-complete");
+      return result;
+    } catch (error) {
+      record("response-error");
+      throw error;
+    }
+  };
   const deferredWorkplace = session.interaction?.mode === "workplace_continuous";
   if (!deferredWorkplace && session.voice_analysis?.engine_version && (input.audio || input.audioReady || input.prepareAudio)) {
     // 다음 대사 전 측정용 녹음을 먼저 전달하되 업로드 대기는 제한한다.
