@@ -12,16 +12,23 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, prepar
   const synth = window.speechSynthesis;
   const speechRequest = new AbortController();
   let cancelled = false;
+  let finished = false;
   let browserSpeechStarted = false;
+  let browserSpeechRequested = false;
   let speakTimer = 0;
+  let startupTimer = 0;
+  let voicesChangedHandler = null;
   let audio = null;
   let audioUrl = "";
   let progressTimer = 0;
+  const clearStartupTimer = () => { window.clearTimeout(startupTimer); startupTimer = 0; };
   const report = (status, charIndex = 0) => {
     if (!cancelled) onProgress?.({ text, status, charIndex });
   };
   const finishSpeaking = () => {
-    if (!cancelled) {
+    if (!cancelled && !finished) {
+      finished = true;
+      clearStartupTimer();
       window.clearInterval(progressTimer);
       if (audio) audio.ontimeupdate = audio.onplaying = null;
       report("ended", text.length);
@@ -81,13 +88,16 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, prepar
       speechUnavailable();
       return;
     }
+    if (cancelled || browserSpeechRequested) return;
+    browserSpeechRequested = true;
+    clearStartupTimer();
     if (!synth) {
       speakWithBrowser();
       return;
     }
-    const onVoicesChanged = () => speakWithBrowser();
+    voicesChangedHandler = () => speakWithBrowser();
     if (synth.getVoices().length === 0 && typeof synth.addEventListener === "function") {
-      synth.addEventListener("voiceschanged", onVoicesChanged, { once: true });
+      synth.addEventListener("voiceschanged", voicesChangedHandler, { once: true });
       speakTimer = window.setTimeout(speakWithBrowser, 400);
     } else {
       speakTimer = window.setTimeout(speakWithBrowser, 80);
@@ -97,14 +107,14 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, prepar
     let streamStarted = false;
     try {
       const response = preparedAudioUrl ? null : await synthesizeSpeech(text, voice, speechRequest.signal, true);
-      if (cancelled) return;
+      if (cancelled || browserSpeechRequested) return;
       if (response && expectedServerProvider && response.headers?.get("x-tts-provider") !== expectedServerProvider) {
         throw new Error("Unexpected speech provider");
       }
       if (response?.headers?.get("content-type")?.includes("audio/pcm")) {
         await playPcmSpeechStream(response, {
           signal: speechRequest.signal, textLength: text.length,
-          onStart: () => { streamStarted = true; onSpeakingChange(true); report("playing"); onNote("AI 음성 스트리밍 재생 시작"); },
+          onStart: () => { clearStartupTimer(); streamStarted = true; onSpeakingChange(true); report("playing"); onNote("ElevenLabs 음성 스트리밍 재생 시작"); console.info("[speech] ElevenLabs live stream playing"); },
           onProgress: index => report("playing", index),
         });
         finishSpeaking();
@@ -112,7 +122,7 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, prepar
       }
       if (response) {
         const blob = await response.blob();
-        if (cancelled) return;
+        if (cancelled || browserSpeechRequested) return;
         audioUrl = URL.createObjectURL(blob);
       }
       audio = new Audio(preparedAudioUrl || audioUrl);
@@ -124,12 +134,13 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, prepar
         const ratio = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.currentTime / audio.duration : 0;
         report("playing", Math.min(text.length - 1, Math.floor(ratio * text.length)));
       };
-      audio.onplaying = () => { playbackStarted = true; updateProgress(); };
+      audio.onplaying = () => { clearStartupTimer(); playbackStarted = true; updateProgress(); };
       audio.ontimeupdate = updateProgress;
       audio.onplay = () => {
         if (!cancelled) {
           onSpeakingChange(true);
-          onNote("AI 음성 재생 시작");
+          onNote(preparedAudioUrl ? "준비된 ElevenLabs 음성 재생 시작" : "ElevenLabs 음성 재생 시작");
+          console.info("[speech] ElevenLabs audio playing", preparedAudioUrl || "server audio");
         }
       };
       audio.onended = finishSpeaking;
@@ -143,7 +154,7 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, prepar
       };
       await audio.play();
     } catch {
-      if (!cancelled) {
+      if (!cancelled && !browserSpeechRequested) {
         if (streamStarted) {
           onNote("음성 연결이 끊겼어요. 남은 내용은 자막으로 확인해 주세요.");
           finishSpeaking();
@@ -159,15 +170,29 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, prepar
   report("waiting");
   synth?.cancel();
   if (preparedAudioUrl || serverTtsReady) {
-    void playServerSpeech();
+    // 서버 연결·첫 음성 준비가 멎어도 미러가 AI 발화 상태에 갇히지 않는다.
+    startupTimer = window.setTimeout(() => {
+      if (cancelled || finished || browserSpeechRequested) return;
+      speechRequest.abort();
+      if (audio) {
+        audio.onended = audio.onerror = audio.onplay = audio.onplaying = audio.ontimeupdate = null;
+        audio.pause();
+      }
+      onNote(allowBrowserFallback ? "AI 음성 준비가 지연돼 브라우저 음성으로 전환해요" : "ElevenLabs 음성 준비가 지연되고 있어요.");
+      startBrowserSpeech();
+    }, 10_000);
+    // 개발 모드의 effect 재실행에서 즉시 취소된 요청은 서버로 보내지 않는다.
+    queueMicrotask(() => { if (!cancelled && !browserSpeechRequested) void playServerSpeech(); });
   } else {
     startBrowserSpeech();
   }
   return () => {
     cancelled = true;
     speechRequest.abort();
+    clearStartupTimer();
     window.clearTimeout(speakTimer);
     window.clearInterval(progressTimer);
+    if (voicesChangedHandler) synth?.removeEventListener?.("voiceschanged", voicesChangedHandler);
     onProgress?.({ text, status: "cancelled", charIndex: 0 });
     if (audio) audio.pause();
     if (audioUrl) URL.revokeObjectURL(audioUrl);

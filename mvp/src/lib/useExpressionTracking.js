@@ -1,3 +1,4 @@
+import { centralFace, drawCenteredInput, mapRegionLandmarks } from "./centerPersonTracking.js";
 import {useEffect, useState} from "react";
 import {resolveModel, resolveWasmUrl} from "./visionAssets.js";
 import {addExpressionSample, faceCrop, normalizeFace} from "./expressionModel.js";
@@ -31,6 +32,7 @@ export function useExpressionTracking(mediaStream, videoRef, turnAccRef, faceLan
         if (cancelled) { await dispose(); return; }
         session = await ort.InferenceSession.create("/models/expression_resnet18_v1/model.onnx", {executionProviders: ["wasm"]});
         if (cancelled) { await dispose(); return; }
+        const centerCanvas = document.createElement("canvas");
         const canvas = document.createElement("canvas");
         canvas.width = canvas.height = 224;
         const ctx = canvas.getContext("2d", {willReadFrequently: true});
@@ -44,11 +46,18 @@ export function useExpressionTracking(mediaStream, videoRef, turnAccRef, faceLan
               const video = videoRef.current;
               if (video.currentTime === lastVideoTime) return;
               lastVideoTime = video.currentTime;
-              const result = face.detectForVideo(video, performance.now());
-              if (result.faceLandmarks.length && lastPersonAtRef) lastPersonAtRef.current = performance.now();
-              if (faceLandmarksRef) faceLandmarksRef.current = result.faceLandmarks.length === 1 ? result.faceLandmarks[0] : null;
-              if (result.faceLandmarks.length !== 1) { if (acc.expression) acc.expression.smileSince = null; if (!cancelled) setStatus("no_face"); return; }
-              const crop = faceCrop(result.faceLandmarks[0], video.videoWidth, video.videoHeight);
+              const ts = performance.now();
+              const result = face.detectForVideo(video, ts);
+              let points = centralFace(result.faceLandmarks);
+              if (!points && result.faceLandmarks.length === 0) {
+                const region = drawCenteredInput(video, centerCanvas);
+                const cropped = centralFace(face.detectForVideo(centerCanvas, ts + .001).faceLandmarks);
+                if (cropped) points = mapRegionLandmarks(cropped, region, video.videoWidth, video.videoHeight);
+              }
+              if (points && lastPersonAtRef) lastPersonAtRef.current = performance.now();
+              if (faceLandmarksRef) faceLandmarksRef.current = points;
+              if (!points) { if (acc.expression) acc.expression.smileSince = null; if (!cancelled) setStatus("no_face"); return; }
+              const crop = faceCrop(points, video.videoWidth, video.videoHeight);
               if (!crop) { if (acc.expression) acc.expression.smileSince = null; if (!cancelled) setStatus("no_face"); return; }
               ctx.drawImage(video, crop.x, crop.y, crop.size, crop.size, 0, 0, 224, 224);
               const input = new ort.Tensor("float32", normalizeFace(ctx.getImageData(0, 0, 224, 224).data), [1, 3, 224, 224]);
@@ -57,11 +66,12 @@ export function useExpressionTracking(mediaStream, videoRef, turnAccRef, faceLan
                 addExpressionSample(acc, output.logits.data);
                 setStatus("ready");
               }
-            } catch { if (acc.expression) acc.expression.smileSince = null; if (!cancelled && faceLandmarksRef) faceLandmarksRef.current = null; if (!cancelled) { setStatus("failed"); window.clearInterval(timer); } }
+            } catch (error) { console.warn("[expression-tracking] frame inference failed", error); if (acc.expression) acc.expression.smileSince = null; if (!cancelled && faceLandmarksRef) faceLandmarksRef.current = null; if (!cancelled) { setStatus("retrying"); } }
             finally { busy = false; }
           })();
         }, 1000);
-      } catch {
+      } catch (error) {
+        console.warn("[expression-tracking] initialization failed", error);
         await dispose();
         if (!cancelled) setStatus("failed");
       }

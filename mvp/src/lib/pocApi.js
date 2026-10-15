@@ -139,18 +139,27 @@ export function resolveNfcCard(uid) {
 //
 // 답변은 즉시 보내고, 녹음 업로드는 최종 분석을 시작하기 전에 완료한다.
 const pendingAudioUploads = new Map();
+const deferredAudioStarts = new Map();
+
+// Called when the next AI audio starts (or cannot play); final reports release any remainder.
+export function releaseDeferredAudio(session) {
+  const starts = deferredAudioStarts.get(session?.access_token);
+  deferredAudioStarts.delete(session?.access_token);
+  starts?.forEach(start => start());
+}
 export async function submitResponse(session, turnId, input) {
   const uploadAudio = async () => {
-    if (!input.audio || input.audio.size === 0) return;
     try {
+      const audio = input.audio || await input.audioReady;
+      if (!audio || audio.size === 0) return;
       const form = new FormData();
       form.append("voice_input", JSON.stringify(input.voiceInput || {}));
-      form.append("file", input.audio, `turn-${turnId}.wav`);
+      form.append("file", audio, `turn-${turnId}.wav`);
       await request(`/sessions/${session.id}/turns/${turnId}/audio`, {
         method: "POST",
         token: session.access_token,
         body: form,
-        signal: AbortSignal.timeout(session.voice_analysis?.engine_version ? 4_000 : 30_000),
+        signal: AbortSignal.timeout(30_000),
       });
     } catch {
       // 오디오 분석은 부가 기능 — 업로드가 실패해도 텍스트 기반 분석으로 진행한다.
@@ -166,7 +175,8 @@ export async function submitResponse(session, turnId, input) {
       nonverbal: input.nonverbal || null,
     }),
   });
-  if (session.voice_analysis?.engine_version && input.audio) {
+  const deferredWorkplace = session.interaction?.mode === "workplace_continuous";
+  if (!deferredWorkplace && session.voice_analysis?.engine_version && (input.audio || input.audioReady)) {
     // 다음 대사 전 측정용 녹음을 먼저 전달하되 업로드 대기는 제한한다.
     await uploadAudio();
     return postResponse();
@@ -176,7 +186,12 @@ export async function submitResponse(session, turnId, input) {
     // 녹음 보관은 대화 진행의 조건이 아니다. 업로드가 지연돼도 다음 턴을 막지 않는다.
     const uploads = pendingAudioUploads.get(session.access_token) || new Set();
     pendingAudioUploads.set(session.access_token, uploads);
-    const pending = uploadAudio();
+    let pending;
+    if (deferredWorkplace) {
+      const starts = deferredAudioStarts.get(session.access_token) || new Set();
+      deferredAudioStarts.set(session.access_token, starts);
+      pending = new Promise(resolve => starts.add(resolve)).then(uploadAudio);
+    } else pending = uploadAudio();
     uploads.add(pending);
     void pending.finally(() => {
       uploads.delete(pending);
@@ -197,6 +212,7 @@ export function observeTurn(session, turnId, input, signal) {
 }
 
 export async function finishSession(session) {
+  releaseDeferredAudio(session);
   await Promise.all(pendingAudioUploads.get(session.access_token) || []);
   return request(`/sessions/${session.id}/finish`, { method: "POST", token: session.access_token });
 }

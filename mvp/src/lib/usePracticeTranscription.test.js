@@ -31,20 +31,38 @@ describe("practice transcription lifecycle", { concurrency: false }, () => {
     const page = await open(t);
     await page.evaluate(() => stt.recognitions.at(-1).result("첫 답변"));
     await page.waitForFunction(() => stt.current.draft === "첫 답변");
-    await page.clock.runFor(2000);
-    assert.deepEqual(await page.evaluate(() => stt.submissions), []);
-    await page.clock.runFor(1000);
+    await page.clock.runFor(1);
     assert.deepEqual(await page.evaluate(() => stt.submissions), ["첫 답변"]);
     assert.equal(await page.evaluate(() => stt.current.getSttSource()), "webspeech");
-    await page.evaluate(() => stt.recognitions.at(-1).result("계속"));
-    await page.evaluate(() => stt.recognitions.at(-1).result("말하는 중", false));
+    await page.evaluate(() => { stt.recognitions.at(-1).result("계속"); stt.recognitions.at(-1).result("말하는 중", false); });
     await page.waitForFunction(() => stt.current.interim === "말하는 중");
     await page.clock.runFor(3000);
     assert.equal(await page.evaluate(() => stt.submissions.length), 1);
-    await page.evaluate(() => stt.recognitions.at(-1).result("끝"));
-    await page.evaluate(() => stt.type("수동 수정"));
+    await page.evaluate(() => { stt.recognitions.at(-1).result("끝"); stt.type("수동 수정"); });
     await page.clock.runFor(3000);
     assert.equal(await page.evaluate(() => stt.submissions.length), 1);
+  });
+
+  test("records native speech-end to final latency without stopping recognition or submitting interim text", async (t) => {
+    const page = await open(t);
+    await page.evaluate(() => {
+      stt.recognitions.at(-1).onspeechstart();
+      stt.recognitions.at(-1).result("임시 답변", false);
+      stt.recognitions.at(-1).onspeechend();
+    });
+    await page.clock.runFor(1200);
+    assert.deepEqual(await page.evaluate(() => stt.submissions), []);
+    assert.equal(await page.evaluate(() => stt.recognitions.at(-1).stops), 0);
+    await page.evaluate(() => stt.recognitions.at(-1).result("실제 확정 답변"));
+    await page.waitForFunction(() => stt.current.draft === "실제 확정 답변");
+    await page.clock.runFor(1);
+    assert.deepEqual(await page.evaluate(() => stt.submissions), ["실제 확정 답변"]);
+    const timings = await page.evaluate(() => window.__mirrorSpeechTimings);
+    const final = timings.find(item => item.event === "final");
+    assert.equal(final.endToFinalMs, Math.round(final.finalAtMs - final.speechEndAtMs));
+    assert.ok(final.endToFinalMs >= 1200 && final.endToFinalMs < 1250);
+    assert.ok(timings.find(item => item.event === "auto-submit").finalToSubmitMs < 50);
+    assert.equal(JSON.stringify(timings).includes("실제 확정 답변"), false);
   });
 
   test("pause, AI speech, mic toggle, turn changes and unmount stop recognition", { timeout: 30_000 }, async (t) => {

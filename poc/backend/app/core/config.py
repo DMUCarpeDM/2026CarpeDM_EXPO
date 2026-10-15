@@ -78,6 +78,8 @@ class Settings(BaseSettings):
     elevenlabs_api_key: SecretStr = SecretStr("")
     elevenlabs_voice_id: str = ""
     elevenlabs_model: str = "eleven_v4_turbo"
+    # Savings scene for the current demonstration; 0 restores random scenes.
+    workplace_fixed_scene_order: int = 0
     elevenlabs_timeout_sec: float = 20.0
     # 서버 음성 제공자는 ElevenLabs만 사용한다.
     tts_provider: Literal["elevenlabs"] = "elevenlabs"
@@ -133,7 +135,7 @@ class Settings(BaseSettings):
     tremor_shimmer_floor: float = 8.0  # %
     tremor_penalty_cap: float = 18.0
 
-    model_config = {"env_prefix": "MIRROR_TING_", "env_file": ".env"}
+    model_config = {"env_prefix": "MIRROR_TING_", "env_file": ".env", "extra": "ignore"}
 
 
 settings = Settings()

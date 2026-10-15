@@ -41,3 +41,13 @@ test('sustained smile needs contiguous high-output samples; gaps and low samples
   for(const t of [8000,9000,10000]) addExpressionSample(acc,high,t);
   assert.equal(expressionMetrics(acc).sustained_smile_ms,3000);
 });
+
+
+test("fully visible edge faces survive padding and retain expression payload without pose", () => {
+  assert.deepEqual(faceCrop([{x:.01,y:.2},{x:.21,y:.4}],1000,1000), {x:0,y:180,size:240});
+  const acc=makeTurnAcc();
+  for(let i=0;i<4;i++) addExpressionSample(acc,[0,0,0,0,0,0,0],i*1000);
+  const payload=JSON.parse(JSON.stringify(finalizeTurnMetrics(acc)));
+  assert.equal(payload.expression_model.samples,4);
+  assert.equal(payload.frames,0);
+});

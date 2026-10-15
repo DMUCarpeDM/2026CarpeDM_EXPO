@@ -145,18 +145,26 @@ def build_fallback_plan(scenario, episodes, mode: int, rng=None) -> dict:
     return {"version": PLAN_VERSION, "source": "fallback", "acts": acts, "carry_seed": ""}
 
 
-# One prepared situation is selected per session; all five replies stay in it.
+# One prepared situation is selected per session; all three replies stay in it.
 EXHIBITION_SCENES = json.loads((Path(__file__).parents[1] / "seed/workplace-exhibition.json").read_text(encoding="utf-8"))
 EXHIBITION_ORDERS = tuple(scene["order"] for scene in EXHIBITION_SCENES)
 
 
-def build_exhibition_plan(scenario, episodes, rng=None):
+def build_exhibition_plan(scenario, episodes, rng=None, *, fixed_order=0):
     rng = rng or random
     by_order = {ep.order: ep for ep in episodes}
     if any(order not in by_order for order in EXHIBITION_ORDERS):
         raise ValueError("전시용 시나리오가 준비되지 않았습니다.")
     groups = (scenario.world_setting or {}).get("workplace_categories") or []
-    selected = rng.choice(EXHIBITION_SCENES)
+    enabled = [scene for scene in EXHIBITION_SCENES if scene.get("enabled", True)]
+    if not enabled:
+        raise ValueError("활성화된 전시 시나리오가 없습니다.")
+    if fixed_order:
+        selected = next((scene for scene in enabled if scene["order"] == fixed_order), None)
+        if selected is None:
+            raise ValueError("고정할 전시 시나리오가 없거나 비활성화되었습니다.")
+    else:
+        selected = rng.choice(enabled)
     ep = by_order[selected["order"]]
     category = next(group for group in groups if selected["order"] in group.get("orders", []))
     check = dict(selected["checklist"])
@@ -168,10 +176,10 @@ def build_exhibition_plan(scenario, episodes, rng=None):
         "episode_id": ep.id, "title": selected["title"], "situation": selected["situation"],
         "virtual_time": "", "tip": check["tip"], "checklist": [check],
         "opening_line": selected["opening_line"], "fallback_pool": [selected["opening_line"]],
-        "beat_goals": list(selected["beat_goals"]),
-        "dialogue_intents": list(selected["dialogue_intents"]),
+        "beat_goals": list(selected["beat_goals"][:3]),
+        "dialogue_intents": list(selected["dialogue_intents"][:3]),
     }
-    return {"version": "workplace-exhibition-v2", "source": "curated-random", "acts": [act], "carry_seed": ""}
+    return {"version": "workplace-exhibition-v2", "source": "curated-fixed" if fixed_order else "curated-random", "acts": [act], "carry_seed": ""}
 
 
 def _valid_keywords(keywords) -> list[str]:

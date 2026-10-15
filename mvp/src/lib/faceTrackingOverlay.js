@@ -88,7 +88,7 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
         if (!point || (point.visibility ?? 1) < 0.4) continue;
         const [x, y] = px(point);
         ctx.beginPath();
-        ctx.arc(x, y, 5.5, 0, Math.PI * 2);
+        ctx.arc(x, y, 4.4, 0, Math.PI * 2);
         ctx.fill();
       }
     }
@@ -111,7 +111,7 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
     ctx.fillStyle = "rgba(134, 245, 182, 0.95)";
     for (const point of hand) {
       ctx.beginPath();
-      ctx.arc(...px(point), 4, 0, Math.PI * 2);
+      ctx.arc(...px(point), 3.2, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -137,7 +137,7 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
       if (!p) continue;
       const [x, y] = px(p);
       ctx.beginPath();
-      ctx.arc(x, y, 1.3, 0, Math.PI * 2);
+      ctx.arc(x, y, 1.04, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.shadowBlur = 0;

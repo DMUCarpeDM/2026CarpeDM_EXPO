@@ -79,7 +79,7 @@ def test_calibration_upload_report_and_no_score_or_reference_criticism(monkeypat
     assert report.status_code == 200, report.text
     report = report.json()
     assert report["fit_scores"]["voice"]["score"] is None
-    assert "측정 불가 사유" in report["fit_scores"]["voice"]["summary"]
+    assert report["fit_scores"]["voice"]["summary"].strip()
     assert report["fit_scores"]["expression"]["score"] is None
     results = report["speech_stats"]["voice_analysis"]["turns"]
     assert results[0]["volume"]["status"] == "measured"

@@ -168,6 +168,7 @@ test("a late server response cannot start speech after cancellation", async (t) 
   let respond;
   t.mock.method(globalThis, "fetch", () => new Promise((resolve) => { respond = resolve; }));
   const stop = env.start(true);
+  await flushAsync();
   stop();
   respond(new Response("mp3"));
   await flushAsync();
@@ -193,6 +194,7 @@ test("cancelling aborts a pending server request without browser fallback", asyn
     return new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(new DOMException("cancelled", "AbortError"))));
   });
   const stop = env.start(true);
+  await flushAsync();
   stop();
   await flushAsync();
   env.flushTimers();
@@ -244,4 +246,48 @@ test("broken prepared opening never falls back to another voice", async t => {
   await flushAsync(); env.audioPlayers[0].onerror(); env.flushTimers();
   assert.equal(env.utterances.length, 0);
   assert.equal(env.finished, 1);
+});
+
+test("stalled server synthesis aborts and falls back once without late playback", async t => {
+  const env = playbackEnvironment(t);
+  let respond, signal;
+  t.mock.method(globalThis, "fetch", (_url, options) => {
+    signal = options.signal;
+    return new Promise(resolve => { respond = resolve; });
+  });
+  env.start(true);
+  await flushAsync();
+  env.flushTimers();
+  assert.equal(signal.aborted, true);
+  respond(new Response("wav", { headers: { "Content-Type": "audio/wav" } }));
+  await flushAsync();
+  env.flushTimers();
+  assert.equal(env.audioPlayers.length, 0);
+  assert.equal(env.utterances.length, 1);
+  env.utterances[0].onend();
+  env.utterances[0].onend();
+  assert.equal(env.finished, 1);
+});
+
+test("prepared audio startup timeout pauses the file before browser fallback", async t => {
+  const env = playbackEnvironment(t);
+  env.start(true, "준비된 음성", "/opening.wav");
+  await flushAsync();
+  const audio = env.audioPlayers[0];
+  env.flushTimers();
+  env.flushTimers();
+  assert.equal(audio.pause.mock.callCount(), 1);
+  assert.equal(audio.onplaying, null);
+  assert.equal(env.utterances.length, 1);
+});
+
+test("an immediately replaced turn never starts a duplicate server request", async t => {
+  const env = playbackEnvironment(t);
+  const request = t.mock.method(globalThis, "fetch", async () => new Response("wav"));
+  const stop = env.start(true);
+  stop();
+  env.start(true);
+  await flushAsync();
+  assert.equal(request.mock.callCount(), 1);
+  assert.equal(env.audioPlayers.length, 1);
 });

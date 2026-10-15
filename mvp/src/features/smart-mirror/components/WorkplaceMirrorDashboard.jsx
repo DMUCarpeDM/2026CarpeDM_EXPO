@@ -60,7 +60,8 @@ export function WorkplaceMirrorDashboard({ report, progress, error }) {
         <div className="mirror-fit-grid" aria-label="4개 분석 지표">{data.fits.map(fit => <article key={fit.key}>
           <div><h3>{labels[fit.key]}</h3><strong>{fit.score ?? "—"}<small>{fit.score !== null ? "/100" : ""}</small></strong></div>
           {fit.score !== null && <Progress value={fit.score} aria-label={`${labels[fit.key]} ${fit.score}점`} />}
-          <p>{fit.status}</p><p>{fit.text}</p>{fit.contextSummary && <p>{fit.contextSummary}</p>}
+          <p className="mirror-fit-result">{fit.score !== null ? fit.provisional ? "참고용 점수예요." : "확인된 기록으로 평가했어요." : fit.key === "Voice-Fit" && data.voiceAnalysis ? "점수 대신 말하기 기록을 확인해요." : "이번에는 점수를 계산하지 못했어요."}</p>
+          <p className="mirror-fit-explanation">{fit.text}</p>
         </article>)}</div>
       </WorkplaceOverviewCard>
       <WorkplaceOverviewCard labelledBy="mirror-feedback-title">

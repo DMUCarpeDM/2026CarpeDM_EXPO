@@ -15,7 +15,7 @@ from app.core.config import settings
 _POOL = ThreadPoolExecutor(max_workers=1, thread_name_prefix="voice-turn")
 _SLOT = threading.BoundedSemaphore(1)
 LIVE_BUDGET_SEC = 2.0
-SCORE_VERSION = "interaction-score-v8"
+SCORE_VERSION = "interaction-score-v10"
 # Retain timed-out work without letting worker threads mutate SQLAlchemy objects.
 _PENDING = OrderedDict()
 _PENDING_LOCK = threading.Lock()
@@ -102,7 +102,9 @@ def public_state(session):
 
 def _input(session, turn):
     value = session.rapport or {}
-    source = value.get("voice_inputs", {}).get(str(turn.id), {})
+    source = (getattr(turn, "nonverbal_metrics", None) or {}).get("_voice_input")
+    if source is None:
+        source = value.get("voice_inputs", {}).get(str(turn.id), {})
     baseline = value.get("voice_calibrations", {}).get(source.get("calibration_id"))
     return baseline, source
 
@@ -192,7 +194,7 @@ def finish_turn(session, turn, *, include_stt_log=False):
     return (measurement, stt_log) if include_stt_log else measurement
 
 
-def live_turn(session, turn):
+def live_turn(session, turn, *, wait=True):
     """Bound the live wait; retain completed and in-flight work for the report."""
     baseline, source = _input(session, turn)
     fingerprint = _fingerprint(turn, baseline, source)
@@ -211,6 +213,8 @@ def live_turn(session, turn):
         if fingerprint:
             _pending(key, future)
         future.add_done_callback(lambda _: _SLOT.release())
+    if not wait:
+        return engine.empty_result(session.id, turn.id, "analysis_pending")
     try:
         result = future.result(timeout=LIVE_BUDGET_SEC)
         if fingerprint != _fingerprint(turn, baseline, source):
@@ -253,3 +257,13 @@ def strip_verbatim(session):
     for habits in value.get("response_habits", {}).values():
         habits.pop("transcript", None)
     session.rapport = value
+
+
+def prime_stored_turn(session_id, turn_id):
+    # Workers retain pure measurement futures; they never write session JSON while dialogue runs.
+    from app.core.database import SessionLocal
+    from app.models import RoleplaySession, Turn
+    with SessionLocal() as db:
+        session, turn = db.get(RoleplaySession, session_id), db.get(Turn, turn_id)
+        if session and turn and turn.session_id == session.id and turn.audio_path:
+            live_turn(session, turn, wait=False)

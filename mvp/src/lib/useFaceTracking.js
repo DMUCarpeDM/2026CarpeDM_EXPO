@@ -1,3 +1,4 @@
+import { drawCenteredInput, mapRegionLandmarks, centralPose, smallPose } from "./centerPersonTracking.js";
 import {useExpressionTracking} from "./useExpressionTracking.js";
 import { postureFeatures } from "./postureEnsemble.js";
 /** MediaPipe Pose/Hand 기반 실시간 트래킹 훅 (poc useNonverbal의 경량 JS 이식).
@@ -25,8 +26,8 @@ import {
 
 const LIVE_PUSH_MS = 300;
 
-// 어깨너비가 이보다 좁으면(멀리 있거나 옆모습) 정규화 분모가 불안정해 표본을 버린다
-const MIN_SHOULDER_WIDTH = 0.05;
+// 작은 인물도 받되, 원본 영상에서 최소 24px 어깨 간격은 확보한다.
+const MIN_SHOULDER_WIDTH = 0.025;
 // 어깨 기울기 라이브 게이지의 '수평' 판정 임계(도)
 const POSTURE_LEVEL_DEG = 7;
 const LEAN_DELTA_THRESHOLD = 0.16;
@@ -71,6 +72,7 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
     let base = null; // 자세 기준값
     let calib = emptyCalib();
     let lastPoseAt = 0;
+    const centerCanvas = document.createElement("canvas");
     setLive((prev) => ({ ...prev, status: "loading" }));
 
     (async () => {
@@ -81,7 +83,7 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
         pose = await vision.PoseLandmarker.createFromOptions(fileset, {
           baseOptions: { modelAssetPath: poseModel },
           runningMode: "VIDEO",
-          numPoses: 1,
+          numPoses: 2,
           minPoseDetectionConfidence: .4,
           minPosePresenceConfidence: .4,
           minTrackingConfidence: .4,
@@ -105,13 +107,23 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
           const ts = performance.now();
           try {
             const poseResult = poseLm.detectForVideo(video, ts + 0.001);
-            const handResult = handLm.detectForVideo(video, ts + 0.002);
+            let selected = centralPose(poseResult);
+            let region = null;
+            if (smallPose(selected)) {
+              region = drawCenteredInput(video, centerCanvas);
+              const cropped = centralPose(poseLm.detectForVideo(centerCanvas, ts + 0.002));
+              if (cropped) selected = { ...cropped, landmarks: mapRegionLandmarks(cropped.landmarks, region, video.videoWidth, video.videoHeight) };
+            }
+            let handLandmarks = handLm.detectForVideo(video, ts + 0.003).landmarks || [];
+            if (!handLandmarks.length && region) {
+              handLandmarks = (handLm.detectForVideo(centerCanvas, ts + 0.004).landmarks || [])
+                .map(points => mapRegionLandmarks(points, region, video.videoWidth, video.videoHeight));
+            }
             const took = performance.now() - ts;
             inferAvg = inferAvg === 0 ? took : inferAvg * 0.85 + took * 0.15;
-            const plm = poseResult.landmarks?.[0];
+            const plm = selected?.landmarks;
             const features = postureFeatures(plm);
             if (features && turnAccRef.current.poseFeatures.length < 1500) turnAccRef.current.poseFeatures.push(features);
-            const handLandmarks = handResult.landmarks || [];
             if (plm?.some((point) => (point.visibility ?? 1) > 0.5) || handLandmarks.length) lastPersonAtRef.current = ts;
 
             drawOverlay(canvasRef.current, video, showFaceOverlay ? faceLandmarksRef.current : null, plm, handLandmarks);
@@ -130,10 +142,11 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
               const noseP = plm[0];
               poseTracked = (ls?.visibility ?? 1) > 0.5 && (rs?.visibility ?? 1) > 0.5;
               const width = ls && rs ? Math.abs(ls.x - rs.x) : 0;
-              if (poseTracked && width > MIN_SHOULDER_WIDTH) {
+              poseTracked = poseTracked && width > Math.max(MIN_SHOULDER_WIDTH, 24 / video.videoWidth);
+              if (poseTracked) {
                 // 3D 월드 랜드마크(미터·골반 원점)를 쓰면 몸이 비스듬히 서도(yaw)
                 // 어깨선 기울기가 왜곡되지 않는다 — 2D 투영의 고질적 오차. 없으면 폴백.
-                const wlm = poseResult.worldLandmarks?.[0];
+                const wlm = selected?.worldLandmarks;
                 const wls = wlm?.[11];
                 const wrs = wlm?.[12];
                 const wlh = wlm?.[23];

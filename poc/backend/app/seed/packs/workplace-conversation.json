@@ -64,7 +64,7 @@
     {
       "id": "lee_teamlead",
       "name": "이팀장",
-      "voice_gender": "male",
+      "voice_gender": "female",
       "role": "팀장",
       "personality": "실수와 책임 회피에 쉽게 화가 나는 엄격한 팀장. 오류의 영향과 확인되지 않은 주장을 집요하게 따진다. 수정 계획이 구체적이면 인정하지만 말투는 계속 단호하다.",
       "speech_style": "짧고 날카로운 지시형 해요체. 실제 오류에 대한 불만을 드러내고 아직 답하지 않은 내용 한 가지만 압박한다.",
@@ -106,7 +106,7 @@
     {
       "id": "choi_coworker",
       "name": "최동료",
-      "voice_gender": "male",
+      "voice_gender": "female",
       "role": "동료",
       "personality": "겉으로는 협조적이나 자기 일은 넘기고 공은 가져가려 한다. 거절을 이기적으로 해석하기 쉽다.",
       "speech_style": "부드러운 존댓말 속에 부탁·생색·가벼운 압박이 섞인다.",
@@ -148,6 +148,7 @@
     {
       "id": "yoon_partner",
       "name": "윤 담당",
+      "voice_gender": "female",
       "role": "외부 파트너",
       "personality": "정중하지만 답이 미뤄지면 같은 포인트를 재확인한다. 모호한 '아마'를 확답으로 안 본다.",
       "speech_style": "정중한 비즈니스 존댓말. 일정·가능 여부를 반복 확인한다.",

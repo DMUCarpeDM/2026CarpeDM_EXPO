@@ -1,18 +1,128 @@
 [
   {
-    "text": "애인 있어요? 없으면 제가 소개해 줄까요?",
-    "url": "/audio/workplace-openings/scenario-2.mp3"
+    "text": "자료 한번 쭉 보고 알아서 파악해보세요. 신입이라고 하나하나 알려드릴 수는 없으니까.",
+    "url": "/audio/workplace-openings/anna-kim-v4-turbo/scenario-1.wav",
+    "provider": "elevenlabs",
+    "voice_id": "uyVNoMrnUku1dZyVEXwD",
+    "model_id": "eleven_v4_turbo"
   },
   {
-    "text": "이번 주말에 같이 밥 먹어요. 시간 괜찮아요?",
-    "url": "/audio/workplace-openings/scenario-13.mp3"
+    "text": "부모님은 무슨 일 하세요? 애인은 있어요? 왜 이런 것도 얘기 안 해요?",
+    "url": "/audio/workplace-openings/anna-kim-v4-turbo/scenario-2.wav",
+    "provider": "elevenlabs",
+    "voice_id": "uyVNoMrnUku1dZyVEXwD",
+    "model_id": "eleven_v4_turbo"
+  },
+  {
+    "text": "아까부터 계속 앉아 있던데 뭐 하고 있었어요? 할 일 없으면 먼저 물어봐야죠.",
+    "url": "/audio/workplace-openings/anna-kim-v4-turbo/scenario-3.wav",
+    "provider": "elevenlabs",
+    "voice_id": "uyVNoMrnUku1dZyVEXwD",
+    "model_id": "eleven_v4_turbo"
+  },
+  {
+    "text": "이거 오늘 5시까지 해보세요. 처음부터 다 알려주면 배우는 게 없잖아요.",
+    "url": "/audio/workplace-openings/anna-kim-v4-turbo/scenario-4.wav",
+    "provider": "elevenlabs",
+    "voice_id": "uyVNoMrnUku1dZyVEXwD",
+    "model_id": "eleven_v4_turbo"
+  },
+  {
+    "text": "이거 내가 오늘 바빠서 그런데 대신 좀 해줘요.",
+    "url": "/audio/workplace-openings/anna-kim-v4-turbo/scenario-5.wav",
+    "provider": "elevenlabs",
+    "voice_id": "uyVNoMrnUku1dZyVEXwD",
+    "model_id": "eleven_v4_turbo"
+  },
+  {
+    "text": "본부장님이 뭐라고 했든 제가 A 먼저 하라고 했잖아요. 그래서 누구 지시를 따르겠다는 거예요?",
+    "url": "/audio/workplace-openings/anna-kim-v4-turbo/scenario-6.wav",
+    "provider": "elevenlabs",
+    "voice_id": "uyVNoMrnUku1dZyVEXwD",
+    "model_id": "eleven_v4_turbo"
+  },
+  {
+    "text": "이거 고객한테 나갔으면 어떻게 할 뻔했어요?",
+    "url": "/audio/workplace-openings/anna-kim-v4-turbo/scenario-7.wav",
+    "provider": "elevenlabs",
+    "voice_id": "uyVNoMrnUku1dZyVEXwD",
+    "model_id": "eleven_v4_turbo"
+  },
+  {
+    "text": "한 시간 전에 알았는데 왜 지금 이야기해요?",
+    "url": "/audio/workplace-openings/anna-kim-v4-turbo/scenario-8.wav",
+    "provider": "elevenlabs",
+    "voice_id": "uyVNoMrnUku1dZyVEXwD",
+    "model_id": "eleven_v4_turbo"
+  },
+  {
+    "text": "요즘 업무를 너무 수동적으로 하는 것 같아요.",
+    "url": "/audio/workplace-openings/anna-kim-v4-turbo/scenario-9.wav",
+    "provider": "elevenlabs",
+    "voice_id": "uyVNoMrnUku1dZyVEXwD",
+    "model_id": "eleven_v4_turbo"
+  },
+  {
+    "text": "그래서 이 안에 찬성이에요, 반대예요?",
+    "url": "/audio/workplace-openings/anna-kim-v4-turbo/scenario-10.wav",
+    "provider": "elevenlabs",
+    "voice_id": "uyVNoMrnUku1dZyVEXwD",
+    "model_id": "eleven_v4_turbo"
+  },
+  {
+    "text": "원래 제가 계속 생각하고 있던 방향이에요.",
+    "url": "/audio/workplace-openings/anna-kim-v4-turbo/scenario-11.wav",
+    "provider": "elevenlabs",
+    "voice_id": "uyVNoMrnUku1dZyVEXwD",
+    "model_id": "eleven_v4_turbo"
+  },
+  {
+    "text": "금요일까지 가능하다고 이해해도 될까요?",
+    "url": "/audio/workplace-openings/anna-kim-v4-turbo/scenario-12.wav",
+    "provider": "elevenlabs",
+    "voice_id": "uyVNoMrnUku1dZyVEXwD",
+    "model_id": "eleven_v4_turbo"
+  },
+  {
+    "text": "신입 때는 좀 남아서 배우는 모습도 보여야 하는 거 아닌가?",
+    "url": "/audio/workplace-openings/anna-kim-v4-turbo/scenario-13.wav",
+    "provider": "elevenlabs",
+    "voice_id": "uyVNoMrnUku1dZyVEXwD",
+    "model_id": "eleven_v4_turbo"
+  },
+  {
+    "text": "한 시간 정도면 되는데 다들 이런 상황이면 남아서 하거든요.",
+    "url": "/audio/workplace-openings/anna-kim-v4-turbo/scenario-14.wav",
+    "provider": "elevenlabs",
+    "voice_id": "uyVNoMrnUku1dZyVEXwD",
+    "model_id": "eleven_v4_turbo"
+  },
+  {
+    "text": "첫 주부터 빠지면 다른 사람들이 어떻게 생각하겠어요?",
+    "url": "/audio/workplace-openings/anna-kim-v4-turbo/scenario-15.wav",
+    "provider": "elevenlabs",
+    "voice_id": "uyVNoMrnUku1dZyVEXwD",
+    "model_id": "eleven_v4_turbo"
   },
   {
     "text": "월급 받으면 주로 어디에 써요? 저축은 제대로 하고 있어요?",
-    "url": "/audio/workplace-openings/scenario-15.mp3"
+    "url": "/audio/workplace-openings/anna-kim-v4-turbo/savings-opening.wav",
+    "provider": "elevenlabs",
+    "voice_id": "uyVNoMrnUku1dZyVEXwD",
+    "model_id": "eleven_v4_turbo"
   },
   {
-    "text": "지금 쉬려고요? 잠깐만 이것 좀 같이 해주면 안 돼요?",
-    "url": "/audio/workplace-openings/scenario-5.mp3"
+    "text": "오늘부터 출근이죠? 스탠드업 시작 전에 팀원들에게 짧게 자기소개하고, 오늘 하루 목표 한 가지만 말해주세요.",
+    "url": "/audio/workplace-openings/anna-kim-v4-turbo/scripted-1.wav",
+    "provider": "elevenlabs",
+    "voice_id": "uyVNoMrnUku1dZyVEXwD",
+    "model_id": "eleven_v4_turbo"
+  },
+  {
+    "text": "오늘 고생했다고 팀장님이 회식 쏘신대요! 첫날인데 같이 갈 거죠? 부담되면 빠져도 된다고는 하셨어요.",
+    "url": "/audio/workplace-openings/anna-kim-v4-turbo/scripted-5.wav",
+    "provider": "elevenlabs",
+    "voice_id": "uyVNoMrnUku1dZyVEXwD",
+    "model_id": "eleven_v4_turbo"
   }
 ]

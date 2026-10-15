@@ -84,18 +84,19 @@ export default function App() {
       return mediaStream;
     }
     const savedMic = localStorage.getItem("mirror-ting-mic-device");
+    const videoConstraint = { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30, max: 30 } };
     const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
     const preferred = preferredUsbMicrophone(devices);
     const audioConstraint = microphoneConstraints(preferred, savedMic);
     let stream = null;
     let lastError = null;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: audioConstraint });
+      stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraint, audio: audioConstraint });
     } catch (error) {
       if (epoch !== visitorEpochRef.current) throw new DOMException("방문자가 변경되었습니다", "AbortError");
       lastError = error;
       const parts = [];
-      try { parts.push(await navigator.mediaDevices.getUserMedia({ video: true })); } catch (videoError) { lastError = videoError; }
+      try { parts.push(await navigator.mediaDevices.getUserMedia({ video: videoConstraint })); } catch (videoError) { lastError = videoError; }
       try { parts.push(await navigator.mediaDevices.getUserMedia({ audio: audioConstraint })); } catch (audioError) { if (!parts.length) lastError = audioError; }
       const tracks = parts.flatMap((part) => part.getTracks());
       if (tracks.length) stream = new MediaStream(tracks);
@@ -298,7 +299,7 @@ export default function App() {
     try {
       const result = await submitResponse(session, turn.id, { ...input, text: input.text.trim() });
       if (epoch !== visitorEpochRef.current) return;
-      void retainTurnAudio(session.id, turn.id, input.audio).then((audioReference) => {
+      void Promise.resolve(input.audio || input.audioReady).then(audio => retainTurnAudio(session.id, turn.id, audio)).then((audioReference) => {
         if (audioReference && epoch === visitorEpochRef.current) turnAudioReferencesRef.current = [...turnAudioReferencesRef.current, audioReference];
       }).catch((error) => {
         console.warn("[audio] turn recording was not retained:", error);
