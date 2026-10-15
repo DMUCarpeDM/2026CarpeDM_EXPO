@@ -527,6 +527,33 @@ def observe_turn(
     return {"turn_id": turn_id, "judgment": result, "tip": feedback.select(result), "live_score": {**interaction_scoring.calculate(snapshot), "provisional": True}, "context_policy": result.get("context_policy")}
 
 
+def _workplace_dialogue_first(db, session, turn, signals):
+    from app.services import deferred_workplace
+    flow = interaction.state(session)
+    result = deferred_workplace.pending(turn, flow)
+    judgments.persist(session, result)
+    reactions.update_rapport(session, signals["case"])
+    emotion.update(session, signals["case"], turn.order)
+    turns = list(session.turns)
+    flow = interaction.advance(session, turn, turns, result)
+    flow["last_case"] = signals["case"]
+    interaction.save(session, flow)
+    signals_out = TurnSignalsOut(judgment=result, case=signals["case"], coverage=signals["coverage"],
+        risk_hits=signals["risk_hits"], emotion=emotion.signals_payload(session), observation={})
+    try:
+        spec = None if flow.get("finished") else get_dialogue_provider().next_question(
+            session, session.scenario, _selected_episodes(session, session.scenario), turns)
+    except DialogueGenerationError as error:
+        db.rollback()
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    if spec is None:
+        db.commit()
+        return NextTurnOut(finished=True, turn_signals=signals_out, interaction=interaction.public_state(session))
+    next_turn = _create_turn(db, session, spec, order=turn.order + 1)
+    return NextTurnOut(finished=False, next_turn=_turn_out(db, next_turn),
+        turn_signals=signals_out, interaction=interaction.public_state(session))
+
+
 @router.post("/{session_id}/turns/{turn_id}/response", response_model=NextTurnOut)
 def submit_response(
     session_id: int,
@@ -560,12 +587,17 @@ def submit_response(
         raise HTTPException(status_code=422, detail="응답 텍스트가 비어 있습니다")
     turn.response_duration_ms = body.duration_ms
     if body.nonverbal:
+        voice_input = (turn.nonverbal_metrics or {}).get("_voice_input")
         turn.nonverbal_metrics = body.nonverbal.model_dump(exclude_unset=True)
+        if voice_input is not None:
+            turn.nonverbal_metrics = {**turn.nonverbal_metrics, "_voice_input": voice_input}
     turn.answered_at = utcnow()
 
     # 리액션 비트 + 수행도 갱신 — 이 답변이 상대의 반응과 하루의 전개를 결정한다
     episode = db.get(Episode, turn.episode_id)
     signals = reactions.classify(turn.response_text, episode.checklist if episode else [])
+    if interaction.state(session).get("mode") == CONTINUOUS_MODE:
+        return _workplace_dialogue_first(db, session, turn, signals)
     vision_started = time.perf_counter()
     observation = analyze_live_coaching(
         turn.nonverbal_metrics, turn.response_text, turn.response_duration_ms,
@@ -718,6 +750,7 @@ def submit_response(
 async def upload_audio(
     session_id: int,
     turn_id: int,
+    background: BackgroundTasks,
     file: UploadFile,
     voice_input: Annotated[str, Form(max_length=12000)] = "{}",
     session: RoleplaySession = Depends(require_session),
@@ -752,11 +785,19 @@ async def upload_audio(
             expires_at=utcnow() + timedelta(days=retention_days),
         ))
     if voice_analysis.enabled(session):
-        session.rapport = {**(session.rapport or {}), "voice_inputs": {
-            **(session.rapport or {}).get("voice_inputs", {}), str(turn_id): source}}
+        if interaction.state(session).get("mode") == CONTINUOUS_MODE:
+            # Uploads may overlap the next response. Never overwrite shared dialogue JSON.
+            turn.nonverbal_metrics = {**(turn.nonverbal_metrics or {}), "_voice_input": source}
+        else:
+            session.rapport = {**(session.rapport or {}), "voice_inputs": {
+                **(session.rapport or {}).get("voice_inputs", {}), str(turn_id): source}}
 
-    # Chrome의 답변 원문을 유지한다. Whisper 간투어 분석은 세션 종료 후 실행한다.
+    # The client uploads after the next TTS starts. Queue raw measurements without blocking dialogue.
     db.commit()
+    if voice_analysis.enabled(session) and interaction.state(session).get("mode") == CONTINUOUS_MODE:
+        background.add_task(voice_analysis.prime_stored_turn, session_id, turn_id)
+        from app.services.deferred_workplace import prime_stored_turn
+        background.add_task(prime_stored_turn, session_id, turn_id)
     return {"ok": True, "path": str(dest), "transcript": ""}
 
 

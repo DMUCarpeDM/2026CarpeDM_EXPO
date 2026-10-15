@@ -288,7 +288,7 @@ export default function App() {
     try {
       const result = await submitResponse(session, turn.id, { ...input, text: input.text.trim() });
       if (epoch !== visitorEpochRef.current) return;
-      void retainTurnAudio(session.id, turn.id, input.audio).then((audioReference) => {
+      void Promise.resolve(input.audio || input.audioReady).then(audio => retainTurnAudio(session.id, turn.id, audio)).then((audioReference) => {
         if (audioReference && epoch === visitorEpochRef.current) turnAudioReferencesRef.current = [...turnAudioReferencesRef.current, audioReference];
       }).catch((error) => {
         console.warn("[audio] turn recording was not retained:", error);

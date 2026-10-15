@@ -1,3 +1,4 @@
+import { releaseDeferredAudio } from "../lib/pocApi.js";
 import { WorkplaceMirrorSceneSimulation } from "../features/smart-mirror/components/WorkplaceMirrorSceneSimulation";
 import React, { useEffect, useRef, useState } from "react";
 import { ChevronRight } from "reicon-react/icons/ChevronRight";
@@ -182,6 +183,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
     pushFeed(msg);
   };
   const completedSpeechRef = useRef(null);
+  useEffect(() => () => releaseDeferredAudio(session), [session?.id]);
   useEffect(() => {
     const text = turnSpeech;
     const speechKey = `${turn?.id}:${text}`;
@@ -196,8 +198,11 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
         else resumeBrowserRecognition();
         setAiSpeaking(speaking);
       },
-      onFinish: () => { completedSpeechRef.current = speechKey; }, // 완료된 같은 대사를 다시 재생하지 않는다.
-      onProgress: mirror && workplace ? setSpeechPlayback : undefined,
+      onFinish: () => { completedSpeechRef.current = speechKey; releaseDeferredAudio(session); }, // 완료된 같은 대사를 다시 재생하지 않는다.
+      onProgress: (progress) => {
+        if (mirror && workplace) setSpeechPlayback(progress);
+        if (["playing", "unavailable"].includes(progress.status)) releaseDeferredAudio(session);
+      },
       onNote: ttsNoteOnce,
     });
   }, [turn?.id, turnSpeech, paused, entryOverlayOpen, character?.voice_gender, mirror, workplace, history.length]);
@@ -221,7 +226,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
     pushFeed, onAutoSubmit: () => submitDraftRef.current?.(),
   });
   const liveTip = useLiveCoaching({ session, turnId: turn?.id,
-    active: (mirror || (listening && !aiSpeaking)) && !busy && !paused && !entryOverlayOpen,
+    active: !workplace && (mirror || (listening && !aiSpeaking)) && !busy && !paused && !entryOverlayOpen,
     sample: () => ({ text: `${draft} ${interim}`.trim().slice(0, 4000), sttSource: "webspeech",
       durationMs: Math.max(0, Math.round(performance.now() - recordingStartedAtRef.current)),
       nonverbal: track.peekTurnStats?.() || null }),
@@ -402,14 +407,15 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
     if (!window.MediaRecorder) { setCaptureError("이 브라우저에서는 마이크 녹음을 시작할 수 없어요."); return undefined; }
     const audioTracks = mediaStream.getAudioTracks();
     if (audioTracks.length === 0) { setCaptureError("마이크 권한이 필요해요."); return undefined; }
-    audioChunksRef.current = [];
+    const chunks = [];
+    audioChunksRef.current = chunks;
     recordingStartedAtRef.current = performance.now();
     turnCaptureRef.current = captureSettings(mediaStream);
     exclusionsRef.current = [];
     excludeStartRef.current = (aiSpeaking || paused) ? 0 : null;
     const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
     const recorder = new MediaRecorder(new MediaStream(audioTracks), { mimeType });
-    recorder.ondataavailable = (event) => { if (event.data.size > 0) audioChunksRef.current.push(event.data); };
+    recorder.ondataavailable = (event) => { if (event.data.size > 0) chunks.push(event.data); };
     recorderRef.current = recorder;
     recorder.onerror = () => { setAudioRecording(false); setCaptureError("마이크 녹음이 중단됐어요."); };
     recorder.start();
@@ -432,7 +438,8 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   const stopTurnRecorder = () => new Promise((resolve, reject) => {
     const recorder = recorderRef.current;
     if (!recorder) { reject(new Error("마이크 녹음이 준비되지 않았어요.")); return; }
-    recorder.onstop = () => { setAudioRecording(false); resolve(new Blob(audioChunksRef.current, { type: recorder.mimeType || "audio/webm" })); };
+    const chunks = audioChunksRef.current;
+    recorder.onstop = () => { if (recorderRef.current === recorder) setAudioRecording(false); resolve(new Blob(chunks, { type: recorder.mimeType || "audio/webm" })); };
     if (recorder.state === "inactive") recorder.onstop();
     else { recorder.requestData(); recorder.stop(); }
   });
@@ -462,13 +469,15 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
       const endSeconds = Math.max(0, (performance.now() - recordingStartedAtRef.current) / 1000);
       if (excludeStartRef.current !== null && endSeconds > excludeStartRef.current) exclusionsRef.current.push([excludeStartRef.current, endSeconds]);
       excludeStartRef.current = null;
-      const webm = voice.textOnly ? null : await stopTurnRecorder().catch(() => null);
-      const audio = webm && webm.size > 0 ? await blobToWav(webm).catch(() => null) : null;
+      const audioReady = (async () => {
+        const webm = voice.textOnly ? null : await stopTurnRecorder().catch(() => null);
+        return webm && webm.size > 0 ? blobToWav(webm).catch(() => null) : null;
+      })();
       stampsRef.current.set(`a-${turn.id}`, wallClock());
       pushFeed("답변 제출 — 응답·음성·비언어 지표 서버 분석");
       const accepted = await onSubmit({
         text,
-        audio,
+        audioReady,
         voiceInput: voice.enabled ? {
           calibration_id: voice.calibration?.id || null,
           capture: sameCapture(turnCaptureRef.current, captureSettings(mediaStream)) ? turnCaptureRef.current : null,

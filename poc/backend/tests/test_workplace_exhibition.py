@@ -101,10 +101,14 @@ def test_exhibition_api_finishes_in_five_answers_and_retains_scenario_history(mo
         if index < 4: turn=result['next_turn']
     assert len(set(seen))==1
     assert generated == [1, 2, 3, 4]
-    assert history_sizes == [0, 1, 2, 3, 4]
+    assert history_sizes == []  # Scoring runs after dialogue, using saved turn context.
     with SessionLocal() as db:
         session=db.get(RoleplaySession,sid)
         assert len(session.turns)==5
+        from app.services.deferred_workplace import complete
+        for t in sorted(session.turns, key=lambda row: row.order):
+            complete(db, session, t)
+        assert history_sizes == [0, 1, 2, 3, 4]
 
 
 def test_context_uses_selected_scene_instead_of_original_episode(monkeypatch):

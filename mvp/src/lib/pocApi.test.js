@@ -7,7 +7,7 @@ globalThis.localStorage = {
   getItem: (key) => storage.get(key) || null,
   setItem: (key, value) => storage.set(key, String(value)),
 };
-const { finishSession, retryKioskLink, createSession, getNfcTap, issueNfcCard, resolveApiBase, resolveNfcCard, submitResponse, synthesizeSpeech } = await import("./pocApi.js");
+const { releaseDeferredAudio, finishSession, retryKioskLink, createSession, getNfcTap, issueNfcCard, resolveApiBase, resolveNfcCard, submitResponse, synthesizeSpeech } = await import("./pocApi.js");
 
 test("resolveApiBase keeps exhibition traffic on the local PC", () => {
   assert.equal(resolveApiBase("https://remote.example.com/api"), "/api");
@@ -380,4 +380,39 @@ test("exhibition flag is explicitly sent for short mirror sessions", async () =>
   };
   await createSession({exhibition:true,serviceMode:'workplace',mode:5,consent:true});
   assert.equal(payload.exhibition,true);
+});
+
+
+test("workplace reply does not wait for audio conversion and uploads only after TTS starts", async () => {
+  const calls = [];
+  globalThis.fetch = async (url) => { calls.push(url); return new Response(JSON.stringify({next_turn:{id:2}})); };
+  let converted;
+  const audioReady = new Promise(resolve => { converted = resolve; });
+  const session = {id:21,access_token:"deferred-voice",interaction:{mode:"workplace_continuous"},voice_analysis:{engine_version:"voice-measure-v2"}};
+  const result = await submitResponse(session,1,{text:"개인적인 내용은 말하기 어렵습니다.",audioReady});
+  assert.equal(result.next_turn.id,2);
+  assert.equal(calls.length,1);assert.ok(calls[0].endsWith("/response"));
+  converted(new Blob(["audio"],{type:"audio/wav"}));
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(calls.length,1);
+  releaseDeferredAudio(session);
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(calls.length,2);assert.ok(calls[1].endsWith("/audio"));
+  await finishSession(session);
+});
+
+test("final workplace turn flushes deferred audio before starting its report", async () => {
+  const calls=[];let finishUpload;
+  globalThis.fetch = async url => {
+    calls.push(url);
+    if(url.endsWith("/audio")) await new Promise(resolve=>{finishUpload=resolve;});
+    return new Response(JSON.stringify({finished:true}));
+  };
+  const session={id:22,access_token:"final-deferred",interaction:{mode:"workplace_continuous"}};
+  await submitResponse(session,5,{text:"그 내용은 공개하지 않겠습니다.",audio:new Blob(["audio"])});
+  const finishing=finishSession(session);
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(calls.length,2);assert.ok(calls[1].endsWith("/audio"));
+  finishUpload();await finishing;
+  assert.ok(calls[2].endsWith("/finish"));
 });

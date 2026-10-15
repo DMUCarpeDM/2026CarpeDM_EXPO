@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { shouldScheduleAutoSubmit } from "./sttAutoSubmit.js";
+import { AUTO_SUBMIT_DELAY_MS, shouldScheduleAutoSubmit } from "./sttAutoSubmit.js";
 
 // 받아쓰기와 자동 제출 예약을 관리한다. 답변 초안과 실제 제출은 페이지가 소유한다.
 export function usePracticeTranscription({
@@ -36,7 +36,7 @@ export function usePracticeTranscription({
     autoSubmitTimerRef.current = window.setTimeout(() => {
       autoSubmitTimerRef.current = null;
       autoSubmitCallbackRef.current?.();
-    }, 3000);
+    }, AUTO_SUBMIT_DELAY_MS);
   };
   useEffect(() => () => clearAutoSubmit(), []);
   useEffect(() => {

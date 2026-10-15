@@ -92,6 +92,9 @@ def run_analysis(session_id: int) -> None:
 
         # 2) Response-Fit (턴별) + 담화 구조 분석 (심층 리포트용)
         _set_progress(db, session, "response", 25)
+        from app.services import deferred_workplace
+        for t in sorted(turns, key=lambda row: row.order):
+            deferred_workplace.complete(db, session, t)
         seniority = _seniority_by_character(session)
         response_scores: list[tuple[float, float]] = []
         for t in turns:
