@@ -137,11 +137,13 @@ export function usePracticeTranscription({
     recognition.onend = () => {
       if (!isCurrent() || retryPending) return;
       setListening(false);
-      setInterim("");
+      recordTiming("recognition-end");
+      // 확정 없이 종료돼도 마지막 중간 자막을 Enter로 보낼 수 있게 유지한다.
       // 단발 인식은 여기서 종료한다. 다음 AI 발화가 끝나거나 사용자가 재시도하면 다시 듣는다.
     };
     recognition.onerror = (event) => {
       if (!isCurrent()) return;
+      recordTiming(`error:${event.error}`);
       console.warn("[speech-recognition]", event.error);
       if (event.error === "network" && networkRetriesRef.current < 3) {
         retryPending = true;
@@ -166,7 +168,14 @@ export function usePracticeTranscription({
     sttActiveRef.current = true;
     startRequestedAt = performance.now();
     recordTiming("start-request");
-    try { recognition.start(); } catch { /* 중복 시작 무시 */ }
+    try { recognition.start(); } catch (error) {
+      recordTiming(`start-error:${error.name || "unknown"}`);
+      sttActiveRef.current = false;
+      setListening(false);
+      setRecognitionError("audio-capture");
+      setWebSpeechFailed(true);
+      pushFeed("음성 인식을 시작하지 못했어요. 다시 실행해 주세요.");
+    }
     return () => {
       clearAutoSubmit();
       window.clearTimeout(retryTimer);
@@ -179,9 +188,10 @@ export function usePracticeTranscription({
       setListening(false);
       setInterim("");
     };
-  }, [sttMode, micEnabled, mediaStream, turn?.id, busy, paused, aiSpeaking, turn, entryOverlayOpen, recognitionEpoch, autoSubmit]);
+  }, [sttMode, micEnabled, mediaStream, turn?.id, busy, paused, aiSpeaking, entryOverlayOpen, recognitionEpoch, autoSubmit]);
 
   const stopBrowserRecognition = () => {
+    speechTimingRef.current?.("stop-request");
     sttActiveRef.current = false;
     clearAutoSubmit();
     const recognition = recognitionRef.current;

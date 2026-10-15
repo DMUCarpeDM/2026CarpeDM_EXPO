@@ -5,11 +5,18 @@ export async function playPcmSpeechStream(response, { signal, onStart, onProgres
   const context = new AudioContext();
   const reader = response.body.getReader();
   const nodes = new Set();
+  const startedAt = performance.now();
+  const recordTiming = (event) => {
+    const timing = { event, atMs: performance.now(), elapsedMs: Math.round(performance.now() - startedAt) };
+    window.__mirrorPlaybackTimings = [...(window.__mirrorPlaybackTimings || []).slice(-99), timing];
+    console.info("[playback-latency]", timing);
+  };
   let pending = new Uint8Array(0);
   let nextTime = 0;
   let firstTime = null;
   let receivedAll = false;
-  let index = 0;
+  const audioTimeline = [];
+  let audioDuration = 0;
   let resolveEnded, rejectEnded;
   const ended = new Promise((resolve, reject) => { resolveEnded = resolve; rejectEnded = reject; });
   // Abort may occur before we reach the final await.
@@ -24,9 +31,11 @@ export async function playPcmSpeechStream(response, { signal, onStart, onProgres
   signal.addEventListener("abort", abort, { once: true });
   const timer = window.setInterval(() => {
     if (firstTime === null || signal.aborted) return;
-    const seconds = Math.max(0, context.currentTime - firstTime);
-    const estimate = receivedAll ? seconds / Math.max(.001, nextTime - firstTime) * textLength : seconds * 7;
-    index = Math.max(index, Math.min(textLength - 1, Math.floor(estimate)));
+    // Don't guess speech speed before the complete duration is known.
+    if (!receivedAll) return;
+    const now = context.currentTime;
+    const played = audioTimeline.reduce((sum, chunk) => sum + Math.max(0, Math.min(chunk.duration, now - chunk.start)), 0);
+    const index = Math.min(textLength - 1, Math.floor(played / Math.max(.001, audioDuration) * textLength));
     onProgress(index);
   }, 80);
   const readChunk = async () => {
@@ -61,12 +70,21 @@ export async function playPcmSpeechStream(response, { signal, onStart, onProgres
       node.connect(context.destination);
       const start = Math.max(context.currentTime + .02, nextTime);
       nodes.add(node);
-      node.onended = () => { nodes.delete(node); if (receivedAll && !nodes.size) resolveEnded(); };
+      node.onended = () => {
+        nodes.delete(node);
+        if (!nodes.size) {
+          recordTiming(receivedAll ? "playback-ended" : "buffer-drained-awaiting-stream");
+          if (receivedAll) resolveEnded();
+        }
+      };
       node.start(start);
+      audioTimeline.push({ start, duration: buffer.duration });
+      audioDuration += buffer.duration;
       nextTime = start + buffer.duration;
       if (firstTime === null) { firstTime = start; onStart(); }
     }
     if (pending.length || firstTime === null) throw new Error("Incomplete PCM stream");
+    recordTiming("stream-ended");
     receivedAll = true;
     if (!nodes.size) resolveEnded();
     await ended;

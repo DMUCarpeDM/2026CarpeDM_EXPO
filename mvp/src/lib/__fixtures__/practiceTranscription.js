@@ -6,7 +6,7 @@ import { usePracticeSubmitKey } from "../usePracticeSubmitKey.js";
 const control = window.stt = { recognitions: [], recorders: [], submissions: [], notes: [], voiced: true, requests: [] };
 class Recognition {
   constructor() { this.starts = 0; this.stops = 0; control.recognitions.push(this); }
-  start() { this.starts++; this.onstart?.(); }
+  start() { this.starts++; if (control.failStart) throw new DOMException("Engine busy", "InvalidStateError"); this.onstart?.(); }
   stop() { this.stops++; this.onend?.(); }
   abort() { this.aborts = (this.aborts || 0) + 1; this.stop(); }
   result(text, isFinal = true) {

@@ -43,7 +43,7 @@ def synthesize_elevenlabs(text: str) -> bytes:
 
 
 async def stream_elevenlabs(text: str):
-    """Yield 24 kHz mono signed PCM as soon as v4 Turbo produces it."""
+    """Yield PCM chunks; an empty chunk marks provider completion before socket cleanup."""
     import asyncio
     import base64
     import json
@@ -69,6 +69,7 @@ async def stream_elevenlabs(text: str):
                 if message.get("audio"):
                     yield base64.b64decode(message["audio"], validate=True)
                 if message.get("is_final"):
+                    yield b""  # Let HTTP finish before the WebSocket close handshake.
                     return
     except SpeechSynthesisError:
         raise

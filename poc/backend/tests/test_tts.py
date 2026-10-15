@@ -88,3 +88,69 @@ def test_stream_preserves_upstream_payment_error(monkeypatch):
         finally:
             await stream.aclose()
     asyncio.run(check())
+
+
+def test_http_audio_ends_before_provider_connection_cleanup(monkeypatch):
+    import asyncio
+    from app.api.tts import create_speech
+    from app.schemas import TtsIn
+
+    async def check():
+        closing = asyncio.Event()
+        release_close = asyncio.Event()
+        messages = []
+
+        async def stream(_text):
+            try:
+                yield b"last-pcm"
+                yield b""
+            finally:
+                closing.set()
+                await release_close.wait()
+
+        monkeypatch.setattr("app.api.tts.stream_elevenlabs", stream)
+        response = await create_speech(TtsIn(text="테스트", voice="female"))
+
+        async def send(message):
+            messages.append(message)
+
+        async def receive():
+            await asyncio.Future()
+
+        task = asyncio.create_task(response({"type": "http", "asgi": {"spec_version": "2.4"}}, receive, send))
+        try:
+            await asyncio.wait_for(closing.wait(), 1)
+            assert not task.done()  # Slow provider cleanup is still running.
+            assert messages[-1] == {"type": "http.response.body", "body": b"", "more_body": False}
+            assert b"".join(m.get("body", b"") for m in messages) == b"last-pcm"
+        finally:
+            release_close.set()
+            await task
+
+    asyncio.run(check())
+
+
+def test_provider_completion_marker_precedes_slow_socket_close(monkeypatch):
+    import asyncio, json
+    from app.services.tts import stream_elevenlabs
+
+    async def check():
+        closing = False
+        class Socket:
+            async def send(self, _message): pass
+            async def recv(self): return json.dumps({"audio": "AABAQA==", "is_final": True})
+            async def __aenter__(self): return self
+            async def __aexit__(self, *args):
+                nonlocal closing
+                closing = True
+        monkeypatch.setattr(settings, "elevenlabs_api_key", SecretStr("test-key"))
+        monkeypatch.setattr(settings, "elevenlabs_voice_id", "test-voice")
+        monkeypatch.setattr("websockets.asyncio.client.connect", lambda *args, **kwargs: Socket())
+        stream = stream_elevenlabs("테스트")
+        assert await anext(stream) == b"\x00\x00@@"
+        assert await anext(stream) == b""
+        assert not closing
+        await stream.aclose()
+        assert closing
+
+    asyncio.run(check())

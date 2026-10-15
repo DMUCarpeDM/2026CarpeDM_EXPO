@@ -14,31 +14,19 @@ export function MirrorSubtitles({ text, playback }) {
     return () => clearInterval(timer);
   }, [text, textOnly, segments.length]);
   const active = textOnly ? Math.min(readingIndex, segments.length - 1) : activeSubtitleIndex(segments, current ? playback.charIndex : 0);
-  const [shown, setShown] = useState({ text, index: active, fading: false });
+  const [finishedText, setFinishedText] = useState(null);
   useEffect(() => {
-    const timers = [];
-    const sameText = shown.text === text;
-    const changingSentence = sameText && shown.index !== active;
-    if (!sameText) setShown({ text, index: active, fading: false });
-    else if (changingSentence) {
-      setShown(previous => ({ ...previous, fading: true }));
-      timers.push(setTimeout(() => setShown({ text, index: active, fading: false }), 360));
-    } else if (!current || playback?.status !== "ended") {
-      setShown(previous => ({ ...previous, fading: false }));
-    }
-    // Let the final sentence remain readable after the last audio sample.
-    if (current && playback?.status === "ended") {
-      timers.push(setTimeout(() => setShown(previous => ({ ...previous, fading: true })), (changingSentence ? 360 : 0) + 700));
-    }
-    return () => timers.forEach(clearTimeout);
-  }, [text, active, current, playback?.status, textOnly]);
-  const displayed = shown.text === text ? shown : { text, index: active, fading: false };
+    setFinishedText(null);
+    if (!current || playback?.status !== "ended") return undefined;
+    const timer = setTimeout(() => setFinishedText(text), 700);
+    return () => clearTimeout(timer);
+  }, [text, current, playback?.status]);
   return <h1 id="mirror-dialogue-title" className="simulation-dialogue-text" data-visible={visible}>
     {segments.map((segment, index) => {
-      if (index !== displayed.index) return null;
+      if (index !== active) return null;
       const end = segments[index + 1]?.start ?? text.length;
       const progress = textOnly ? 0 : Math.max(0, Math.min(1, ((playback?.charIndex ?? 0) - segment.start) / Math.max(1, end - segment.start)));
-      return <span key={`${text}:${index}`} data-focus={displayed.fading ? "fading" : "active"} data-tracking={!textOnly && index === active && playback?.status === "playing"} style={{ "--speech-progress": progress }}>{segment.text}</span>;
+      return <span key={`${text}:${index}`} data-focus={finishedText === text ? "fading" : "active"} data-tracking={!textOnly && index === active && playback?.status === "playing"} style={{ "--speech-progress": progress }}>{segment.text}</span>;
     })}
   </h1>;
 }
