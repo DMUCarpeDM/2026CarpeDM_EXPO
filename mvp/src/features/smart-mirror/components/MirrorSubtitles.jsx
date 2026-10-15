@@ -1,32 +1,13 @@
-import { useEffect, useState } from "react";
-import { activeSubtitleIndex, speechSubtitleCues } from "../../../lib/speechSubtitleSegments.js";
+import { activeSubtitleIndex, speechSubtitleSegments } from "../../../lib/speechSubtitleSegments.js";
 
 export function MirrorSubtitles({ text, playback }) {
-  const segments = speechSubtitleCues(text);
+  const segments = speechSubtitleSegments(text);
   const current = playback?.text === text;
-  const textOnly = !playback || (current && playback.status === "unavailable");
-  const visible = textOnly || (current && ["playing", "ended"].includes(playback.status));
-  const [readingIndex, setReadingIndex] = useState(0);
-  useEffect(() => {
-    setReadingIndex(0);
-    if (!textOnly || segments.length < 2) return undefined;
-    const timer = setInterval(() => setReadingIndex(index => (index + 1) % segments.length), 4500);
-    return () => clearInterval(timer);
-  }, [text, textOnly, segments.length]);
-  const active = textOnly ? Math.min(readingIndex, segments.length - 1) : activeSubtitleIndex(segments, current ? playback.charIndex : 0);
-  const [finishedText, setFinishedText] = useState(null);
-  useEffect(() => {
-    setFinishedText(null);
-    if (!current || playback?.status !== "ended") return undefined;
-    const timer = setTimeout(() => setFinishedText(text), 700);
-    return () => clearTimeout(timer);
-  }, [text, current, playback?.status]);
-  return <h1 id="mirror-dialogue-title" className="simulation-dialogue-text" data-visible={visible}>
-    {segments.map((segment, index) => {
-      if (index !== active) return null;
-      const end = segments[index + 1]?.start ?? text.length;
-      const progress = textOnly ? 0 : Math.max(0, Math.min(1, ((playback?.charIndex ?? 0) - segment.start) / Math.max(1, end - segment.start)));
-      return <span key={`${text}:${index}`} data-focus={finishedText === text ? "fading" : "active"} data-tracking={!textOnly && index === active && playback?.status === "playing"} style={{ "--speech-progress": progress }}>{segment.text}</span>;
-    })}
+  const active = activeSubtitleIndex(segments, current ? playback.charIndex : 0);
+  const ended = current && playback.status === "ended";
+  return <h1 id="mirror-dialogue-title" className="simulation-dialogue-text" data-visible="true">
+    {segments.map((segment, index) => (
+      <span key={`${text}:${index}`} data-focus={ended || index < active ? "past" : "active"}>{segment.text}</span>
+    ))}
   </h1>;
 }

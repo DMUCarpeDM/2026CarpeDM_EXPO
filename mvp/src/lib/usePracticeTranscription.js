@@ -62,6 +62,8 @@ export function usePracticeTranscription({
     if (!shouldListen || aiSpeechActiveRef?.current) return undefined;
     let retryTimer;
     let retryPending = false;
+    let lastInterim = "";
+    let recognitionFailed = false;
     const recognition = new SpeechRecognitionImpl();
     const audioTrack = mediaStream?.getAudioTracks?.().find(track => track.readyState === "live");
     const startRecognition = () => audioTrack ? recognition.start(audioTrack) : recognition.start();
@@ -123,6 +125,7 @@ export function usePracticeTranscription({
         }
         else interimText += transcript;
       }
+      lastInterim = interimText;
       setInterim(interimText);
       if (receivedFinal) {
         finalAt = performance.now();
@@ -140,11 +143,19 @@ export function usePracticeTranscription({
       if (!isCurrent() || retryPending) return;
       setListening(false);
       recordTiming("recognition-end");
-      // 확정 없이 종료돼도 마지막 중간 자막을 Enter로 보낼 수 있게 유지한다.
-      // 단발 인식은 여기서 종료한다. 다음 AI 발화가 끝나거나 사용자가 재시도하면 다시 듣는다.
+      // Some engines end with only an interim result. Commit it before submission.
+      if (autoSubmit && !recognitionFailed && lastInterim.trim()) {
+        const transcript = lastInterim;
+        setDraft(prev => `${prev} ${transcript}`.trim());
+        lastInterim = "";
+        setInterim("");
+        scheduleAutoSubmit();
+      }
     };
     recognition.onerror = (event) => {
       if (!isCurrent()) return;
+      recognitionFailed = true;
+      clearAutoSubmit();
       recordTiming(`error:${event.error}`);
       console.warn("[speech-recognition]", event.error);
       if (event.error === "network" && networkRetriesRef.current < 3) {
