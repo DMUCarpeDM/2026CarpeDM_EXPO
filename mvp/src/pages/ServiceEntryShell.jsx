@@ -88,7 +88,7 @@ export function ServiceEntryShell({
   const startView = workplaceStartView(serviceMode?.id);
 
   return <div className={`app-shell ${mirror ? "mirror-deployment" : ""} ${active === "practice" ? "practice-mode" : ""} ${active === "home" ? `home-mode home-mode-${serviceMode?.id || "workplace"}` : ""}`}>
-    <a className="skip-link" href="#main-content">본문으로 건너뛰기</a>
+    {!mirror && <a className="skip-link" href="#main-content">본문으로 건너뛰기</a>}
     {!mirror && <TopNav active={navigationView} serviceMode={serviceMode} scenarioTitle={session?.scenario?.title || previewScenario?.title} menuOpen={menuOpen} onMenuOpen={setMenuOpen} onNavigate={navigate} scenarios={apiScenarios} onScenarioSelect={(slug) => { setPocScenarioSlug(slug); navigate("role"); }} practiceMode={active === "practice"} hasReport={Boolean(report)} />}
     {!mirror && <MobileMenuSheet open={menuOpen} active={navigationView} onClose={() => setMenuOpen(false)} onNavigate={navigate} practiceMode={active === "practice"} />}
     <main className="screen-frame" id="main-content" ref={contentRef} tabIndex={-1}>
