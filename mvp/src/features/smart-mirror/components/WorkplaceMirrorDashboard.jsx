@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { VoiceMeasurements } from "../../../components/report/VoiceMeasurements";
 import { ScoreRing } from "../../../components/report/ResultPrimitives";
-import { Progress } from "../../../components/ui/shadcn";
 import { mirrorReport } from "../lib/mirrorReport";
 import { WorkplaceOverviewCard } from "./WorkplaceOverviewCard";
 import "../styles/workplace-mirror-overview.css";
@@ -59,8 +57,6 @@ export function WorkplaceMirrorDashboard({ report, progress, error }) {
         <div className="mirror-score-summary"><div><p id="mirror-score-title">종합 점수</p><ScoreRing value={data.total} size="md" /></div><div className="mirror-score-description"><span>이번 연습</span><h2>{data.total === null ? "측정된 결과를 확인해요." : "측정된 항목으로 계산했어요."}</h2><p>{data.turns !== null ? `답변 ${data.turns}개 분석` : "수집된 대화 기록 기준"}{data.audioSeconds !== null ? ` · 음성 ${data.audioSeconds}초` : ""}</p></div></div>
         <div className="mirror-fit-grid" aria-label="4개 분석 지표">{data.fits.map(fit => <article key={fit.key}>
           <div><h3>{labels[fit.key]}</h3><strong>{fit.score ?? "—"}<small>{fit.score !== null ? "/100" : ""}</small></strong></div>
-          {fit.score !== null && <Progress value={fit.score} aria-label={`${labels[fit.key]} ${fit.score}점`} />}
-          <p className="mirror-fit-result">{fit.score !== null ? fit.provisional ? "참고용 점수예요." : "확인된 기록으로 평가했어요." : fit.key === "Voice-Fit" && data.voiceAnalysis ? "점수 대신 말하기 기록을 확인해요." : "이번에는 점수를 계산하지 못했어요."}</p>
           <p className="mirror-fit-explanation">{fit.text}</p>
         </article>)}</div>
       </WorkplaceOverviewCard>
@@ -68,11 +64,11 @@ export function WorkplaceMirrorDashboard({ report, progress, error }) {
         <h2 id="mirror-feedback-title" className="mirror-panel-title">다음 대화에서 기억할 점</h2>
         <div className="mirror-feedback-grid"><div><span>01 · 잘한 점</span>{data.strengths.length ? data.strengths.map((text, i) => <p key={i}>{text}</p>) : <p>확인된 잘한 점 기록이 없어요.</p>}</div><div><span>02 · 개선할 점</span>{data.improvements.length ? data.improvements.map((text, i) => <p key={i}>{text}</p>) : <p>확인된 개선 제안이 없어요.</p>}</div></div>
       </WorkplaceOverviewCard>
-      {data.after && <WorkplaceOverviewCard labelledBy="mirror-coaching-title">
+      {<WorkplaceOverviewCard labelledBy="mirror-coaching-title">
         <h2 id="mirror-coaching-title" className="mirror-panel-title">이렇게 말해 보세요</h2>
-        <div className="mirror-rewrite"><div><span>내 답변</span><blockquote>{data.before || "원문 기록이 없어요."}</blockquote></div><div><span>다음에는</span><blockquote>{data.after || "이번 분석에 답변 코칭이 없어요."}</blockquote></div></div>
+        <div className="mirror-rewrite"><div><span>내 답변</span><blockquote>{data.before || "이번 결과에는 답변 원문이 저장되지 않았어요."}</blockquote></div><div><span>다음에는</span><blockquote>{data.after || "이번 결과에는 별도의 답변 제안이 없어요."}</blockquote></div></div>
       </WorkplaceOverviewCard>}
-      {data.voiceAnalysis && <WorkplaceOverviewCard labelledBy="voice-report-title"><VoiceMeasurements data={data.voiceAnalysis} /></WorkplaceOverviewCard>}
+
       <footer className="mirror-report-footer">AI 분석은 연습을 위한 참고 자료예요. 미측정 항목은 점수에서 구분해 표시해요.</footer>
     </>}
   </section>;

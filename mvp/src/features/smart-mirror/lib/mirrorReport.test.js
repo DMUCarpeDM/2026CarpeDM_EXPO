@@ -89,3 +89,15 @@ test("standard voice measurements expose the backend provisional score", () => {
   assert.equal(report.fits[1].score,76);
   assert.equal(report.fits[1].status,"참고용 결과");
 });
+
+
+test("legacy stored report copy is readable without altering scores or inventing feedback", () => {
+  const r = mirrorReport({total_score:78.5,fit_scores:{response:{score:78.5,summary:"75점에서 확인된 근거에 따라 가감했습니다."},voice:{score:null}},speech_stats:{voice_analysis:{turns:[{speed:{status:"measured",syllables_per_second:4},pauses:{status:"measured",count:2}}]}},strengths:["질문에 직접 답하는 내용을 담았습니다."],improvements:[]});
+  assert.equal(r.total,79);
+  assert.equal(r.fits[0].score,79);
+  assert.doesNotMatch(r.fits[0].text,/75점|가감/);
+  assert.doesNotMatch(r.fits[1].text,/아래|calibration/);
+  assert.equal(r.fits[1].score,null);
+  assert.deepEqual(r.strengths,["상대의 질문에 직접 답했어요."]);
+  assert.deepEqual(r.improvements,[]);
+});
