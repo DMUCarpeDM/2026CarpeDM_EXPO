@@ -68,7 +68,7 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
       ctx.moveTo(...px(pa));
       ctx.lineTo(...px(pb));
       ctx.strokeStyle = "rgba(94, 234, 148, 0.35)";
-      ctx.lineWidth = 0.8;
+      ctx.lineWidth = 2.4;
       ctx.stroke();
     }
     const sl = poseLm[11];
@@ -80,7 +80,7 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
       ctx.moveTo(lx, ly);
       ctx.quadraticCurveTo((lx + rx) / 2, Math.max(ly, ry) + Math.abs(rx - lx) * 0.22, rx, ry);
       ctx.strokeStyle = "rgba(94, 234, 148, 0.35)";
-      ctx.lineWidth = 0.8;
+      ctx.lineWidth = 2.4;
       ctx.stroke();
       ctx.fillStyle = "rgba(134, 245, 182, 0.95)";
       for (const index of new Set(POSE_LINKS.flat())) {
@@ -88,7 +88,7 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
         if (!point || (point.visibility ?? 1) < 0.4) continue;
         const [x, y] = px(point);
         ctx.beginPath();
-        ctx.arc(x, y, 4.4, 0, Math.PI * 2);
+        ctx.arc(x, y, 3.4, 0, Math.PI * 2);
         ctx.fill();
       }
     }
@@ -97,7 +97,7 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
   // 손 관절 21점과 연결선 — 손동작은 자세 분석에 쓰되, 하체 포즈는 표시하지 않는다.
   for (const hand of handLm) {
     ctx.strokeStyle = "rgba(94, 234, 148, 0.35)";
-    ctx.lineWidth = 0.8;
+    ctx.lineWidth = 2.4;
     ctx.lineCap = "round";
     for (const [a, b] of HAND_LINKS) {
       const pa = hand[a];
@@ -111,7 +111,7 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
     ctx.fillStyle = "rgba(134, 245, 182, 0.95)";
     for (const point of hand) {
       ctx.beginPath();
-      ctx.arc(...px(point), 3.2, 0, Math.PI * 2);
+      ctx.arc(...px(point), 2.5, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -119,7 +119,7 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
   // 얼굴 메시 (초록)
   if (faceLm) {
     ctx.strokeStyle = "rgba(94, 234, 148, 0.35)";
-    ctx.lineWidth = 1.1;
+    ctx.lineWidth = 2.5 * 1.15;
     for (const [a, b] of FACE_LINKS) {
       const pa = faceLm[a];
       const pb = faceLm[b];
@@ -137,7 +137,7 @@ export function drawOverlay(canvas, video, faceLm, poseLm, handLm = []) {
       if (!p) continue;
       const [x, y] = px(p);
       ctx.beginPath();
-      ctx.arc(x, y, 1.04, 0, Math.PI * 2);
+      ctx.arc(x, y, .85 * 1.25, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.shadowBlur = 0;

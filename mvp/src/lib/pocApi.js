@@ -278,3 +278,8 @@ export function invalidateVoiceCalibration(session) {
 export function retryKioskLink(session) {
   return request(`/sessions/${session.id}/kiosk-link`, { method: "POST", token: session.access_token });
 }
+
+export function transcribeRecording(session, audio, signal) {
+  const body = new FormData(); body.append('file', audio, 'speech.webm');
+  return request(`/sessions/${session.id}/transcribe`, {method:'POST', token:session.access_token, body, signal});
+}

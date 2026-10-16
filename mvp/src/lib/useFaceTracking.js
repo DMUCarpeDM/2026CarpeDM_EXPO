@@ -1,3 +1,5 @@
+import { createParticipantTracker, participantHands, participantFace } from "./participantTracking.js";
+import { detectParticipantFace } from "./participantFaceDetection.js";
 import { drawCenteredInput, mapRegionLandmarks, centralPose, smallPose } from "./centerPersonTracking.js";
 import {useExpressionTracking} from "./useExpressionTracking.js";
 import { postureFeatures } from "./postureEnsemble.js";
@@ -45,7 +47,8 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
   const calibratedRef = useRef(false);
   const faceLandmarksRef = useRef(null);
   const lastPersonAtRef = useRef(-Infinity);
-  const expressionStatus = useExpressionTracking(mediaStream, videoRef, turnAccRef, showFaceOverlay ? faceLandmarksRef : undefined, lastPersonAtRef);
+  const participantRef = useRef(createParticipantTracker());
+  const expressionStatus = useExpressionTracking(mediaStream, videoRef, turnAccRef, faceLandmarksRef, participantRef);
   // 지난 수집 시점 이후의 집계를 NonverbalIn 모양으로 돌려주고 리셋 (턴 제출 시 호출)
   const collectTurnStats = useRef(() => {
     const acc = turnAccRef.current;
@@ -57,12 +60,15 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
 
   useEffect(() => {
     lastPersonAtRef.current = -Infinity;
+    participantRef.current.reset();
+    faceLandmarksRef.current = null;
     const hasVideo = Boolean(mediaStream?.getVideoTracks?.().some((track) => track.readyState === "live"));
     if (!hasVideo) { setLive((prev) => ({ ...prev, status: "idle", tracking: false, poseTracked: false })); return undefined; }
 
     let cancelled = false;
     let pose = null;
     let hand = null;
+    let face = null;
     let timer = 0;
     let lastPush = 0;
     let lastVideoTime = -1;
@@ -72,13 +78,17 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
     let base = null; // 자세 기준값
     let calib = emptyCalib();
     let lastPoseAt = 0;
+    let participantGeneration = participantRef.current.generation;
     const centerCanvas = document.createElement("canvas");
+    const headCanvas = document.createElement("canvas");
     setLive((prev) => ({ ...prev, status: "loading" }));
 
     (async () => {
       try {
         const vision = await import("@mediapipe/tasks-vision");
-        const [wasmUrl, poseModel, handModel] = await Promise.all([resolveWasmUrl(), resolveModel("pose"), resolveModel("hand")]);
+        const [wasmUrl, poseModel, handModel, faceModel] = await Promise.all([resolveWasmUrl(), resolveModel("pose"), resolveModel("hand"), resolveModel("face").catch(error => {
+          console.warn("[face-tracking] model loading failed", error); return null;
+        })]);
         const fileset = await vision.FilesetResolver.forVisionTasks(wasmUrl);
         pose = await vision.PoseLandmarker.createFromOptions(fileset, {
           baseOptions: { modelAssetPath: poseModel },
@@ -96,7 +106,12 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
           minHandPresenceConfidence: 0.3,
           minTrackingConfidence: 0.3,
         });
-        if (cancelled) { pose.close(); hand.close(); pose = null; hand = null; return; }
+        if (faceModel) try { face = await vision.FaceLandmarker.createFromOptions(fileset, {
+          baseOptions: { modelAssetPath: faceModel }, runningMode: "VIDEO", numFaces: 2,
+          outputFaceBlendshapes: false,
+          minFaceDetectionConfidence: .35, minFacePresenceConfidence: .35, minTrackingConfidence: .35,
+        }); } catch (error) { console.warn("[face-tracking] initialization failed", error); }
+        if (cancelled) { pose.close(); hand.close(); face?.close(); pose = null; hand = null; face = null; return; }
         const poseLm = pose;
         const handLm = hand;
 
@@ -108,16 +123,32 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
           try {
             const poseResult = poseLm.detectForVideo(video, ts + 0.001);
             let selected = centralPose(poseResult);
+            let candidates = (poseResult.landmarks || []).map((landmarks, i) => ({ landmarks, worldLandmarks: poseResult.worldLandmarks?.[i] }));
             let region = null;
             if (smallPose(selected)) {
               region = drawCenteredInput(video, centerCanvas);
-              const cropped = centralPose(poseLm.detectForVideo(centerCanvas, ts + 0.002));
-              if (cropped) selected = { ...cropped, landmarks: mapRegionLandmarks(cropped.landmarks, region, video.videoWidth, video.videoHeight) };
+              const cropped = poseLm.detectForVideo(centerCanvas, ts + 0.002);
+              const mapped = (cropped.landmarks || []).map((points, i) => ({ landmarks: mapRegionLandmarks(points, region, video.videoWidth, video.videoHeight), worldLandmarks: cropped.worldLandmarks?.[i] }));
+              // Use one inference result set to avoid duplicate identities from full/cropped views.
+              if (mapped.length) candidates = mapped;
             }
             let handLandmarks = handLm.detectForVideo(video, ts + 0.003).landmarks || [];
             if (!handLandmarks.length && region) {
               handLandmarks = (handLm.detectForVideo(centerCanvas, ts + 0.004).landmarks || [])
                 .map(points => mapRegionLandmarks(points, region, video.videoWidth, video.videoHeight));
+            }
+            selected = participantRef.current.update(candidates, ts);
+            if (participantGeneration !== participantRef.current.generation) {
+              participantGeneration = participantRef.current.generation;
+              base = null; calib = emptyCalib(); calibratedRef.current = false;
+            }
+            handLandmarks = participantHands(handLandmarks, selected);
+            try {
+              faceLandmarksRef.current = detectParticipantFace(face, video, headCanvas, selected, ts + .005);
+            } catch (error) {
+              faceLandmarksRef.current = null;
+              if (!frameErrorReported) console.warn("[face-tracking] inference failed", error);
+              frameErrorReported = true;
             }
             const took = performance.now() - ts;
             inferAvg = inferAvg === 0 ? took : inferAvg * 0.85 + took * 0.15;
@@ -126,7 +157,7 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
             if (features && turnAccRef.current.poseFeatures.length < 1500) turnAccRef.current.poseFeatures.push(features);
             if (plm?.some((point) => (point.visibility ?? 1) > 0.5) || handLandmarks.length) lastPersonAtRef.current = ts;
 
-            drawOverlay(canvasRef.current, video, showFaceOverlay ? faceLandmarksRef.current : null, plm, handLandmarks);
+            drawOverlay(canvasRef.current, video, showFaceOverlay ? participantFace(faceLandmarksRef.current ? [faceLandmarksRef.current] : [], selected) : null, plm, handLandmarks);
 
             // ---- 포즈 기하: 어깨 기울기 · 어깨중심(흔들림) · 코-어깨 거리(고개 숙임) ----
             let tiltRaw = null;
@@ -236,6 +267,9 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
               }
             }
           } catch (error) {
+            participantRef.current.update([], ts);
+            faceLandmarksRef.current = null;
+            drawOverlay(canvasRef.current, video, null, null, []);
             if (!frameErrorReported) console.warn("[pose-tracking] inference failed", error);
             frameErrorReported = true;
           }
@@ -251,6 +285,8 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
       window.clearInterval(timer);
       pose?.close();
       hand?.close();
+      face?.close();
+      faceLandmarksRef.current = null;
       const canvas = canvasRef.current;
       const ctx = canvas?.getContext("2d");
       if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);

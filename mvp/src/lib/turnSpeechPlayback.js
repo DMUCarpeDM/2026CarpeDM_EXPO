@@ -1,3 +1,4 @@
+import { claimAudio } from "./audioOwnership.js";
 import { playPcmSpeechStream } from "./pcmSpeechStream.js";
 import { synthesizeSpeech } from "./pocApi.js";
 
@@ -12,6 +13,7 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, prepar
   const synth = window.speechSynthesis;
   const speechRequest = new AbortController();
   let cancelled = false;
+  let releaseOwnership = () => {};
   let finished = false;
   let browserSpeechStarted = false;
   let browserSpeechRequested = false;
@@ -28,6 +30,7 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, prepar
   const finishSpeaking = () => {
     if (!cancelled && !finished) {
       finished = true;
+      releaseOwnership();
       clearStartupTimer();
       window.clearInterval(progressTimer);
       if (audio) audio.ontimeupdate = audio.onplaying = null;
@@ -134,7 +137,7 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, prepar
         const ratio = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.currentTime / audio.duration : 0;
         report("playing", Math.min(text.length - 1, Math.floor(ratio * text.length)));
       };
-      audio.onplaying = () => { clearStartupTimer(); playbackStarted = true; updateProgress(); };
+      audio.onplaying = () => { if (cancelled) { audio.pause(); return; } clearStartupTimer(); playbackStarted = true; updateProgress(); };
       audio.ontimeupdate = updateProgress;
       audio.onplay = () => {
         if (!cancelled) {
@@ -153,6 +156,7 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, prepar
         }
       };
       await audio.play();
+      if (cancelled) audio.pause();
     } catch {
       if (!cancelled && !browserSpeechRequested) {
         if (streamStarted) {
@@ -166,6 +170,8 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, prepar
     }
   };
   // 음성 재생이 시작되는 동안에도 상대 영상이 즉시 speaking 상태로 보인다.
+  releaseOwnership = claimAudio(() => { stop(); onFinish(); });
+  if (window.document?.hidden) { stop(); onFinish(); return stop; }
   onSpeakingChange(true);
   report("waiting");
   synth?.cancel();
@@ -186,17 +192,23 @@ export function startTurnSpeech({ text, voice = "female", serverTtsReady, prepar
   } else {
     startBrowserSpeech();
   }
-  return () => {
+  function stop() {
+    if (cancelled) return;
     cancelled = true;
+    releaseOwnership();
     speechRequest.abort();
     clearStartupTimer();
     window.clearTimeout(speakTimer);
     window.clearInterval(progressTimer);
     if (voicesChangedHandler) synth?.removeEventListener?.("voiceschanged", voicesChangedHandler);
     onProgress?.({ text, status: "cancelled", charIndex: 0 });
-    if (audio) audio.pause();
+    if (audio) {
+      audio.onended = audio.onerror = audio.onplay = audio.onplaying = audio.ontimeupdate = null;
+      audio.pause();
+    }
     if (audioUrl) URL.revokeObjectURL(audioUrl);
     synth?.cancel();
     onSpeakingChange(false);
   };
+  return stop;
 }

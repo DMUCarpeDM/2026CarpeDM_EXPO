@@ -50,3 +50,6 @@
 .simulation-actor video.counterpart-video { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center top; mask-image: none; }
 
 @media (max-height: 700px) { .simulation-dialogue-text { font-size: clamp(12.8px, calc(3.6dvh - 12.8px), 17.6px); line-height: 1.5; } }
+
+/* Keep long dictation inside its own region instead of covering the entire video. */
+.simulation-answer p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; overflow-wrap: anywhere; }

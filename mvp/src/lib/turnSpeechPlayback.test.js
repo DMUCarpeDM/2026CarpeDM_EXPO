@@ -140,11 +140,13 @@ test("server audio stops and releases its URL when the turn is cancelled", async
   assert.equal(env.progress.at(-1).charIndex, 3);
   audio.currentTime = 8; audio.ontimeupdate();
   assert.equal(env.progress.at(-1).charIndex, 4);
+  const lateEnded = audio.onended;
   stop();
   assert.equal(env.progress.at(-1).status, "cancelled");
   assert.equal(env.audioPlayers[0].pause.mock.callCount(), 1);
   assert.equal(env.revoke.mock.calls[0].arguments[0], "blob:turn-audio");
-  env.audioPlayers[0].onended();
+  assert.equal(audio.onended, null);
+  lateEnded();
   assert.equal(env.finished, 0);
   assert.equal(env.speaking.at(-1), false);
   assert.equal(env.progress.at(-1).status, "cancelled");

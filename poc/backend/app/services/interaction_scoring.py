@@ -3,7 +3,7 @@ from app.services.judgments import event, number
 from app.services.contradictions import keys as conflict_keys
 from app.services.context_scoring import POLICIES, RULE_MULTIPLIERS
 
-VERSION = "interaction-score-v10"
+VERSION = "interaction-score-v11"
 WORKPLACE_SCORE_SCALE = 2
 WORKPLACE_SCORE_MIN = 55
 WORKPLACE_SCORE_MAX = 89
@@ -15,9 +15,11 @@ RESPONSE_TURN_BONUS_LIMIT = 2
 # 간투어·말 반복 가감점은 아직 이 점수표에 없습니다. 추후 관찰 품질 확인 후 연결할 부분입니다.
 NO_SCORE = "interaction-no-score"
 AREAS = ("response", "voice", "expression", "posture")
+DEFAULT_WEIGHTS = {"response": .4, "voice": .25, "expression": .2, "posture": .15}
 POINTS = {"off_topic": OFF_TOPIC_FIRST, "context_smile": -.5, "context_raised_voice": -1, "goal_met": 1, "relevant_answer": 1, "missing_goal": -.5,
     "head_down": -1, "side_lean": -1, "forward_lean": -1, "sway": -1, "hand_face": -1, "arms_crossed": -1,
-    "fast_speech": -1, "slow_speech": -1, "long_pause": -1, "clear_pace": 1}
+    "fast_speech": -1, "slow_speech": -1, "long_pause": -1, "clear_pace": 1,
+    "composed_expression": .5, "conversational_smile": .5}
 # 여러 센서 신호가 겹쳐도 답변 내용보다 과도하게 감점하지 않는다.
 NONVERBAL_PENALTY_LIMITS = {
     "posture": {"per_turn": 2, "session": 6},
@@ -51,10 +53,9 @@ def audio_events(turn_id, metrics, mode):
     return events
 
 
-def calculate(results):
+def calculate(results, weights=None):
     # 같은 사건 ID는 한 번만 반영합니다. 모순은 응답 영역에서 한 번만 뺍니다.
-    # 현재 목표 충족과 누락은 서로 다른 규칙으로 누적됩니다.
-    # 새 설계의 '후속 답변으로 충족하면 이전 감점을 교체'하는 동작은 별도 구현이 필요합니다.
+    # 후속 답변에서 충족한 목표는 앞선 누락 감점도 해제한다.
     measured = {area for result in results for area in result.get("measured", [])}
     changes = {area: [] for area in AREAS}
     used, counts, facts, conflicts = set(), {}, set(), []
@@ -62,6 +63,9 @@ def calculate(results):
     goal_awarded_turns, response_bonuses = set(), {}
     conflict_turns = {e.get("turn_id") for r in results for e in r.get("events", [])
                       if e["rule"] == "contradiction" and e.get("scorable") is not False}
+    completed_goals = {e["evidence"].get("goal_id") for r in results for e in r.get("events", [])
+                       if e["rule"] == "goal_met" and e.get("scorable") is not False
+                       and e.get("turn_id") not in conflict_turns and "response" in r.get("measured", [])}
     for result in results:
         context = result.get("context_policy") or {}
         policy = POLICIES.get(context.get("kind"), POLICIES["neutral"]) if context.get("status") == "classified" else POLICIES["neutral"]
@@ -72,6 +76,8 @@ def calculate(results):
                 continue
             used.add(item["id"])
             rule, area = item["rule"], item["area"]
+            if rule == "missing_goal" and item["evidence"].get("goal_id") in completed_goals:
+                continue
             if rule == "contradiction":
                 identifiers = conflict_keys(item["evidence"])
                 if identifiers and not identifiers.intersection(facts):
@@ -101,7 +107,7 @@ def calculate(results):
                 response_bonuses[turn_id] = round(response_bonuses.get(turn_id, 0) + points, 2)
                 if rule == 'goal_met' and points > 0:
                     goal_awarded_turns.add(turn_id)
-            if points < 0 and area in NONVERBAL_PENALTY_LIMITS and (area != "voice" or rule == "context_raised_voice"):
+            if points < 0 and area in NONVERBAL_PENALTY_LIMITS:
                 limits = NONVERBAL_PENALTY_LIMITS[area]
                 turn_key = (area, item.get("turn_id"))
                 penalty = max(0, min(-points, limits["per_turn"] - turn_penalties.get(turn_key, 0),
@@ -149,7 +155,12 @@ def calculate(results):
                            "score_scale": workplace_scale} for item in items] for area, items in changes.items()}
         conflicts = [{**item, "points": item["points"] * workplace_scale} for item in conflicts]
         deduction *= workplace_scale
-    values = [s for s in scores.values() if s is not None]
+    configured = {area: (weights or {}).get(area, DEFAULT_WEIGHTS[area]) for area in AREAS}
+    configured = {area: value if number(value) and value >= 0 else DEFAULT_WEIGHTS[area]
+                  for area, value in configured.items()}
+    denominator = sum(configured[area] for area in AREAS if scores[area] is not None)
+    effective = {area: configured[area] / denominator if denominator and scores[area] is not None else 0
+                 for area in AREAS}
     return {"version": VERSION, "scores": scores,
         "response_policy": ("interview-2026-09-16-v1" if interview_results else "cafe-orders-2026-09-16-v1" if cafe_results else VERSION),
         "response_limits": ({"base": 75, "per_question": {"fulfilled": 3, "insufficient": -2, "irrelevant_or_skip": -4}, "concept_bonus_per_job_question": 2, "range": [0, 100]}
@@ -157,5 +168,6 @@ def calculate(results):
         "limits": {"base": 75, "bonus": 8 * workplace_scale, "penalty": 15 * workplace_scale, "repeats": 3, "contradiction": 3 * workplace_scale,
                    "score_scale": workplace_scale,
                    "nonverbal_penalty": NONVERBAL_PENALTY_LIMITS},
-        "total": round(max(0, sum(values) / len(values)), 1) if values else None,
+        "weights": configured, "effective_weights": effective,
+        "total": round(sum(scores[area] * effective[area] for area in AREAS if scores[area] is not None), 1) if denominator else None,
         "contradiction_deduction": deduction, "contradictions": conflicts, "changes": changes}

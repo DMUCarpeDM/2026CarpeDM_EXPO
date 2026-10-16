@@ -26,7 +26,7 @@ def summarize(session):
     return {"version": "expression-resnet18-v1", "status": "unvalidated" if samples else "unmeasured",
             "scoring_enabled": baseline, "context_scored": context_scored, "provisional": True, "samples": samples, "turns": turns,
             "mean_outputs": {key: sum(t["samples"] * t["mean_outputs"][key] for t in turns) / samples for key in LABELS} if samples else {},
-            "note": ("얼굴 표본과 대화 맥락으로 실험적 표정 점수를 계산했습니다. 검증된 감정·태도 판단은 아닙니다." if context_scored else "유효한 얼굴 표본으로 참고 기준점 75점을 표시합니다. 맥락 분석이 완료되지 않아 맥락 가감점은 보류했습니다." if baseline else "학습 전처리·판정 기준 미검증. 출력값은 감정·태도·표정 비율 또는 점수가 아닙니다.")}
+            "note": ("얼굴 표본과 대화 맥락으로 실험적 표정 점수를 계산했습니다. 검증된 감정·태도 판단은 아닙니다." if context_scored else "얼굴 기록은 확인했지만 대화 상황을 확인하지 못해 상황별 가감점은 적용하지 않았습니다." if baseline else "학습 전처리·판정 기준 미검증. 출력값은 감정·태도·표정 비율 또는 점수가 아닙니다.")}
 
 
 def summary_text(session):

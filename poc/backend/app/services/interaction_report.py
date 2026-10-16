@@ -9,7 +9,7 @@ LABELS = {"response": "응답", "voice": "음성", "expression": "표정", "post
 def _fit_summary(session, area, score):
     if area == "voice" and voice_analysis.enabled(session):
         if score is not None:
-            return "실제 발화의 말속도·쉼 기록과, 개인 기준 음성이 있을 때의 성량 변화를 반영한 연습용 참고 점수입니다. 음높이나 감정을 판단한 결과는 아닙니다."
+            return "대화 상황에 맞는 말속도와 긴 쉼, 같은 마이크에서 측정한 이전 발화와의 성량 변화를 살펴봤어요. 음높이나 감정을 판단한 결과는 아니에요."
         return "말속도와 쉬어 간 구간은 아래에서 확인할 수 있어요. 목소리는 아직 점수로 평가하지 않아요."
     if area == "expression" and score is not None:
         from app.services.expression_measurement import summarize
@@ -29,7 +29,7 @@ def prepare(db, session):
         values[-1]["cafe_result"] = flow["cafe_result"]
     if voice_analysis.enabled(session):
         from app.services.context_scoring import apply_voice, contextual_areas
-        measurements = (session.rapport or {}).get('voice_measurements', {})
+        measurements = voice_analysis.scoring_measurements(session)
         for result in values:
             context = result.get('context_policy')
             if context and str(result['turn_id']) in measurements:
@@ -62,7 +62,7 @@ def prepare(db, session):
             if score is not None and (result["turn_id"], area) not in present:
                 db.add(AnalysisResult(session_id=session.id, turn_id=result["turn_id"],
                     fit_type=FitType(area), score=score, raw_metrics={}, engine_version=voice_analysis.SCORE_VERSION if voice_analysis.enabled(session) else scoring.VERSION))
-    return scoring.calculate(values), rows
+    return scoring.calculate(values, getattr(session.scenario, "rubric_weights", None)), rows
 
 
 def feedback_items(events):

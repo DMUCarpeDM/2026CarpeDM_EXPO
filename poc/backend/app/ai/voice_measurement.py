@@ -287,6 +287,7 @@ def _analyze(path, *, session_id=None, turn_id=None, calibration=None, capture=N
         return result
     duration = len(samples) / sr
     result.update(duration_sec=duration, sample_rate=sr, channels=channels,
+                  capture=dict(capture or {}),
                   excluded_intervals=[list(row) for row in excluded])
     try:
         segments = _subtract(speech_segments(samples, sr, config) if detected_segments is None else detected_segments, excluded)
@@ -302,8 +303,14 @@ def _analyze(path, *, session_id=None, turn_id=None, calibration=None, capture=N
         result["quality_flags"].append("clipping")
     try:
         rms = _rms(samples, sr, segments, config)
+        quiet = _subtract([(0., duration)], [*segments, *excluded])
+        noise_seconds = sum(b - a for a, b in quiet)
+        noise_rms = _rms(samples, sr, quiet, config) if noise_seconds >= config.min_noise_sec else None
+        snr = 20 * math.log10(rms / max(noise_rms, 1e-9)) if rms and rms > 0 and noise_rms is not None else None
+        acoustics = dict(rms=rms, speech_seconds=sum(b - a for a, b in segments),
+                         noise_seconds=noise_seconds, snr_db=snr)
         if calibration and calibration.get("source") == "standard":
-            result["volume"] = missing("personal_reference_unavailable", rms=rms, reference_only=True)
+            result["volume"] = missing("personal_reference_unavailable", **acoustics, reference_only=True)
         elif not calibration or calibration.get("status") != "measured":
             result["volume"] = missing("calibration_required")
         elif not capture_matches(calibration.get("capture"), capture):
@@ -316,13 +323,9 @@ def _analyze(path, *, session_id=None, turn_id=None, calibration=None, capture=N
             result["volume"] = missing("reference_invalid")
         else:
             # 같은 녹음의 비발화 구간으로 현재 소음도 확인한다. TTS/대기 제외 구간은 섞지 않는다.
-            quiet = _subtract([(0., duration)], [*segments, *excluded])
-            noise_seconds = sum(b - a for a, b in quiet)
-            noise_rms = _rms(samples, sr, quiet, config) if noise_seconds >= config.min_noise_sec else None
-            snr = 20 * math.log10(rms / max(noise_rms, 1e-9)) if noise_rms is not None else None
-            result["volume"] = measured(relative_db=20 * math.log10(rms / calibration["reference_rms"]), rms=rms,
+            result["volume"] = measured(relative_db=20 * math.log10(rms / calibration["reference_rms"]), **acoustics,
                                         reference_rms=calibration["reference_rms"], segments=result["speech_segments"],
-                                        speech_seconds=sum(b - a for a, b in segments), noise_seconds=noise_seconds, snr_db=snr)
+                                        reference_source="personal")
     except Exception:
         result["volume"] = missing("rms_failed")
     usable_words = None if words is None else [w for w in words if not (

@@ -206,7 +206,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
       },
       onNote: ttsNoteOnce,
     });
-  }, [turn?.id, turnSpeech, paused, entryOverlayOpen, character?.voice_gender, mirror, workplace, history.length]);
+  }, [turn?.id, turnSpeech, paused, entryOverlayOpen, character?.voice_gender, mirror, workplace]);
 
   useEffect(() => {
     // 브리핑이 닫히는 순간 그동안 쌓인 비언어 표본을 버려 집계 창을 정렬한다
@@ -223,7 +223,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
     listening, interim, setInterim, micEnabled, setMicEnabled, sttMode,
     clearAutoSubmit, stopBrowserRecognition, resumeBrowserRecognition, retryBrowserRecognition, recognitionError, getSttSource, resetSttUsage,
   } = usePracticeTranscription({
-    draft, setDraft, mediaStream, turn, busy, paused: paused || voice.textOnly, aiSpeaking, aiSpeechActiveRef, entryOverlayOpen,
+    draft, setDraft, mediaStream, session, turn, busy, paused: paused || voice.textOnly, aiSpeaking, aiSpeechActiveRef, entryOverlayOpen,
     pushFeed, autoSubmit: true, onAutoSubmit: () => submitDraftRef.current?.(),
   });
   const liveTip = useLiveCoaching({ session, turnId: turn?.id,
@@ -520,8 +520,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
     <WorkplaceMirrorSceneSimulation speechPlayback={speechPlayback} dialogue={turnSpeech || "다음 대화를 준비하고 있어요."} userPreview={<div className="simulation-user-preview" data-pose-status={track.status} data-pose-tracked={track.poseTracked} data-pose-calibrating={track.calibrating} aria-label="내 카메라와 실시간 추적"><video ref={analysisVideoRef} autoPlay muted playsInline aria-label="내 카메라" /><canvas ref={overlayRef} aria-hidden="true" />{!hasCamera && <span>카메라 꺼짐</span>}</div>} category={sceneBriefing?.category_id} characterId={character?.id} name={characterName} videoState={teamLeadVideoState} paused={paused || entryOverlayOpen} dialogueHidden={entryOverlayOpen} onReactionComplete={() => setTeamLeadReaction("")} waveRef={waveRef} captureStatus={{ recording: audioRecording && hasMicrophone && !captureError, audioError: Boolean(captureError), cameraReady: hasCamera && track.status === "ready", cameraStarting: hasCamera && track.status === "loading", cameraError: track.status === "failed" }}>
       {!entryOverlayOpen && inputStatus.title === "직접 입력" && <p className="simulation-dialogue-status" role="status">{recognitionError === "unsupported" ? "Chrome에서 음성 인식을 실행해 주세요." : <span role="button" tabIndex={0} onClick={retryBrowserRecognition} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); retryBrowserRecognition(); } }}>음성 인식을 다시 실행해 주세요.</span>}</p>}
       {!entryOverlayOpen && (inputValue || history.some(item => item.response_text)) && <div className="simulation-answer">
-        {history.filter(item => item.response_text).map(item => <p key={item.id} data-past="true">{item.response_text}</p>)}
-        {inputValue && <p>{inputValue}</p>}
+        <p>{inputValue || history.filter(item => item.response_text).at(-1)?.response_text}</p>
       </div>}
       {liveTip && <p className="simulation-dialogue-status" role="status"><strong>대화 팁 · </strong>{liveTip.message}</p>}
 
@@ -532,7 +531,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
 
   return (
     <section ref={screenRef} className={`practice-screen ${paused ? "is-paused" : ""}`}>
-      <h1 className="screen-reader-note">AI와 연습하기</h1>
+        <h1 className="screen-reader-note">AI와 연습하기</h1>
       {liveTip && <div className="practice-live-tip" role="status" aria-live="polite"><strong>대화 팁</strong><span>{liveTip.message}</span></div>}
       <div className="practice-contextbar">
         <div className="practice-contextbar-left">

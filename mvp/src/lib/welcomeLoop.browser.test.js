@@ -28,7 +28,9 @@ test("regenerated welcome video loops and pauses when the visitor starts", { tim
   const page = await browser.newPage();
   await page.goto(url + basename(fixture) + "/index.html");
   await page.waitForFunction(() => document.querySelector("video")?.readyState >= 2);
-  assert.equal(await page.locator("video").evaluate(video => video.loop), true);
+  assert.equal(await page.locator("video").evaluate(video => video.loop), false);
+  await page.locator("video").evaluate(video => video.dispatchEvent(new Event("ended")));
+  assert.equal(await page.locator("video").evaluate(video => video.loop && video.muted), true);
   await page.locator("video").evaluate(async video => {
     window.wraps = 0;
     let last = 0;

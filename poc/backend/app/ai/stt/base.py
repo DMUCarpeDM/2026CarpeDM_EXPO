@@ -66,6 +66,26 @@ class WhisperProvider:
             return []
         return self._transcribe_audio(audio)
 
+    def transcribe_live(self, audio_path: str) -> list[dict]:
+        """Prompt-free, VAD-gated live dictation; filler analysis keeps its own path."""
+        from faster_whisper.audio import decode_audio
+        audio = decode_audio(audio_path, sampling_rate=16000)
+        if not audio.size or np.max(np.abs(audio)) < 1e-5:
+            return []
+        segments, _ = self._model.transcribe(
+            audio, language="ko", word_timestamps=True,
+            beam_size=3, temperature=0, condition_on_previous_text=False,
+            initial_prompt=None, vad_filter=True,
+            vad_parameters={"min_silence_duration_ms": 500},
+            no_speech_threshold=.5, log_prob_threshold=-1.0,
+            compression_ratio_threshold=2.0,
+        )
+        return [{"word": w.word.strip(), "start": w.start, "end": w.end,
+                 "conf": getattr(w, "probability", None)}
+                for seg in segments
+                if seg.no_speech_prob < .5 and seg.avg_logprob >= -1.0 and seg.compression_ratio <= 2.0
+                for w in (seg.words or []) if w.word.strip()]
+
     def _transcribe_audio(self, audio):
         segments, _info = self._model.transcribe(
             audio, language="ko", word_timestamps=True,

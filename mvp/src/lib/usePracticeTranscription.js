@@ -1,9 +1,10 @@
+import { useServerStt } from "./useServerStt.js";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AUTO_SUBMIT_DELAY_MS, shouldScheduleAutoSubmit } from "./sttAutoSubmit.js";
 
 // 받아쓰기와 자동 제출 예약을 관리한다. 답변 초안과 실제 제출은 페이지가 소유한다.
 export function usePracticeTranscription({
-  setDraft, mediaStream, turn, busy, paused, aiSpeaking, aiSpeechActiveRef, entryOverlayOpen,
+  setDraft, mediaStream, session, turn, busy, paused, aiSpeaking, aiSpeechActiveRef, entryOverlayOpen,
   pushFeed, onAutoSubmit, autoSubmit = true,
 }) {
   const autoSubmitTimerRef = useRef(null);
@@ -26,8 +27,9 @@ export function usePracticeTranscription({
   const sttUsedRef = useRef(false); // 이번 턴 답변에 음성 인식이 쓰였는지 (stt_source 판별)
   const sttSupported = Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
   // 실시간 받아쓰기는 Chrome만 사용한다. Whisper는 녹음 종료 후 간투어 분석용이다.
-  const sttMode = sttSupported && !webSpeechFailed ? "webspeech" : "off";
-  const shouldListen = Boolean(sttMode === "webspeech" && micEnabled && mediaStream && turn && !busy && !paused && !aiSpeaking && !entryOverlayOpen);
+  const serverFallback = Boolean(session?.access_token && (!sttSupported || (webSpeechFailed && recognitionError === "network")));
+  const sttMode = serverFallback ? "server" : sttSupported && !webSpeechFailed ? "webspeech" : "off";
+  const shouldListen = Boolean(sttMode !== "off" && micEnabled && mediaStream && turn && !busy && !paused && !aiSpeaking && !entryOverlayOpen);
   const allowedRef = useRef(false);
   allowedRef.current = shouldListen;
   const clearAutoSubmit = () => {
@@ -39,6 +41,9 @@ export function usePracticeTranscription({
     clearAutoSubmit();
     submitAfterCommitRef.current = true;
   };
+  useServerStt({enabled: serverFallback && shouldListen && !aiSpeechActiveRef?.current, stream:mediaStream, session,
+    onText:text=>{sttUsedRef.current=true;setDraft(prev=>`${prev} ${text}`.trim());if(autoSubmit)scheduleAutoSubmit();},
+    onListening:setListening,onError:message=>pushFeed(message)});
   // 확정 초안이 React에 반영된 뒤 제출한다. 0ms 타이머만으로는 이전 초안을 보낼 수 있다.
   useLayoutEffect(() => {
     if (!submitAfterCommitRef.current) return;
@@ -61,7 +66,7 @@ export function usePracticeTranscription({
 
   useLayoutEffect(() => {
     const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!shouldListen || aiSpeechActiveRef?.current) return undefined;
+    if (sttMode !== "webspeech" || !shouldListen || aiSpeechActiveRef?.current) return undefined;
     let retryTimer;
     let retryPending = false;
     let lastInterim = "";
@@ -237,7 +242,7 @@ export function usePracticeTranscription({
     setRecognitionEpoch(epoch => epoch + 1);
   };
   const retryBrowserRecognition = () => { networkRetriesRef.current = 0; setRecognitionError(null); setWebSpeechFailed(false); setMicEnabled(true); setRecognitionEpoch(epoch => epoch + 1); };
-  const getSttSource = () => sttUsedRef.current ? "webspeech" : "text";
+  const getSttSource = () => sttUsedRef.current ? serverFallback ? "whisper" : "webspeech" : "text";
   const resetSttUsage = () => { sttUsedRef.current = false; };
 
   return {

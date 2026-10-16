@@ -26,9 +26,21 @@ def assessment_goals(value):
         if value.get("finished") or index >= len(items):
             return []
         item = items[index]
+        if item.get("assessment_goals"):
+            return item["assessment_goals"]
         goal_id = item.get("assessment_id") or f"{item['act_id']}:goal"
         return [{**item, "id": goal_id}] if "keywords" in item else []
     return [item for item in items if "keywords" in item]
+
+
+def requested_goals(value):
+    """누락 검토 후보. 실제 질문의 원문 근거가 있을 때만 분석기가 누락으로 확정한다."""
+    goals = assessment_goals(value)
+    if value.get("mode") == CONTINUOUS_MODE:
+        return [g["id"] for g in goals if g.get("missing_policy") == "when_explicitly_requested"]
+    items = value.get("items") or []
+    index = value.get("index", 0)
+    return [items[index]["id"]] if goals and not value.get("finished") and index < len(items) else []
 
 
 def _plan_workplace(session, scenario, episodes, rng):

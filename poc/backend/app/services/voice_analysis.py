@@ -2,6 +2,7 @@
 import copy
 import hashlib
 import json
+import math
 from pathlib import Path
 from collections import OrderedDict
 import time
@@ -15,7 +16,7 @@ from app.core.config import settings
 _POOL = ThreadPoolExecutor(max_workers=1, thread_name_prefix="voice-turn")
 _SLOT = threading.BoundedSemaphore(1)
 LIVE_BUDGET_SEC = 2.0
-SCORE_VERSION = "interaction-score-v10"
+SCORE_VERSION = "interaction-score-v11"
 # Retain timed-out work without letting worker threads mutate SQLAlchemy objects.
 _PENDING = OrderedDict()
 _PENDING_LOCK = threading.Lock()
@@ -29,7 +30,7 @@ def _fingerprint(turn, baseline, source):
             digest = hashlib.file_digest(audio, "sha256").hexdigest()
     except (OSError, TypeError):
         return None
-    config = [digest, baseline, source, engine.VERSION, engine.CRITERIA_VERSION,
+    config = [digest, baseline, source, engine.VERSION, engine.CRITERIA_VERSION, "session-volume-v1",
               settings.stt_whisper_model, settings.stt_filler_prompt]
     return hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest()
 
@@ -112,6 +113,33 @@ def _input(session, turn):
 def store_measurement(session, turn_id, measurement):
     values = {**(session.rapport or {}).get("voice_measurements", {}), str(turn_id): measurement}
     session.rapport = {**(session.rapport or {}), "voice_measurements": values}
+
+
+def scoring_measurements(session):
+    """표준 설정에서는 같은 장치의 앞선 유효 발화를 비교 기준으로 쓴다. 개인 표준으로 가장하지 않는다."""
+    from app.services.judgments import number
+    values = copy.deepcopy((session.rapport or {}).get("voice_measurements", {}))
+    references = []
+    for turn in sorted(session.turns, key=lambda t: t.order):
+        voice = values.get(str(turn.id), {})
+        volume, capture = voice.get("volume") or {}, voice.get("capture") or {}
+        if (voice.get("engine_version") != engine.VERSION or voice.get("turn_id") != turn.id
+                or volume.get("reason") != "personal_reference_unavailable"
+                or set(voice.get("quality_flags", [])).intersection({"clipping", "no_speech", "analysis_failed", "vad_unavailable"})
+                or capture.get("auto_gain_control") is not False
+                or not all(number(volume.get(k)) for k in ("rms", "speech_seconds", "noise_seconds", "snr_db"))
+                or volume["rms"] <= 1e-6 or volume["speech_seconds"] < 3
+                or volume["noise_seconds"] < .5 or volume["snr_db"] < 10):
+            continue
+        reference = next((r for r in references if engine.capture_matches(r["capture"], capture)), None)
+        if reference:
+            voice["volume"] = engine.measured(**{k: v for k, v in volume.items() if k not in {"status", "reason", "label", "reference_only"}})
+            voice["volume"].update(relative_db=20 * math.log10(volume["rms"] / reference["rms"]),
+                reference_rms=reference["rms"], reference_source="session", reference_turn_id=reference["turn_id"])
+            voice["calibration_id"] = f"session-turn-{reference['turn_id']}"
+        else:
+            references.append({"turn_id": turn.id, "rms": volume["rms"], "capture": capture})
+    return values
 
 
 def _measure(path, session_id, turn_id, baseline, source, references):
@@ -247,10 +275,10 @@ def report_data(session):
     return {"engine_version": engine.VERSION, "criteria_version": engine.CRITERIA_VERSION,
             "score_status": "context_provisional" if context_scored else "measurement_provisional" if any(
                 'voice' in row.get('measured', []) for row in value.get('judgments', {}).values()) else "criteria_pending",
-            "score_scope": "relative_volume" if context_scored else None,
+            "score_scope": "pace_pauses_and_relative_volume" if context_scored else None,
             "measurement_fields": list(engine.CORE_FIELDS),
             "reference_only": [],
-            "turns": list(value.get("voice_measurements", {}).values()),
+            "turns": list(scoring_measurements(session).values()),
             "response_habits": value.get("response_habits", {})}
 
 

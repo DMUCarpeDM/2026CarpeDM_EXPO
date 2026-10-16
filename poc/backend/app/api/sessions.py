@@ -524,7 +524,7 @@ def observe_turn(
         context_scoring.apply(result, context, body.nonverbal.model_dump() if body.nonverbal else None)
     snapshot = [r for r in judgments.results(session) if r.get("turn_id") != turn_id] + [result]
     # 읽기 전용. 팁 폴링이 답변 저장 트랜잭션의 JSON 상태를 덮어쓰지 않는다.
-    return {"turn_id": turn_id, "judgment": result, "tip": feedback.select(result), "live_score": {**interaction_scoring.calculate(snapshot), "provisional": True}, "context_policy": result.get("context_policy")}
+    return {"turn_id": turn_id, "judgment": result, "tip": feedback.select(result), "live_score": {**interaction_scoring.calculate(snapshot, session.scenario.rubric_weights), "provisional": True}, "context_policy": result.get("context_policy")}
 
 
 def _workplace_dialogue_first(db, session, turn, signals):
@@ -662,11 +662,7 @@ def submit_response(
         # 주의: 현재는 keywords가 있는 항목만 목표 분석에 보냅니다.
         # 면접 질문에도 항목별 기준을 붙이려면 이 조건과 interaction.py의 질문 형식을 함께 수정하세요.
         goals = interaction.assessment_goals(flow_before)
-        current_item = flow_before["items"][flow_before["index"]] if not flow_before.get("finished") else {}
-        # 자유 대화의 내부 체크리스트는 실제로 질문한 항목이 아니다.
-        # 고정 질문과 목표가 연결된 흐름에서만 누락 감점을 허용한다.
-        current_goal_id = None if flow_before.get("mode") == CONTINUOUS_MODE else current_item.get("id")
-        requested = [current_goal_id] if goals and current_goal_id and turn.question_type != "confirmation" else []
+        requested = interaction.requested_goals(flow_before) if turn.question_type != "confirmation" else []
         history_for_judgment = ([t for t in turns if t.episode_id == turn.episode_id and t.character_id == turn.character_id]
                                if flow_before.get("exhibition") else turns)
         semantic, met, status = response_judgment.analyze(turn, history_for_judgment, goals, requested)
@@ -891,3 +887,30 @@ def get_progress(
         stage=progress.get("stage", ""),
         pct=progress.get("pct", 0),
     )
+
+
+@router.post('/{session_id}/transcribe')
+async def transcribe_recording(session_id: int, file: UploadFile,
+                               session: RoleplaySession = Depends(require_session)):
+    """Temporary local transcription; never retain a second copy of the recording."""
+    import tempfile
+    from pathlib import Path
+    from app.ai.stt import get_stt_provider
+    data = await file.read(5 * 1024 * 1024 + 1)
+    if len(data) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail='음성이 너무 깁니다')
+    if not data:
+        raise HTTPException(status_code=422, detail='녹음이 없습니다')
+    provider = await run_in_threadpool(get_stt_provider)
+    if provider is None or provider.name != 'whisper':
+        raise HTTPException(status_code=503, detail='로컬 음성 인식 모델이 준비되지 않았습니다')
+    with tempfile.NamedTemporaryFile(suffix='.webm', delete=False) as tmp:
+        tmp.write(data)
+        path = tmp.name
+    try:
+        words = await run_in_threadpool(provider.transcribe_live, path)
+        return {'text': ' '.join(w['word'] for w in words), 'source': 'whisper'}
+    except Exception:
+        raise HTTPException(status_code=503, detail='음성을 인식하지 못했습니다')
+    finally:
+        Path(path).unlink(missing_ok=True)

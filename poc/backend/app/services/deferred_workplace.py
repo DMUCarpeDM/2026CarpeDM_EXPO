@@ -49,6 +49,7 @@ def pending(turn, flow):
     return {'version': judgments.VERSION, 'turn_id': turn.id, 'events': [], 'measured': [], 'met_goals': [],
             'analysis_status': 'pending', 'deferred_context': {
                 'goals': interaction.assessment_goals(flow), 'situation': item.get('situation', ''),
+                'requested': interaction.requested_goals(flow),
                 'exhibition': bool(flow.get('exhibition'))}}
 
 
@@ -63,13 +64,13 @@ def _compute(session, turn):
         voice_text=turn.stt_source == 'webspeech' and not voice_analysis.enabled(session))
     history = [t for t in sorted(session.turns, key=lambda t: t.order) if t.order <= turn.order
                and (not snapshot['exhibition'] or (t.episode_id == turn.episode_id and t.character_id == turn.character_id))]
-    events, met, status = response_judgment.analyze(turn, history, goals, [])
+    events, met, status = response_judgment.analyze(turn, history, goals, snapshot.get('requested', []))
     result['events'] = [e for e in result['events'] if e['area'] != 'response'] + events
     result['measured'] = [area for area in result['measured'] if area != 'response']
     result.update(met_goals=met, semantic_status=status, analysis_status='completed')
     if status == 'completed':
         result['measured'].append('response')
-    measurement = (session.rapport or {}).get('voice_measurements', {}).get(str(turn.id))
+    measurement = voice_analysis.scoring_measurements(session).get(str(turn.id))
     if measurement:
         result['voice_measurement'] = measurement
     context = context_scoring.classify_turn(session, turn, snapshot['situation'], turn.response_text or '')

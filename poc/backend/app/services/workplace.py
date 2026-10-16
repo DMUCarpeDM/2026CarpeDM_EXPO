@@ -145,7 +145,7 @@ def build_fallback_plan(scenario, episodes, mode: int, rng=None) -> dict:
     return {"version": PLAN_VERSION, "source": "fallback", "acts": acts, "carry_seed": ""}
 
 
-# One prepared situation is selected per session; all three replies stay in it.
+# One prepared situation is selected per session; all five replies stay in it.
 EXHIBITION_SCENES = json.loads((Path(__file__).parents[1] / "seed/workplace-exhibition.json").read_text(encoding="utf-8"))
 EXHIBITION_ORDERS = tuple(scene["order"] for scene in EXHIBITION_SCENES)
 
@@ -173,11 +173,13 @@ def build_exhibition_plan(scenario, episodes, rng=None, *, fixed_order=0):
         "category_id": category["id"], "character_id": "park_senior",
         "actor_persona": selected["actor_persona"],
         "actor_brief": selected["actor_brief"],
+        "assessment_goals": selected.get("assessment_goals", []),
+        "delivery_profile": selected.get("delivery_profile"),
         "episode_id": ep.id, "title": selected["title"], "situation": selected["situation"],
         "virtual_time": "", "tip": check["tip"], "checklist": [check],
         "opening_line": selected["opening_line"], "fallback_pool": [selected["opening_line"]],
-        "beat_goals": list(selected["beat_goals"][:3]),
-        "dialogue_intents": list(selected["dialogue_intents"][:3]),
+        "beat_goals": list(selected["beat_goals"][:5]),
+        "dialogue_intents": list(selected["dialogue_intents"][:5]),
     }
     return {"version": "workplace-exhibition-v2", "source": "curated-fixed" if fixed_order else "curated-random", "acts": [act], "carry_seed": ""}
 
@@ -334,6 +336,9 @@ def flatten_plan_items(plan: dict) -> list[dict]:
                 "act_label": act["label"],
                 "actor_persona": act.get("actor_persona"),
                 "actor_brief": act.get("actor_brief"),
+                "assessment_goals": [{**entry, "id": f"{act['id']}:{entry['id']}"}
+                                     for entry in act.get("assessment_goals", [])],
+                "delivery_profile": act.get("delivery_profile"),
                 "act_open": i == 0 and act_index > 0,
                 "category_id": act.get("category_id", act["id"]),
                 "category_label": act["label"],
