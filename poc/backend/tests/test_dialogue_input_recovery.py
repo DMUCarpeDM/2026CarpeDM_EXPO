@@ -9,7 +9,7 @@ from app.core.database import SessionLocal
 from app.main import app
 from app.models import RoleplaySession, Turn
 from app.seed.run import seed
-from app.services import context_scoring, judgments, response_judgment
+from app.services import context_scoring, deferred_workplace, judgments, response_judgment
 from app.services.dialogue.gemini_provider import GeminiDialogueProvider
 
 
@@ -62,5 +62,9 @@ def test_off_topic_or_unavailable_score_does_not_force_repeat_request(session, m
     assert result.status_code == 200, result.text
     assert result.json()['next_turn']['question_text'] == line
     assert result.json()['interaction']['index'] == 1
-    rules = [e['rule'] for e in result.json()['turn_signals']['judgment']['events']]
+    assert result.json()['turn_signals']['judgment']['analysis_status'] == 'pending'
+    with SessionLocal() as db:
+        stored = db.get(RoleplaySession, data['id'])
+        deferred_workplace.complete(db, stored, db.get(Turn, data['current_turn']['id']))
+        rules = [e['rule'] for row in judgments.results(stored) for e in row['events']]
     assert ('off_topic' in rules) is (status == 'completed')

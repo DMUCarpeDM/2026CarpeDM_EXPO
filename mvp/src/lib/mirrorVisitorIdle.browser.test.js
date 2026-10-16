@@ -20,7 +20,7 @@ describe("mirror visitor media inactivity", { concurrency: false }, () => {
     await page.route("**/node_modules/.vite/deps/@mediapipe_tasks-vision.js*", route => route.fulfill({
       contentType: "text/javascript", body: `
         export const FilesetResolver = { forVisionTasks: async () => ({}) };
-        const points = () => Array.from({ length: 33 }, () => ({ x: .5, y: .5, z: 0, visibility: 1 }));
+        const points = () => Array.from({ length: 33 }, (_,i) => ({ x: i===11?.43:i===12?.57:.5, y:i===0?.3:.5, z: 0, visibility: 1 }));
         export const PoseLandmarker = { createFromOptions: async () => ({ close() {},
           detectForVideo: () => ({ landmarks: window.visitor.person ? [points()] : [] }) }) };
         export const HandLandmarker = { createFromOptions: async () => ({ close() {}, detectForVideo: () => ({ landmarks: [] }) }) };
@@ -36,7 +36,7 @@ describe("mirror visitor media inactivity", { concurrency: false }, () => {
     await page.clock.install();
     await page.goto(`${url}visitor-idle-harness`);
     await page.waitForFunction(() => visitor.ready && visitor.expression !== "loading");
-    await page.clock.pauseAt(new Date());
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
     await page.evaluate(() => visitor.markActivity());
     return page;
   }
@@ -52,12 +52,12 @@ describe("mirror visitor media inactivity", { concurrency: false }, () => {
     assert.equal(await page.evaluate(() => visitor.returns), 1);
   });
 
-  for (const input of ["person", "face", "voice"]) {
+  for (const input of ["person", "voice"]) {
     test(`${input} alone keeps the screen; departure starts a fresh 30-second wait`, async t => {
       const page = await open(t);
       await page.evaluate(input => { visitor[input] = input === "voice" ? 0.1 : true; }, input);
-      await page.clock.runFor(1_000);
-      for (let i = 0; i < 4; i++) await page.clock.fastForward(10_000);
+      await page.clock.runFor(1_600);
+      for (let i = 0; i < 4; i++) await page.clock.runFor(10_000);
       assert.equal(await page.evaluate(() => visitor.returns), 0);
       await page.evaluate(input => { visitor[input] = input === "voice" ? 0 : false; }, input);
       await page.clock.fastForward(28_800);
@@ -66,6 +66,13 @@ describe("mirror visitor media inactivity", { concurrency: false }, () => {
       assert.equal(await page.evaluate(() => visitor.returns), 1);
     });
   }
+
+  test("an unassociated bystander face does not keep a departed visitor session alive", async t => {
+    const page = await open(t);
+    await page.evaluate(() => { visitor.face = true; });
+    await page.clock.fastForward(30_300);
+    assert.equal(await page.evaluate(() => visitor.returns), 1);
+  });
 
   test("frozen camera frames do not count as a present visitor", async t => {
     const page = await open(t);

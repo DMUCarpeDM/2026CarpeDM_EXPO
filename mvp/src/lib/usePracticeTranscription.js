@@ -1,6 +1,7 @@
 import { useServerStt } from "./useServerStt.js";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AUTO_SUBMIT_DELAY_MS, shouldScheduleAutoSubmit } from "./sttAutoSubmit.js";
+import { audioDiagnostic } from "./audioDiagnostics.js";
 
 // 받아쓰기와 자동 제출 예약을 관리한다. 답변 초안과 실제 제출은 페이지가 소유한다.
 export function usePracticeTranscription({
@@ -11,6 +12,7 @@ export function usePracticeTranscription({
   const speechTimingRef = useRef(null);
   const resumeRequestedAtRef = useRef(null);
   const submitAfterCommitRef = useRef(false);
+  const autoSubmitDeadlineRef = useRef(null);
   const autoSubmitCallbackRef = useRef(onAutoSubmit);
   autoSubmitCallbackRef.current = onAutoSubmit;
   // ---- 음성 답변(STT): 브라우저 음성 인식으로 말한 내용을 입력창에 받아 적는다 ----
@@ -34,17 +36,19 @@ export function usePracticeTranscription({
   allowedRef.current = shouldListen;
   const clearAutoSubmit = () => {
     submitAfterCommitRef.current = false;
+    autoSubmitDeadlineRef.current = null;
     if (autoSubmitTimerRef.current) window.clearTimeout(autoSubmitTimerRef.current);
     autoSubmitTimerRef.current = null;
   };
-  const scheduleAutoSubmit = () => {
+  const scheduleAutoSubmit = (speechEndedAt = performance.now()) => {
     clearAutoSubmit();
+    autoSubmitDeadlineRef.current = speechEndedAt + AUTO_SUBMIT_DELAY_MS;
     submitAfterCommitRef.current = true;
   };
   useServerStt({enabled: serverFallback && shouldListen && !aiSpeechActiveRef?.current, stream:mediaStream, session,
     onText:text=>{sttUsedRef.current=true;setDraft(prev=>`${prev} ${text}`.trim());if(autoSubmit)scheduleAutoSubmit();},
     onListening:setListening,onError:message=>pushFeed(message)});
-  // 확정 초안이 React에 반영된 뒤 제출한다. 0ms 타이머만으로는 이전 초안을 보낼 수 있다.
+  // 초안 반영 뒤 타이머를 시작하며, 브라우저의 인식 확정 대기 시간도 묵음에 포함한다.
   useLayoutEffect(() => {
     if (!submitAfterCommitRef.current) return;
     submitAfterCommitRef.current = false;
@@ -54,10 +58,10 @@ export function usePracticeTranscription({
       if (!allowedRef.current || aiSpeechActiveRef?.current) return;
       speechTimingRef.current?.("auto-submit");
       autoSubmitCallbackRef.current?.();
-    }, AUTO_SUBMIT_DELAY_MS);
+    }, Math.max(0, Math.ceil(autoSubmitDeadlineRef.current - performance.now())));
   });
   useEffect(() => () => clearAutoSubmit(), []);
-  // 턴 전환 시 0ms 제출보다 먼저 이전 예약을 해제한다.
+  // 턴 전환 시 이전 답변의 전송 예약을 해제한다.
   useLayoutEffect(() => {
     if (!shouldListen) clearAutoSubmit();
     return clearAutoSubmit;
@@ -71,13 +75,18 @@ export function usePracticeTranscription({
     let retryPending = false;
     let lastInterim = "";
     let recognitionFailed = false;
+    let receivedTranscript = false;
+    let endError = null;
     const recognition = new SpeechRecognitionImpl();
     const audioTrack = mediaStream?.getAudioTracks?.().find(track => track.readyState === "live");
     recognition.lang = "ko-KR";
-    recognition.continuous = false;
+    // 묵음 2초를 기다리는 동안 이어 말한 내용도 같은 답변으로 받는다.
+    recognition.continuous = autoSubmit;
     recognition.interimResults = true;
     const isCurrent = () => allowedRef.current && !aiSpeechActiveRef?.current && sttActiveRef.current && recognitionRef.current === recognition;
     let speechEndAt = null;
+    let pendingSpeechEndAt = null;
+    let finalReceivedForSpeech = false;
     let finalAt = null;
     let startRequestedAt = null;
     const recordTiming = (event) => {
@@ -96,6 +105,7 @@ export function usePracticeTranscription({
       // 브라우저 이벤트 시간만 보관한다. 음성과 전사 내용은 저장하지 않는다.
       window.__mirrorSpeechTimings = [...(window.__mirrorSpeechTimings || []).slice(-99), timing];
       console.info("[speech-latency]", timing);
+      audioDiagnostic(`stt:${event}`, { turnId: turn.id, trackState: audioTrack?.readyState, trackEnabled: audioTrack?.enabled, trackMuted: audioTrack?.muted });
       if (event === "final" && timing.endToFinalMs !== null) {
         pushFeed(`브라우저 발화 종료 → 인식 확정 ${timing.endToFinalMs}ms`);
       }
@@ -104,6 +114,8 @@ export function usePracticeTranscription({
     recognition.onspeechstart = () => {
       if (!isCurrent()) return;
       speechEndAt = null;
+      pendingSpeechEndAt = null;
+      finalReceivedForSpeech = false;
       finalAt = null;
       clearAutoSubmit();
       recordTiming("speech-start");
@@ -111,6 +123,7 @@ export function usePracticeTranscription({
     recognition.onspeechend = () => {
       if (!isCurrent()) return;
       speechEndAt = performance.now();
+      if (!finalReceivedForSpeech) pendingSpeechEndAt = speechEndAt;
       recordTiming("speech-end");
     };
     const failRecognition = (error) => {
@@ -147,6 +160,7 @@ export function usePracticeTranscription({
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
         const transcript = event.results[i][0].transcript.trim();
         if (!transcript) continue;
+        receivedTranscript = true;
         sttUsedRef.current = true;
         if (event.results[i].isFinal) {
           receivedFinal = true;
@@ -162,14 +176,20 @@ export function usePracticeTranscription({
         finalAt = performance.now();
         recordTiming("final");
       }
-      if (autoSubmit && shouldScheduleAutoSubmit({ receivedFinal, interimText })) scheduleAutoSubmit();
+      if (autoSubmit && shouldScheduleAutoSubmit({ receivedFinal, interimText })) scheduleAutoSubmit(pendingSpeechEndAt ?? performance.now());
       else if (interimText) clearAutoSubmit();
+      if (receivedFinal || interimText) {
+        finalReceivedForSpeech = receivedFinal && !interimText;
+        pendingSpeechEndAt = null;
+      }
     };
     recognition.onstart = () => {
       if (!isCurrent()) return;
       recordTiming("listening");
       setListening(true);
     };
+    recognition.onaudiostart = () => recordTiming("audio-start");
+    recognition.onsoundstart = () => recordTiming("sound-start");
     recognition.onend = () => {
       if (!isCurrent() || retryPending) return;
       setListening(false);
@@ -180,12 +200,22 @@ export function usePracticeTranscription({
         setDraft(prev => `${prev} ${transcript}`.trim());
         lastInterim = "";
         setInterim("");
-        scheduleAutoSubmit();
+        scheduleAutoSubmit(pendingSpeechEndAt ?? performance.now());
+        pendingSpeechEndAt = null;
+      }
+      // Chrome ends an idle session with no-speech (or an empty normal end).
+      // Keep waiting on the selected track until the user actually answers.
+      if (!receivedTranscript && (!recognitionFailed || endError === "no-speech")) {
+        retryPending = true;
+        retryTimer = window.setTimeout(() => {
+          if (isCurrent()) setRecognitionEpoch(epoch => epoch + 1);
+        }, 250);
       }
     };
     recognition.onerror = (event) => {
       if (!isCurrent()) return;
       recognitionFailed = true;
+      endError = event.error;
       clearAutoSubmit();
       recordTiming(`error:${event.error}`);
       console.warn("[speech-recognition]", event.error);
@@ -214,6 +244,7 @@ export function usePracticeTranscription({
       sttActiveRef.current = false;
       recognition.onresult = recognition.onstart = recognition.onend = recognition.onerror = null;
       recognition.onspeechstart = recognition.onspeechend = null;
+      recognition.onaudiostart = recognition.onsoundstart = null;
       if (speechTimingRef.current === recordTiming) speechTimingRef.current = null;
       if (recognitionRef.current === recognition) recognitionRef.current = null;
       try { recognition.abort(); } catch { /* 이미 종료됨 */ }
@@ -231,6 +262,7 @@ export function usePracticeTranscription({
     if (recognition) {
       recognition.onresult = recognition.onstart = recognition.onend = recognition.onerror = null;
       recognition.onspeechstart = recognition.onspeechend = null;
+      recognition.onaudiostart = recognition.onsoundstart = null;
       speechTimingRef.current = null;
       try { recognition.abort(); } catch { /* 이미 종료됨 */ }
     }

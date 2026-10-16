@@ -6,7 +6,7 @@ import {fileURLToPath} from 'node:url';
 import {chromium} from 'playwright';
 import {startVite} from './serviceEntryRouteHarness.js';
 
-test('recognition final dispatches text within one second and TTS precedes analysis upload', {timeout:45000}, async t=>{
+test('recognition displays text immediately, waits two seconds before dispatch, and TTS precedes analysis upload', {timeout:45000}, async t=>{
  const root=fileURLToPath(new URL('../..',import.meta.url));
  const folder=await mkdtemp(resolve(root,'.fast-submission-'));t.after(()=>{
   assert.equal(dirname(resolve(folder)),resolve(root));
@@ -37,7 +37,9 @@ test('recognition final dispatches text within one second and TTS precedes analy
  const {server,url}=await startVite();t.after(()=>server.close());
  const browser=await chromium.launch({channel:'chrome',headless:true});t.after(()=>browser.close());
  const page=await browser.newPage();
+ const submittedTexts=[];
  await page.route('**/api/**',route=>{const path=new URL(route.request().url()).pathname;
+  if(path.endsWith('/response'))submittedTexts.push(route.request().postDataJSON().text);
   return route.fulfill(path.endsWith('/tts')?{contentType:'audio/wav',headers:{'X-TTS-Provider':'elevenlabs'},body:'fixture wav'}:{contentType:'application/json',body:JSON.stringify({next_turn:{id:2}})});});
  await page.goto(url+basename(folder)+'/index.html');await page.waitForFunction(()=>window.rec?.onresult);
  await page.evaluate(()=>window.rec.onresult({resultIndex:0,results:[{0:{transcript:'아직 말하는 중'},isFinal:false}]}));
@@ -45,12 +47,19 @@ test('recognition final dispatches text within one second and TTS precedes analy
  await page.evaluate(()=>window.rec.onresult({resultIndex:0,results:[{0:{transcript:'추가로 말씀드리면'},isFinal:false}]}));
  await page.waitForTimeout(500);
  assert.equal(await page.evaluate(()=>window.events.length),0);
+ await page.evaluate(()=>window.rec.onresult({resultIndex:0,results:[{0:{transcript:'제 입장을 먼저 말씀드리겠습니다.'},isFinal:true}]}));
+ await page.waitForTimeout(1000);
+ assert.equal(await page.evaluate(()=>window.events.length),0);
+ await page.evaluate(()=>window.rec.onresult({resultIndex:0,results:[{0:{transcript:'개인적인 내용은',},isFinal:false}]}));
  await page.evaluate(()=>window.final());
+ await page.waitForTimeout(1000);
+ assert.equal(await page.evaluate(()=>window.events.length),0);
  await page.waitForFunction(()=>window.events.some(e=>e.event==='playing'));
  const result=await page.evaluate(()=>({input:window.inputAt-window.finalAt,submit:window.events.find(e=>e.event==='response').at-window.finalAt,events:window.events.map(e=>e.event)}));
  console.log('Final-to-input/submit ms:',JSON.stringify(result));
- assert.ok(result.submit<1000);assert.ok(result.input<1000);
+ assert.ok(result.submit>=2000&&result.submit<3000);assert.ok(result.input<1000);
  assert.deepEqual(result.events,['response','tts','playing']);
+ assert.deepEqual(submittedTexts,['제 입장을 먼저 말씀드리겠습니다. 개인적인 내용은 공개하지 않겠습니다.']);
  await page.evaluate(()=>window.converted());await page.waitForFunction(()=>window.events.some(e=>e.event==='audio'));
  const events=await page.evaluate(()=>window.events.map(e=>e.event));assert.deepEqual(events,['response','tts','playing','audio']);
  await page.evaluate(()=>window.cleanup());

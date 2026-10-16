@@ -2,7 +2,7 @@ import {useEffect, useState} from "react";
 import {addExpressionSample, faceCrop, normalizeFace} from "./expressionModel.js";
 
 // Face crops stay in this browser. Only aggregated model outputs leave it.
-export function useExpressionTracking(mediaStream, videoRef, turnAccRef, faceLandmarksRef, participantRef) {
+export function useExpressionTracking(mediaStream, videoRef, turnAccRef, faceLandmarksRef, participantRef, presenceEpochRef) {
   const [status, setStatus] = useState("idle");
   useEffect(() => {
     if (!mediaStream?.getVideoTracks?.().some(t => t.readyState === "live")) { setStatus("idle"); return; }
@@ -59,6 +59,7 @@ export function useExpressionTracking(mediaStream, videoRef, turnAccRef, faceLan
               lastVideoTime = video.currentTime;
               const participant = participantRef?.current.current;
               const generation = participantRef?.current.generation;
+              const presenceEpoch = presenceEpochRef?.current;
               const points = participant ? faceLandmarksRef?.current : null;
               if (!points) { showInput(participant ? "시연자 얼굴 검출 대기" : "시연자 몸 추적 대기 — 중앙에서 어깨까지 보이게 서 주세요"); if (acc.expression) acc.expression.smileSince = null; if (!cancelled) setStatus("no_face"); return; }
               const crop = faceCrop(points, video.videoWidth, video.videoHeight);
@@ -67,7 +68,8 @@ export function useExpressionTracking(mediaStream, videoRef, turnAccRef, faceLan
               showInput(`실제 모델 입력 224×224 · 얼굴 영역 ${Math.round(crop.size)}px`, canvas);
               const input = new ort.Tensor("float32", normalizeFace(ctx.getImageData(0, 0, 224, 224).data), [1, 3, 224, 224]);
               const output = await session.run({face: input});
-              if (!cancelled && acc === turnAccRef.current && participantRef?.current.current && generation === participantRef.current.generation) {
+              if (!cancelled && acc === turnAccRef.current && participantRef?.current.current
+                  && generation === participantRef.current.generation && presenceEpoch === presenceEpochRef?.current) {
                 addExpressionSample(acc, output.logits.data);
                 setStatus("ready");
               }
@@ -88,6 +90,6 @@ export function useExpressionTracking(mediaStream, videoRef, turnAccRef, faceLan
       debugPanel?.remove();
       Promise.allSettled([initialization, pending]).then(dispose).catch(() => {});
     };
-  }, [mediaStream, videoRef, turnAccRef, faceLandmarksRef, participantRef]);
+  }, [mediaStream, videoRef, turnAccRef, faceLandmarksRef, participantRef, presenceEpochRef]);
   return status;
 }
