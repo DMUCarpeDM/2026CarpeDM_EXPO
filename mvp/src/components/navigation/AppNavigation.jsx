@@ -126,5 +126,5 @@ export function MobileMenuSheet({ open, active, onClose, onNavigate, practiceMod
 }
 
 function Avatar({ size = "md" }) {
-  return <span className={`avatar profile-avatar ${size} blue`} aria-hidden="true">M</span>;
+  return <span className={`avatar profile-avatar ${size} blue`} aria-hidden="true"><IconGlyph icon="role" size={20} /></span>;
 }
