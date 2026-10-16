@@ -8,7 +8,14 @@ const pocTarget = process.env.MIRROR_TING_API_TARGET || "http://127.0.0.1:8001";
 const localPocProxy = { target: pocTarget, changeOrigin: true };
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), {
+    name: "mirror-local-audio-diagnostics",
+    configureServer(server) {
+      server.ws.on("mirror:audio-diagnostic", data => {
+        console.info("[audio-diagnostic]", JSON.stringify(data));
+      });
+    },
+  }],
   server: {
     proxy: {
       "/api": localPocProxy,

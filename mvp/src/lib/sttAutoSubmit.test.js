@@ -8,6 +8,6 @@ test("schedules only when the STT result ends with a final transcript", () => {
   assert.equal(shouldScheduleAutoSubmit({ receivedFinal: false, interimText: "말하는 중" }), false);
 });
 
-test("does not add a silence or post-final waiting period", () => {
-  assert.equal(AUTO_SUBMIT_DELAY_MS, 0);
+test("waits for two seconds of silence before automatic submission", () => {
+  assert.equal(AUTO_SUBMIT_DELAY_MS, 2000);
 });

@@ -17,9 +17,30 @@ test('crop coordinates return to original image without changing confidence',()=
  assert.equal(p.x,.175);assert.equal(p.y,.825);assert.equal(p.z,.13);assert.equal(p.visibility,.9);
 });
 
-test('face selection follows central visitor but rejects ambiguous central faces',async()=>{
+test('face selection prefers the center and remains active with multiple or edge faces',async()=>{
  const {centralFace}=await import('./centerPersonTracking.js');
  const center=[{x:.48},{x:.52}],side=[{x:.7},{x:.8}];
  assert.equal(centralFace([side,center]),center);
- assert.equal(centralFace([center,[{x:.49},{x:.55}]]),null);
+ assert.equal(centralFace([center,[{x:.49},{x:.55}]]),center);
+ const edge=[{x:.02},{x:.12}];
+ assert.equal(centralFace([edge]),edge);
+});
+
+test('reacquires a visible person on either edge after the prior person leaves',()=>{
+ assert.ok(centralPose({landmarks:[body(.5)]}));
+ assert.equal(centralPose({landmarks:[]}),null);
+ for(const x of [.08,.92]){
+  const result=centralPose({landmarks:[body(x,.1)],worldLandmarks:[[x]]});
+  assert.equal(result.landmarks[0].x,x);
+  assert.deepEqual(result.worldLandmarks,[x]);
+ }
+});
+
+test('edge search crops stay inside the full camera frame and preserve mapping',()=>{
+ for(const center of [.08,.92]){
+  const region=centeredRegion(1920,1080,center);
+  assert.ok(region.x>=0&&region.x+region.width<=1920);
+  const point={x:(center*1920-region.x)/region.width,y:.5};
+  assert.ok(Math.abs(mapRegionLandmarks([point],region,1920,1080)[0].x-center)<1e-10);
+ }
 });

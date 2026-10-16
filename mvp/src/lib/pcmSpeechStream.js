@@ -1,3 +1,5 @@
+import { audioDiagnostic } from "./audioDiagnostics.js";
+
 // ElevenLabs pcm_24000: mono, signed 16-bit little-endian. No full-file buffering.
 export async function playPcmSpeechStream(response, { signal, onStart, onProgress, textLength }) {
   const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -10,6 +12,7 @@ export async function playPcmSpeechStream(response, { signal, onStart, onProgres
     const timing = { event, atMs: performance.now(), elapsedMs: Math.round(performance.now() - startedAt) };
     window.__mirrorPlaybackTimings = [...(window.__mirrorPlaybackTimings || []).slice(-99), timing];
     console.info("[playback-latency]", timing);
+    audioDiagnostic(`playback:${event}`, { elapsedMs: timing.elapsedMs });
   };
   let pending = new Uint8Array(0);
   let nextTime = 0;

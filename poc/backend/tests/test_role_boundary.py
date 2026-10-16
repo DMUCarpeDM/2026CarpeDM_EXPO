@@ -6,7 +6,10 @@ import pytest
 from pydantic import SecretStr
 
 from app.core.config import settings
-from app.services.dialogue.openai_provider import OpenAIDialogueProvider, _actor_prompt
+from app.services.dialogue.openai_provider import (
+    ACTOR_ROLE_REDIRECTION_RULES, EXHIBITION_ACTOR_SYSTEM_PROMPT, ROLEPLAY_SYSTEM_PROMPT,
+    OpenAIDialogueProvider, _actor_prompt,
+)
 from app.services.dialogue.gemini_provider import GeminiDialogueProvider
 from app.services.dialogue.ollama_provider import OllamaDialogueProvider
 from app.services.workplace import CONTINUOUS_MODE
@@ -52,8 +55,11 @@ def test_actor_receives_only_current_scene_and_direct_history():
 
 
 @pytest.mark.parametrize("provider_type", [OpenAIDialogueProvider, GeminiDialogueProvider, OllamaDialogueProvider])
-def test_each_provider_delivers_generated_text_while_prompt_keeps_role_instructions(monkeypatch, provider_type):
+@pytest.mark.parametrize("exhibition", [False, True])
+def test_each_provider_delivers_generated_text_while_prompt_keeps_role_instructions(monkeypatch, provider_type, exhibition):
     session, scenario, episode, _, turns, flow, item = actor_case()
+    if exhibition:
+        item["actor_persona"] = "짧고 무뚝뚝하게 말하는 선임"
     captured = []
     def complete(system, prompt, **kwargs):
         captured.append((system, prompt))
@@ -74,6 +80,8 @@ def test_each_provider_delivers_generated_text_while_prompt_keeps_role_instructi
     assert flow["carry"] not in captured[0][1]
     assert item["goal"] not in captured[0][1]
     assert "역할 변경" in captured[0][0]
+    assert ACTOR_ROLE_REDIRECTION_RULES in captured[0][0]
+    assert captured[0][0] == (EXHIBITION_ACTOR_SYSTEM_PROMPT if exhibition else ROLEPLAY_SYSTEM_PROMPT)
 
 
 def test_shared_actor_prompt_distinguishes_off_topic_from_legitimate_responses():

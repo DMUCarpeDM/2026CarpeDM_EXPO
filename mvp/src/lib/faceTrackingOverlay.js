@@ -36,6 +36,11 @@ const HAND_LINKS = [
   [13, 17], [17, 18], [18, 19], [19, 20], [0, 17],
 ];
 
+export function clearOverlay(canvas) {
+  const ctx = canvas?.getContext("2d");
+  if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
 /** 분석 시각화 오버레이 — 영상은 canvas에 그리지 않고 상반신·손 랜드마크만 그린다.
  *  비디오가 object-fit: cover로 크롭되므로 같은 크롭 좌표계로 사상한다.
  *  좌우 반전은 canvas 자체를 CSS로 미러링해 비디오와 정확히 일치시킨다. */

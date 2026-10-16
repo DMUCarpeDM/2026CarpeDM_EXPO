@@ -1,11 +1,14 @@
 // Crop only the inference input; map landmarks back before drawing or scoring.
-export function centeredRegion(width, height) {
-  return { x: width * .175, y: height * .175, width: width * .65, height: height * .65 };
+export const TRACKING_SCAN_CENTERS = [.5, .175, .825];
+
+export function centeredRegion(width, height, centerX = .5) {
+  return { x: Math.max(0, Math.min(width * .35, width * centerX - width * .325)),
+    y: height * .175, width: width * .65, height: height * .65 };
 }
 
-export function drawCenteredInput(video, canvas) {
+export function drawCenteredInput(video, canvas, centerX = .5) {
   const width = video.videoWidth || video.width, height = video.videoHeight || video.height;
-  const region = centeredRegion(width, height);
+  const region = centeredRegion(width, height, centerX);
   canvas.width = Math.round(region.width);
   canvas.height = Math.round(region.height);
   canvas.getContext("2d").drawImage(video, region.x, region.y, region.width, region.height, 0, 0, canvas.width, canvas.height);
@@ -23,8 +26,11 @@ export function centralPose(result) {
     const landmarks = result.landmarks[index];
     const left = landmarks[11], right = landmarks[12];
     if (!left || !right || (left.visibility ?? 1) < .5 || (right.visibility ?? 1) < .5) continue;
-    const distance = Math.abs((left.x + right.x) / 2 - .5);
-    if (distance > .3 || (best && distance >= best.distance)) continue;
+    const center = (left.x + right.x) / 2;
+    if (!Number.isFinite(center) || center < 0 || center > 1) continue;
+    const distance = Math.abs(center - .5);
+    // Prefer the center, but keep any visible person eligible for reacquisition.
+    if (best && distance >= best.distance) continue;
     best = { landmarks, worldLandmarks: result.worldLandmarks?.[index], distance };
   }
   return best;
@@ -38,8 +44,6 @@ export function centralFace(faces = []) {
   const ranked = faces.filter(points => points?.length).map(points => {
     const xs = points.map(p => p.x);
     return { points, distance: Math.abs((Math.min(...xs) + Math.max(...xs)) / 2 - .5) };
-  }).filter(face => face.distance <= .3).sort((a, b) => a.distance - b.distance);
-  // Do not attribute an expression when two faces are equally central.
-  if (!ranked.length || (ranked[1] && ranked[1].distance - ranked[0].distance < .08)) return null;
-  return ranked[0].points;
+  }).filter(face => Number.isFinite(face.distance) && face.distance <= .5).sort((a, b) => a.distance - b.distance);
+  return ranked[0]?.points || null;
 }

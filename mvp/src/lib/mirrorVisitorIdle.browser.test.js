@@ -36,7 +36,7 @@ describe("mirror visitor media inactivity", { concurrency: false }, () => {
     await page.clock.install();
     await page.goto(`${url}visitor-idle-harness`);
     await page.waitForFunction(() => visitor.ready && visitor.expression !== "loading");
-    await page.clock.pauseAt(new Date());
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
     await page.evaluate(() => visitor.markActivity());
     return page;
   }

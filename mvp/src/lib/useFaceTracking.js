@@ -1,4 +1,4 @@
-import { drawCenteredInput, mapRegionLandmarks, centralPose, smallPose } from "./centerPersonTracking.js";
+import { drawCenteredInput, mapRegionLandmarks, centralPose, smallPose, TRACKING_SCAN_CENTERS } from "./centerPersonTracking.js";
 import {useExpressionTracking} from "./useExpressionTracking.js";
 import { postureFeatures } from "./postureEnsemble.js";
 /** MediaPipe Pose/Hand 기반 실시간 트래킹 훅 (poc useNonverbal의 경량 JS 이식).
@@ -14,7 +14,7 @@ import { postureFeatures } from "./postureEnsemble.js";
  */
 import { useEffect, useRef, useState } from "react";
 import { resolveModel, resolveWasmUrl } from "./visionAssets.js";
-import { drawOverlay } from "./faceTrackingOverlay.js";
+import { clearOverlay, drawOverlay } from "./faceTrackingOverlay.js";
 import {
   SAMPLE_MS,
   accumulateSample,
@@ -25,6 +25,7 @@ import {
 } from "./nonverbalMetrics.js";
 
 const LIVE_PUSH_MS = 300;
+const STALE_FRAME_MS = 500;
 
 // 작은 인물도 받되, 원본 영상에서 최소 24px 어깨 간격은 확보한다.
 const MIN_SHOULDER_WIDTH = 0.025;
@@ -57,8 +58,20 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
 
   useEffect(() => {
     lastPersonAtRef.current = -Infinity;
+    const publish = (patch) => {
+      liveRef.current = { ...liveRef.current, ...patch };
+      setLive(liveRef.current);
+    };
+    const clearTracking = () => {
+      clearOverlay(canvasRef.current);
+      faceLandmarksRef.current = null;
+      if (liveRef.current.tracking || liveRef.current.poseTracked) {
+        publish({ tracking: false, poseTracked: false, tiltDeg: 0, postureLevel: false });
+      }
+    };
+    clearTracking();
     const hasVideo = Boolean(mediaStream?.getVideoTracks?.().some((track) => track.readyState === "live"));
-    if (!hasVideo) { setLive((prev) => ({ ...prev, status: "idle", tracking: false, poseTracked: false })); return undefined; }
+    if (!hasVideo) { publish({ status: "idle", tracking: false, poseTracked: false }); return undefined; }
 
     let cancelled = false;
     let pose = null;
@@ -66,14 +79,16 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
     let timer = 0;
     let lastPush = 0;
     let lastVideoTime = -1;
+    let lastFrameAt = performance.now();
     let inferAvg = 0;
     let frameErrorReported = false;
     // 개인 기준(캘리브레이션) 상태
     let base = null; // 자세 기준값
     let calib = emptyCalib();
     let lastPoseAt = 0;
+    let searchFrame = 0;
     const centerCanvas = document.createElement("canvas");
-    setLive((prev) => ({ ...prev, status: "loading" }));
+    publish({ status: "loading", tracking: false, poseTracked: false });
 
     (async () => {
       try {
@@ -102,15 +117,22 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
 
         timer = window.setInterval(() => {
           const video = videoRef.current;
-          if (!video || video.readyState < 2 || video.currentTime === lastVideoTime) return;
-          lastVideoTime = video.currentTime;
           const ts = performance.now();
+          if (!video || video.readyState < 2) { clearTracking(); return; }
+          if (video.currentTime === lastVideoTime) {
+            if (ts - lastFrameAt >= STALE_FRAME_MS) clearTracking();
+            return;
+          }
+          lastVideoTime = video.currentTime;
+          lastFrameAt = ts;
           try {
             const poseResult = poseLm.detectForVideo(video, ts + 0.001);
             let selected = centralPose(poseResult);
             let region = null;
             if (smallPose(selected)) {
-              region = drawCenteredInput(video, centerCanvas);
+              const centerX = selected ? (selected.landmarks[11].x + selected.landmarks[12].x) / 2
+                : TRACKING_SCAN_CENTERS[searchFrame++ % TRACKING_SCAN_CENTERS.length];
+              region = drawCenteredInput(video, centerCanvas, centerX);
               const cropped = centralPose(poseLm.detectForVideo(centerCanvas, ts + 0.002));
               if (cropped) selected = { ...cropped, landmarks: mapRegionLandmarks(cropped.landmarks, region, video.videoWidth, video.videoHeight) };
             }
@@ -126,7 +148,9 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
             if (features && turnAccRef.current.poseFeatures.length < 1500) turnAccRef.current.poseFeatures.push(features);
             if (plm?.some((point) => (point.visibility ?? 1) > 0.5) || handLandmarks.length) lastPersonAtRef.current = ts;
 
-            drawOverlay(canvasRef.current, video, showFaceOverlay ? faceLandmarksRef.current : null, plm, handLandmarks);
+            const faceFrame = faceLandmarksRef.current;
+            const facePoints = showFaceOverlay && faceFrame && ts - faceFrame.at < STALE_FRAME_MS ? faceFrame.landmarks : null;
+            drawOverlay(canvasRef.current, video, facePoints, plm, handLandmarks);
 
             // ---- 포즈 기하: 어깨 기울기 · 어깨중심(흔들림) · 코-어깨 거리(고개 숙임) ----
             let tiltRaw = null;
@@ -226,9 +250,10 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
               });
             }
 
-            if (ts - lastPush > LIVE_PUSH_MS) {
+            const tracking = Boolean(plm || handLandmarks.length || facePoints);
+            if (tracking !== liveRef.current.tracking || ts - lastPush > LIVE_PUSH_MS) {
               lastPush = ts;
-              const next = { status: "ready", tracking: Boolean(plm || handLandmarks.length), calibrating: base === null, tiltDeg: Math.round(tiltDeg), postureLevel, poseTracked, inferMs: Math.max(1, Math.round(inferAvg)) };
+              const next = { status: "ready", tracking, calibrating: base === null, tiltDeg: Math.round(tiltDeg), postureLevel, poseTracked, inferMs: Math.max(1, Math.round(inferAvg)) };
               const prev = liveRef.current;
               if (next.status !== prev.status || next.tracking !== prev.tracking || next.calibrating !== prev.calibrating || next.postureLevel !== prev.postureLevel || next.poseTracked !== prev.poseTracked || Math.abs(next.inferMs - prev.inferMs) > 4) {
                 liveRef.current = next;
@@ -236,13 +261,14 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
               }
             }
           } catch (error) {
+            clearTracking();
             if (!frameErrorReported) console.warn("[pose-tracking] inference failed", error);
             frameErrorReported = true;
           }
         }, SAMPLE_MS);
       } catch (error) {
         if (!cancelled) console.warn("[pose-tracking] initialization failed", error);
-        if (!cancelled) setLive((prev) => ({ ...prev, status: "failed" }));
+        if (!cancelled) { clearTracking(); publish({ status: "failed" }); }
       }
     })();
 
@@ -251,9 +277,7 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
       window.clearInterval(timer);
       pose?.close();
       hand?.close();
-      const canvas = canvasRef.current;
-      const ctx = canvas?.getContext("2d");
-      if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+      clearOverlay(canvasRef.current);
     };
   }, [mediaStream, videoRef, canvasRef, showFaceOverlay]);
 
