@@ -119,7 +119,8 @@ export function useFaceTracking(mediaStream, videoRef, canvasRef, showFaceOverla
           minTrackingConfidence: 0.3,
         });
         if (faceModel) try { face = await vision.FaceLandmarker.createFromOptions(fileset, {
-          baseOptions: { modelAssetPath: faceModel }, runningMode: "VIDEO", numFaces: 2,
+          // MediaPipe applies temporal smoothing only in single-face mode.
+          baseOptions: { modelAssetPath: faceModel }, runningMode: "VIDEO", numFaces: 1,
           outputFaceBlendshapes: false,
           minFaceDetectionConfidence: .35, minFacePresenceConfidence: .35, minTrackingConfidence: .35,
         }); } catch (error) { console.warn("[face-tracking] initialization failed", error); }

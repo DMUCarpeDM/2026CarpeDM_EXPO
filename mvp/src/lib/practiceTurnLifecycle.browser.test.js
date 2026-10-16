@@ -53,7 +53,7 @@ const finishAiSpeech = async page => {
   await page.waitForFunction(() => practice.cues.length === practice.players.length, null, { timeout: 5000 });
 };
 
-test("mirror clears submitted captions and receives separate STT and recordings across three turns", { timeout: 45000 }, async t => {
+test("mirror hides STT captions and still submits separate STT and recordings across three turns", { timeout: 45000 }, async t => {
   const fixture = await open(t), { page, responses, uploads } = fixture;
   t.after(fixture.release);
   assert.equal(await page.evaluate(() => practice.cues.length), 0, "no cue during AI speech");
@@ -63,7 +63,7 @@ test("mirror clears submitted captions and receives separate STT and recordings 
   assert.equal(await page.evaluate(() => practice.cues.length), 1, "STT recovery does not repeat the turn's cue");
   fixture.hold();
   await page.evaluate(() => practice.recognitions.at(-1).result("첫 번째 사용자 답변", false));
-  await page.getByText("첫 번째 사용자 답변", { exact: true }).waitFor();
+  assert.equal(await page.locator(".simulation-answer").count(), 0, "interim STT stays hidden");
   await page.evaluate(() => practice.recognitions.at(-1).result("첫 번째 사용자 답변"));
   await page.waitForFunction(() => practice.recorders[0].state === "inactive");
   await page.waitForTimeout(100);
@@ -75,7 +75,7 @@ test("mirror clears submitted captions and receives separate STT and recordings 
   assert.equal(await page.evaluate(() => practice.recognitions.at(-1).aborted), true);
   await finishAiSpeech(page);
   await page.evaluate(() => practice.recognitions.at(-1).result("두 번째 사용자 답변", false));
-  assert.equal(await page.locator(".simulation-answer").innerText(), "두 번째 사용자 답변");
+  assert.equal(await page.locator(".simulation-answer").count(), 0, "next-turn STT also stays hidden");
   await page.evaluate(() => practice.recognitions.at(-1).result("두 번째 사용자 답변"));
   await page.waitForFunction(() => practice.players.length === 3 && practice.players.at(-1).onended);
   await finishAiSpeech(page);
@@ -103,6 +103,6 @@ test("refreshing the same turn preserves its recorder and active transcription",
   await page.evaluate(() => practice.refreshTurn());
   await page.waitForTimeout(100);
   assert.deepEqual(await page.evaluate(() => ({ recorders: practice.recorders.length, recognitions: practice.recognitions.length })), before);
-  assert.equal(await page.locator(".simulation-answer").innerText(), "이어서 말하는 답변");
+  assert.equal(await page.locator(".simulation-answer").count(), 0, "same-turn refresh does not expose STT");
   assert.equal(await page.evaluate(() => practice.recorders.at(-1).state), "recording");
 });
