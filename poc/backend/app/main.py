@@ -213,11 +213,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from app.api import voice
+from app.api import voice, simulation_chat
 
 for router in (
     auth.router, scenarios.router, sessions.router, reports.router, voice.router,
-    admin.router, codes.router, orgs.router, nfc.router, tts.router,
+    admin.router, codes.router, orgs.router, nfc.router, tts.router, simulation_chat.router,
 ):
     app.include_router(router, prefix="/api")
 

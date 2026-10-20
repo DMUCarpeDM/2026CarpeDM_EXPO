@@ -16,16 +16,7 @@ const examples = {
     answer: "사용자의 불편을 해결하는 개발자가 되고 싶습니다.",
     detail: "팀 프로젝트에서 예약 과정을 간소화하며, 작은 변화가 사용 경험을 바꾼다는 걸 배웠습니다.",
     feedback: "지원 이유를 먼저 말한 점이 좋아요. 직접 해결한 문제를 한 가지 덧붙여보세요.",
-    action: "결론 뒤에 경험 한 문장 붙이기", start: "연습할 직무 고르기",
-  },
-  training: {
-    label: "직업훈련", headline: ["처음 하는 일도,", "한 단계씩."],
-    description: "주문을 듣고, 확인하고, 안내하는 순간까지. 현장에서 필요한 말을 미리 연습해요.",
-    context: "카페 · 주문 확인", question: "아이스 아메리카노 한 잔, 포장해 주세요.",
-    answer: "아메리카노 한 잔 맞으실까요?",
-    detail: "아이스 아메리카노 한 잔, 포장으로 준비해 드리겠습니다.",
-    feedback: "음료 수량을 확인했어요. 온도와 포장 여부도 함께 말하면 주문이 더 정확해져요.",
-    action: "음료 · 온도 · 수량 · 포장 여부 확인하기", start: "연습할 직무 고르기",
+    action: "결론 뒤에 경험 한 문장 붙이기", start: "면접 연습하기",
   },
   workplace: {
     label: "직장대화", headline: ["어려운 대화도,", "내 말로."],
@@ -99,7 +90,7 @@ export function StudioIntro({ mode, onNext }) {
     <section className="mode-section studio-hero">
       <HeroBackdrop />
       <div className="studio-hero__copy">
-        <h1>{example.headline[0]} <em>{example.headline[1]}</em></h1>
+        <h2 className="studio-headline">{example.headline[0]} <em>{example.headline[1]}</em></h2>
         <p>{example.description}</p>
         <div className="studio-hero__actions"><Button size="lg" type="button" onClick={onNext}>{example.start}<ArrowRight size={18} /></Button><Button size="lg" variant="outline" type="button" onClick={() => scrollToSection(walkthroughId)}>어떻게 연습하나요?</Button></div>
       </div>

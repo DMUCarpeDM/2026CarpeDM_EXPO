@@ -1,6 +1,6 @@
 from app.services import context_scoring, interaction_scoring
 from app.services.interaction_scoring import public_total
-from app.services import interaction, judgments, response_judgment, feedback, contradictions, interview, cafe
+from app.services import interaction, judgments, response_judgment, feedback, contradictions, interview
 import secrets
 import time
 import uuid
@@ -181,7 +181,11 @@ def create_session(
     # 개인정보 처리 동의 게이트 (PIPA — 수집 전 동의). 정상 흐름은 항상 동의 후 호출된다.
     if not body.consent.agreed:
         raise HTTPException(status_code=400, detail="개인정보 처리에 대한 동의가 필요합니다")
-    # 준비된 첫 대사로 시작한다. 이후 AI 호출 실패 시 현재 턴을 유지한다.
+    if body.scenario_prompt and (body.nfc_uid or body.exhibition or body.selected_episode_id or body.scenario_slug):
+        raise HTTPException(status_code=422, detail="프롬프트 생성은 준비된 시나리오·NFC·전시 자동 시작과 함께 요청할 수 없습니다")
+    if body.scenario_prompt and len(body.scenario_prompt.strip()) < 10:
+        raise HTTPException(status_code=422, detail="연습하고 싶은 상황을 10자 이상 적어주세요")
+    # 프롬프트 입력은 이번 요청에서 새 장면과 첫 대사를 생성한다. 이후 AI 호출 실패 시 현재 턴을 유지한다.
 
     # NFC 시작 (S-B2B-NFC): 태그된 카드가 직무·시나리오를 결정한다.
     # 등록되지 않은 카드는 404 — 프론트가 수동 카드 선택 폴백을 띄운다.
@@ -213,8 +217,6 @@ def create_session(
             job_role = card.job_role or job_role
             if not scenario_slug:
                 scenario_slug = card.scenario_slug or DEFAULT_PACK_BY_ROLE.get(card.job_role, "")
-            if card.job_role == "cafe_crew" and scenario_slug == "ondo-cafe-crew":
-                scenario_slug = "cafe-order-taking"
             # 기관 스탬프는 '최근 실물 태그 증거'가 있을 때만 인정한다. 카드 UID는
             # 비밀이 아니라(휴대폰으로 읽힘) UID 지식만으로 기관 귀속을 허용하면
             # 익명 공격자가 타 기관 대시보드·KPI에 세션을 무한 주입할 수 있다.
@@ -254,19 +256,28 @@ def create_session(
     if body.service_mode == "workplace" and not body.nfc_uid and not scenario_slug:
         scenario_slug = WORKPLACE_SLUG
     query = db.query(Scenario).filter_by(is_active=True)
-    if not scenario_slug and body.service_mode in {"interview", "training"}:
-        scenario_slug = (f"interview-{job_role if job_role in {'fullstack', 'marketing', 'sales'} else 'fullstack'}"
-                         if body.service_mode == "interview" else "cafe-order-taking")
-    scenario = (
-        query.filter_by(slug=scenario_slug).first()
-        if scenario_slug else query.first()
-    )
+    if not scenario_slug and body.service_mode == "interview":
+        scenario_slug = f"interview-{job_role if job_role in {'fullstack', 'marketing', 'sales'} else 'fullstack'}"
+    if body.scenario_prompt:
+        from app.services import prompt_scenario
+        try:
+            scenario = prompt_scenario.create_scenario(db, body.scenario_prompt.strip(), body.service_mode, body.difficulty, job_role)
+        except DialogueGenerationError as error:
+            db.rollback()
+            raise HTTPException(status_code=503, detail="AI가 상황을 만들지 못했어요. 입력은 유지됩니다. 잠시 후 다시 시작해주세요.") from error
+    else:
+        scenario = (
+            query.filter_by(slug=scenario_slug).first()
+            if scenario_slug else query.first()
+        )
     if scenario is None:
         raise HTTPException(status_code=404, detail="시나리오를 찾을 수 없습니다")
+    if scenario.slug in {"cafe-order-taking", "ondo-cafe-crew", "ondo-cs-agent"} or "training" in (scenario.world_setting or {}).get("service_modes", []):
+        raise HTTPException(status_code=410, detail="더 이상 제공하지 않는 시나리오입니다")
     allowed_modes = (scenario.world_setting or {}).get("service_modes")
     if allowed_modes and body.service_mode not in allowed_modes:
         raise HTTPException(status_code=422, detail="선택한 시나리오는 해당 서비스에서 사용할 수 없습니다")
-    if body.service_mode == "interview" and body.difficulty != "basic":
+    if not body.scenario_prompt and body.service_mode == "interview" and body.difficulty != "basic":
         raise HTTPException(status_code=422, detail="현재는 신입 일반면접만 지원합니다")
     # 직무 미지정이면 시나리오 팩의 직무를 따른다 (팩 기반 세션의 대시보드 집계 축)
     if not job_role:
@@ -335,7 +346,7 @@ def create_session(
     provider = get_dialogue_provider()
     spec = provider.first_question(session, _selected_episodes(session, scenario))
     # 첫 대사는 시나리오가 정한 역할·상황을 방문객에게 정확히 전달해야 한다.
-    # 따라서 LLM은 첫 응답을 받은 다음 질문부터만 문장을 개인화한다.
+    # 프롬프트 장면도 생성 결과의 첫 대사를 재사용해 추가 생성 호출 없이 시작한다.
     turn = _create_turn(db, session, spec, order=1)
     kiosk_link_status = _link_kiosk_session(db, session) if kiosk_snapshot else "not_requested"
 
@@ -653,11 +664,6 @@ def submit_response(
             # [추가] 미측정(unmeasured) 등 실패 시 에러 상태를 판정에 기록합니다.
             judgment["analysis_status"] = analysis_status
             
-    elif flow_before.get("cafe"):
-        judgment["events"] = [e for e in judgment["events"] if e["area"] != "response"]
-        judgment["measured"] = [a for a in judgment["measured"] if a != "response"]
-        judgment["met_goals"] = []
-        judgment["cafe_assessment"] = cafe.analyze(turn, turns, flow_before)
     elif flow_before:
         # 주의: 현재는 keywords가 있는 항목만 목표 분석에 보냅니다.
         # 면접 질문에도 항목별 기준을 붙이려면 이 조건과 interaction.py의 질문 형식을 함께 수정하세요.

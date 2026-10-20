@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Check } from "reicon-react/icons/Check";
 import { ChevronRight } from "reicon-react/icons/ChevronRight";
-import cafeOndoLogo from "../assets/brand/cafe-ondo-logo.svg";
-import cafeOndoMark from "../assets/brand/cafe-ondo-mark.svg";
 import { currentDeploymentServiceMode } from "../lib/deploymentServiceMode";
 import { WORKPLACE_SCENARIO_SLUG } from "../lib/workplaceTrack";
 import { JOB_ROLES, isValidUid } from "../lib/nfc";
@@ -97,7 +95,7 @@ export function KioskIssuePage() {
   return (
     <main className="kiosk-issue-screen" data-stage={stage}>
       <header className="kiosk-issue-brand">
-        {workplace ? <strong>Mirror-Ting</strong> : <img src={cafeOndoLogo} alt="카페 온도 (CAFE ONDO)" />}
+        <strong>Mirror-Ting</strong>
         <span className="kiosk-issue-badge">직무 카드 발급</span>
       </header>
 
@@ -113,7 +111,7 @@ export function KioskIssuePage() {
                   className={`kiosk-role-card ${role.brand}`}
                   onClick={() => { setJobRole(role); setConsentAgreed(false); setStage(workplace ? "consent" : "wait"); }}
                 >
-                  <img src={cafeOndoMark} alt="" aria-hidden="true" />
+                  <img src="/icons/mirror-ting-mark-slim.png" alt="" aria-hidden="true" />
                   <strong>{role.label}</strong>
                   <small>{role.text}</small>
                   <em>카드 발급하기 <ChevronRight size={15} aria-hidden="true" /></em>
@@ -136,7 +134,7 @@ export function KioskIssuePage() {
             <div className="kiosk-tap-zone" aria-hidden="true">
               <span className="kiosk-tap-ripple" />
               <span className="kiosk-tap-ripple delay" />
-              <span className="kiosk-tap-card"><img src={cafeOndoMark} alt="" /></span>
+              <span className="kiosk-tap-card"><img src="/icons/mirror-ting-mark-slim.png" alt="" /></span>
             </div>
             <h1>{busy ? "카드를 발급하고 있어요" : "카드를 리더에 올려주세요"}</h1>
             <p className="kiosk-issue-sub">

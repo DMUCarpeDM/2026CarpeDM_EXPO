@@ -3,10 +3,6 @@ import teamLeadListening from "../assets/team-lead-videos/team-lead-listening.mp
 import teamLeadNegative from "../assets/team-lead-videos/team-lead-negative.mp4";
 import teamLeadPositive from "../assets/team-lead-videos/team-lead-positive.mp4";
 import teamLeadSpeaking from "../assets/team-lead-videos/team-lead-speaking.mp4";
-import cafeComplaintListening from "../assets/team-lead-videos/team-lead-complaint-listening.mp4";
-import cafeComplaintReaction from "../assets/team-lead-videos/team-lead-complaint-reaction.mp4";
-import cafeListening from "../assets/team-lead-videos/team-lead-listening-smile.mp4";
-import cafeSpeaking from "../assets/team-lead-videos/team-lead-speaking-smile.mp4";
 import morningSpeakingBase from "../assets/workplace-videos/morning/speaking-base.mp4";
 import morningJoy from "../assets/workplace-videos/morning/joy.mp4";
 import morningDisappointment from "../assets/workplace-videos/morning/disappointment.mp4";
@@ -90,17 +86,6 @@ export const CHARACTER_MEDIA = {
       listening: teamLeadListening,
       positive: teamLeadPositive,
       negative: teamLeadNegative,
-    },
-  },
-  angry_customer: {
-    name: "강선우",
-    chromaKey: true,
-    reactionStates: ["negative_reaction"],
-    videos: {
-      speaking: cafeSpeaking,
-      listening: cafeListening,
-      negative_reaction: cafeComplaintReaction,
-      negative: cafeComplaintListening,
     },
   },
   // 직장대화 팩(workplace-conversation) — 기본말하기를 루프하고 감정 클립은 1회 재생 후 복귀

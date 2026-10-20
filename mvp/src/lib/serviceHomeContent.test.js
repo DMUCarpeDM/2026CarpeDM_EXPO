@@ -4,13 +4,11 @@ import { resolveServiceHomeContent, serviceHomeContent } from "../data/serviceHo
 
 const EXPECTED_VALUES = {
   interview: "실전 압박·질문 대응",
-  training: "과업 수행·코칭",
   workplace: "협업·보고·피드백",
 };
 
 const EXPECTED_CTAS = {
   interview: "면접 상황 고르기",
-  training: "훈련 상황 고르기",
   workplace: "연습 시작하기",
 };
 
@@ -29,9 +27,9 @@ const EXISTING_HOME_FIT_LABELS = [
   "자세 (Posture-Fit)",
 ];
 
-const modeIds = ["interview", "training", "workplace"];
+const modeIds = ["interview", "workplace"];
 
-test("selected-mode home registry keeps the exact three-mode content contract", () => {
+test("selected-mode home registry keeps the exact two-mode content contract", () => {
   // Given: the frontend-only registry and the existing shared home content.
   // When: each supported mode record is inspected.
   // Then: IDs, copy, Korean context, tone, and content references are complete.
@@ -68,7 +66,6 @@ test("resolver returns the selected record and workplace for missing or invalid 
   // When: the frontend resolver is called for each lookup.
   // Then: valid IDs resolve directly and every invalid boundary input falls back to workplace.
   assert.strictEqual(resolveServiceHomeContent("interview"), serviceHomeContent.interview);
-  assert.strictEqual(resolveServiceHomeContent("training"), serviceHomeContent.training);
   assert.strictEqual(resolveServiceHomeContent("workplace"), serviceHomeContent.workplace);
   assert.strictEqual(resolveServiceHomeContent(), serviceHomeContent.workplace);
   assert.strictEqual(resolveServiceHomeContent("invalid"), serviceHomeContent.workplace);

@@ -73,6 +73,20 @@ test("createSession preserves ultra pressure for the persona prompt", async () =
   assert.equal(JSON.parse(calls[0].options.body).difficulty, "ultra_pressure");
 });
 
+test("prompt generation replaces the selected catalog scenario and episode", async () => {
+  let sent;
+  globalThis.fetch = async (_url, options) => {
+    sent = JSON.parse(options.body);
+    return new Response(JSON.stringify({ id: 100 }), { headers: { "Content-Type": "application/json" } });
+  };
+  await createSession({ scenarioPrompt: "팀장과 프로젝트 일정과 범위를 협의하는 상황을 연습하고 싶습니다.",
+    scenarioSlug: "old-scenario", selectedEpisodeId: 42, serviceMode: "workplace", difficulty: "pressure", mode: 5, consent: true });
+  assert.ok(sent.scenario_prompt);
+  assert.equal("scenario_slug" in sent, false);
+  assert.equal("selected_episode_id" in sent, false);
+  assert.equal(sent.difficulty, "pressure");
+});
+
 // NFC 시작(S-B2B-NFC): nfc_uid·job_role은 카드 흐름일 때만 실린다 — 기존 계약을 오염시키지 않는다.
 test("createSession stamps the NFC card fields only when provided", async () => {
   const calls = [];
@@ -448,4 +462,16 @@ test("workplace WAV encoding starts only after playback release, and final repor
   assert.equal(retained, true);
   assert.ok(calls[1].endsWith("/audio"));
   assert.ok(calls[2].endsWith("/finish"));
+});
+
+
+test("signed-in session creation preserves JSON content type with account authorization", async () => {
+  let sent;
+  globalThis.fetch = async (_url, options) => {
+    sent = options;
+    return new Response(JSON.stringify({ id: 100 }), { headers: { "Content-Type": "application/json" } });
+  };
+  await createSession({ accountToken: "test-account", scenarioPrompt: "팀장에게 진행 상황을 보고하는 연습을 하고 싶습니다.", consent: true, mode: 5 });
+  assert.equal(sent.headers.Authorization, "Bearer test-account");
+  assert.equal(sent.headers["Content-Type"], "application/json");
 });

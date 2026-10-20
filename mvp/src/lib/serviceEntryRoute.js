@@ -10,12 +10,16 @@ export const SERVICE_ENTRY_FLOW = [
   { id: "records", label: "결과 및 기록" },
   { id: "service", label: "서비스 모드 선택" },
   { id: "home", label: "메인" },
+  { id: "simulation-chat", label: "AI와 연습 준비" },
   { id: "role", label: "직무 선택" },
   { id: "scenario", label: "시나리오 선택" },
   { id: "difficulty", label: "난이도 선택" },
   { id: "preview", label: "시나리오 미리보기" },
   { id: "practice", label: "AI와 연습하기" },
   { id: "result", label: "결과 보고서" },
+  { id: "pricing", label: "요금제" },
+  { id: "login", label: "로그인" },
+  { id: "signup", label: "가입" },
 ];
 
 const DIRECT_DEMO_VIEWS = new Set(["result", "records", ...LEGACY_REPORT_VIEWS]);
@@ -53,4 +57,9 @@ export function isKnownView(view) {
 
 export function isChromelessView(view) {
   return CHROMELESS_VIEWS.has(view);
+}
+
+// The web practice flow is being replaced; mirror deployments keep their existing flow.
+export function currentScreenDestination(target, mirror) {
+  return !mirror && ["role", "scenario", "difficulty", "preview", "practice", "result", "feedback", "compare", "share"].includes(target) ? "home" : target;
 }

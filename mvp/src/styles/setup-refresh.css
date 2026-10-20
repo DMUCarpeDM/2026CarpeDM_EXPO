@@ -591,3 +591,7 @@
   .setup-flow-page .choice-card.ui-button,
   .setup-flow-page .ui-button { transition: none; }
 }
+.prompt-scenario-label { display: block; margin: 28px 0 12px; font-weight: 700; }
+.prompt-scenario-input { width: 100%; padding: 20px; resize: none; min-height: 220px; border: 1px solid var(--border, #cfd6e3); border-radius: 16px; background: var(--surface, #fff); color: inherit; font: inherit; line-height: 1.8; }
+.prompt-scenario-input:focus-visible { outline: 3px solid #829cff; outline-offset: 3px; }
+.prompt-scenario-summary { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.9; }

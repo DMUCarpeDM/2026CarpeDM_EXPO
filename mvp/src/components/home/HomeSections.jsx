@@ -34,11 +34,11 @@ export function ProcessCard({ icon: Icon, number, title, text, compact = false }
   return <article className={`process-card ${compact ? "process-card--compact" : ""}`}><span>{number}</span><i className="mode-icon"><Icon size={21} /></i><h3>{title}</h3><p>{text}</p></article>;
 }
 
-export function FooterCta({ title, text, button, onNext }) {
+export function FooterCta({ title, text, button, onNext, composer }) {
   return (
-    <section className="mode-footer-cta">
+    <section className={`mode-footer-cta${composer ? " mode-footer-cta--prompt" : ""}`}>
       <div><h2>{title}</h2><p>{text}</p></div>
-      <Button size="lg" type="button" onClick={onNext}>{button} <ArrowRight size={18} /></Button>
+      {composer || <Button size="lg" type="button" onClick={onNext}>{button} <ArrowRight size={18} /></Button>}
     </section>
   );
 }

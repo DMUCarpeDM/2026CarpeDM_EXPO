@@ -62,9 +62,8 @@ export function HomeMotion({ children }) {
 }
 
 const destinations = {
-  interview: ["interview-studio-tour", "interview-report", "interview-feedback"],
-  training: ["training-scenarios", ".training-practice-section", ".training-faq"],
-  workplace: ["workplace-scenarios", "workplace-studio-tour", ".workplace-feedback"],
+  interview: ["interview-overview", "interview-practice-preview", "interview-analysis"],
+  workplace: ["workplace-overview", "workplace-practice-preview", "workplace-analysis"],
 };
 
 export function HomeFooter({ mode, onNext, onModeSelect }) {
@@ -87,27 +86,27 @@ export function HomeFooter({ mode, onNext, onModeSelect }) {
           <nav aria-label="서비스 살펴보기">
             <h2>둘러보기 <span>EXPLORE</span></h2>
             <button type="button" onClick={() => jump(overview)}>연습 과정 살펴보기</button>
-            <button type="button" onClick={() => jump(preview)}>코칭 화면 미리보기</button>
-            <button type="button" onClick={() => jump(coaching)}>{mode === "training" ? "자주 묻는 질문" : "피드백 알아보기"}</button>
+            <button type="button" onClick={() => jump(preview)}>대화 예시 보기</button>
+            <button type="button" onClick={() => jump(coaching)}>피드백 알아보기</button>
           </nav>
           <nav aria-label="연습하기">
             <h2>연습하기 <span>PRACTICE</span></h2>
-            <button type="button" onClick={onNext}>{mode === "workplace" ? "연습 시작하기" : "연습할 직무 고르기"} <span aria-hidden="true">↗</span></button>
-            <button type="button" onClick={onModeSelect}>다른 모드 둘러보기 <span aria-hidden="true">↗</span></button>
+            <button type="button" onClick={onNext}>{mode === "workplace" ? "연습 시작하기" : "면접 연습하기"} <span aria-hidden="true">↗</span></button>
+            <button type="button" onClick={onModeSelect}>연습 종류 고르기 <span aria-hidden="true">↗</span></button>
           </nav>
           <section className="home-site-footer__project" aria-label="프로젝트 안내">
             <h2>함께 만드는 대화 <span>PROJECT</span></h2>
             <a href="https://github.com/DMUCarpeDM/2026CarpeDM_EXPO" target="_blank" rel="noopener noreferrer" aria-label="CarpeDM 프로젝트 (새 탭)">CarpeDM 프로젝트 <span aria-hidden="true">↗</span></a>
             <p>동양미래대학교<br />인공지능소프트웨어학과</p>
-            <p className="home-site-footer__note">중요한 대화 전에 먼저 연습해요.<br />다음 대화에서 바꿀 한 가지를 찾아보세요.</p>
+            <p className="home-site-footer__note">중요한 대화 전에 먼저 연습해요.<br />내 말과 행동을 돌아봐요.</p>
           </section>
         </div>
         <div className="home-site-footer__signature" role="img" aria-label="Mirror-Ting">
-          <img src="/icons/mirror-ting-mark-slim.png" alt="" />
-          <span aria-hidden="true">Mirror-Ting</span>
+          <span className="home-site-footer__mark" aria-hidden="true"><img src="/icons/mirror-ting-mark-slim.png" alt="" /></span>
+          <span className="home-site-footer__wordmark" aria-hidden="true">Mirror-Ting</span>
         </div>
         <div className="home-site-footer__bottom">
-          <span>말하기의 다음 장면을 함께.</span>
+          <span>다음 대화를 함께 준비해요.</span>
           <button type="button" onClick={() => jump("home-top")}>맨 위로 <span aria-hidden="true">↑</span></button>
           <small>© {new Date().getFullYear()} CarpeDM · Mirror-Ting</small>
         </div>

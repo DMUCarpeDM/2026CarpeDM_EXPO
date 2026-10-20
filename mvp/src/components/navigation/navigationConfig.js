@@ -2,9 +2,10 @@
 export const NEW_PRACTICE_TARGET = "service";
 
 export const navMap = {
-  "사이트 소개": "intro",
-  "결과 및 기록": "records",
-  "사용방법": "usage",
+  "서비스 소개": "intro",
+  "연습 기록": "records",
+  "사용 방법": "usage",
+  "요금제": "pricing",
 };
 
 export const practiceNavMap = navMap;

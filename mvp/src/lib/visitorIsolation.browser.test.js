@@ -84,8 +84,11 @@ test("a session creation arriving after reset cannot start the next visitor prac
   const { page, requestSeen, release } = await open(t, { saved: false, holdCreate: true });
   await page.locator(".home-mode-workplace").waitFor();
   await page.getByRole("button", { name: "연습 시작하기", exact: true }).first().click();
+  await page.locator("#scenario-prompt").fill("개발자로서 팀장과 일정과 범위를 협의하는 상황을 연습하고 싶습니다.");
+  await page.locator(".setup-next-button").click();
+  await page.locator(".setup-next-button").click();
   await page.getByRole("checkbox").check();
-  await page.getByRole("button", { name: "출근부터 시작하기", exact: true }).click();
+  await page.getByRole("button", { name: "동의하고 생성·시작하기", exact: true }).click();
   await requestSeen;
   await newVisitor(page);
   release();

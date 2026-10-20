@@ -1,0 +1,10 @@
+import { build } from 'vite';
+import { cp, mkdir, rename, writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+const outDir = resolve('../output/netlify-main');
+await build({ build: { outDir, emptyOutDir: true, copyPublicDir: false, rollupOptions: { input: resolve('main-only.html') } } });
+await rename(resolve(outDir, 'main-only.html'), resolve(outDir, 'index.html'));
+await mkdir(resolve(outDir, 'icons'), { recursive: true });
+for (const file of ['mirror-ting-mark-slim.png', 'favicon.ico', 'app-icon-192.png', 'app-icon-180.png']) await cp(resolve('public/icons', file), resolve(outDir, 'icons', file));
+await writeFile(resolve(outDir, '_headers'), '/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n');
+console.log(`Main-only output: ${outDir}`);

@@ -4,7 +4,7 @@ from app.services.workplace import CONTINUOUS_MODE, build_exhibition_plan, build
 
 VERSION = "interaction-v1"
 # 읽는 순서 3: 대화의 진행표입니다. 무엇을 확인했고 다음에 무엇을 물을지 기억합니다.
-# 면접은 주요 질문에 답한 수, 직무교육은 목표를 확인했는지가 진행 기준입니다.
+# 면접은 주요 질문에 답한 수, 자유 대화는 목표를 확인했는지가 진행 기준입니다.
 # '답변을 했다'와 '내용이 충분하다'는 다릅니다. 면접의 met는 현재 질문 응답 기록입니다.
 MAX_RETRIES = 2
 SCRIPT_MODES = {"interview", "workplace", CONTINUOUS_MODE}
@@ -63,7 +63,7 @@ def _plan_workplace(session, scenario, episodes, rng):
 def initialize(session, scenario, episodes, service_mode, rng=None, exhibition=False):
     policy = (scenario.world_setting or {}).get("interaction") or {}
     if service_mode == "workplace" and not (scenario.world_setting or {}).get("workplace_categories"):
-        service_mode = "training"
+        service_mode = "goal_based"
     if service_mode == "interview":
         # 현재 질문은 문자열 목록입니다. 항목별 인정 기준을 넣으려면 여기의 items 구조와
         # sessions.py가 분석기에 넘기는 목표 목록을 함께 바꿔야 합니다.
@@ -103,14 +103,11 @@ def initialize(session, scenario, episodes, service_mode, rng=None, exhibition=F
                   "text": item.get("followup") or f"{item['label']} 내용을 구체적으로 말씀해 주세요."}
                  for ep in episodes for item in (ep.checklist or [])]
         if not items:
-            raise ValueError("훈련 시나리오에는 목표 체크리스트가 필요합니다.")
+            raise ValueError("대화 시나리오에는 목표 체크리스트가 필요합니다.")
         value = {"version": VERSION, "mode": service_mode, "items": items, "index": 0,
                  "attempts": {}, "met": [], "unmet": [], "unverified": [], "reason": None, "finished": False}
     if service_mode == "interview" and policy.get("interview_rubric"):
         value.update(rubric_version=rubric["version"], brief=rubric["brief"], question_results={})
-    if service_mode == "training" and policy.get("cafe_orders_version"):
-        from app.services import cafe
-        value = cafe.initialize(value, session.difficulty)
     save(session, value)
     return value
 
@@ -122,11 +119,6 @@ def advance(session, turn, turns, judgment=None):
         save(session, value)
         return value
     if not value or value.get("finished"):
-        return value
-    if value.get("cafe"):
-        from app.services import cafe
-        value = cafe.advance(value, turn, (judgment or {}).get("cafe_assessment"))
-        save(session, value)
         return value
     if value.get("rubric_version"):
         from app.services import interview
@@ -232,13 +224,6 @@ def finish_manually(session):
         value["finished"] = True
         value["reason"] = "manual"
         value["pending_confirmation"] = False
-        if value.get("cafe"):
-            from app.services import cafe
-            ids = value["cafe"]["seen_turns"]
-            outcome = cafe.result(value, ids[-1] if ids else 0)
-            value["cafe_result"] = outcome
-            value["reason"] = "goals_met" if outcome["goal_met"] else "goals_exhausted" if outcome["measured"] else "analysis_unavailable"
-            value["met"] = [item["id"] for item in value["items"]] if outcome["goal_met"] else []
         if value.get("rubric_version"):
             value["unverified"] = list(dict.fromkeys([*value.get("unverified", []), *[item["id"] for item in value["items"] if item["id"] not in value["met"] + value["unmet"]]]))
         else:

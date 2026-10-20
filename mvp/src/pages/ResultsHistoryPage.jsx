@@ -22,26 +22,26 @@ export function ResultsHistoryPage(props) {
     <section className="page public-page records-page">
       <header className="public-hero public-hero--compact">
         <p className="public-eyebrow">MIRROR-TING / 돌아보기</p>
-        <h1>결과 및 기록</h1>
-        <p>잘한 점은 기억하고, 바꿀 점은 다음 대화로. 연습을 마치면 이곳에서 현재 결과를 확인해요.</p>
+        <h1>연습 기록</h1>
+        <p>현재 연습의 피드백과 최근 기록을 확인해요.</p>
       </header>
 
       <section className="records-summary" aria-label="현재 결과 안내">
         <Card className="public-feature-card records-current-card">
           <CardContent>
             <span className="public-icon public-icon--blue"><IconGlyph icon="report" size={28} /></span>
-            <div><h2>아직 완료된 리포트가 없어요.</h2>
-            <p>연습을 마치면 응답·목소리·표정·자세의 4-Fit 결과와 다음에 바꿀 행동을 확인할 수 있어요.</p></div>
-            <Button size="lg" type="button" onClick={onPractice}>연습 홈으로 가기 <ArrowRight size={18} aria-hidden="true" /></Button>
+            <div><h2>아직 확인할 피드백이 없어요</h2>
+            <p>연습을 마치면 답변·목소리·표정·자세의 4-Fit 결과와 다음에 바꿀 행동을 확인할 수 있어요.</p></div>
+            <Button size="lg" type="button" onClick={onPractice}>연습할 상황 적기 <ArrowRight size={18} aria-hidden="true" /></Button>
           </CardContent>
         </Card>
       </section>
 
       <section className="public-section" aria-labelledby="records-list-title">
         <div className="public-section__copy">
-          <p className="public-eyebrow">연습 히스토리</p>
+          <p className="public-eyebrow">연습 기록</p>
           <h2 id="records-list-title">최근 기록</h2>
-          <p>불러온 최근 기록을 최대 3개까지 표시해요. 이전 리포트 상세 조회는 준비 중이에요.</p>
+          <p>최근 기록을 최대 3개까지 보여드려요. 이전 피드백의 상세 화면은 준비 중이에요.</p>
         </div>
         <div className="records-list">
           {recentItems.length ? recentItems.map((item, index) => (
@@ -59,8 +59,8 @@ export function ResultsHistoryPage(props) {
             <Card className="records-empty">
               <CardContent>
                 <IconGlyph icon="shield" size={28} />
-                <h3>현재 불러온 기록이 없어요</h3>
-                <p>아직 연습을 마치지 않았거나 기록을 불러오지 못했을 수 있어요. 저장된 기록이 없다는 뜻은 아니에요.</p>
+                <h3>최근 기록을 확인할 수 없어요</h3>
+                <p>아직 완료한 연습이 없거나 기록을 불러오지 못했을 수 있어요.</p>
               </CardContent>
             </Card>
           )}

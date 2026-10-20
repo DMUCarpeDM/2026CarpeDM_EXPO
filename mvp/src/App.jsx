@@ -1,3 +1,4 @@
+import { readAccount } from "./lib/accountApi";
 import { microphoneConstraints, preferredUsbMicrophone, requestMicrophone } from "./lib/microphoneInput";
 import { enumerateCaptureDevices, requestCapture } from "./lib/mediaRequest";
 import { isMirrorDeployment } from "./features/smart-mirror/lib/workplaceMirrorTimeline";
@@ -146,7 +147,7 @@ export default function App() {
   const entry = useServiceEntryRoute({ kioskIssueMode: KIOSK_ISSUE_MODE, requestExerciseMedia, visitorEpochRef, onVisitorReset: resetVisitorMedia });
   const {
     active, selectedServiceModeId, counterpartProfile, difficulty,
-    session, turn, report, pocScenarioSlug, selectedEpisodeId, nfcCard, consented, directMirrorEntry,
+    session, turn, report, pocScenarioSlug, selectedEpisodeId, nfcCard, consented, directMirrorEntry, scenarioPrompt,
   } = entry.state;
   const {
     setSession, setTurn, setTurnHistory, setTurnSignals, setReport, setHistory,
@@ -165,7 +166,8 @@ export default function App() {
   const visibleScenarios = apiScenarios.filter((item) => !item.world_setting?.service_modes || item.world_setting.service_modes.includes(selectedServiceMode.id));
   const roleScenarioOptions = getRoleScenarioOptions(visibleScenarios, counterpartProfile, mode);
   const selectedScenarioOption = roleScenarioOptions.find((item) => item.episodeId === selectedEpisodeId) || null;
-  const previewScenario = apiScenarios.find((item) => item.slug === (nfcCard?.scenarioSlug || selectedScenarioOption?.scenarioSlug || pocScenarioSlug)) || {};
+  const promptMode = !isMirrorDeployment() && !nfcCard && Boolean(scenarioPrompt.trim());
+  const previewScenario = promptMode ? { title: "입력한 상황으로 새 연습 만들기", description: scenarioPrompt, world_setting: { source: "user_prompt_pending" }, episodes: [], characters: [] } : apiScenarios.find((item) => item.slug === (nfcCard?.scenarioSlug || selectedScenarioOption?.scenarioSlug || pocScenarioSlug)) || {};
   const previewEpisode = nfcCard ? null : previewScenario.episodes?.find((item) => item.id === selectedEpisodeId) || null;
 
   useEffect(() => {
@@ -276,10 +278,12 @@ export default function App() {
       const nextSession = prepared || await createSession({
         exhibition: mirror,
         serviceMode: selectedServiceModeId || selectedServiceMode.id,
-        difficulty: workplace ? "basic" : (difficulty || "basic"),
+        accountToken: !isMirrorDeployment() ? readAccount()?.access_token : undefined,
+        difficulty: workplace && !promptMode ? "basic" : (difficulty || "basic"),
         mode,
-        scenarioSlug: mirror || workplace ? WORKPLACE_SCENARIO_SLUG : (previewScenario.slug || nfcCard?.scenarioSlug),
-        selectedEpisodeId: workplace || nfcCard ? null : selectedEpisodeId,
+        scenarioSlug: promptMode ? undefined : mirror || workplace ? WORKPLACE_SCENARIO_SLUG : (previewScenario.slug || nfcCard?.scenarioSlug),
+        scenarioPrompt: promptMode ? scenarioPrompt.trim() : undefined,
+        selectedEpisodeId: promptMode || workplace || nfcCard ? null : selectedEpisodeId,
         jobRole: nfcCard?.jobRole,
         nfcUid: nfcCard?.uid || "",
         kioskSessionId: nfcCard?.kioskSessionId,

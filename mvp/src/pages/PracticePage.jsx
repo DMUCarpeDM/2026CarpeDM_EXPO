@@ -11,7 +11,6 @@ import { Refresh3 } from "reicon-react/icons/Refresh3";
 import { TrackingOverlay, ChatBubble } from "../components/practice/PracticePresentation";
 import { CounterpartVideo } from "../components/practice/CounterpartVideo";
 import { hasCharacterVideo } from "../data/characterMedia";
-import cafeCounterpartBackground from "../assets/cafe-counterpart-background.png";
 import { isMirrorDeployment } from "../features/smart-mirror/lib/workplaceMirrorTimeline";
 import { useVoiceCalibration } from "../lib/useVoiceCalibration";
 import { captureSettings, sameCapture } from "../lib/voiceCapture";
@@ -79,7 +78,6 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   const character = scenario?.characters?.find((item) => item.id === turn?.character_id) || scenario?.characters?.[0];
   const characterName = character?.name || "AI 상대";
   const isTeamLead = character?.id === "kim_teamlead";
-  const isCafeCounterpart = scenario?.slug === "ondo-cafe-crew" && character?.id === "angry_customer";
   const hasCounterpartVideo = hasCharacterVideo(character?.id);
   // 상대 영상이 있는 경우 상대를 먼저 보여주고, 내 분석 화면으로 전환할 수 있다.
   const [stageView, setStageView] = useState("counterpart");
@@ -90,11 +88,10 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
 
   const workplace = isWorkplaceSession(session);
   const isWorkplaceCounterpart = workplace && hasCounterpartVideo;
-  const isChromaCounterpart = isCafeCounterpart && !mirrorMain;
   useEffect(() => {
-    // 카페·직장대화는 AI 상대 영상을 메인, 내 카메라는 우측 상단 PIP로 둔다.
-    if (isCafeCounterpart || isWorkplaceCounterpart) setStageView("counterpart");
-  }, [isCafeCounterpart, isWorkplaceCounterpart]);
+    // 직장대화는 AI 상대 영상을 메인, 내 카메라는 우측 상단 PIP로 둔다.
+    if (isWorkplaceCounterpart) setStageView("counterpart");
+  }, [isWorkplaceCounterpart]);
   const sceneBriefing = workplaceBriefing(session?.interaction);
   const [sceneBriefingOpen, setSceneBriefingOpen] = useState(workplace);
   const briefingButtonRef = useRef(null);
@@ -157,19 +154,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
   }, [workplace, turn?.id, turn?.question_text]);
   useEffect(() => {
     if (!turnSignals?.case) return undefined;
-    if (isCafeCounterpart) {
-      const mood = turnSignals.emotion?.state;
-      if (mood === "agitated") {
-        // 격앙: 6초 불만 반응 뒤 불만 듣기 영상으로 이어진다.
-        setTeamLeadReaction("negative_reaction");
-      } else if (mood === "displeased") {
-        setTeamLeadReaction("negative");
-      } else if (turnSignals.observation?.issues?.length || turnSignals.case === "risky") {
-        setTeamLeadReaction("negative_reaction");
-      } else {
-        setTeamLeadReaction("");
-      }
-    } else if (workplace) {
+    if (workplace) {
       setTeamLeadReaction(pickWorkplaceEmotion({ text: turn?.question_text || "", turnSignals }));
     } else if (isTeamLead && ["excellent", "covered"].includes(turnSignals.case)) {
       setTeamLeadReaction("positive");
@@ -178,7 +163,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
     } else {
       setTeamLeadReaction("");
     }
-  }, [isCafeCounterpart, isTeamLead, workplace, turn?.question_text, turnSignals]);
+  }, [isTeamLead, workplace, turn?.question_text, turnSignals]);
   // TTS 진단 메시지는 세션당 한 번만 분석 로그에 남긴다 (턴마다 반복하면 소음)
   const ttsNotesRef = useRef(new Set());
   const ttsNoteOnce = (msg) => {
@@ -591,7 +576,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
         <div className="practice-contextbar-right">
           <span className="practice-timer"><i className="rec-dot" aria-hidden="true" />{formatClock(elapsed)}</span>
           <button type="button" className="practice-utility" aria-pressed={paused} onClick={() => setPaused((value) => !value)}>{paused ? <><Play size={16} /> 연습 재개</> : <><Pause size={16} /> 일시정지</>}</button>
-          <button type="button" className="practice-end" onClick={() => setConfirmEnd(true)}><Power size={16} /> {scenario?.slug === "cafe-order-taking" ? "주문 접수 완료" : "연습 종료"}</button>
+          <button type="button" className="practice-end" onClick={() => setConfirmEnd(true)}><Power size={16} /> 연습 종료</button>
         </div>
       </div>
 
@@ -602,8 +587,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
           <h2 id="practice-question">{turnSpeech || "다음 질문을 준비하고 있어요."}</h2>
         </section>
         <section
-          className={`practice-camera ${isChromaCounterpart ? "is-cafe-counterpart" : ""}`}
-          style={isCafeCounterpart && !mirrorMain ? { "--counterpart-background": `url(${cafeCounterpartBackground})` } : undefined}
+          className="practice-camera"
           aria-label={hasCounterpartVideo ? "AI 상대 반응 영상" : "연습 카메라"}
         >
           <div className={`camera-user-feed ${mirrorMain ? "is-main" : "is-pip"}`} aria-label={mirrorMain ? "내 카메라 미러" : "내 모습 미리보기"}>
@@ -619,7 +603,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
               <small className={mediaHint.error ? "is-error" : ""}>{mediaHint.text}</small>
             </div>}
           </> : <>
-            <CounterpartVideo characterId={character?.id} state={teamLeadVideoState} name={characterName} paused={paused} onReactionComplete={() => setTeamLeadReaction(isCafeCounterpart ? "negative" : "")} />
+            <CounterpartVideo characterId={character?.id} state={teamLeadVideoState} name={characterName} paused={paused} onReactionComplete={() => setTeamLeadReaction("")} />
           </>}
           <div className="camera-topline left">
             <span className="camera-live-chip"><b><i aria-hidden="true" />LIVE</b>{mirrorMain ? "내 모습 분석" : "AI 상대"}</span>
@@ -713,7 +697,7 @@ export function PracticePage({ onPrev, onFinish, session, scenario, aiHealth, tu
       {confirmEnd && <dialog ref={confirmDialogRef} className="practice-briefing practice-confirm" aria-label="연습 종료 확인" onKeyDown={containDialogTab} onCancel={() => setConfirmEnd(false)}>
         <div className="practice-briefing-card">
           <span className="briefing-kicker">확인</span>
-          <h2>{scenario?.slug === "cafe-order-taking" ? "주문 접수를 완료할까요?" : "연습을 종료할까요?"}</h2>
+          <h2>연습을 종료할까요?</h2>
           <p className="briefing-situation">지금까지 제출한 답변으로 결과를 확인합니다. 남은 질문과 목표는 완료 처리하지 않아요.</p>
           <div className="briefing-foot confirm-foot">
             <button type="button" className="confirm-stay" onClick={() => setConfirmEnd(false)}>계속 연습</button>

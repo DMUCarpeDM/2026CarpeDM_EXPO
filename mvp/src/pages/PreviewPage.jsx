@@ -9,6 +9,7 @@ import { InterviewPreflight } from "../components/setup/InterviewPreflight";
 import { WorkplaceMirrorPreflight } from "../features/smart-mirror/components/WorkplaceMirrorPreflight";
 import { isMirrorDeployment } from "../features/smart-mirror/lib/workplaceMirrorTimeline";
 import { WorkplacePreflight } from "../components/setup/WorkplacePreflight";
+import { PromptPreflight } from "../components/setup/PromptPreflight";
 
 export function PreviewPage({ serviceMode, onNext, onPrev, onPrepare, previewKey, starting, scenario, selectedEpisode, counterpartProfile, difficulty, aiHealth, consented, onConsent, error, permissionState, mode = 5 }) {
   const resolvedServiceMode = resolveServiceMode(serviceMode?.id);
@@ -41,6 +42,7 @@ export function PreviewPage({ serviceMode, onNext, onPrev, onPrepare, previewKey
     { icon: "eye", label: "카메라", value: permissionState.camera === "granted" ? "권한 허용됨" : "시작할 때 확인" },
   ];
 
+  if (scenario?.world_setting?.source === "user_prompt_pending") return <PromptPreflight prompt={scenario.description} {...{ serviceMode: resolvedServiceMode, difficulty, consented, onConsent, starting, onNext, onPrev, error }} />;
   if (focused) return <InterviewPreflight {...{ facts, mode, lead, objectives, aiReady, permissionState, consented, onConsent, starting, onNext, onPrev, error }} />;
   if (workplace && isMirrorDeployment()) return <><WorkplaceMirrorPreflight key={previewKey} {...{ mode, consented, starting, onNext, error, onPrepare }} />{permissionState.microphone === "granted" && permissionState.camera !== "granted" && <p className="mirror-media-notice" role="status">카메라가 연결되지 않아 음성 대화로 진행해요. 표정·자세 분석은 제공되지 않아요.</p>}</>;
   if (workplace) return <WorkplacePreflight {...{ mode, aiReady, permissionState, consented, onConsent, starting, onNext, error }} />;

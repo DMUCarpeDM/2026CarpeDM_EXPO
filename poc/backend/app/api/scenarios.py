@@ -8,6 +8,10 @@ from app.schemas import ScenarioOut
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
 
 
+def available(scenario: Scenario) -> bool:
+    return scenario.is_active and scenario.slug not in {"cafe-order-taking", "ondo-cafe-crew", "ondo-cs-agent"} and "training" not in (scenario.world_setting or {}).get("service_modes", [])
+
+
 def to_scenario_out(scenario: Scenario) -> ScenarioOut:
     titles: dict[str, list[str]] = {"5": [], "10": []}
     active_episodes = sorted(
@@ -49,12 +53,12 @@ def to_scenario_out(scenario: Scenario) -> ScenarioOut:
 @router.get("", response_model=list[ScenarioOut])
 def list_scenarios(db: Session = Depends(get_db)):
     scenarios = db.query(Scenario).filter_by(is_active=True).all()
-    return [to_scenario_out(s) for s in scenarios]
+    return [to_scenario_out(s) for s in scenarios if available(s)]
 
 
 @router.get("/{slug}", response_model=ScenarioOut)
 def get_scenario(slug: str, db: Session = Depends(get_db)):
     scenario = db.query(Scenario).filter_by(slug=slug, is_active=True).first()
-    if scenario is None:
+    if scenario is None or not available(scenario):
         raise HTTPException(status_code=404, detail="시나리오를 찾을 수 없습니다")
     return to_scenario_out(scenario)

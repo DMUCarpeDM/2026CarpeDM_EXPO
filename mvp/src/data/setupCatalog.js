@@ -1,6 +1,4 @@
 import setupRoleDeveloper from "../assets/duotone/job-developer.png";
-import setupRoleCafePartner from "../assets/duotone/job-cafe-partner.png";
-import setupRoleCounselor from "../assets/duotone/job-counselor.png";
 import setupRoleMarketing from "../assets/duotone/job-marketing.png";
 import setupRoleSales from "../assets/duotone/job-sales.png";
 import setupDifficultyBasic from "../assets/duotone/difficulty-basic.png";
@@ -27,13 +25,13 @@ const SERVICE_MODE_FIELDS = [
   "emptyScenarioMessage",
   "previewEyebrow",
 ];
-const SERVICE_MODE_IDS = ["interview", "training", "workplace"];
+const SERVICE_MODE_IDS = ["interview", "workplace"];
 const SERVICE_MODE_ICONS = ["interview", "coach", "meeting"];
 const SERVICE_MODE_TONES = ["blue", "sky", "accent", "danger"];
 
 export function validateServiceModes(catalog) {
   if (!Array.isArray(catalog) || catalog.length !== SERVICE_MODE_IDS.length) {
-    throw new TypeError("serviceModes must contain exactly three entries");
+    throw new TypeError("serviceModes must contain exactly two entries");
   }
 
   catalog.forEach((mode, index) => {
@@ -76,19 +74,6 @@ const serviceModeDefinitions = [
     scenarioDescription: "지원 직무와 면접 단계에 맞는 질문으로 답변을 준비해요.",
     emptyScenarioMessage: "아직 준비된 면접 시나리오가 없어요. 다른 모드를 선택해 주세요.",
     previewEyebrow: "실전 모의면접",
-  },
-  {
-    id: "training",
-    label: "직업훈련",
-    description: "고객응대와 현장 업무를 차분히 익히는 연습",
-    detail: "고객 응대부터 동료 협업까지 현장 대화 훈련",
-    icon: "coach",
-    tone: "sky",
-    setupTitle: "어떤 업무 상황을 연습할까요?",
-    setupDescription: "현장에서 자주 만나는 대화를 골라 차분한 응대 흐름을 익혀요.",
-    scenarioDescription: "고객과 동료를 만나는 실제 업무 상황으로 연습해요.",
-    emptyScenarioMessage: "아직 준비된 직업훈련 시나리오가 없어요. 다른 모드를 선택해 주세요.",
-    previewEyebrow: "현장 업무 훈련",
   },
   {
     id: "workplace",
@@ -142,7 +127,7 @@ export function getScenarioDescription(situation = "") {
 
 export function getRoleScenarioOptions(scenarios, jobRole, mode = 5) {
   return scenarios.flatMap((scenario) => {
-    // 직장대화 전용 팩은 면접·직업훈련 선택 목록에 섞지 않는다.
+    // 직장대화 전용 팩은 면접 선택 목록에 섞지 않는다.
     if (scenario.slug === "workplace-conversation") return [];
     if (scenario.job_role !== jobRole) return [];
     const characterById = new Map(
@@ -169,14 +154,14 @@ export const setupSteps = [["1", "직무 선택"], ["2", "시나리오 선택"],
 
 export const counterpartProfiles = [
   { id: "office_admin", title: "개발자", text: "출시 일정과 우선순위를 정리해요", image: setupRoleDeveloper, icon: "role" },
-  { id: "cafe_crew", title: "카페 파트너", text: "매장에서 고객과 동료를 응대해요", image: setupRoleCafePartner, icon: "team" },
-  { id: "cs_agent", title: "상담사", text: "고객 문의를 듣고 해결 방법을 안내해요", image: setupRoleCounselor, icon: "chat" },
   { id: "fullstack", title: "풀스택 개발자", text: "신입 일반면접 · 공통 4개와 기술 2개", image: setupRoleDeveloper, icon: "role" },
   { id: "marketing", title: "마케팅", text: "신입 일반면접 · 공통 6개와 직무 2개", image: setupRoleMarketing, icon: "chat" },
   { id: "sales", title: "영업관리 / 세일즈", text: "신입 일반면접 · 공통 6개와 직무 2개", image: setupRoleSales, icon: "team" },
 ];
 
 export function profilesForMode(mode) {
-  const ids = mode === "interview" ? ["fullstack", "marketing", "sales"] : mode === "training" ? ["cafe_crew"] : ["office_admin"];
+  const ids = mode === "interview" ? ["fullstack", "marketing", "sales"] : ["office_admin"];
   return counterpartProfiles.filter((profile) => ids.includes(profile.id));
 }
+
+export const promptSetupSteps = [["1", "상황 적기"], ["2", "난이도 고르기"], ["3", "시작 전 확인"]];

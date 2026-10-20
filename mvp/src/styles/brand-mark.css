@@ -1,3 +1,8 @@
+:root {
+  --brand-mark-blue: 0 105 236;
+  --brand-mark-navy: 6 38 83;
+}
+
 .app-shell .brand-mark.brand-mark--mirror {
   width: 38px;
   height: 40px;
@@ -31,3 +36,15 @@
   height: 72px;
   object-fit: contain;
 }
+
+.top-nav .brand { align-items: center; gap: 10px; }
+.top-nav .brand > span:last-child { white-space: nowrap; line-height: 1.2; }
+.top-nav .brand .brand-mark.brand-mark--mirror {
+  width: 30.4px;
+  height: 32px;
+  margin: 0;
+}
+
+/* Center the square artwork itself, independently of its transparent margins. */
+.top-nav .brand .brand-mark.brand-mark--mirror { display: flex; align-items: center; justify-content: center; }
+.top-nav .brand .brand-mark.brand-mark--mirror img { width: 140%; height: auto; aspect-ratio: 1; flex-shrink: 0; transform: translateY(2px); }

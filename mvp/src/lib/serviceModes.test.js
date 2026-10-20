@@ -10,10 +10,9 @@ function loadSetupCatalog({ includeServiceModeCatalog = false } = {}) {
   return new Function(`${source}\nreturn { getRoleScenarioOptions, profilesForMode${catalogExports} };`)();
 }
 
-test("normal interviews expose three jobs and training only cafe", () => {
+test("normal interviews and workplace expose only their supported jobs", () => {
   const { profilesForMode } = loadSetupCatalog();
   assert.deepEqual(profilesForMode("interview").map(p => p.id), ["fullstack", "marketing", "sales"]);
-  assert.deepEqual(profilesForMode("training").map(p => p.id), ["cafe_crew"]);
   assert.deepEqual(profilesForMode("workplace").map(p => p.id), ["office_admin"]);
 });
 
@@ -82,7 +81,7 @@ test("service mode catalog keeps stable order, complete fields, and supported vi
   const ids = serviceModes.map((mode) => mode.id);
 
   // Then: display order and every field remain part of the catalog contract.
-  assert.deepEqual(ids, ["interview", "training", "workplace"]);
+  assert.deepEqual(ids, ["interview", "workplace"]);
   assert.equal(Object.isFrozen(serviceModes), true);
   for (const mode of serviceModes) {
     assert.equal(Object.isFrozen(mode), true);

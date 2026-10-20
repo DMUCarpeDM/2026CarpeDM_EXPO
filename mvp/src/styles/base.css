@@ -404,3 +404,6 @@ button:active:not(:disabled) {
   line-height: 1.55;
   font-weight: 430;
 }
+
+/* Text inputs keep their designed size across screens. */
+textarea { resize: none; }

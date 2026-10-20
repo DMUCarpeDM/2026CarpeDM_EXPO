@@ -9,17 +9,6 @@ const interviewContent = Object.freeze({
   fitOrder: Object.freeze(["응답 (Response-Fit)", "목소리 (Voice-Fit)", "표정 (Expression-Fit)", "자세 (Posture-Fit)"]),
 });
 
-const trainingContent = Object.freeze({
-  id: "training",
-  hero: "업무를 수행하며 차분한 응대와 코칭을 익혀요",
-  value: "과업 수행·코칭",
-  primaryCta: "훈련 상황 고르기",
-  recommendationContext: "고객 응대와 현장 업무를 단계별로 연습해요.",
-  tone: "sky",
-  benefitOrder: Object.freeze(["실감나는\nAI 역할극", "성장 기록으로\n한눈에 확인", "상세한\n맞춤 리포트", "자신감 있는\n커뮤니케이션", "비교하고\n더 나아지기"]),
-  fitOrder: Object.freeze(["자세 (Posture-Fit)", "응답 (Response-Fit)", "목소리 (Voice-Fit)", "표정 (Expression-Fit)"]),
-});
-
 const workplaceContent = Object.freeze({
   id: "workplace",
   hero: "보고와 피드백을 주고받으며 협업을 편하게 만들어요",
@@ -33,7 +22,6 @@ const workplaceContent = Object.freeze({
 
 export const serviceHomeContent = Object.freeze({
   interview: interviewContent,
-  training: trainingContent,
   workplace: workplaceContent,
 });
 

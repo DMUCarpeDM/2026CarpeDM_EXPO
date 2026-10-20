@@ -12,6 +12,7 @@ import { currentDeploymentServiceMode } from "./deploymentServiceMode";
 import { getSession, loadActiveSession, resolveNfcCard } from "./pocApi";
 import {
   ENTRY_LOOKUP_TIMEOUT_MS,
+  currentScreenDestination,
   SERVICE_ENTRY_FLOW,
   demoDestination,
   guardSessionDestination,
@@ -38,6 +39,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
   const [history, setHistory] = useState([]);
   const [pocScenarioSlug, setPocScenarioSlug] = useState("");
   const [selectedEpisodeId, setSelectedEpisodeId] = useState(null);
+  const [scenarioPrompt, setScenarioPrompt] = useState("");
   const [nfcCard, setNfcCard] = useState(null);
   const [nfcFallback, setNfcFallback] = useState(false);
   const [consented, setConsented] = useState(false);
@@ -54,7 +56,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
     setSession(null); setTurn(null); setTurnHistory([]); setTurnSignals(null);
     setReport(null); setHistory([]); setApiError(""); setNfcError("");
     if (!keepServiceMode) setSelectedServiceModeId(null);
-    setCounterpartProfile(null);
+    setCounterpartProfile(null); setScenarioPrompt("");
     setPocScenarioSlug(""); setSelectedEpisodeId(null); setDifficulty(null);
     setConsented(false); setDirectMirrorEntry(false); setNfcCard(null); setNfcFallback(false);
     onVisitorReset?.();
@@ -66,7 +68,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
       setConsented(false);
       setNfcFallback(false);
     }
-    setActive(target);
+    setActive(currentScreenDestination(target, isMirrorDeployment()));
     setMenuOpen(false);
   };
 
@@ -76,7 +78,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
   };
 
   const navigate = (target, serviceModeId = selectedServiceModeId) => {
-    const destination = normalizeDestination(target, serviceModeId);
+    const destination = currentScreenDestination(normalizeDestination(target, serviceModeId), isMirrorDeployment());
     const url = new URL(window.location.href);
     if (destination === "service") {
       url.searchParams.delete("service");
@@ -123,6 +125,13 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
     const enter = (target) => { if (!cancelled) replaceView(target); };
     const enterPractice = () => requestExerciseMedia().catch(() => {});
     const resolveEntry = async () => {
+      if (!isMirrorDeployment()) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("demo");
+        window.history.replaceState(window.history.state, "", url);
+        enter(deploymentServiceModeId ? "home" : "service");
+        return;
+      }
       if (isMirrorDeployment() && performance.getEntriesByType("navigation")[0]?.type === "reload") {
         returnToStart();
         return;
@@ -274,10 +283,11 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
     const currentIndex = SERVICE_ENTRY_FLOW.findIndex((item) => item.id === active);
     navigate(SERVICE_ENTRY_FLOW[Math.min(Math.max(currentIndex + offset, 0), SERVICE_ENTRY_FLOW.length - 1)].id);
   };
-  const chooseServiceMode = (serviceModeId) => {
+  const chooseServiceMode = (serviceModeId, keepPrompt = false) => {
     const nextServiceModeId = serviceModeId;
     setSelectedServiceModeId(nextServiceModeId);
     setCounterpartProfile(null);
+    if (!keepPrompt) setScenarioPrompt("");
     setDifficulty(null);
     setSelectedEpisodeId(null);
     setPocScenarioSlug(nextServiceModeId === "workplace" ? WORKPLACE_SCENARIO_SLUG : "");
@@ -296,12 +306,12 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
     state: {
       active, menuOpen, selectedServiceModeId, counterpartProfile, difficulty, session, turn, directMirrorEntry,
       turnHistory, turnSignals, report, history, pocScenarioSlug, selectedEpisodeId, nfcCard,
-      nfcFallback, consented, apiError, nfcError,
+      nfcFallback, consented, apiError, nfcError, scenarioPrompt,
     },
     setters: {
       setMenuOpen, setCounterpartProfile, setDifficulty, setSession, setTurn, setTurnHistory,
       setTurnSignals, setReport, setHistory, setPocScenarioSlug, setSelectedEpisodeId,
-      setNfcFallback, setNfcCard, setConsented, setApiError,
+      setNfcFallback, setNfcCard, setConsented, setApiError, setScenarioPrompt,
     },
     actions: {
       navigate, go, chooseServiceMode, chooseCounterpartProfile, chooseScenario, startFromJobRole, startMirrorExperience, returnToStart,

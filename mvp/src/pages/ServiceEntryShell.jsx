@@ -1,7 +1,12 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MobileMenuSheet, TopNav } from "../components/navigation/AppNavigation";
 import { NfcStartFallback } from "../components/nfc/NfcStartFallback";
 import { HomePage } from "./HomePage";
+import { SimulationChatPage } from "./SimulationChatPage";
+import { PricingPage } from "./PricingPage";
+import { AccountPage } from "./AccountPage";
+import { readAccount, clearAccount } from "../lib/accountApi";
+import "../styles/commerce.css";
 import { KioskIssuePage } from "./KioskIssuePage";
 import { UsagePage } from "./UsagePage";
 import { PracticePage } from "./PracticePage";
@@ -14,7 +19,7 @@ import { RoleSelectPage } from "./setup/RoleSelectPage";
 import { ScenarioSelectPage } from "./setup/ScenarioSelectPage";
 import { ServiceModeSelectPage } from "./setup/ServiceModeSelectPage";
 import { SERVICE_ENTRY_FLOW, demoDestination, isChromelessView } from "../lib/serviceEntryRoute";
-import { isWorkplaceSession, workplaceStartView } from "../lib/workplaceTrack";
+import { isWorkplaceSession } from "../lib/workplaceTrack";
 import { shouldArmReportIdleReset } from "../lib/exhibitionSession";
 import { useFaceTracking } from "../lib/useFaceTracking";
 import { useMirrorVisitorIdle } from "../lib/useMirrorVisitorIdle";
@@ -39,20 +44,22 @@ export function ServiceEntryShell({
 }) {
   const {
     active, menuOpen, selectedServiceModeId, counterpartProfile, difficulty,
-    session, turn, turnHistory, turnSignals, report, history, selectedEpisodeId,
-    nfcFallback, nfcCard, consented, apiError, nfcError,
+    session, turn, turnHistory, turnSignals, report, history,
+    nfcFallback, nfcCard, consented, apiError, nfcError, scenarioPrompt,
   } = entry.state;
-  const { setMenuOpen, setDifficulty, setNfcFallback, setNfcCard, setConsented, setPocScenarioSlug } = entry.setters;
-  const { navigate, go, chooseServiceMode, chooseCounterpartProfile, chooseScenario, startFromJobRole, startMirrorExperience, returnToStart } = entry.actions;
+  const { setMenuOpen, setDifficulty, setNfcFallback, setNfcCard, setConsented, setPocScenarioSlug, setScenarioPrompt } = entry.setters;
+  const { navigate, go, chooseServiceMode, chooseCounterpartProfile, startFromJobRole, startMirrorExperience, returnToStart } = entry.actions;
   const {
     serviceMode, apiScenarios, previewScenario, previewEpisode, previewCounterpartProfile,
     difficultyOption, aiHealth, permissionState, mediaStream, analysisProgress, starting,
-    submitting, linkRetrying, mode, scenarioStatus,
+    submitting, linkRetrying, mode,
   } = view;
   const {
-    startPractice, prepareMirror, sendAnswer, endPractice, requestExerciseMedia, switchMicDevice, issueCode, retryScenarios, retryCardLink,
+    startPractice, prepareMirror, sendAnswer, endPractice, requestExerciseMedia, switchMicDevice, issueCode, retryCardLink,
   } = actions;
   const mirror = isMirrorDeployment();
+  const [account, setAccount] = useState(readAccount);
+  const logout = () => { clearAccount(); setAccount(null); returnToStart(); };
   const analysisVideoRef = useRef(null);
   const overlayRef = useRef(null);
   const idlePausedRef = useRef(false);
@@ -73,23 +80,22 @@ export function ServiceEntryShell({
   useEffect(() => {
     if (kioskIssueMode) return;
     const label = SERVICE_ENTRY_FLOW.find((item) => item.id === active)?.label;
-    if (label) document.title = `${label} · Mirror-Ting`;
+    if (label) document.title = `${active === "service" && !mirror ? "메인" : label} · Mirror-Ting`;
     contentRef.current?.focus({ preventScroll: true });
   }, [active, kioskIssueMode]);
 
   if (kioskIssueMode) return <KioskIssuePage />;
   if (active === "boot") return <main className="app-boot" aria-busy="true" />;
-  if (isChromelessView(active)) {
+  if (mirror && isChromelessView(active)) {
     return <div className="chromeless"><DemoNotice /><ServiceModeSelectPage selectedServiceModeId={selectedServiceModeId} onSelect={chooseServiceMode} /></div>;
   }
 
   const current = SERVICE_ENTRY_FLOW.find((item) => item.id === active) || SERVICE_ENTRY_FLOW[0];
   const navigationView = SETUP_NAV_VIEWS.has(active) ? "service" : active === "result" ? "records" : active;
-  const startView = workplaceStartView(serviceMode?.id);
 
-  return <div className={`app-shell ${mirror ? "mirror-deployment" : ""} ${active === "practice" ? "practice-mode" : ""} ${active === "home" ? `home-mode home-mode-${serviceMode?.id || "workplace"}` : ""}`}>
+  return <div className={`app-shell ${mirror ? "mirror-deployment" : ""} ${active === "practice" ? "practice-mode" : ""} ${["home", "service"].includes(active) ? `home-mode home-mode-${serviceMode?.id || "workplace"}` : ""}`}>
     {!mirror && <a className="skip-link" href="#main-content">본문으로 건너뛰기</a>}
-    {!mirror && <TopNav active={navigationView} serviceMode={serviceMode} scenarioTitle={session?.scenario?.title || previewScenario?.title} menuOpen={menuOpen} onMenuOpen={setMenuOpen} onNavigate={navigate} scenarios={apiScenarios} onScenarioSelect={(slug) => { setPocScenarioSlug(slug); navigate("role"); }} practiceMode={active === "practice"} hasReport={Boolean(report)} />}
+    {!mirror && <TopNav active={navigationView} scenarioTitle={session?.scenario?.title || previewScenario?.title} menuOpen={menuOpen} onMenuOpen={setMenuOpen} onNavigate={navigate} scenarios={apiScenarios} onScenarioSelect={(slug) => { setPocScenarioSlug(slug); navigate("role"); }} practiceMode={active === "practice"} account={account} onLogout={logout} />}
     {!mirror && <MobileMenuSheet open={menuOpen} active={navigationView} onClose={() => setMenuOpen(false)} onNavigate={navigate} practiceMode={active === "practice"} />}
     <main className="screen-frame" id="main-content" ref={contentRef} tabIndex={-1}>
       {!(mirror && active === "home") && <DemoNotice />}
@@ -98,19 +104,23 @@ export function ServiceEntryShell({
       {mirror && active === "result" && report && session?.kiosk_link_status === "linked" && <p className="mirror-card-notice" role="status">리포트가 준비됐어요. 출력 키오스크에서 같은 사원증을 태그해 주세요.</p>}
       {mirror && active === "result" && report && session?.kiosk_link_status === "not_requested" && <p className="mirror-card-notice" role="status">사원증 없이 시작한 체험이에요. 리포트를 출력하려면 사원증을 태그해 새 체험을 시작해 주세요.</p>}
       {active === "home" && !mirror && apiError && <p className="preview-error" role="alert">{apiError}</p>}
+      {!mirror && active === "simulation-chat" && <SimulationChatPage key={`${serviceMode.id}:${scenarioPrompt}`} prompt={scenarioPrompt} serviceMode={serviceMode.id} />}
+      {active === "pricing" && <PricingPage onStart={() => navigate("home")} />}
+      {["login", "signup"].includes(active) && <AccountPage key={active} kind={active} onNavigate={navigate} onAuthenticated={setAccount} />}
       {active === "usage" && <UsagePage onPractice={() => navigate("home")} />}
       {active === "intro" && <SiteIntroPage onPractice={() => navigate("home")} />}
-      {active === "records" && <ResultsHistoryPage onResultBack={() => navigate("home")} onPractice={() => navigate("home")} report={report} history={history} onIssueCode={issueCode} selectedDifficulty={difficulty} progress={analysisProgress} error={apiError} />}
-      {active === "home" && (mirror ? <WorkplaceMirrorWelcomePage onStart={startMirrorExperience} nfcError={nfcError} /> : <HomePage serviceMode={serviceMode} onNext={() => navigate(startView)} onModeSelect={() => navigate("service")} />)}
-      {active === "role" && <RoleSelectPage serviceMode={serviceMode} counterpartProfile={counterpartProfile} onCounterpart={chooseCounterpartProfile} onPrev={() => window.history.back()} onNext={() => navigate("scenario")} />}
-      {active === "scenario" && <ScenarioSelectPage serviceMode={serviceMode} counterpartProfile={counterpartProfile} scenarios={apiScenarios} status={scenarioStatus} onRetry={retryScenarios} selectedEpisodeId={selectedEpisodeId} onScenario={chooseScenario} onPrev={() => go(-1)} onNext={() => navigate("difficulty")} />}
-      {active === "difficulty" && <DifficultyPage serviceMode={serviceMode} counterpartProfile={counterpartProfile} scenario={previewScenario} selectedEpisode={previewEpisode} difficulty={difficulty} onDifficulty={setDifficulty} onPrev={() => go(-1)} onNext={() => navigate("preview")} />}
-      {active === "preview" && <PreviewPage serviceMode={serviceMode} onPrev={() => navigate("difficulty")} onNext={startPractice} onPrepare={prepareMirror} previewKey={`${nfcCard?.uid || ""}:${nfcCard?.issuedCount || ""}:${nfcCard?.kioskSessionId || ""}`} starting={starting} scenario={previewScenario} selectedEpisode={previewEpisode} counterpartProfile={previewCounterpartProfile} difficulty={difficultyOption} aiHealth={aiHealth} consented={consented} onConsent={setConsented} error={apiError} permissionState={permissionState} mode={mode} />}
-      {active === "practice" && <PracticePage session={session} onFinish={endPractice} onPrev={() => go(-1)} scenario={session?.scenario} aiHealth={aiHealth} turn={turn} history={turnHistory} turnSignals={turnSignals} onSubmit={sendAnswer} busy={submitting} error={apiError} mediaStream={mediaStream} onRequestMedia={requestExerciseMedia} onSwitchMic={switchMicDevice} track={track} analysisVideoRef={analysisVideoRef} overlayRef={overlayRef} idlePausedRef={idlePausedRef} onVisitorActivity={markVisitorActivity} />}
+      {active === "records" && <ResultsHistoryPage onResultBack={() => navigate("home")} onPractice={() => navigate("home")} report={mirror ? report : null} history={history} onIssueCode={issueCode} selectedDifficulty={difficulty} progress={mirror ? analysisProgress : null} error={apiError} />}
+      {mirror && active === "home" && <WorkplaceMirrorWelcomePage onStart={startMirrorExperience} nfcError={nfcError} />}
+      {!mirror && ["home", "service"].includes(active) && <HomePage serviceMode={serviceMode} prompt={scenarioPrompt} onPrompt={setScenarioPrompt} onNext={() => navigate("simulation-chat")} onModePick={id => chooseServiceMode(id, true)} onModeSelect={() => navigate("service")} />}
+      {mirror && active === "role" && <RoleSelectPage serviceMode={serviceMode} counterpartProfile={counterpartProfile} onCounterpart={chooseCounterpartProfile} onPrev={() => window.history.back()} onNext={() => navigate("scenario")} />}
+      {mirror && active === "scenario" && <ScenarioSelectPage serviceMode={serviceMode} prompt={scenarioPrompt} onPrompt={setScenarioPrompt} onPrev={() => window.history.back()} onNext={() => navigate("difficulty")} />}
+      {mirror && active === "difficulty" && <DifficultyPage serviceMode={serviceMode} counterpartProfile={counterpartProfile} scenario={previewScenario} selectedEpisode={previewEpisode} difficulty={difficulty} onDifficulty={setDifficulty} onPrev={() => navigate("home")} onNext={() => navigate("preview")} />}
+      {mirror && active === "preview" && <PreviewPage serviceMode={serviceMode} onPrev={() => navigate("difficulty")} onNext={startPractice} onPrepare={prepareMirror} previewKey={`${nfcCard?.uid || ""}:${nfcCard?.issuedCount || ""}:${nfcCard?.kioskSessionId || ""}`} starting={starting} scenario={previewScenario} selectedEpisode={previewEpisode} counterpartProfile={previewCounterpartProfile} difficulty={difficultyOption} aiHealth={aiHealth} consented={consented} onConsent={setConsented} error={apiError} permissionState={permissionState} mode={mode} />}
+      {mirror && active === "practice" && <PracticePage session={session} onFinish={endPractice} onPrev={() => go(-1)} scenario={session?.scenario} aiHealth={aiHealth} turn={turn} history={turnHistory} turnSignals={turnSignals} onSubmit={sendAnswer} busy={submitting} error={apiError} mediaStream={mediaStream} onRequestMedia={requestExerciseMedia} onSwitchMic={switchMicDevice} track={track} analysisVideoRef={analysisVideoRef} overlayRef={overlayRef} idlePausedRef={idlePausedRef} onVisitorActivity={markVisitorActivity} />}
       {mirror && active === "result" && <video ref={analysisVideoRef} className="screen-reader-note" autoPlay muted playsInline aria-hidden="true" tabIndex={-1} />}
-      {active === "result" && <ResultPage mirror={mirror && serviceMode?.id === "workplace"} onPrev={() => navigate("home")} onPractice={() => navigate("preview")} report={report} history={history} onIssueCode={issueCode} selectedDifficulty={difficulty} progress={analysisProgress} error={apiError} />}
+      {mirror && active === "result" && <ResultPage mirror={mirror && serviceMode?.id === "workplace"} onPrev={() => navigate("home")} onPractice={() => navigate("preview")} report={report} history={history} onIssueCode={issueCode} selectedDifficulty={difficulty} progress={analysisProgress} error={apiError} />}
     </main>
-    <span className="screen-reader-note" aria-live="polite">현재 화면: {current.label}</span>
+    <span className="screen-reader-note" aria-live="polite">현재 화면: {active === "service" && !mirror ? "메인" : current.label}</span>
 
     {active === "home" && nfcFallback && !mirror && <NfcStartFallback cardConfirmed={Boolean(nfcCard?.kioskSessionId)} serviceMode={serviceMode?.id} onPick={startFromJobRole} onClose={() => { setNfcFallback(false); setNfcCard(null); }} />}
   </div>;

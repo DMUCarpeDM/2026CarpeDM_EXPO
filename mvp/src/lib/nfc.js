@@ -4,25 +4,9 @@
 //   POST /api/nfc/issue {uid, job_role, scenario_slug?} → 카드 정보 (알 수 없는 직무 422)
 //   POST /api/nfc/resolve {uid} → {uid, job_role, scenario_slug, job_role_label} (미등록·폐기 404)
 
-// 직무 카탈로그 — 발급 키오스크 3버튼과 미러 수동 폴백 3버튼의 단일 소스.
+// 직무 카탈로그 — 발급 키오스크와 미러 수동 폴백의 단일 소스.
 // id·scenarioSlug는 백엔드 DEFAULT_PACK_BY_ROLE(app/api/nfc.py)과 반드시 일치해야 한다.
 export const JOB_ROLES = [
-  {
-    id: "cafe_crew",
-    label: "카페 파트너",
-    scenarioSlug: "cafe-order-taking",
-    text: "음료 주문과 옵션, 포장 여부를 확인해요",
-    brand: "cafe-ondo",
-    counterpartProfileId: "cafe_crew",
-  },
-  {
-    id: "cs_agent",
-    label: "상담사",
-    scenarioSlug: "ondo-cs-agent",
-    text: "환불·배달 지연 비대면 응대를 연습해요",
-    brand: "cafe-ondo",
-    counterpartProfileId: "cs_agent",
-  },
   {
     id: "office_admin",
     label: "개발자",

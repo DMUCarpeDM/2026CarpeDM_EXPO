@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight } from "reicon-react/icons/ArrowRight";
-import { Bell } from "reicon-react/icons/Bell";
 import { ChevronDown } from "reicon-react/icons/ChevronDown";
 import { Menu4 } from "reicon-react/icons/Menu4";
 import { X } from "reicon-react/icons/X";
 import { IconGlyph } from "../ui/IconGlyph";
-import { navMap, NEW_PRACTICE_TARGET, practiceNavMap } from "./navigationConfig";
+import { navMap, practiceNavMap } from "./navigationConfig";
 
 const mobileIconByTarget = {
   usage: "coach",
@@ -15,49 +14,29 @@ const mobileIconByTarget = {
   result: "report",
 };
 
-export function TopNav({ active, serviceMode, scenarioTitle, menuOpen, onMenuOpen, onNavigate, scenarios = [], onScenarioSelect, practiceMode = false, hasReport = false }) {
-  const [bellOpen, setBellOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
+export function TopNav({ active, scenarioTitle, menuOpen, onMenuOpen, onNavigate, scenarios = [], onScenarioSelect, practiceMode = false, account, onLogout }) {
   const [scenarioOpen, setScenarioOpen] = useState(false);
 
   useEffect(() => {
     const handleOutsideClick = () => {
-      setBellOpen(false);
-      setProfileOpen(false);
       setScenarioOpen(false);
     };
     document.addEventListener("click", handleOutsideClick);
     return () => document.removeEventListener("click", handleOutsideClick);
   }, []);
 
-  const toggleBell = (event) => {
-    event.stopPropagation();
-    setBellOpen(!bellOpen);
-    setProfileOpen(false);
-    setScenarioOpen(false);
-  };
-
-  const toggleProfile = (event) => {
-    event.stopPropagation();
-    setProfileOpen(!profileOpen);
-    setBellOpen(false);
-    setScenarioOpen(false);
-  };
-
   const toggleScenario = (event) => {
     event.stopPropagation();
     setScenarioOpen(!scenarioOpen);
-    setBellOpen(false);
-    setProfileOpen(false);
   };
 
   const currentNavMap = practiceMode ? practiceNavMap : navMap;
 
   return (
     <header className="top-nav glass-panel" onKeyDown={(event) => {
-      if (event.key !== "Escape" || !(bellOpen || profileOpen || scenarioOpen)) return;
+      if (event.key !== "Escape" || !scenarioOpen) return;
       event.preventDefault();
-      setBellOpen(false); setProfileOpen(false); setScenarioOpen(false);
+      setScenarioOpen(false);
       event.target.closest(".nav-dropdown-wrapper")?.querySelector("button")?.focus();
     }}>
       <button className="brand" type="button" aria-label="Mirror-Ting 모드 선택" onClick={() => onNavigate("service")}>
@@ -73,14 +52,7 @@ export function TopNav({ active, serviceMode, scenarioTitle, menuOpen, onMenuOpe
             {scenarioOpen && scenarios.length > 0 && <div className="nav-dropdown scenario-dropdown glass-panel" onClick={(event) => event.stopPropagation()}><h3>시나리오 전환</h3><ul>{scenarios.map((scenario) => <li key={scenario.slug} className={scenario.title === scenarioTitle ? "active" : ""}><button type="button" onClick={() => { onScenarioSelect(scenario.slug); setScenarioOpen(false); }}>{scenario.title}</button></li>)}</ul></div>}
           </div>
         )}
-        <div className="nav-dropdown-wrapper">
-          <button className={`bell-button ${bellOpen ? "active" : ""}`} type="button" aria-label={hasReport ? "알림 1개" : "알림"} aria-expanded={bellOpen} onClick={toggleBell}><Bell size={20} />{hasReport && <b>1</b>}</button>
-          {bellOpen && <div className="nav-dropdown bell-dropdown glass-panel" onClick={(event) => event.stopPropagation()}><h3>최신 알림</h3>{hasReport ? <button type="button" onClick={() => { onNavigate("records"); setBellOpen(false); }}>완료된 연습 리포트 확인하기</button> : <p>새 알림이 없어요. 분석이 끝나면 여기서 알려드려요.</p>}</div>}
-        </div>
-        <div className="nav-dropdown-wrapper">
-          <button className={`profile-button ${profileOpen ? "active" : ""}`} type="button" aria-label="체험자 메뉴" aria-expanded={profileOpen} onClick={toggleProfile}><Avatar size="sm" /><strong>체험자</strong><ChevronDown size={16} /></button>
-          {profileOpen && <div className="nav-dropdown profile-dropdown glass-panel" onClick={(event) => event.stopPropagation()}><div className="user-info"><strong>체험자님</strong><span>mirror-ting-user@kiosk</span></div><hr /><ul><li><button type="button" onClick={() => { onNavigate("records"); setProfileOpen(false); }}>나의 결과 및 기록</button></li><li><button type="button" onClick={() => { onNavigate(NEW_PRACTICE_TARGET); setProfileOpen(false); }}>새 연습 시작</button></li><li><button type="button" disabled>운영 대시보드 · 연결 준비 중</button></li></ul></div>}
-        </div>
+        {account ? <><span className="nav-account-name">{account.name || account.email}</span><button className="nav-auth-button nav-auth-login" type="button" onClick={onLogout}>로그아웃</button></> : <><button className="nav-auth-button nav-auth-login" type="button" onClick={() => onNavigate("login")}>로그인</button><button className="nav-auth-button nav-auth-signup" type="button" onClick={() => onNavigate("signup")}>회원가입</button></>}
         <button className="mobile-menu-button" type="button" aria-label="메뉴 열기" aria-expanded={menuOpen} onClick={() => onMenuOpen(true)}><Menu4 size={22} /></button>
       </div>
     </header>
@@ -123,8 +95,4 @@ export function MobileMenuSheet({ open, active, onClose, onNavigate, practiceMod
       </section>
     </dialog>
   );
-}
-
-function Avatar({ size = "md" }) {
-  return <span className={`avatar profile-avatar ${size} blue`} aria-hidden="true"><IconGlyph icon="role" size={20} /></span>;
 }

@@ -207,8 +207,9 @@ class ConsentIn(BaseModel):
 
 
 class SessionCreateIn(BaseModel):
+    scenario_prompt: str | None = Field(default=None, min_length=10, max_length=3000)
     exhibition: bool = False
-    service_mode: Literal["interview", "training", "workplace"] = "workplace"
+    service_mode: Literal["interview", "workplace"] = "workplace"
     scenario_slug: str | None = None  # 없으면 기본(첫) 시나리오
     selected_episode_id: int | None = Field(default=None, gt=0)
     mode: int = Field(default=5, description="5 | 10 (분)")

@@ -11,12 +11,12 @@ import {
 
 test("job role catalog matches the backend default scenario packs", () => {
   // 백엔드 DEFAULT_PACK_BY_ROLE(app/api/nfc.py)과 계약이 어긋나면 발급 카드가 엉뚱한 시나리오로 시작된다.
-  assert.equal(JOB_ROLES.length, 3);
-  assert.equal(scenarioSlugForJobRole("cafe_crew"), "cafe-order-taking");
-  assert.equal(scenarioSlugForJobRole("cs_agent"), "ondo-cs-agent");
+  assert.equal(JOB_ROLES.length, 1);
+  assert.equal(scenarioSlugForJobRole("cafe_crew"), "");
+  assert.equal(scenarioSlugForJobRole("cs_agent"), "");
   assert.equal(scenarioSlugForJobRole("office_admin"), "release-schedule-alignment");
   assert.equal(scenarioSlugForJobRole("unknown"), "");
-  assert.equal(jobRoleLabel("cafe_crew"), "카페 파트너");
+  assert.equal(jobRoleLabel("office_admin"), "개발자");
   assert.equal(jobRoleLabel("mystery_role"), "mystery_role");
   assert.equal(findJobRole("nope"), null);
 });

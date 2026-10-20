@@ -276,7 +276,7 @@ def run_analysis(session_id: int) -> None:
             # 공통 판단에도 답변 인용이 있으므로 미저장 동의에서는 함께 파기한다.
             session.rapport = {key: value for key, value in (session.rapport or {}).items() if key not in {"judgments", "confirmed_facts", "feedback_history"}}
             # 새 면접·주문 진행 기록에도 인용이 있다. 공개 진행 상태만 남긴다.
-            if interaction.state(session).get("rubric_version") or interaction.state(session).get("cafe"):
+            if interaction.state(session).get("rubric_version"):
                 items = [{"id": item["id"], "text": item["text"]} for item in interaction.state(session)["items"]]
                 interaction.save(session, {**interaction.public_state(session), "items": items})
             for t in session.turns:

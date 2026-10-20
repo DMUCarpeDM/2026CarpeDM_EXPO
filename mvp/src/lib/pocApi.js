@@ -36,14 +36,14 @@ export function resolveApiBase(candidate) {
   }
 }
 
-async function request(path, { token, ...options } = {}) {
+async function request(path, { token, headers, ...options } = {}) {
   if (staticRequest) return staticRequest(path, options);
   const isFormData = options.body instanceof FormData;
   const response = await fetch(`${API_BASE}${path}`, {
     headers: {
       ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...(token ? { "X-Session-Token": token } : {}),
-      ...options.headers,
+      ...headers,
     },
     ...options,
   });
@@ -86,16 +86,17 @@ export async function synthesizeSpeech(text, voice = "female", signal, streaming
 
 const SESSION_DIFFICULTIES = new Set(["basic", "pressure", "ultra_pressure"]);
 
-export function createSession({ exhibition = false, serviceMode = "workplace", difficulty, mode, scenarioSlug, selectedEpisodeId, consent, jobRole, nfcUid, nfcIssuedCount, kioskSessionId }) {
+export function createSession({ accountToken, exhibition = false, serviceMode = "workplace", difficulty, mode, scenarioSlug, scenarioPrompt, selectedEpisodeId, consent, jobRole, nfcUid, nfcIssuedCount, kioskSessionId }) {
   return request("/sessions", {
     method: "POST",
+    ...(accountToken ? { headers: { Authorization: `Bearer ${accountToken}` } } : {}),
     body: JSON.stringify({
       difficulty: SESSION_DIFFICULTIES.has(difficulty) ? difficulty : "basic",
       mode,
-      scenario_slug: scenarioSlug,
+      ...(scenarioPrompt ? { scenario_prompt: scenarioPrompt } : { scenario_slug: scenarioSlug }),
       service_mode: serviceMode,
       ...(exhibition ? { exhibition: true } : {}),
-      ...(selectedEpisodeId ? { selected_episode_id: selectedEpisodeId } : {}),
+      ...(!scenarioPrompt && selectedEpisodeId ? { selected_episode_id: selectedEpisodeId } : {}),
       // ---- B2B 확장 (S-B2B-SESSION / S-B2B-NFC) — NFC·직무 흐름일 때만 실어 기존 계약을 보존한다.
       // nfc_uid를 주면 서버가 카드의 직무·시나리오를 세션에 스탬프한다 (미등록 카드 404).
       ...(jobRole ? { job_role: jobRole } : {}),

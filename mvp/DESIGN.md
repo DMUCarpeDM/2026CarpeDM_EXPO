@@ -1,5 +1,7 @@
 # Mirror-Ting Design System — Apple Light Reference
 
+프론트엔드 구현 시 문구 기준은 [UX Writing Guide](./uxwriting.md)를 함께 참조한다.
+
 ## 0. 적용 범위
 
 이 문서는 Mirror-Ting의 **목표 디자인 시스템 정보**를 정의한다. 이번 변경은 문서에만 적용되며 CSS, React 컴포넌트, 이미지, 화면 구조와 사용자 흐름은 변경하지 않는다.

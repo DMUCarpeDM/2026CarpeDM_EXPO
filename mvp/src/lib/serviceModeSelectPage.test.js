@@ -18,8 +18,8 @@ const browserHarnessPath = resolve(mvpRoot, "src/lib/serviceModeSelectPageBrowse
 const testPath = fileURLToPath(import.meta.url);
 const stylesPath = resolve(mvpRoot, "src/styles.css");
 const artifactParent = resolve(mvpRoot, "../.omo/evidence/task-2-browser");
-const serviceModeIds = ["interview", "training", "workplace"];
-const serviceModeLabels = ["면접", "직업훈련", "직장대화"];
+const serviceModeIds = ["interview", "workplace"];
+const serviceModeLabels = ["면접", "직장대화"];
 
 async function sha256(filePath) {
   const content = await readFile(filePath);

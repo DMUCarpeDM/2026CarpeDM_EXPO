@@ -15,7 +15,7 @@ import { hasVoiceMeasurements, reportFits } from "../lib/reportFits";
 import { fitAriaLabel, saveAndShareReport } from "../lib/unifiedReport";
 
 const DIFFICULTY_LABELS = { basic: "기본 모드", pressure: "압박 모드", ultra_pressure: "고강도 압박 모드" };
-const FIT_LABELS = { "Response-Fit": "응답", "Voice-Fit": "목소리", "Expression-Fit": "표정", "Posture-Fit": "자세" };
+const FIT_LABELS = { "Response-Fit": "답변", "Voice-Fit": "목소리", "Expression-Fit": "표정", "Posture-Fit": "자세" };
 
 function fitGrade(fit) {
   if (fit.measured === false) return "측정 안 됨";
@@ -86,7 +86,7 @@ export function ResultPage({
 
   const fits = reportFits(report);
   const total = report.total_score == null ? null : Math.round(Number(report.total_score));
-  const strengths = report.strengths?.length ? report.strengths : ["이번 연습에서 잘한 점을 다음 결과에서 더 자세히 알려드릴게요."];
+  const strengths = report.strengths?.length ? report.strengths : ["이번 연습에서 잘한 점을 확인할 정보가 부족해요."];
   const improvements = report.improvements?.length ? report.improvements : ["핵심 내용을 한 문장으로 먼저 말해 보세요."];
   const topImprovement = report.headline?.sentence || improvements[0];
   const difficulty = selectedDifficulty || report.difficulty;
@@ -108,7 +108,7 @@ export function ResultPage({
   const evidenceItems = [
     stats.turns ? { label: "분석한 답변", value: `${stats.turns}개` } : null,
     para.speech_rate_spm ? { label: "말 속도", value: `분당 ${para.speech_rate_spm}음절` } : stats.avg_speech_rate ? { label: "말 속도", value: `${stats.avg_speech_rate}음절/초` } : null,
-    Number.isFinite(fillerCount) ? { label: "간투어 추정", value: `${fillerCount}회` } : null,
+    Number.isFinite(fillerCount) ? { label: "군더더기 말 추정", value: `${fillerCount}회` } : null,
     measurement.frames ? { label: "영상 분석", value: `${measurement.frames}프레임` } : null,
     measurement.audio_sec ? { label: "음성 분석", value: `${Math.round(measurement.audio_sec)}초` } : null,
     typeof stats.formal_pct === "number" ? { label: "격식 표현", value: `${stats.formal_pct}%` } : null,
@@ -122,7 +122,7 @@ export function ResultPage({
       const result = await saveAndShareReport({ onIssueCode, total, navigatorObject: navigator, locationHref: window.location.href, printPage: () => window.print() });
       if (result.notice) setShareNotice(result.notice);
     } catch (shareError) {
-      if (shareError?.name !== "AbortError") setShareNotice(shareError?.message || "저장하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      if (shareError?.name !== "AbortError") setShareNotice(shareError?.message || "저장하지 못했어요. 잠시 후 다시 시도해주세요.");
     } finally {
       setSharing(false);
     }
@@ -133,7 +133,7 @@ export function ResultPage({
       <PageToolbar onPrev={onPrev} leftLabel="홈으로 돌아가기" />
 
       <header className="unified-report__heading">
-        <div><p className="unified-report__eyebrow">연습 결과</p><h1>이번 대화를 한눈에 정리했어요</h1><p>잘한 점부터 다음 연습에서 바꿀 한 가지까지 순서대로 확인해 보세요.</p></div>
+        <div><p className="unified-report__eyebrow">연습 결과</p><h1>이번 대화를 돌아봐요</h1><p>잘한 점과 다시 연습할 점을 확인해보세요.</p></div>
         <dl className="unified-report__meta" aria-label="연습 정보">
           <div><CalendarDate size={16} aria-hidden="true" /><dt>완료</dt><dd>{report.finished_label || "방금"}</dd></div>
           <div><Clock3 size={16} aria-hidden="true" /><dt>연습</dt><dd>{report.mode || 5}분</dd></div>
@@ -166,7 +166,7 @@ export function ResultPage({
       </Card>
 
       <section className="unified-report__section" aria-labelledby="coaching-title">
-        <div className="unified-report__section-heading"><p>{staticDemo ? "일반 연습 예시" : "AI 코칭"}</p><h2 id="coaching-title">{staticDemo && !coachingCard ? "제출한 답변이 없어요" : "이 답변부터 바꿔 보세요"}</h2><span>{coachingCard?.issue || report.headline?.context || (staticDemo ? "아래 내용은 일반 연습 팁이며 개인 평가 결과가 아니에요." : "결론을 먼저 말하면 상대가 핵심을 더 빠르게 이해할 수 있어요.")}</span></div>
+        <div className="unified-report__section-heading"><p>{staticDemo ? "일반 연습 예시" : "AI 코칭"}</p><h2 id="coaching-title">{staticDemo && !coachingCard ? "제출한 답변이 없어요" : "이 답변을 다시 연습해보세요"}</h2><span>{coachingCard?.issue || report.headline?.context || (staticDemo ? "아래 내용은 일반 연습 팁이며 개인 평가 결과가 아니에요." : "결론을 먼저 말하면 상대가 핵심을 더 빠르게 이해할 수 있어요.")}</span></div>
         {(!staticDemo || coachingCard) && <Card className="unified-report__rewrite">
           <CardContent>
             <div><span>내 답변</span><blockquote>“{beforeAnswer}”</blockquote></div>
@@ -174,7 +174,7 @@ export function ResultPage({
             <div><span>이렇게 말해 보세요</span><blockquote>“{afterAnswer}”</blockquote></div>
           </CardContent>
         </Card>}
-        <div className="unified-report__next-actions"><h3>다음 연습에서 바꿔요</h3><ol>{improvements.slice(0, 3).map((item, index) => <li key={item}><span>{index + 1}</span>{item}</li>)}</ol></div>
+        <div className="unified-report__next-actions"><h3>다시 연습할 점</h3><ol>{improvements.slice(0, 3).map((item, index) => <li key={item}><span>{index + 1}</span>{item}</li>)}</ol></div>
       </section>
 
       <section className="unified-report__details" aria-label="분석 근거와 이전 기록">
@@ -196,9 +196,9 @@ export function ResultPage({
       <VoiceMeasurements data={stats.voice_analysis} />
 
       <footer className="unified-report__actions">
-        <div><h2>한 번 더 연습하면 변화가 더 잘 보여요</h2><p>같은 상황을 다시 연습하거나, 지금 결과를 저장해 두세요.</p>{shareNotice ? <span role="status" aria-live="polite">{shareNotice}</span> : null}</div>
+        <div><h2>같은 상황을 다시 연습해볼까요?</h2><p>다시 연습하거나 이번 피드백을 저장할 수 있어요.</p>{shareNotice ? <span role="status" aria-live="polite">{shareNotice}</span> : null}</div>
         <div>
-          <Button type="button" variant="outline" size="lg" onClick={handleRetry}><Refresh3 size={19} aria-hidden="true" /> 같은 상황 다시 연습</Button>
+          <Button type="button" variant="outline" size="lg" onClick={handleRetry}><Refresh3 size={19} aria-hidden="true" /> 같은 상황 연습하기</Button>
           <Button type="button" size="lg" onClick={handleSaveShare} disabled={sharing}>{onIssueCode ? <Share3 size={19} aria-hidden="true" /> : <Download size={19} aria-hidden="true" />}{sharing ? "저장하고 있어요" : "저장·공유"}</Button>
         </div>
       </footer>

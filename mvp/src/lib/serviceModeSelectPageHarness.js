@@ -49,14 +49,14 @@ async function inspectRenderedPage(page) {
 }
 
 function assertDesktopGeometry(cards) {
-  assert.equal(cards.length, 3, "desktop renders three cards");
+  assert.equal(cards.length, 2, "desktop renders two cards");
   assert.equal(new Set(cards.map((card) => Math.round(card.y))).size, 1, "desktop cards share one row");
   const widths = cards.map((card) => card.width);
   assert.ok(Math.max(...widths) - Math.min(...widths) < 2, "desktop cards have equal widths");
 }
 
 function assertMobileGeometry(cards) {
-  assert.equal(cards.length, 3, "mobile renders three cards");
+  assert.equal(cards.length, 2, "mobile renders two cards");
   assert.equal(new Set(cards.map((card) => Math.round(card.x))).size, 1, "mobile cards share one column");
   assert.ok(cards[0].y < cards[1].y && cards[1].y < cards[2].y, "mobile cards stack in catalog order");
 }
@@ -90,7 +90,7 @@ export class ServiceModeSelectAssertions {
     assert.equal(await this.page.locator(".service-mode-heading").evaluate(el => getComputedStyle(el).textAlign), "center");
     assert.deepEqual(await this.page.locator(".service-mode-card-button").evaluateAll(items => items.map(el => getComputedStyle(el).textAlign)), ["center", "center", "center"]);
     assert.deepEqual(await this.page.locator(".service-mode-card-title").evaluateAll(items => items.map(el => getComputedStyle(el).display)), ["flex", "flex", "flex"]);
-    assert.deepEqual({ buttons: initial.buttonCount, cards: initial.cardCount }, { buttons: 3, cards: 3 });
+    assert.deepEqual({ buttons: initial.buttonCount, cards: initial.cardCount }, { buttons: 2, cards: 2 });
     assert.deepEqual(initial.labels, this.serviceModeLabels);
     for (const label of this.serviceModeLabels) {
       assert.equal(await this.page.getByRole("button", { name: label, exact: true }).count(), 1, `accessible name is ${label}`);

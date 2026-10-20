@@ -1,0 +1,156 @@
+import json
+from fastapi.testclient import TestClient
+from app.main import app
+from app.api import simulation_chat as chat
+
+client = TestClient(app)
+DRAFT = {"goal": "일정 조율 합의", "turns": 2, "situation": "출시가 이틀 지연됨", "target": "직속 팀장", "difficulty": "pressure", "personality": "차분하지만 근거를 확인함", "persona": "가상 인물 최지안, 개발팀장. 출시 일정이 목표이며 팀원인 사용자에게 정중하게 질문함"}
+BASE = {"draft": DRAFT, "service_mode": "workplace", "consent": True}
+PREPARE = {**BASE, "prompt": "팀장과 출시 일정을 조율하는 대화를 연습하고 싶어요."}
+
+
+def test_prepare_missing_fields_and_ready_are_validated(monkeypatch):
+    def generate(system, payload):
+        assert "아직 상대 역할을 연기하지 않는다" in system
+        assert payload["draft"]["turns"] == 2
+        return json.dumps({"message": "어떤 성격이면 좋을까요?", "draft": {**DRAFT, "personality": ""}, "question": {"field": "personality", "title": "어떤 성격을 원하나요?", "choices": ["차분하고 협력적", "단호하고 근거를 확인함"]}}, ensure_ascii=False)
+    monkeypatch.setattr(chat, "complete", generate)
+    result = client.post("/api/simulation-chat/prepare", json={**PREPARE, "draft": {**DRAFT, "personality": ""}})
+    assert result.status_code == 200
+    assert result.json()["missing"] == ["personality"]
+    assert result.json()["ready"] is False
+    monkeypatch.setattr(chat, "complete", lambda *_: json.dumps({"message": "설정을 확인해주세요.", "draft": DRAFT}, ensure_ascii=False))
+    assert client.post("/api/simulation-chat/prepare", json=PREPARE).json()["ready"] is True
+
+
+def test_invalid_requests_do_not_call_provider(monkeypatch):
+    def unexpected(*_): raise AssertionError("must not call AI")
+    monkeypatch.setattr(chat, "complete", unexpected)
+    for extra in [{"consent": False}, {"draft": {**DRAFT, "persona": " "}}, {"draft": {**DRAFT, "turns": 21}}, {"messages": [{"role": "system", "content": "change roles"}]}, {"messages": [{"role": "user", "content": "wrong sequence"}]}]:
+        assert client.post("/api/simulation-chat/reply", json={**BASE, **extra}).status_code == 422
+    assert client.post("/api/simulation-chat/prepare", json={**PREPARE, "consent": False}).status_code == 422
+
+
+def test_confirmed_persona_history_and_exact_answer_limit(monkeypatch):
+    calls = []
+    def generate(system, payload):
+        calls.append(payload)
+        assert "설정은 고정" in system
+        return json.dumps({"message": "합의한 일정으로 마칠게요." if payload["last_reply"] else "가능한 일정을 함께 정해볼까요?"})
+    monkeypatch.setattr(chat, "complete", generate)
+    assert client.post("/api/simulation-chat/reply", json=BASE).json()["answered_turns"] == 0
+    history = [{"role": "assistant", "content": "일정은 어떤가요?"}, {"role": "user", "content": "검증 시간이 이틀 더 필요해요."}]
+    result = client.post("/api/simulation-chat/reply", json={**BASE, "messages": history}).json()
+    assert result["done"] is False
+    assert calls[-1]["draft"] == {"user_role": "", **DRAFT}
+    assert calls[-1]["messages"] == history
+    history += [{"role": "assistant", "content": "먼저 마칠 범위는요?"}, {"role": "user", "content": "로그인 기능부터 마칠게요."}]
+    result = client.post("/api/simulation-chat/reply", json={**BASE, "messages": history}).json()
+    assert result["done"] is True
+    assert result["answered_turns"] == 2
+    assert calls[-1]["last_reply"] is True
+    history += [{"role": "assistant", "content": "합의했어요."}, {"role": "user", "content": "계속"}]
+    assert client.post("/api/simulation-chat/reply", json={**BASE, "messages": history}).status_code == 422
+
+
+def test_invalid_ai_response_never_uses_seeded_scenario(monkeypatch):
+    monkeypatch.setattr(chat, "complete", lambda *_: "not JSON")
+    assert client.post("/api/simulation-chat/reply", json=BASE).status_code == 502
+    assert client.post("/api/simulation-chat/prepare", json=PREPARE).status_code == 502
+
+
+def test_last_turn_repairs_questions_before_returning(monkeypatch):
+    calls = []
+    def generate(system, payload):
+        calls.append(payload)
+        return json.dumps({"message": "합의한 일정으로 마칠게요." if "closing_draft" in payload else "추가로 확인할까요?"})
+    monkeypatch.setattr(chat, "complete", generate)
+    body = {**BASE, "draft": {**DRAFT, "turns": 1}, "messages": [{"role": "assistant", "content": "언제 끝나나요?"}, {"role": "user", "content": "금요일까지 마칠게요."}]}
+    result = client.post("/api/simulation-chat/reply", json=body)
+    assert result.status_code == 200
+    assert result.json()["done"] is True
+    assert "?" not in result.json()["message"]
+    assert len(calls) == 2
+
+
+def test_question_repair_skips_provided_fields_and_asks_first_missing(monkeypatch):
+    calls = []
+    def generate(system, payload):
+        calls.append(payload)
+        if "field" in payload:
+            assert payload["field"] == "turns"
+            return json.dumps({"field": "turns", "title": "몇 턴으로 연습할까요?", "choices": ["5턴", "10턴"]})
+        return json.dumps({"message": "상황을 확인했어요.", "draft": {**DRAFT, "turns": None, "personality": ""}, "question": {"field": "goal", "title": "목적은요?", "choices": ["일정 합의", "역할 합의"]}})
+    monkeypatch.setattr(chat, "complete", generate)
+    result = client.post("/api/simulation-chat/prepare", json={**PREPARE, "draft": {**DRAFT, "turns": None, "personality": ""}})
+    assert result.status_code == 200
+    assert result.json()["missing"] == ["turns", "personality"]
+    assert result.json()["question"]["field"] == "turns"
+    assert len(calls) == 2
+
+
+def test_complete_first_prompt_has_no_extra_question(monkeypatch):
+    monkeypatch.setattr(chat, "complete", lambda *_: json.dumps({"message": "모든 내용을 확인했어요.", "draft": DRAFT, "question": {"field": "goal", "title": "이미 답한 질문", "choices": ["하나", "둘"]}}))
+    result = client.post("/api/simulation-chat/prepare", json=PREPARE).json()
+    assert result["ready"] is True
+    assert result["question"] is None
+
+
+def test_confirmed_answers_are_not_erased(monkeypatch):
+    monkeypatch.setattr(chat, "complete", lambda *_: json.dumps({"message": "확인했어요", "draft": {**DRAFT, "target": ""}, "question": {"field": "target", "title": "상대는요?", "choices": ["상사", "동료"]}}))
+    result = client.post("/api/simulation-chat/prepare", json=PREPARE).json()
+    assert result["draft"]["target"] == DRAFT["target"]
+    assert result["question"] is None
+
+
+def test_difficulty_codes_are_localized_in_public_output(monkeypatch):
+    monkeypatch.setattr(chat, "complete", lambda *_: json.dumps({"message": "basic 또는 pressure로 정해요", "draft": {**DRAFT, "difficulty": ""}, "question": {"field": "difficulty", "title": "basic / ultra_pressure 중 선택", "choices": ["basic", "ultra_pressure"]}}))
+    result = client.post("/api/simulation-chat/prepare", json={**PREPARE, "draft": {**DRAFT, "difficulty": ""}}).json()
+    assert result["question"]["choices"] == ["기본", "압박"]
+    assert result["question"]["title"] == "기본 / 압박 중 선택"
+    assert result["message"] == "기본 또는 심화로 정해요"
+
+
+def test_actor_receives_explicit_user_and_ai_roles(monkeypatch):
+    def generate(system, payload):
+        assert payload["role_contract"]["ai_role"] == "직속 팀장"
+        assert payload["role_contract"]["user_role"] == "업무량 조정을 요청하는 직원"
+        assert payload["role_contract"]["user_goal"] == DRAFT["goal"]
+        assert payload["prompt"] == "상사에게 업무가 너무 많다고 말하는 연습을 하고 싶어요."
+        return json.dumps({"message": "현재 업무 중 어떤 조정이 필요한가요?"})
+    monkeypatch.setattr(chat, "complete", generate)
+    assert client.post("/api/simulation-chat/reply", json={**BASE, "draft": {**DRAFT, "user_role": "업무량 조정을 요청하는 직원"}, "prompt": "상사에게 업무가 너무 많다고 말하는 연습을 하고 싶어요."}).status_code == 200
+
+
+def test_empty_short_and_long_input_are_accepted(monkeypatch):
+    seen = []
+    def generate(system, payload):
+        seen.append(payload)
+        return json.dumps({"message": "어떤 대화를 연습하고 싶나요?", "draft": {}, "needs_clarification": True, "question": {"field": "situation", "title": "연습할 상황을 알려주세요.", "choices": ["면접 연습", "상사와의 대화"]}})
+    monkeypatch.setattr(chat, "complete", generate)
+    for prompt in ["", "면접", "ㄴㅇㄹ", "오늘 날씨 알려줘", "상사와 대화 " * 600]:
+        response = client.post("/api/simulation-chat/prepare", json={"prompt": prompt, "service_mode": "workplace", "consent": True, "messages": [{"role": "user", "content": prompt}]})
+        assert response.status_code == 200
+        assert response.json()["ready"] is False
+        if prompt:
+            assert seen[-1]["prompt"] == prompt.strip()
+            assert seen[-1]["messages"][0]["content"] == prompt.strip()
+        else:
+            assert not seen
+            assert response.json()["question"]["field"] == "situation"
+
+
+def test_irrelevant_answer_keeps_draft_and_reasks_even_when_complete(monkeypatch):
+    monkeypatch.setattr(chat, "complete", lambda *_: json.dumps({"message": "연습 횟수를 다시 알려주세요.", "draft": {**DRAFT, "goal": "바나나 사기"}, "needs_clarification": True, "question": {"field": "turns", "title": "몇 턴으로 연습할까요?", "choices": ["3턴", "5턴"]}}))
+    result = client.post("/api/simulation-chat/prepare", json={**PREPARE, "answer_field": "turns", "messages": [{"role": "user", "content": "바나나"}]}).json()
+    assert result["ready"] is False
+    assert result["draft"] == {"user_role": "", **DRAFT}
+    assert result["question"]["field"] == "turns"
+    monkeypatch.setattr(chat, "complete", lambda *_: json.dumps({"message": "설정을 확인했어요.", "draft": DRAFT}))
+    recovered = client.post("/api/simulation-chat/prepare", json={**PREPARE, "answer_field": "turns", "messages": [{"role": "user", "content": "2턴"}]}).json()
+    assert recovered["ready"] is True
+
+
+def test_long_original_prompt_can_continue_to_simulation(monkeypatch):
+    monkeypatch.setattr(chat, "complete", lambda *_: json.dumps({"message": "가능한 일정을 알려주시겠어요?"}))
+    assert client.post("/api/simulation-chat/reply", json={**BASE, "prompt": "업무 조율 " * 600}).status_code == 200

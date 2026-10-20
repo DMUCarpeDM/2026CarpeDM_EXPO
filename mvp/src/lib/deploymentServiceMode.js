@@ -1,4 +1,4 @@
-const SERVICE_MODE_IDS = new Set(["interview", "training", "workplace"]);
+const SERVICE_MODE_IDS = new Set(["interview", "workplace"]);
 
 export function resolveDeploymentServiceMode(search = "") {
   const requestedMode = new URLSearchParams(search).get("service") || "";
