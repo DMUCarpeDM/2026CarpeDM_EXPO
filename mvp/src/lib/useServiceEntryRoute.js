@@ -80,6 +80,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
   const navigate = (target, serviceModeId = selectedServiceModeId) => {
     const destination = currentScreenDestination(normalizeDestination(target, serviceModeId), isMirrorDeployment());
     const url = new URL(window.location.href);
+    if (destination !== "faq") url.searchParams.delete("help");
     if (destination === "service") {
       url.searchParams.delete("service");
       url.searchParams.delete("demo");
@@ -129,7 +130,7 @@ export function useServiceEntryRoute({ kioskIssueMode, requestExerciseMedia, vis
         const url = new URL(window.location.href);
         url.searchParams.delete("demo");
         window.history.replaceState(window.history.state, "", url);
-        enter(deploymentServiceModeId ? "home" : "service");
+        enter(url.searchParams.has("help") ? "faq" : deploymentServiceModeId ? "home" : "service");
         return;
       }
       if (isMirrorDeployment() && performance.getEntriesByType("navigation")[0]?.type === "reload") {

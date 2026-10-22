@@ -17,6 +17,7 @@ export const SERVICE_ENTRY_FLOW = [
   { id: "preview", label: "시나리오 미리보기" },
   { id: "practice", label: "AI와 연습하기" },
   { id: "result", label: "결과 보고서" },
+  { id: "faq", label: "자주 묻는 질문" },
   { id: "pricing", label: "요금제" },
   { id: "login", label: "로그인" },
   { id: "signup", label: "가입" },

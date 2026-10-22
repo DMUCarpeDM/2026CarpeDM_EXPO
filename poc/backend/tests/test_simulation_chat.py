@@ -4,7 +4,7 @@ from app.main import app
 from app.api import simulation_chat as chat
 
 client = TestClient(app)
-DRAFT = {"goal": "일정 조율 합의", "turns": 2, "situation": "출시가 이틀 지연됨", "target": "직속 팀장", "difficulty": "pressure", "personality": "차분하지만 근거를 확인함", "persona": "가상 인물 최지안, 개발팀장. 출시 일정이 목표이며 팀원인 사용자에게 정중하게 질문함"}
+DRAFT = {"context_source": "", "job_role": "프론트엔드 개발자", "context": "결제 오류 수정 업무가 추가되어 출시가 이틀 지연됐고, 팀장과 새 마감을 정해야 함", "goal": "일정 조율 합의", "turns": 2, "situation": "출시가 이틀 지연됨", "target": "직속 팀장", "difficulty": "pressure", "personality": "차분하지만 근거를 확인함", "persona": "가상 인물 최지안, 개발팀장. 출시 일정이 목표이며 팀원인 사용자에게 정중하게 질문함"}
 BASE = {"draft": DRAFT, "service_mode": "workplace", "consent": True}
 PREPARE = {**BASE, "prompt": "팀장과 출시 일정을 조율하는 대화를 연습하고 싶어요."}
 
@@ -154,3 +154,59 @@ def test_irrelevant_answer_keeps_draft_and_reasks_even_when_complete(monkeypatch
 def test_long_original_prompt_can_continue_to_simulation(monkeypatch):
     monkeypatch.setattr(chat, "complete", lambda *_: json.dumps({"message": "가능한 일정을 알려주시겠어요?"}))
     assert client.post("/api/simulation-chat/reply", json={**BASE, "prompt": "업무 조율 " * 600}).status_code == 200
+
+
+def test_missing_job_and_context_prevent_simulation(monkeypatch):
+    def unexpected(*_): raise AssertionError("must not start before context collection")
+    monkeypatch.setattr(chat, "complete", unexpected)
+    for field in ["job_role", "context"]:
+        assert client.post("/api/simulation-chat/reply", json={**BASE, "draft": {**DRAFT, field: ""}}).status_code == 422
+
+
+def test_preparation_collects_job_then_specific_incident(monkeypatch):
+    def generate(system, payload):
+        assert "직무만 답했을 때 직무에서 사건을 추측" in system
+        if not payload["draft"]["job_role"]:
+            return json.dumps({"message": "직무를 알려주세요.", "draft": {**DRAFT, "job_role": "", "context": ""}, "question": {"field": "job_role", "title": "어떤 직무나 직종인가요?", "choices": ["개발자", "마케터"]}})
+        return json.dumps({"message": "어떤 일이 있었나요?", "draft": {**DRAFT, "context": ""}, "question": {"field": "context", "title": "어떤 업무 중 무슨 일이 생겼나요?", "choices": ["업무가 추가됐어요", "요구사항이 변경됐어요"]}})
+    monkeypatch.setattr(chat, "complete", generate)
+    first = client.post("/api/simulation-chat/prepare", json={**PREPARE, "draft": {**DRAFT, "job_role": "", "context": ""}}).json()
+    assert first["question"]["field"] == "job_role"
+    assert first["ready"] is False
+    second = client.post("/api/simulation-chat/prepare", json={**PREPARE, "draft": {**DRAFT, "context": ""}}).json()
+    assert second["question"]["field"] == "context"
+    assert second["draft"]["job_role"] == DRAFT["job_role"]
+    assert second["ready"] is False
+
+
+def test_job_and_incident_reach_actor(monkeypatch):
+    def generate(system, payload):
+        assert payload["role_contract"]["job_role"] == DRAFT["job_role"]
+        assert payload["role_contract"]["context"] == DRAFT["context"]
+        return json.dumps({"message": "결제 오류 수정에 시간이 더 필요한가요?"})
+    monkeypatch.setattr(chat, "complete", generate)
+    assert client.post("/api/simulation-chat/reply", json=BASE).status_code == 200
+
+
+def test_explicit_turn_choice_does_not_repeat_question(monkeypatch):
+    def generate(system, payload):
+        assert payload["draft"]["turns"] == 3
+        if "field" in payload:
+            return json.dumps({"field": "difficulty", "title": "난이도를 골라주세요", "choices": ["기본", "심화"]})
+        return json.dumps({"message": "다음 설정을 정해요.", "draft": {**DRAFT, "turns": None, "difficulty": ""}, "question": {"field": "turns", "title": "몇 턴인가요?", "choices": ["3", "5"]}})
+    monkeypatch.setattr(chat, "complete", generate)
+    result = client.post("/api/simulation-chat/prepare", json={**PREPARE, "draft": {**DRAFT, "turns": None, "difficulty": ""}, "answer_field": "turns", "messages": [{"role": "user", "content": "3"}]}).json()
+    assert result["draft"]["turns"] == 3
+    assert result["question"]["field"] == "difficulty"
+
+
+def test_incident_source_preserves_dates_through_summary_and_actor(monkeypatch):
+    source = "월요일 결제 오류 수정이 추가되어 금요일 배포 대신 다음 주 화요일로 연장하고 싶어요."
+    monkeypatch.setattr(chat, "complete", lambda *_: json.dumps({"message": "맥락을 확인했어요", "draft": DRAFT}))
+    result = client.post("/api/simulation-chat/prepare", json={**PREPARE, "draft": {**DRAFT, "context": ""}, "answer_field": "context", "messages": [{"role": "user", "content": source}]}).json()
+    assert result["draft"]["context_source"] == source
+    def actor(system, payload):
+        assert payload["role_contract"]["context_source"] == source
+        return json.dumps({"message": "화요일까지 연장하려는 이유를 알려주시겠어요?"})
+    monkeypatch.setattr(chat, "complete", actor)
+    assert client.post("/api/simulation-chat/reply", json={**BASE, "draft": result["draft"]}).status_code == 200

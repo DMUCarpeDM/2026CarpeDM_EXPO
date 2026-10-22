@@ -1,13 +1,23 @@
 import { resolveApiBase } from "./pocApi.js";
 
+// Temporary presentation mode: only the local UI session is simulated.
+export const DEMO_AUTH = true;
+
 const KEY = "mirror-ting-web-account";
 const API_BASE = resolveApiBase(globalThis.__MIRROR_TING_API_BASE__ || import.meta.env?.VITE_API_URL);
 
 export function readAccount() {
   try {
     const value = JSON.parse(sessionStorage.getItem(KEY) || "null");
+    if (DEMO_AUTH && value?.demo === true) return value;
     return typeof value?.access_token === "string" && typeof value?.email === "string" ? value : null;
   } catch { return null; }
+}
+
+export function startDemoAccount() {
+  const account = { demo: true, name: "시연 사용자", email: "demo@example.com" };
+  sessionStorage.setItem(KEY, JSON.stringify(account));
+  return account;
 }
 
 export function clearAccount() { sessionStorage.removeItem(KEY); }
