@@ -15,14 +15,13 @@ try {
    states.push(await p.locator('.fit-scroll').getAttribute('data-active-fit'));
   }
   assert.deepEqual(states,['-1','0','1','2','3']);
-  await p.getByRole('button',{name:'배경 정지',exact:true}).click();
-  assert.equal(await p.getByRole('button',{name:'배경 재생',exact:true}).getAttribute('aria-pressed'),'true');
+  assert.equal(await p.getByRole('button',{name:/배경 (정지|재생)/}).count(),0);
   assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
   await p.locator('.fit-scroll').evaluate(e=>{const s=e.firstElementChild;scrollTo(0,e.getBoundingClientRect().top+scrollY-parseFloat(getComputedStyle(s).top)+(e.offsetHeight-s.offsetHeight)*.24);});
   await p.waitForTimeout(400);
   await p.screenshot({path:`output/layout-qa/fit-production-grid-${width}.png`});
   assert.deepEqual(errors,[]);
-  console.log(width, 'PASS: original icons, 5 scroll phases, pause, no overflow/errors');
+  console.log(width, 'PASS: original icons, 5 scroll phases, background button removed, no overflow/errors');
   await p.close();
  }
  const p=await b.newPage({reducedMotion:'reduce'});

@@ -59,12 +59,12 @@
 
 }
 
-.service-introduction .fit-scroll { position: relative; height: 500vh; height: 500svh; }
+.service-introduction .fit-scroll { position: relative; height: 600vh; height: 600svh; }
 .service-introduction .fit-scroll-stage { position: sticky; top: 96px; height: calc(100vh - 112px); height: calc(100svh - 112px); }
 .service-introduction .fit-scroll-panel { position: absolute; inset: 0; display: grid; grid-template-columns: .75fr 1.25fr; align-content: center; align-items: center; gap: 96px; opacity: 0; visibility: hidden; transform: translateY(12px); transition: opacity 220ms ease-out, transform 220ms ease-out, visibility 220ms; }
 .service-introduction .fit-scroll-panel.is-active { opacity: 1; visibility: visible; transform: translateY(0); }
 .service-introduction .fit-scroll-title { grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 0; text-align: center; }
-.service-introduction .fit-scroll-title h2 { font-size: clamp(39.6px, 4.95vw, 66px); }
+.app-shell .service-introduction .fit-scroll-title h2 { font-size: clamp(32px, 4vw, 52px); }
 .service-introduction .fit-scroll-title .intro-eyebrow { margin-bottom: 16px; font-size: 15.84px; }
 .service-introduction .fit-scroll-visual { display: flex; justify-content: center; }
 .service-introduction .fit-scroll-visual img { width: 232.32px; height: 232.32px; object-fit: contain; }
@@ -106,23 +106,6 @@
   mask-image: radial-gradient(ellipse at center, #000 20%, transparent 80%);
 }
 .service-introduction svg.fit-grid-pattern > svg { overflow: visible; }
-.service-introduction .fit-grid-toggle {
-  position: absolute;
-  right: 0;
-  bottom: 12px;
-  z-index: 1;
-  min-height: 44px;
-  padding: 8px 12px;
-  border: 1px solid #dce5f2;
-  border-radius: 999px;
-  background: #fff;
-  color: #34435a;
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-.service-introduction .fit-grid-toggle:focus-visible { outline: 2px solid #0071e3; outline-offset: 3px; }
-
 /* Soften the backdrop and fade it around copy. */
 .service-introduction .fit-grid-background,
 .component-animated-grid .component-background-layer {
@@ -141,3 +124,15 @@
 }
 
 .app-shell .service-introduction .fit-scroll-panel.fit-scroll-title { gap: 0; }
+
+@media (max-width: 800px) {
+  .app-shell .service-introduction .fit-scroll-title h2 { font-size: clamp(27px, 7.5vw, 36px); }
+}
+
+.service-introduction .fit-scroll-title > :is(.intro-eyebrow, h2) { position: relative; top: -40px; }
+@media (max-width: 800px) {
+  .service-introduction .fit-scroll-title > :is(.intro-eyebrow, h2) { top: -24px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .service-introduction .fit-scroll-title > :is(.intro-eyebrow, h2) { top: 0; }
+}
