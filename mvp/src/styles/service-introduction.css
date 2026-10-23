@@ -123,9 +123,10 @@
 }
 .service-introduction .fit-grid-toggle:focus-visible { outline: 2px solid #0071e3; outline-offset: 3px; }
 
-/* Fade only the backdrop around copy, keeping the icon area vivid. */
+/* Soften the backdrop and fade it around copy. */
 .service-introduction .fit-grid-background,
 .component-animated-grid .component-background-layer {
+  filter: blur(1px);
   mask-image: radial-gradient(ellipse 48% 32% at 80% 50%, rgb(0 0 0 / .18) 45%, #000 100%);
 }
 .service-introduction .fit-scroll-stage:has(.fit-scroll-title.is-active) .fit-grid-background,
