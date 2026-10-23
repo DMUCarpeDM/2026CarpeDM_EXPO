@@ -1,0 +1,4 @@
+import {chromium} from 'playwright';
+import assert from 'node:assert/strict';
+const b=await chromium.launch({channel:'chrome',headless:true});
+try { for(const width of [390,1440]) {const p=await b.newPage({viewport:{width,height:900}});for(const route of ['/','/fit-components-preview.html?pair=3-6&component=animated-grid']) {await p.goto('http://127.0.0.1:5186'+route);const title=p.locator('.fit-scroll-title');await title.waitFor({state:'attached'});const result=await title.evaluate(e=>{const badge=e.querySelector('.intro-eyebrow'),h=e.querySelector('h2');return {gap:getComputedStyle(e).rowGap,space:h.getBoundingClientRect().top-badge.getBoundingClientRect().bottom};});assert.equal(result.gap,'0px');assert.equal(result.space,16);console.log(width,route,result);}await p.close();}}finally{await b.close()}

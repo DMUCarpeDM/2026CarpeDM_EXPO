@@ -1,0 +1,23 @@
+.fit-background-preview { --mode-accent:var(--color-apple-blue,#0071e3); --mode-accent-soft:var(--color-ice,#f3f8fc); --mode-ink:var(--color-carbon,#1d1d1f); --mode-muted:var(--color-ash,#707070); --mode-border:var(--color-pebble,#dedee3); background:#fff; }
+.fb-header { position:sticky; top:0; z-index:30; min-height:88px; padding:16px 32px; display:flex; align-items:center; justify-content:space-between; gap:24px; background:#fff; border-bottom:1px solid var(--mode-border); }
+.fb-brand { display:flex; gap:10px; align-items:center; font-size:20px; font-weight:600; color:var(--mode-ink); text-decoration:none; white-space:nowrap; }.fb-brand img { width:28px; height:28px; }
+.fb-variants { display:flex; flex-wrap:wrap; gap:8px; }.fb-variants button { padding:10px 16px; border:1px solid var(--mode-border); border-radius:999px; background:#fff; color:var(--mode-ink); font:inherit; font-size:13px; cursor:pointer; }.fb-variants button[aria-pressed=true] { background:var(--mode-accent-soft); border-color:var(--mode-accent); }
+.fb-header > span { font-size:12px; color:var(--mode-muted); white-space:nowrap; }
+.fit-background-preview .app-shell { width:100%; margin:0; padding:0; background:#fff; }
+.fit-background-preview .fit-scroll-stage { top:88px; height:calc(100svh - 88px); isolation:isolate; overflow:hidden; }
+.fit-background-preview .fit-scroll-stage::before,.fit-background-preview .fit-scroll-stage::after { content:""; position:absolute; inset:0; z-index:-1; pointer-events:none; }
+.fit-background-preview .fit-scroll-panel { max-width:1180px; margin-inline:auto; padding-inline:40px; }
+.background-stripe .fit-scroll-stage::before { background:repeating-linear-gradient(90deg,transparent 0,transparent calc(180px - 1px),rgb(var(--brand-mark-blue) / .055) calc(180px - 1px),rgb(var(--brand-mark-blue) / .055) 180px); mask-image:linear-gradient(transparent,#000 20%,#000 80%,transparent); }
+.background-stripe .fit-scroll-stage::after { background:radial-gradient(ellipse 65% 65% at 105% 105%,rgb(var(--brand-mark-blue) / .16),transparent 70%),radial-gradient(ellipse 45% 45% at -10% 0%,rgb(var(--brand-mark-blue) / .05),transparent 70%); }
+.background-bolt .fit-scroll-stage::before { background-image:radial-gradient(rgb(var(--brand-mark-blue) / .18) .8px,transparent .8px); background-size:22px 22px; mask-image:radial-gradient(ellipse at 25% 55%,#000,transparent 70%); }
+.background-bolt .fit-scroll-stage::after { background:radial-gradient(ellipse 50% 65% at 20% 50%,rgb(var(--brand-mark-blue) / .055),transparent 80%); }
+.background-raycast .fit-scroll-stage::before { inset:-40%; background:linear-gradient(125deg,transparent 35%,rgb(var(--brand-mark-blue) / .035) 40%,rgb(var(--brand-mark-blue) / .09) 45%,transparent 50%,transparent 55%,rgb(var(--brand-mark-blue) / .055) 59%,transparent 64%); filter:blur(18px); }
+.background-raycast .fit-scroll-stage::after { background:radial-gradient(ellipse at 90% 0%,rgb(var(--brand-mark-blue) / .055),transparent 65%); }
+.fb-footer { padding:48px 24px; text-align:center; font-size:13px; color:var(--mode-muted); background:#fff; }.fb-footer button { margin-top:16px; padding:10px 16px; border:1px solid var(--mode-border); border-radius:10px; background:white; color:var(--mode-ink); font:inherit; cursor:pointer; }
+.fb-header :is(a,button):focus-visible,.fb-footer button:focus-visible { outline:2px solid var(--mode-accent); outline-offset:3px; }
+@media(max-width:800px) {
+ .fb-header { padding:12px 16px; gap:12px; min-height:120px; flex-wrap:wrap; }.fb-brand { font-size:17px; }.fb-header > span { display:none; }.fb-variants { width:100%; gap:6px; }.fb-variants button { flex:1; padding:9px 6px; font-size:11px; }
+ .fit-background-preview .fit-scroll-stage { top:120px; height:calc(100svh - 120px); }
+ .fit-background-preview .fit-scroll-panel { padding-inline:24px; }.fit-background-preview .fit-scroll-copy { max-width:100%; }
+}
+@media(prefers-reduced-motion:reduce) { .fit-background-preview .fit-scroll-stage { height:auto; padding-block:32px; }.fit-background-preview .fit-scroll-panel { min-height:65svh; } }

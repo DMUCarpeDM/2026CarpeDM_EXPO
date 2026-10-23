@@ -8,7 +8,7 @@ const details = [
   { name: "Posture-Fit", title: "상황에 맞는 자세인지 확인해요.", description: "몸의 움직임을 상황과 함께 봐요.", points: ["몸의 기울어짐", "머리와 상체의 움직임", "반복되는 자세 습관"], tip: "어깨의 힘을 빼고 편안하게 앉아, 말을 마칠 때까지 자세를 유지해보세요." },
 ];
 
-export function FitAnalysisPages({ mode }) {
+export function FitAnalysisPages({ mode, renderIcon, stageBackground }) {
   const [page, setPage] = useState(0);
   const [reducedMotion, setReducedMotion] = useState(false);
   const container = useRef(null);
@@ -44,12 +44,13 @@ export function FitAnalysisPages({ mode }) {
   return (
     <div className="fit-scroll" ref={container} data-active-fit={page - 1}>
       <div className="fit-scroll-stage">
+        {stageBackground}
         <div className={`fit-scroll-panel fit-scroll-title${page === 0 ? " is-active" : ""}`} aria-hidden={!reducedMotion && page !== 0}>
           <span className="intro-eyebrow">4-Fit 피드백</span>
           <h2 id={`${mode}-fit-title`}>대화의 맥락에 맞는<br />말과 태도를 살펴봐요.</h2>
         </div>
         {homeFitSnapshot.map((fit, index) => <article key={fit.tone} className={`fit-scroll-panel${page === index + 1 ? " is-active" : ""}`} aria-hidden={!reducedMotion && page !== index + 1} aria-labelledby={`${mode}-fit-heading-${index}`}>
-          <div className="fit-scroll-visual"><img src={fit.image} alt="" width="176" height="176" /></div>
+          <div className="fit-scroll-visual">{renderIcon ? renderIcon(index) : <img src={fit.image} alt="" width="176" height="176" />}</div>
           <div className="fit-scroll-copy"><span className="intro-eyebrow">{details[index].name}</span><h3 id={`${mode}-fit-heading-${index}`}>{details[index].title}</h3><p>{details[index].description}</p></div>
         </article>)}
       </div>

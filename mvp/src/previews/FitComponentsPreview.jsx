@@ -1,0 +1,33 @@
+import React, { useEffect, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import { useReducedMotion } from 'framer-motion';
+import { FitAnalysisPages } from '../components/home/FitAnalysisPages';
+import { DotPattern } from './backgrounds/DotPattern';
+import { AnimatedGridPattern } from './backgrounds/AnimatedGridPattern';
+import { GridAndDots, SpotlightNew } from './backgrounds/AceternityAdapted';
+import Aurora from './backgrounds/Aurora';
+import LightRays from './backgrounds/LightRays';
+import '../styles.css';
+import '../styles/brand-mark.css';
+import '../styles/service-introduction.css';
+import '../styles/lovable-layout.css';
+import './fit-components-preview.css';
+const variants=[['dot','01 Dot Pattern','Magic UI'],['grid','02 Grid & Dots','Aceternity · 문서 기반 이식'],['animated-grid','03 Animated Grid','Magic UI'],['spotlight','04 Spotlight New','Aceternity · 문서 기반 이식'],['rays','05 Light Rays','React Bits'],['aurora','06 Aurora','React Bits']];
+function App(){
+ const shortlist=new URLSearchParams(location.search).get("shortlist")==="1";
+ const pair=new URLSearchParams(location.search).get("pair")==="3-6";
+ const choices=pair?variants.filter(([id])=>["animated-grid","aurora"].includes(id)):shortlist?variants.filter(([id])=>["animated-grid","spotlight","aurora"].includes(id)):variants;
+ const [selected,setSelected]=useState(()=>choices.some(([id])=>id===new URLSearchParams(location.search).get('component'))?new URLSearchParams(location.search).get('component'):choices[0][0]);
+ const [paused,setPaused]=useState(false);const reduced=useReducedMotion();const still=paused||reduced;
+ useEffect(()=>{const update=()=>setSelected(new URLSearchParams(location.search).get('component')||choices[0][0]);addEventListener('popstate',update);return()=>removeEventListener('popstate',update)},[]);
+ const change=id=>{setSelected(id);const url=new URL(location.href);url.searchParams.set('component',id);history.pushState({},'',url)};
+ let background;
+ if(selected==='dot')background=<DotPattern width={28} height={28} cr={1.25} glow={false} className="component-dot"/>;
+ if(selected==='grid')background=<GridAndDots/>;
+ if(selected==='animated-grid')background=<AnimatedGridPattern width={56} height={56} numSquares={24} maxOpacity={.4} duration={4} paused={still} className="component-animated-grid"/>;
+ if(selected==='spotlight')background=<SpotlightNew paused={still}/>;
+ if(selected==='rays')background=<LightRays raysOrigin="top-right" raysColor="#0069ec" lightMode lightSpread={1.1} raysSpeed={still?0:.35} opacity={.75} intensity={1.2} glow={.8} raySharpness={.5} intro={false} followMouse={!still} cursorShadow={false} clickPulse={false} maxDevicePixelRatio={1.5}/>;
+ if(selected==='aurora')background=<Aurora colorStops={['#86bdff','#0069ec','#409cff']} lightMode speed={.35} height={.75} opacity={.85} glow={.8} brightness={1.1} intro={false} paused={still} mouseInteraction={!still} dpr={1.5}/>;
+ return <div className={`fit-component-preview component-${selected}`}><header className="fc-header"><div className="fc-heading"><a href="/">Mirror-Ting</a><span>{pair?"3번 · 6번 비교":shortlist?"선택한 3종 비교":"배경 컴포넌트 비교"}</span><button type="button" aria-pressed={paused} onClick={()=>setPaused(!paused)} disabled={reduced}>{reduced?'동작 줄이기 적용':paused?'배경 재생':'배경 일시정지'}</button></div><div className="fc-picker" data-count={choices.length} role="group" aria-label="배경 컴포넌트">{choices.map(([id,label])=><button type="button" key={id} aria-pressed={selected===id} onClick={()=>change(id)}>{label}</button>)}</div></header><main className="app-shell"><section className="service-introduction"><FitAnalysisPages mode="components" stageBackground={<div className="component-background-layer" aria-hidden="true" key={selected}>{background}</div>}/></section></main><footer className="fc-footer"><p>{variants.find(([id])=>id===selected)?.[2]} · 기존 4-Fit 아이콘·글자·스크롤 유지</p><button type="button" onClick={()=>scrollTo({top:0,behavior:'instant'})}>처음부터 보기 ↑</button></footer></div>;
+}
+createRoot(document.getElementById('root')).render(<App/>);

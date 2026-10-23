@@ -342,3 +342,37 @@
  .record-detail-card { padding:24px; }.record-detail-card dl { grid-template-columns:1fr; }.help-search-hero { padding:28px 24px; }.help-search-hero h1 { font-size:28px; }
  .help-shortcuts,.help-guide-grid { grid-template-columns:1fr; }.help-document-layout { display:flex; flex-direction:column; gap:24px; }.help-topics { order:0; }.help-document { order:1; }.help-document h1 { font-size:28px; }.help-topics details:not([open]) { margin-bottom:0; }
 }
+/* Perplexity help type scale, measured from the retained reference. */
+.help-center {
+ --help-display:48px;
+ --help-section:27px;
+ --help-body:16px;
+ --help-caption:13px;
+ font-weight:400;
+ letter-spacing:normal;
+}
+.help-center .help-search-hero h1,.help-center .help-document h1 { font-size:var(--help-display); font-weight:500; line-height:1.2; letter-spacing:-.035em; text-wrap:balance; overflow-wrap:break-word; }
+.help-search-hero > p:first-child { font-size:12px; font-weight:500; letter-spacing:.06em; }
+.help-search-hero > p:not(:first-child) { font-size:17px; font-weight:400; line-height:1.65; text-wrap:pretty; }
+.help-center .help-guide-list h2 { font-size:22px; font-weight:500; line-height:1.5; letter-spacing:-.02em; }
+.help-center .help-guide-grid h3 { font-size:18px; font-weight:500; line-height:1.5; letter-spacing:-.02em; text-wrap:balance; }
+.help-shortcuts strong { font-size:15px; font-weight:500; line-height:1.5; }
+.help-shortcuts span,.help-guide-grid small { font-size:var(--help-caption); font-weight:400; line-height:1.6; }
+.help-guide-grid p { font-size:15px; font-weight:400; line-height:1.65; text-wrap:pretty; }
+.help-center .help-document h2 { font-size:var(--help-section); font-weight:500; line-height:1.4; letter-spacing:-.02em; text-wrap:balance; }
+.help-document header > p:first-child { font-size:12px; font-weight:500; line-height:1.6; letter-spacing:.06em; }
+.help-document header > p:last-child { font-size:18px; font-weight:400; line-height:1.6; text-wrap:pretty; }
+.help-center .help-document section p { font-size:var(--help-body); font-weight:400; line-height:1.65; letter-spacing:normal; max-width:65ch; }
+.help-topics a { font-size:14px; font-weight:400; line-height:1.6; }.help-topics a[aria-current] { font-weight:500; }
+.help-toc a,.help-toc strong,.help-breadcrumb { font-size:var(--help-caption); font-weight:400; line-height:1.65; }
+.help-toc strong { font-weight:500; }
+.help-document a,.help-breadcrumb a { text-underline-position:from-font; text-decoration-thickness:from-font; text-decoration-skip-ink:auto; }
+.record-row time,.library-count { font-variant-numeric:tabular-nums; }
+@media(max-width:1100px) { .help-center .help-document h1 { line-height:1.4; } }
+@media(max-width:800px) {
+ .help-center { --help-display:36px; }
+ .help-center .help-search-hero h1 { line-height:1.4; }
+ .help-search-hero input { font-size:16px; }
+}
+/* Keep the auth form's grid track inside narrow screen margins. */
+.auth-form-column { grid-template-columns:minmax(0,1fr); }

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ArrowRight } from "reicon-react/icons/ArrowRight";
 import { ChatDots } from "reicon-react/icons/ChatDots";
 import { Badge, Button, Card, CardContent } from "../ui/shadcn";
+import { FitGridBackground } from "./FitGridBackground";
 import { FitAnalysisPages } from "./FitAnalysisPages";
 import "../../styles/service-introduction.css";
 
@@ -41,7 +42,7 @@ export function ServiceIntroduction({ mode, onNext }) {
         </div>
       </section>
       <section className="intro-analysis" id={`${mode}-analysis`} aria-labelledby={`${mode}-fit-title`}>
-        <FitAnalysisPages mode={mode} />
+        <FitAnalysisPages mode={mode} stageBackground={<FitGridBackground />} />
       </section>
     </div>
   );

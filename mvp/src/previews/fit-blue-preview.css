@@ -1,0 +1,17 @@
+.fit-blue-preview { --fit-blue:rgb(var(--brand-mark-blue)); background:var(--fit-blue); }
+.fit-blue-header { position:sticky; inset-block-start:0; z-index:20; display:flex; align-items:center; justify-content:space-between; gap:16px; height:64px; padding-inline:32px; background:white; color:#1d1d1f; }
+.fit-blue-header a { display:flex; align-items:center; gap:8px; color:inherit; text-decoration:none; font-size:13px; }
+.fit-blue-header a:first-child { font-size:20px; font-weight:600; }.fit-blue-header img { width:28px; height:28px; }.fit-blue-header > span { font-size:12px; color:#707070; }
+.fit-blue-preview .app-shell { width:100%; margin:0; padding:0; background:transparent; }
+.fit-blue-preview .fit-blue-section { background:var(--fit-blue); color:#fff; width:100%; }
+.fit-blue-section .fit-scroll-stage { top:64px; height:calc(100svh - 64px); max-width:1280px; margin-inline:auto; }
+.fit-blue-section .fit-scroll-panel { padding:48px 64px; grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr); gap:80px; }
+.fit-blue-section .fit-scroll-title { grid-template-columns:1fr; }
+.fit-blue-section .intro-eyebrow { color:#fff; opacity:.75; font-size:14px; font-weight:500; letter-spacing:.02em; }
+.fit-blue-section .fit-scroll-title h2 { color:#fff; font-size:clamp(36px,4.8vw,64px); font-weight:500; line-height:1.25; letter-spacing:-.04em; margin-top:24px; }
+.fit-blue-section .fit-scroll-visual svg { width:240px; height:250px; color:white; }
+.fit-blue-section .fit-scroll-copy h3 { color:white; font-size:clamp(28px,3.5vw,48px); font-weight:500; line-height:1.4; letter-spacing:-.035em; margin:20px 0 24px; }
+.fit-blue-section .fit-scroll-copy p { font-size:18px; line-height:1.65; color:#fff; opacity:.8; font-weight:400; }
+.fit-blue-end { min-height:160px; padding:40px 32px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:24px; background:#fff; font-size:13px; color:#626d7d; }.fit-blue-end a { color:#0069ec; }
+@media(max-width:800px) { .fit-blue-header { padding-inline:20px; }.fit-blue-header > span { display:none; }.fit-blue-header a:first-child { font-size:17px; }.fit-blue-section .fit-scroll-panel { padding:32px 24px; grid-template-columns:1fr; gap:40px; }.fit-blue-section .fit-scroll-title { gap:0; }.fit-blue-section .fit-scroll-visual svg { width:140px; height:150px; }.fit-blue-section .fit-scroll-copy h3 { font-size:30px; }.fit-blue-section .fit-scroll-copy p { font-size:16px; } }
+@media(prefers-reduced-motion:reduce) { .fit-blue-section .fit-scroll-stage { height:auto; }.fit-blue-section .fit-scroll-panel { min-height:75svh; } }

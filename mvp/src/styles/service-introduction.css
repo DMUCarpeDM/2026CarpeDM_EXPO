@@ -65,7 +65,7 @@
 .service-introduction .fit-scroll-panel.is-active { opacity: 1; visibility: visible; transform: translateY(0); }
 .service-introduction .fit-scroll-title { grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 0; text-align: center; }
 .service-introduction .fit-scroll-title h2 { font-size: clamp(39.6px, 4.95vw, 66px); }
-.service-introduction .fit-scroll-title .intro-eyebrow { font-size: 15.84px; }
+.service-introduction .fit-scroll-title .intro-eyebrow { margin-bottom: 16px; font-size: 15.84px; }
 .service-introduction .fit-scroll-visual { display: flex; justify-content: center; }
 .service-introduction .fit-scroll-visual img { width: 232.32px; height: 232.32px; object-fit: contain; }
 .service-introduction .fit-scroll-copy { max-width: 712.8px; }
@@ -85,3 +85,58 @@
  .service-introduction .fit-scroll-stage { position: static; height: auto; display: grid; gap: 72px; }
  .service-introduction .fit-scroll-panel { position: static; opacity: 1; visibility: visible; transform: none; transition: none; }
 }
+
+/* Animated Grid: keep the existing 4-Fit content and scroll choreography. */
+.service-introduction .fit-scroll-stage:has(.fit-grid-background) { isolation: isolate; }
+.service-introduction .fit-grid-background {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.service-introduction svg.fit-grid-pattern {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  color: #0069ec;
+  fill: rgb(0 105 236 / .1125);
+  stroke: rgb(0 105 236 / .15);
+  mask-image: radial-gradient(ellipse at center, #000 20%, transparent 80%);
+}
+.service-introduction svg.fit-grid-pattern > svg { overflow: visible; }
+.service-introduction .fit-grid-toggle {
+  position: absolute;
+  right: 0;
+  bottom: 12px;
+  z-index: 1;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid #dce5f2;
+  border-radius: 999px;
+  background: #fff;
+  color: #34435a;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.service-introduction .fit-grid-toggle:focus-visible { outline: 2px solid #0071e3; outline-offset: 3px; }
+
+/* Fade only the backdrop around copy, keeping the icon area vivid. */
+.service-introduction .fit-grid-background,
+.component-animated-grid .component-background-layer {
+  mask-image: radial-gradient(ellipse 48% 32% at 80% 50%, rgb(0 0 0 / .18) 45%, #000 100%);
+}
+.service-introduction .fit-scroll-stage:has(.fit-scroll-title.is-active) .fit-grid-background,
+.component-animated-grid .fit-scroll-stage:has(.fit-scroll-title.is-active) .component-background-layer {
+  mask-image: radial-gradient(ellipse 55% 32% at 50% 50%, rgb(0 0 0 / .18) 45%, #000 100%);
+}
+@media (max-width: 800px) {
+  .service-introduction .fit-grid-background,
+  .component-animated-grid .component-background-layer {
+    mask-image: radial-gradient(ellipse 100% 25% at 50% 65%, rgb(0 0 0 / .18) 45%, #000 100%);
+  }
+}
+
+.app-shell .service-introduction .fit-scroll-panel.fit-scroll-title { gap: 0; }
