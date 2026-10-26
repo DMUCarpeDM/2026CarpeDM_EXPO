@@ -1,0 +1,20 @@
+import {chromium} from 'playwright';
+import assert from 'node:assert/strict';
+const browser=await chromium.launch({channel:'chrome',headless:true});
+const draft={job_role:'개발자',situation:'일정 조율',context:'결제 오류 수정으로 배포가 늦어져요',goal:'일정 합의',turns:5,target:'팀장',difficulty:'basic',personality:'차분함',persona:'일정을 조율하는 팀장',additional_notes:'',additional_notes_confirmed:false};
+try{for(const width of [1440,768,390,320]){for(const skip of [false,true]){
+const p=await browser.newPage({viewport:{width,height:844}});const errors=[];p.on('pageerror',e=>errors.push(e.message));let count=0,notes;
+await p.route('**/api/simulation-chat/prepare',async r=>{count++;const body=r.request().postDataJSON();let result;
+if(count===1)result={message:'목표를 확인할게요.\n'.repeat(80),draft:{...draft,goal:''},question:{field:'goal',title:'이번 대화에서 어떤 결과를 얻고 싶으세요?',choices:['현실적인 마감을 합의하고 싶어요','업무 우선순위를 정하고 싶어요']}};
+else if(count===2)result={message:'마지막으로 추가 사항을 알려주세요.',draft,question:{field:'additional_notes',title:'추가로 반영할 상황이나 주의할 점이 있나요?',choices:['추가 사항 없어요','추가 사항을 직접 적을게요']}};
+else {assert.equal(body.answer_field,'additional_notes');notes=skip?'':body.messages.at(-1).content;result={message:'설정을 확인해주세요.',draft:{...draft,additional_notes:notes,additional_notes_confirmed:true},question:null};}
+await r.fulfill({json:result});});
+await p.route('**/api/simulation-chat/reply',async r=>{const body=r.request().postDataJSON();assert.equal(body.draft.additional_notes,notes);assert(body.draft.additional_notes_confirmed);await r.fulfill({json:{message:'일정을 함께 조율해볼까요?',answered_turns:0,done:false}});});
+await p.goto('http://127.0.0.1:5186/');await p.locator('#home-scenario-prompt').fill('팀장과 마감을 조율하고 싶어요');await p.getByRole('button',{name:'입력한 상황으로 연습 준비하기'}).first().click();await p.getByRole('button',{name:'계속하기',exact:true}).click();await p.getByRole('heading',{name:'이번 대화에서 어떤 결과를 얻고 싶으세요?'}).waitFor();
+const card=p.locator('.simulation-question-card');assert.equal(await p.locator('#simulation-chat-input').count(),1);assert.equal(await card.locator('textarea').count(),0);const inputBox=await p.locator('.simulation-chat-input-area > form').boundingBox();const cardBox=await card.boundingBox();assert(inputBox.y>=cardBox.y+cardBox.height);await p.locator('#simulation-chat-input').focus();assert.equal(await p.locator('#simulation-chat-input').evaluate(e=>getComputedStyle(e).outlineStyle),'none');assert.equal(await p.getByRole('log').evaluate(e=>e.scrollTop),0);assert(await p.getByRole('button',{name:'건너뛰기',exact:true}).isDisabled());assert(await p.getByRole('button',{name:'준비 답변 보내기',exact:true}).isDisabled());
+await p.getByRole('button',{name:/현실적인 마감을 합의/}).click();assert.equal(await p.locator('#simulation-chat-input').inputValue(),'현실적인 마감을 합의하고 싶어요');await p.getByRole('button',{name:'준비 답변 보내기',exact:true}).click();await p.getByRole('heading',{name:'추가로 반영할 상황이나 주의할 점이 있나요?'}).waitFor();
+assert(await p.getByRole('button',{name:'건너뛰기',exact:true}).isEnabled());assert.equal(await p.getByRole('button',{name:'설정 확정하고 시작하기'}).count(),0);
+const box=await card.boundingBox();assert(box.x>=0 && box.x+box.width<=width+1);assert(box.y>=0 && box.y+box.height<=844);assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+if(skip)await p.getByRole('button',{name:'건너뛰기',exact:true}).click();else {await p.getByRole('button',{name:/追加|추가 사항을 직접 적을게요/}).click();assert(await p.getByRole('button',{name:'준비 답변 보내기'}).isDisabled());await p.locator('#simulation-chat-input').fill('이미 한 차례 연장했으니 이번에는 추가 인력을 요청하고 싶어요.');await p.screenshot({path:`output/layout-qa/question-card-${width}.png`});await p.getByRole('button',{name:'준비 답변 보내기',exact:true}).click();}
+await p.getByRole('button',{name:'설정 확정하고 시작하기'}).click();await p.getByRole('log').getByText('일정을 함께 조율해볼까요?').waitFor();assert.deepEqual(errors,[]);console.log(`${width}px ${skip?'skip':'additional note'}: card, choices, required guard, final confirmation, actor payload PASS`);await p.close();
+}}}finally{await browser.close()}

@@ -32,7 +32,7 @@
 .prompt-home-composer textarea { display: block; width: 100%; min-height: 64px; padding: 0; border: 0; outline: 0; resize: none; background: transparent; color: #263246; font: inherit; font-size: 16px; line-height: 1.8; }
 .prompt-home-composer textarea::placeholder { color: var(--color-ash); }
 .prompt-home-error { margin: 12px 0 0; color: #a2383b; font-size: 14px; line-height: 1.6; }
-.prompt-home-toolbar { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+.prompt-home-toolbar { display: flex; align-items: center; justify-content: flex-end; gap: 2px; margin-top: 8px; }
 .prompt-home-toolbar button { display: grid; place-items: center; flex-shrink: 0; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%; background: #263d68; color: #fff; font-size: 28px; cursor: pointer; }
 .prompt-home-toolbar button:disabled { background: #eef0f4; color: #a6adba; cursor: default; }
 .prompt-home-hero button:focus-visible { outline: 3px solid #456cbd; outline-offset: 4px; }

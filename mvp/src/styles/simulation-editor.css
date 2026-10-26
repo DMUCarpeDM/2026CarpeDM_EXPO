@@ -56,3 +56,27 @@
   .app-shell.editor-workspace .lovable-central-chat .editor-context { position:absolute; z-index:3; top:0; right:0; bottom:0; width:min(320px,calc(100% - 32px)); margin:0 8px 8px 0; box-shadow:-12px 0 36px rgb(0 0 0 / .08); }
   .editor-context-scrim { display:block; position:absolute; z-index:2; inset:0; border:0; background:rgb(0 0 0 / .18); padding:0; }
 }
+
+/* Question card sits above the original prompt composer. */
+.app-shell.editor-workspace .lovable-central-chat .simulation-question-card { margin:0 0 8px; padding:12px 16px; border-radius:20px; }
+.simulation-question-card-top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; color:var(--mode-muted); font-size:12px; }
+.simulation-question-card-top > span:first-child { display:flex; align-items:center; gap:8px; }
+.simulation-question-card-top > span:first-child > span { display:grid; place-items:center; width:18px; height:18px; border:1px solid currentColor; border-radius:50%; font-size:12px; }
+.simulation-question-card h2 { font-size:15px; font-weight:500; line-height:1.7; }
+.simulation-question-card .simulation-question-choices { gap:2px; margin-top:8px; }
+.simulation-question-card .simulation-question-choices button { border-color:transparent; background:transparent; min-height:40px; padding:4px 0; font-size:14px; align-items:flex-start; }
+.simulation-question-card .simulation-question-choices button > span { width:22px; height:22px; border:1px solid var(--mode-border); background:var(--mode-card); }
+.simulation-question-card .simulation-question-choices [aria-pressed=true] { color:var(--mode-accent); }
+.simulation-question-card .simulation-question-choices [aria-pressed=true] > span { background:var(--mode-accent); color:white; }
+.simulation-question-card-bottom { display:flex; justify-content:flex-end; margin-top:8px; }
+.simulation-question-actions { display:flex; flex-shrink:0; align-items:center; gap:8px; }
+.simulation-question-actions button { min-height:40px; border:1px solid var(--mode-border); border-radius:var(--mode-radius); padding:8px 14px; font:inherit; font-size:13px; cursor:pointer; }
+.simulation-question-skip { background:var(--mode-card); color:var(--mode-muted); }
+.simulation-question-next { background:var(--mode-accent); border-color:var(--mode-accent); color:white; }
+.simulation-additional-notes { font-size:13px; line-height:1.7; white-space:pre-wrap; overflow-wrap:anywhere; }
+@media(max-width:600px) {
+  .app-shell.editor-workspace .lovable-central-chat .simulation-question-card { padding:12px; border-radius:18px; }
+  .simulation-question-actions { margin-left:auto; }
+}
+
+.app-shell.editor-workspace .lovable-central-chat .simulation-chat-input-area textarea:focus { outline:none; box-shadow:none; border:0; }

@@ -1,13 +1,13 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 const b=await chromium.launch({channel:'chrome',headless:true});
-const draft={job_role:'개발자',situation:'일정 조율',context:'검증 시간이 필요해요',goal:'우선순위 합의',turns:2,target:'팀장',difficulty:'basic',personality:'차분함',persona:'업무 일정을 조율하는 팀장'};
+const draft={additional_notes_confirmed:true,job_role:'개발자',situation:'일정 조율',context:'검증 시간이 필요해요',goal:'우선순위 합의',turns:2,target:'팀장',difficulty:'basic',personality:'차분함',persona:'업무 일정을 조율하는 팀장'};
 try {for(const viewport of [{width:1440,height:1000},{width:768,height:1000},{width:390,height:844},{width:320,height:667}]){
  const p=await b.newPage({viewport});const errors=[];p.on('pageerror',e=>errors.push(e.message));let prepares=0,replies=0;
  await p.route('**/api/simulation-chat/prepare',r=>{prepares++;return r.fulfill({json:prepares===1?{message:'함께 연습할 상황을 살펴봤어요.\n'.repeat(18),draft:{...draft,goal:''},question:{field:'goal',title:'어떤 목표로 연습할까요?',choices:['우선순위 합의하기','일정 변경 요청하기']}}:{message:'설정을 모두 확인했어요. 준비가 끝났어요.',draft,question:null}})});
  await p.route('**/api/simulation-chat/reply',async r=>{replies++;const payload=r.request().postDataJSON();if(replies===2)assert.equal(payload.messages.at(-1).content,'먼저 완료할 범위를 정하고 싶습니다.');return r.fulfill({json:{message:replies===1?'이번 주에 먼저 끝낼 수 있는 일은 무엇인가요?':'좋아요. 그 범위부터 정리해봅시다.',answered_turns:replies-1,done:replies>=3}})});
  await p.goto('http://127.0.0.1:5186/');await p.locator('#home-scenario-prompt').fill('팀장과 일정 조율하기');await p.getByRole('button',{name:'입력한 상황으로 연습 준비하기'}).first().click();await p.getByRole('button',{name:'계속하기',exact:true}).click();await p.locator('.simulation-question').waitFor();
- assert.equal(await p.locator('.simulation-chat-transcript .simulation-question').count(),1);
+ assert.equal(await p.locator('.simulation-chat-input-area .simulation-question').count(),1);
  assert(await p.locator('.simulation-chat-input-area').evaluate(e=>Math.abs(e.getBoundingClientRect().bottom-innerHeight)<2));
  assert.equal(await p.evaluate(()=>document.documentElement.scrollHeight>innerHeight+1),false);
  const context=p.locator('#simulation-context');

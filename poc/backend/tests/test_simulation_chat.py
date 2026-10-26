@@ -4,7 +4,7 @@ from app.main import app
 from app.api import simulation_chat as chat
 
 client = TestClient(app)
-DRAFT = {"context_source": "", "job_role": "프론트엔드 개발자", "context": "결제 오류 수정 업무가 추가되어 출시가 이틀 지연됐고, 팀장과 새 마감을 정해야 함", "goal": "일정 조율 합의", "turns": 2, "situation": "출시가 이틀 지연됨", "target": "직속 팀장", "difficulty": "pressure", "personality": "차분하지만 근거를 확인함", "persona": "가상 인물 최지안, 개발팀장. 출시 일정이 목표이며 팀원인 사용자에게 정중하게 질문함"}
+DRAFT = {"context_source": "", "additional_notes": "", "additional_notes_confirmed": True, "job_role": "프론트엔드 개발자", "context": "결제 오류 수정 업무가 추가되어 출시가 이틀 지연됐고, 팀장과 새 마감을 정해야 함", "goal": "일정 조율 합의", "turns": 2, "situation": "출시가 이틀 지연됨", "target": "직속 팀장", "difficulty": "pressure", "personality": "차분하지만 근거를 확인함", "persona": "가상 인물 최지안, 개발팀장. 출시 일정이 목표이며 팀원인 사용자에게 정중하게 질문함"}
 BASE = {"draft": DRAFT, "service_mode": "workplace", "consent": True}
 PREPARE = {**BASE, "prompt": "팀장과 출시 일정을 조율하는 대화를 연습하고 싶어요."}
 
@@ -210,3 +210,55 @@ def test_incident_source_preserves_dates_through_summary_and_actor(monkeypatch):
         return json.dumps({"message": "화요일까지 연장하려는 이유를 알려주시겠어요?"})
     monkeypatch.setattr(chat, "complete", actor)
     assert client.post("/api/simulation-chat/reply", json={**BASE, "draft": result["draft"]}).status_code == 200
+
+
+def test_final_optional_question_is_required_before_start(monkeypatch):
+    draft = {**DRAFT, "additional_notes_confirmed": False}
+    monkeypatch.setattr(chat, "complete", lambda *_: json.dumps({"message": "준비 완료", "draft": {**draft, "additional_notes_confirmed": True}}))
+    result = client.post("/api/simulation-chat/prepare", json={**PREPARE, "draft": draft}).json()
+    assert result["missing"] == []
+    assert result["ready"] is False
+    assert result["question"]["field"] == "additional_notes"
+    assert result["draft"]["additional_notes_confirmed"] is False
+    assert client.post("/api/simulation-chat/reply", json={**BASE, "draft": draft}).status_code == 422
+
+
+def test_optional_note_skip_and_actor_handoff(monkeypatch):
+    draft = {**DRAFT, "additional_notes_confirmed": False}
+    def unexpected(*_): raise AssertionError("optional confirmation does not need AI")
+    monkeypatch.setattr(chat, "complete", unexpected)
+    for text in ["", "추가 사항 없어요", "팀장에게 이미 한 차례 일정 연장을 요청한 상태예요."]:
+        response = client.post("/api/simulation-chat/prepare", json={**PREPARE, "draft": draft, "answer_field": "additional_notes", "messages": [{"role": "user", "content": text}]} )
+        assert response.status_code == 200
+        result = response.json()
+        assert result["ready"] is True
+        assert result["question"] is None
+        assert result["draft"]["additional_notes_confirmed"] is True
+        assert result["draft"]["additional_notes"] == (text if text.startswith("팀장") else "")
+        assert result["draft"]["context"] == DRAFT["context"]
+    def actor(system, payload):
+        assert payload["role_contract"]["additional_notes"] == text
+        return json.dumps({"message": "지난번 연장 이후 진행 상황을 알려주세요."})
+    monkeypatch.setattr(chat, "complete", actor)
+    assert client.post("/api/simulation-chat/reply", json={**BASE, "draft": result["draft"]}).status_code == 200
+
+
+def test_optional_confirmation_cannot_bypass_missing_fields(monkeypatch):
+    def generate(system, payload):
+        return json.dumps({"message": "직무가 필요해요.", "draft": {**DRAFT, "job_role": "", "additional_notes_confirmed": False}, "question": {"field": "job_role", "title": "어떤 직무인가요?", "choices": ["개발자", "마케터"]}})
+    monkeypatch.setattr(chat, "complete", generate)
+    result = client.post("/api/simulation-chat/prepare", json={**PREPARE, "draft": {**DRAFT, "job_role": "", "additional_notes_confirmed": False}, "answer_field": "additional_notes", "messages": [{"role": "user", "content": "추가 사항 없어요"}]}).json()
+    assert result["ready"] is False
+    assert result["question"]["field"] == "job_role"
+
+
+def test_empty_optional_answer_with_missing_field_reasks_required():
+    response = client.post("/api/simulation-chat/prepare", json={**PREPARE, "draft": {**DRAFT, "job_role": "", "additional_notes_confirmed": False}, "answer_field": "additional_notes", "messages": [{"role": "user", "content": ""}]})
+    assert response.status_code == 200
+    assert response.json()["question"]["field"] == "job_role"
+    assert response.json()["ready"] is False
+
+
+def test_optional_note_length_limit():
+    response = client.post("/api/simulation-chat/prepare", json={**PREPARE, "answer_field": "additional_notes", "messages": [{"role": "user", "content": "가" * 2001}]})
+    assert response.status_code == 422
