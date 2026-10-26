@@ -89,7 +89,7 @@
 .prompt-mode-dropdown { position: relative; }
 .prompt-home-toolbar .prompt-mode-trigger { display: flex; align-items: center; gap: 10px; width: auto; height: 36px; padding: 6px 10px; border-radius: 8px; background: transparent; color: var(--color-ash); font-size: 14px; line-height: 24px; white-space: nowrap; }
 .prompt-mode-trigger:hover, .prompt-mode-trigger[aria-expanded="true"] { background: #f0f4fa; }
-.prompt-mode-menu { position: absolute; z-index: 20; bottom: calc(100% + 8px); right: 0; width: 164px; padding: 5px; border: 1px solid #e0e5ef; border-radius: 12px; background: #fff; box-shadow: 0 8px 28px rgb(var(--brand-mark-navy) / .14); text-align: left; }
+.prompt-mode-menu { position: absolute; z-index: 20; top: calc(100% + 8px); left: 0; width: 164px; padding: 5px; border: 1px solid #e0e5ef; border-radius: 12px; background: #fff; box-shadow: 0 8px 28px rgb(var(--brand-mark-navy) / .14); text-align: left; }
 .prompt-mode-menu [role="option"] { display: flex; align-items: center; justify-content: space-between; min-height: 38px; padding: 8px 10px; border-radius: 7px; color: #263246; font-size: 14px; line-height: 22px; cursor: pointer; }
 .prompt-mode-menu [role="option"].is-active { background: #f0f4fa; }
 .prompt-mode-menu [aria-selected="true"] { color: rgb(var(--brand-mark-blue)); font-weight: 600; }

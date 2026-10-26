@@ -63,6 +63,7 @@ export function ServiceEntryShell({
   const mirror = isMirrorDeployment();
   const [account, setAccount] = useState(readAccount);
   const [resumePrompt, setResumePrompt] = useState(false);
+  const [promptTurns, setPromptTurns] = useState(5);
   const finishAuthentication = value => {
     setAccount(value);
     const next = resumePrompt && scenarioPrompt.trim() ? "simulation-chat" : "home";
@@ -123,7 +124,7 @@ export function ServiceEntryShell({
       {mirror && active === "result" && report && session?.kiosk_link_status === "linked" && <p className="mirror-card-notice" role="status">리포트가 준비됐어요. 출력 키오스크에서 같은 사원증을 태그해 주세요.</p>}
       {mirror && active === "result" && report && session?.kiosk_link_status === "not_requested" && <p className="mirror-card-notice" role="status">사원증 없이 시작한 체험이에요. 리포트를 출력하려면 사원증을 태그해 새 체험을 시작해 주세요.</p>}
       {active === "home" && !mirror && apiError && <p className="preview-error" role="alert">{apiError}</p>}
-      {!mirror && account && active === "simulation-chat" && <SimulationChatPage key={`${serviceMode.id}:${scenarioPrompt}`} prompt={scenarioPrompt} serviceMode={serviceMode.id} />}
+      {!mirror && account && active === "simulation-chat" && <SimulationChatPage key={`${serviceMode.id}:${scenarioPrompt}`} prompt={scenarioPrompt} serviceMode={serviceMode.id} initialTurns={promptTurns} onBack={() => navigate("home")} />}
       {active === "faq" && <FaqPage />}
       {active === "pricing" && <PricingPage onStart={() => navigate("home")} />}
       {["login", "signup"].includes(active) && <AccountPage key={active} kind={active} pendingPrompt={resumePrompt ? scenarioPrompt : ""} onNavigate={navigate} onAuthenticated={finishAuthentication} />}
@@ -131,7 +132,7 @@ export function ServiceEntryShell({
       {active === "intro" && <SiteIntroPage onPractice={() => navigate("home")} />}
       {active === "records" && <ResultsHistoryPage onRepeat={prompt => { setScenarioPrompt(prompt); navigate("home"); }} onResultBack={() => navigate("home")} onPractice={() => navigate("home")} report={mirror ? report : null} history={history} onIssueCode={issueCode} selectedDifficulty={difficulty} progress={mirror ? analysisProgress : null} error={apiError} />}
       {mirror && active === "home" && <WorkplaceMirrorWelcomePage onStart={startMirrorExperience} nfcError={nfcError} />}
-      {!mirror && ["home", "service"].includes(active) && <HomePage dashboard={Boolean(account)} history={Array.isArray(history) ? history : []} onRecords={() => navigate("records")} serviceMode={serviceMode} prompt={scenarioPrompt} onPrompt={setScenarioPrompt} onNext={beginPrompt} onModePick={id => chooseServiceMode(id, true)} onModeSelect={() => navigate("service")} />}
+      {!mirror && ["home", "service"].includes(active) && <HomePage dashboard={Boolean(account)} history={Array.isArray(history) ? history : []} onRecords={() => navigate("records")} serviceMode={serviceMode} turns={promptTurns} onTurns={setPromptTurns} prompt={scenarioPrompt} onPrompt={setScenarioPrompt} onNext={beginPrompt} onModePick={id => chooseServiceMode(id, true)} onModeSelect={() => navigate("service")} />}
       {mirror && active === "role" && <RoleSelectPage serviceMode={serviceMode} counterpartProfile={counterpartProfile} onCounterpart={chooseCounterpartProfile} onPrev={() => window.history.back()} onNext={() => navigate("scenario")} />}
       {mirror && active === "scenario" && <ScenarioSelectPage serviceMode={serviceMode} prompt={scenarioPrompt} onPrompt={setScenarioPrompt} onPrev={() => window.history.back()} onNext={() => navigate("difficulty")} />}
       {mirror && active === "difficulty" && <DifficultyPage serviceMode={serviceMode} counterpartProfile={counterpartProfile} scenario={previewScenario} selectedEpisode={previewEpisode} difficulty={difficulty} onDifficulty={setDifficulty} onPrev={() => navigate("home")} onNext={() => navigate("preview")} />}
