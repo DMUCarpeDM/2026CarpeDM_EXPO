@@ -60,6 +60,31 @@ export const STATIC_INTERVIEW_SCENARIOS = Object.entries(ROLE_CATALOG).map(([rol
   interview_questions: catalog.questions,
 }));
 
+// 백엔드 없이 미러 화면 흐름만 확인하기 위한 고정 대본. AI 대화·평가는 하지 않는다.
+const MIRROR_DEMO_SCENARIO = {
+  slug: "workplace-conversation",
+  title: "직장 대화 체험 (프론트 데모)",
+  characters: [{ id: "lead", name: "김 팀장", role: "팀장", gender: "female" }],
+  interview_questions: [
+    "오늘 첫 출근이죠? 반가워요. 간단히 자기소개 부탁해요.",
+    "오전에 보낸 자료 확인했어요? 오늘 안에 정리해서 공유해 줄 수 있을까요?",
+    "오늘 하루 어땠어요? 내일 출근해서 먼저 할 일 하나만 말해 줄래요?",
+  ],
+};
+const MIRROR_DEMO_SCENES = [
+  { category_id: "morning", virtual_time: "09:00", title: "첫 출근 인사", situation: "새 팀에 처음 출근해 팀장과 인사합니다.", goal: "이름과 맡게 될 일을 짧게 소개해 보세요." },
+  { category_id: "work", virtual_time: "14:00", title: "자료 정리 요청", situation: "팀장이 오늘 안에 자료 정리를 부탁합니다.", goal: "가능한 일정과 확인할 점을 함께 말해 보세요." },
+  { category_id: "leaving", virtual_time: "18:00", title: "퇴근 전 마무리", situation: "퇴근 전에 팀장과 하루를 정리합니다.", goal: "내일 할 일을 한 가지 구체적으로 말해 보세요." },
+];
+
+function mirrorDemoSession() {
+  const overview = MIRROR_DEMO_SCENES.map((scene, index) => ({ ...scene, episode_id: index + 1, character_id: "lead", tip: scene.goal, opening_line: MIRROR_DEMO_SCENARIO.interview_questions[index] }));
+  return {
+    scenario: MIRROR_DEMO_SCENARIO,
+    interaction: { mode: "workplace_continuous", index: 0, total: overview.length, exhibition: false, overview },
+  };
+}
+
 function parseBody(options) {
   if (!options?.body || typeof options.body !== "string") return {};
   try { return JSON.parse(options.body); } catch { return {}; }
@@ -71,7 +96,7 @@ function turnFor(session, index) {
   return {
     id: `local-turn-${index + 1}`,
     order: index + 1,
-    character_id: "interviewer",
+    character_id: session.scenario.characters[0]?.id || "interviewer",
     asked_at: new Date().toISOString(),
     question_text: question,
   };
@@ -151,6 +176,7 @@ export function createStaticInterviewApi(storage) {
         scenario,
         history: [],
         interaction: { mode: "interview", index: 0, total: scenario.interview_questions.length },
+        ...(body.service_mode === "workplace" ? mirrorDemoSession() : {}),
       };
       session.current_turn = turnFor(session, 0);
       return saveSession(session);

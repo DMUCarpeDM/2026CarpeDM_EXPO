@@ -293,6 +293,8 @@ export default function App() {
         preparedMirrorSession.current = { key: requestKey, session: nextSession };
         return nextSession;
       }
+      // 백엔드 없는 브라우저 데모 세션은 시뮬레이션 직전 안내 화면까지만 보여준다.
+      if (mirror && String(nextSession.id).startsWith("local-")) return;
       preparedMirrorSession.current = null;
       saveActiveSession(nextSession);
       setSession(nextSession); setTurn(nextSession.current_turn); navigate("practice");

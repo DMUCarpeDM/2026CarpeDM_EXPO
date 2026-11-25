@@ -1,4 +1,5 @@
 import { createStaticInterviewApi } from "./staticInterviewApi.js";
+import { isMirrorDeployment } from "../features/smart-mirror/lib/workplaceMirrorTimeline.js";
 
 const LOCAL_API_BASE = "/api";
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
@@ -6,7 +7,11 @@ const API_BASE = resolveApiBase(globalThis.__MIRROR_TING_API_BASE__ || import.me
 const CLIENT_KEY = "mirror-ting-client-key";
 const ACTIVE_SESSION = "mirror-ting-active-session";
 const STATIC_DEMO = String(import.meta.env?.VITE_STATIC_DEMO || "").toLowerCase() === "true";
-const staticRequest = STATIC_DEMO && typeof localStorage !== "undefined" ? createStaticInterviewApi(localStorage) : null;
+const browserDemoRequest = typeof localStorage !== "undefined" ? createStaticInterviewApi(localStorage) : null;
+const staticRequest = STATIC_DEMO ? browserDemoRequest : null;
+// 미러는 백엔드가 꺼져 있어도 프론트 화면 흐름을 볼 수 있게 브라우저 데모로 넘어간다.
+// shortcut: 진짜 서버 500(본문 없음)도 데모로 넘어감, 전시 운영에서 문제 되면 health 기반 판정으로 바꿀 것.
+const mirrorDemoFallback = browserDemoRequest && isMirrorDeployment() ? browserDemoRequest : null;
 
 export class PocApiError extends Error {
   constructor(message, status) {
@@ -38,16 +43,25 @@ export function resolveApiBase(candidate) {
 
 async function request(path, { token, ...options } = {}) {
   if (staticRequest) return staticRequest(path, options);
+  if (mirrorDemoFallback && /^\/sessions\/local-/.test(path)) return mirrorDemoFallback(path, options);
   const isFormData = options.body instanceof FormData;
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: {
-      ...(isFormData ? {} : { "Content-Type": "application/json" }),
-      ...(token ? { "X-Session-Token": token } : {}),
-      ...options.headers,
-    },
-    ...options,
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      headers: {
+        ...(isFormData ? {} : { "Content-Type": "application/json" }),
+        ...(token ? { "X-Session-Token": token } : {}),
+        ...options.headers,
+      },
+      ...options,
+    });
+  } catch (error) {
+    if (mirrorDemoFallback && error?.name !== "AbortError") return mirrorDemoFallback(path, options);
+    throw error;
+  }
   const data = await response.json().catch(() => null);
+  // Vite 프록시는 백엔드 연결 실패 시 본문 없는 5xx를 돌려준다.
+  if (mirrorDemoFallback && response.status >= 500 && data === null) return mirrorDemoFallback(path, options);
   if (!response.ok) {
     // FastAPI 422의 detail은 객체 배열이라 그대로 message에 넣으면 화면에
     // "[object Object]"가 뜬다 — 문자열 detail만 통과시키고 나머지는 축약한다.
