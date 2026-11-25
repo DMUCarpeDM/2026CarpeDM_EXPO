@@ -293,8 +293,13 @@ export default function App() {
         preparedMirrorSession.current = { key: requestKey, session: nextSession };
         return nextSession;
       }
-      // 백엔드 없는 브라우저 데모 세션은 시뮬레이션 직전 안내 화면까지만 보여준다.
-      if (mirror && String(nextSession.id).startsWith("local-")) return;
+      // 백엔드 없는 브라우저 데모 세션은 시뮬레이션 직전 안내 화면까지만 보여주고,
+      // "대화를 준비하고 있어요"를 잠시 띄운 뒤 첫 AI 아바타 대기 화면으로 돌아간다.
+      if (mirror && String(nextSession.id).startsWith("local-")) {
+        preparedMirrorSession.current = null;
+        window.setTimeout(() => { if (epoch === visitorEpochRef.current) entry.actions.returnToStart(); }, 3000);
+        return;
+      }
       preparedMirrorSession.current = null;
       saveActiveSession(nextSession);
       setSession(nextSession); setTurn(nextSession.current_turn); navigate("practice");
